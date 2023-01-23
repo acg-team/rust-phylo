@@ -1,4 +1,8 @@
 use approx::relative_eq;
+use bio::alphabets::{self, Alphabet};
+use nalgebra::dmatrix;
+
+use rstest::*;
 
 use super::*;
 
@@ -53,4 +57,63 @@ fn nj_correct() {
     for (i, node) in nj_tree.nodes.into_iter().enumerate() {
         assert_eq!(node, result[i]);
     }
+}
+
+#[test]
+fn reading_correct_fasta() {
+    let sequences = io::read_sequences_from_file("./data/sequences_DNA1.fasta").unwrap();
+    assert_eq!(sequences.len(), 4);
+    for seq in sequences {
+        assert_eq!(seq.seq().len(), 5);
+    }
+
+    let corr_lengths = vec![1, 2, 2, 4];
+    let sequences = io::read_sequences_from_file("./data/sequences_DNA2_unaligned.fasta").unwrap();
+    assert_eq!(sequences.len(), 4);
+    for (i, seq) in sequences.into_iter().enumerate() {
+        assert_eq!(seq.seq().len(), corr_lengths[i]);
+    }
+}
+
+#[rstest]
+#[case::empty_sequence_name("./data/sequences_garbage_empty_name.fasta")]
+#[case::garbage_sequence("./data/sequences_garbage_non-ascii.fasta")]
+#[case::weird_chars("./data/sequences_garbage_weird_symbols.fasta")]
+fn reading_incorrect_fasta(#[case] input: &str) {
+    assert!(io::read_sequences_from_file(input).is_err());
+}
+
+#[test]
+fn reading_nonexistent_fasta() {
+    assert!(io::read_sequences_from_file("./data/sequences_nonexistent.fasta").is_err());
+}
+
+fn dna_alphabet() -> Alphabet {
+    let mut test_dna_alphabet = alphabets::dna::n_alphabet();
+    test_dna_alphabet.insert('-' as u8);
+    test_dna_alphabet
+ }
+
+fn protein_alphabet() -> Alphabet {
+    let mut test_protein_alphabet = alphabets::protein::alphabet();
+    test_protein_alphabet.insert('-' as u8);
+    test_protein_alphabet
+ }
+
+#[rstest]
+#[case::aligned("./data/sequences_DNA1.fasta")]
+#[case::unaligned("./data/sequences_DNA2_unaligned.fasta")]
+#[case::long("./data/sequences_long.fasta")]
+fn dna_alphabet_test(#[case] input: &str) {
+    let alphabet = sequences::get_sequence_type(&io::read_sequences_from_file(input).unwrap());
+    assert_eq!(alphabet, dna_alphabet());
+    assert_ne!(alphabet, protein_alphabet());
+}
+
+#[rstest]
+#[case("./data/sequences_protein1.fasta")]
+fn protein_alphabet_test(#[case] input: &str) {
+    let alphabet = sequences::get_sequence_type(&io::read_sequences_from_file(input).unwrap());
+    assert_ne!(alphabet, dna_alphabet());
+    assert_eq!(alphabet, protein_alphabet());
 }
