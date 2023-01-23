@@ -1,7 +1,8 @@
-use super::Mat;
-use nalgebra::{max, min};
+use nalgebra::{max, min, DMatrix};
 
 use std::fmt::Display;
+
+pub(crate) type Mat = DMatrix<f32>;
 
 #[derive(Debug)]
 pub(crate) struct NJMat {
