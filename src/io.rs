@@ -6,7 +6,7 @@ use super::Result;
 pub(crate) fn read_sequences_from_file(path: &str) -> Result<Vec<fasta::Record>> {
     let reader = fasta::Reader::from_file(path)?;
     let mut sequences = Vec::new();
-    let mut alphabet = alphabets::protein::alphabet();
+    let mut alphabet = alphabets::protein::iupac_alphabet();
     alphabet.insert('-' as u8);
     for result in reader.records() {
         let rec = result?;
