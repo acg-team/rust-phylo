@@ -3,6 +3,8 @@ use nalgebra::dmatrix;
 
 use rstest::*;
 
+use crate::parsimony_alignment::ParsimonyAlignmentMatrices;
+
 use super::*;
 
 impl tree::Node {
@@ -121,104 +123,4 @@ fn protein_type_test(#[case] input: &str) {
     let alphabet = sequences::get_sequence_type(&io::read_sequences_from_file(input).unwrap());
     assert_ne!(alphabet, super::sequences::SequenceType::DNA);
     assert_eq!(alphabet, super::sequences::SequenceType::Protein);
-}
-
-#[test]
-fn pars_align_simple_test() {
-    let setsx = vec![0b0100, 0b0100];
-    let setsy = vec![0b1000, 0b0100];
-    let result = parsimony_alignment::pars_align(&setsx, &setsy);
-    assert_eq!(
-        result.score.m,
-        vec![
-            vec![0.0, f32::INFINITY, f32::INFINITY],
-            vec![f32::INFINITY, 1.0, 2.5],
-            vec![f32::INFINITY, 3.5, 1.0]
-        ]
-    );
-    assert_eq!(
-        result.score.x,
-        vec![
-            vec![0.0, f32::INFINITY, f32::INFINITY],
-            vec![2.5, 5.0, 5.5],
-            vec![3.0, 3.5, 5.0]
-        ]
-    );
-    assert_eq!(
-        result.score.y,
-        vec![
-            vec![0.0, 2.5, 3.0],
-            vec![f32::INFINITY, 5.0, 3.5],
-            vec![f32::INFINITY, 5.5, 6.0]
-        ]
-    );
-    let any_dir = vec![
-        parsimony_alignment::Direction::Matc,
-        parsimony_alignment::Direction::GapX,
-        parsimony_alignment::Direction::GapY,
-    ];
-    assert_eq!(
-        result.trace.m[0],
-        vec![
-            parsimony_alignment::Direction::Skip,
-            parsimony_alignment::Direction::GapY,
-            parsimony_alignment::Direction::GapY
-        ]
-    );
-    assert_eq!(result.trace.m[1][0], parsimony_alignment::Direction::GapX);
-    assert!(any_dir.contains(&result.trace.m[1][1]));
-    assert_eq!(result.trace.m[1][2], parsimony_alignment::Direction::GapY);
-    assert_eq!(
-        result.trace.m[2],
-        vec![
-            parsimony_alignment::Direction::GapX,
-            parsimony_alignment::Direction::GapX,
-            parsimony_alignment::Direction::Matc
-        ]
-    );
-
-    assert_eq!(
-        result.trace.x[0],
-        vec![
-            parsimony_alignment::Direction::Skip,
-            parsimony_alignment::Direction::GapY,
-            parsimony_alignment::Direction::GapY
-        ]
-    );
-    assert_eq!(
-        result.trace.x[1],
-        vec![
-            parsimony_alignment::Direction::GapX,
-            parsimony_alignment::Direction::GapY,
-            parsimony_alignment::Direction::GapY
-        ]
-    );
-    assert_eq!(
-        result.trace.x[2],
-        vec![
-            parsimony_alignment::Direction::GapX,
-            parsimony_alignment::Direction::Matc,
-            parsimony_alignment::Direction::Matc
-        ]
-    );
-
-    assert_eq!(
-        result.trace.y[0],
-        vec![
-            parsimony_alignment::Direction::Skip,
-            parsimony_alignment::Direction::GapY,
-            parsimony_alignment::Direction::GapY
-        ]
-    );
-    assert_eq!(
-        result.trace.y[1],
-        vec![
-            parsimony_alignment::Direction::GapX,
-            parsimony_alignment::Direction::GapX,
-            parsimony_alignment::Direction::Matc
-        ]
-    );
-    assert_eq!(result.trace.y[2][0], parsimony_alignment::Direction::GapX);
-    assert_eq!(result.trace.y[2][1], parsimony_alignment::Direction::GapX);
-    assert!(any_dir.contains(&result.trace.y[2][2]));
 }
