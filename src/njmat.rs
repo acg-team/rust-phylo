@@ -56,7 +56,8 @@ impl NJMat {
                 + (self.distances.row_sum()[i] - self.distances.row_sum()[j])
                     / (2 * (self.distances.ncols() - 2)) as f32
         };
-        (blen_i, self.distances[(i, j)] - blen_i)
+        let blen_j = self.distances[(i, j)] - blen_i;
+        (blen_i, if blen_j < 0.0 {0.0} else {blen_j})
     }
 
     pub(crate) fn compute_nj_q(&self) -> Mat {
