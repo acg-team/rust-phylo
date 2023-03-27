@@ -20,7 +20,7 @@ impl Node {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct Tree {
-    pub(crate) root: isize,
+    pub(crate) root: usize,
     pub(crate) nodes: Vec<Node>,
     pub(crate) postorder: Vec<usize>,
     leaf_number: usize,
@@ -29,7 +29,7 @@ pub(crate) struct Tree {
 impl Tree {
     pub(crate) fn new(n: usize, root: usize) -> Self {
         Self {
-            root: root as isize,
+            root: root,
             nodes: (0..n)
                 .map(|idx| Node {
                     idx: idx,
@@ -105,8 +105,4 @@ pub(crate) fn build_nj_tree(mut nj_data: njmat::NJMat) -> Result<Tree> {
     }
     tree.create_postorder();
     Ok(tree)
-}
-
-pub(crate) fn traverse_tree(tree: &mut Tree) {
-    let order = tree.create_postorder(); // should not be mutable
 }

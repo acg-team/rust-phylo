@@ -1,3 +1,4 @@
+use super::DNA_GAP;
 
 pub(crate) fn dna_pars_sets() -> [u8; 256] {
     let possible_upper_chars = [
@@ -9,7 +10,7 @@ pub(crate) fn dna_pars_sets() -> [u8; 256] {
     pars_table['C' as usize] = 0b00010;
     pars_table['A' as usize] = 0b00100;
     pars_table['G' as usize] = 0b01000;
-    pars_table['-' as usize] = 0b10000;
+    pars_table['-' as usize] = DNA_GAP;
     pars_table['X' as usize] = 0b01111;
     pars_table['N' as usize] = 0b01111;
     pars_table['V' as usize] = pars_table['X' as usize] ^ pars_table['T' as usize];

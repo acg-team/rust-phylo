@@ -3,8 +3,6 @@ use nalgebra::dmatrix;
 
 use rstest::*;
 
-use crate::parsimony_alignment::ParsimonyAlignmentMatrices;
-
 use super::*;
 
 impl tree::Node {

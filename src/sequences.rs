@@ -7,6 +7,8 @@ use super::njmat;
 
 mod dna_pars_sets;
 
+pub(crate) const DNA_GAP: u8 = 0b10000;
+
 #[allow(dead_code)]
 #[derive(PartialEq, Debug)]
 pub(crate) enum SequenceType {
@@ -69,14 +71,9 @@ pub(crate) fn get_parsimony_sets(
     record: &fasta::Record,
     sequence_type: &SequenceType,
 ) -> Vec<u8> {
-    let sequence_length = record.seq().len();
     let set_table = match sequence_type {
         SequenceType::DNA => dna_pars_sets::dna_pars_sets(),
         SequenceType::Protein => [0b11110 as u8; 256],
     };
-    let mut parsimony_sets = Vec::<u8>::with_capacity(sequence_length);
-    for s in record.seq() {
-        parsimony_sets.push(set_table[*s as usize]);
-    }
-    parsimony_sets
+    record.seq().into_iter().map(|c| set_table[*c as usize]).collect()
 }
