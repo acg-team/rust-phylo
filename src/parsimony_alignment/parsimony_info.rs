@@ -1,5 +1,6 @@
 use super::Alignment;
 use super::Direction;
+use crate::parsimony_alignment::Mapping;
 use crate::sequences;
 use std::fmt;
 
@@ -313,19 +314,20 @@ impl ParsimonyAlignmentMatrices {
             self.select_direction(self.score.m[i][j], self.score.x[i][j], self.score.y[i][j]);
         let max_alignment_length = left_child_info.len() + right_child_info.len();
         let mut node_info = Vec::<ParsAlignSiteInfo>::with_capacity(max_alignment_length);
-        let mut alignment = Alignment::with_capacity(max_alignment_length);
+        let mut alignment = Alignment{map_x: Mapping::with_capacity(max_alignment_length), map_y: Mapping::with_capacity(max_alignment_length)};
         while i > 0 || j > 0 {
-            println!("{}, {}", i, j);
             match trace {
                 Direction::Matc => {
-                    println!("Match");
                     if left_child_info[i - 1].perm_gap && right_child_info[j - 1].perm_gap {
-                        alignment.push((Some(i - 1), None));
-                        alignment.push((None, Some(j - 1)));
+                        alignment.map_x.push(Some(i-1));
+                        alignment.map_y.push(None);
+                        alignment.map_x.push(None);
+                        alignment.map_y.push(Some(j-1));
                         node_info.push(ParsAlignSiteInfo::new(sequences::DNA_GAP, true, true));
                         node_info.push(ParsAlignSiteInfo::new(sequences::DNA_GAP, true, true));
                     } else {
-                        alignment.push((Some(i - 1), Some(j - 1)));
+                        alignment.map_x.push(Some(i-1));
+                        alignment.map_y.push(Some(j-1));
                         let mut set = left_child_info[i - 1].set & right_child_info[j - 1].set;
                         if set == 0 {
                             set = left_child_info[i - 1].set | right_child_info[j - 1].set;
@@ -337,8 +339,8 @@ impl ParsimonyAlignmentMatrices {
                     j -= 1;
                 }
                 Direction::GapX => {
-                    println!("GapX");
-                    alignment.push((Some(i - 1), None));
+                    alignment.map_x.push(Some(i-1));
+                    alignment.map_y.push(None);
                     if left_child_info[i - 1].perm_gap || left_child_info[i - 1].poss_gap {
                         node_info.push(ParsAlignSiteInfo::new(sequences::DNA_GAP, true, true));
                     } else {
@@ -352,8 +354,8 @@ impl ParsimonyAlignmentMatrices {
                     i -= 1;
                 }
                 Direction::GapY => {
-                    println!("GapY");
-                    alignment.push((None, Some(j - 1)));
+                    alignment.map_x.push(None);
+                    alignment.map_y.push(Some(j-1));
                     if right_child_info[j - 1].perm_gap || right_child_info[j - 1].poss_gap {
                         node_info.push(ParsAlignSiteInfo::new(sequences::DNA_GAP, true, true));
                     } else {
@@ -372,7 +374,8 @@ impl ParsimonyAlignmentMatrices {
             }
         }
         node_info.reverse();
-        alignment.reverse();
+        alignment.map_x.reverse();
+        alignment.map_y.reverse();
         (node_info, alignment, pars_score)
     }
 
@@ -430,7 +433,6 @@ fn fill_matrix() {
         ParsimonyAlignmentMatrices::new(3, 3, mismatch_cost, gap_open_cost, gap_ext_cost, |_| 0);
 
     pars_mats.fill_matrices(&node_info_1, &node_info_2);
-    println!("{}", pars_mats);
 
     assert_eq!(
         pars_mats.score.m,
@@ -566,7 +568,6 @@ fn traceback_correct() {
         ParsAlignSiteInfo::new(0b01000, false, false),
         ParsAlignSiteInfo::new(0b00100, false, false),
     ];
-
     let mut pars_mats =
         ParsimonyAlignmentMatrices::new(3, 3, mismatch_cost, gap_open_cost, gap_ext_cost, |l| {
             l - 1
@@ -578,7 +579,8 @@ fn traceback_correct() {
         ParsAlignSiteInfo::new(0b00100 + 0b01000, false, false)
     );
     assert_eq!(node_info[1], ParsAlignSiteInfo::new(0b00100, false, false));
-    assert_eq!(alignment, vec![(Some(0), Some(0)), (Some(1), Some(1))]);
+    assert_eq!(alignment.map_x, vec![Some(0), Some(1)]);
+    assert_eq!(alignment.map_y, vec![Some(0), Some(1)]);
     assert_eq!(score, 1.0);
 
     let mut pars_mats =
@@ -590,6 +592,7 @@ fn traceback_correct() {
         ParsAlignSiteInfo::new(0b00100 + 0b01000, false, false)
     );
     assert_eq!(node_info[1], ParsAlignSiteInfo::new(0b00100, false, false));
-    assert_eq!(alignment, vec![(Some(0), Some(0)), (Some(1), Some(1))]);
+    assert_eq!(alignment.map_x, vec![Some(0), Some(1)]);
+    assert_eq!(alignment.map_y, vec![Some(0), Some(1)]);
     assert_eq!(score, 1.0);
 }

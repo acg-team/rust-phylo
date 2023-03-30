@@ -17,7 +17,13 @@ pub(crate) enum Direction {
     Skip,
 }
 
-pub(crate) type Alignment = Vec<(Option<usize>, Option<usize>)>;
+pub(crate) type Mapping = Vec<Option<usize>>;
+
+#[derive(Clone, Debug)]
+pub(crate) struct Alignment {
+    pub(crate) map_x: Mapping,
+    pub(crate) map_y: Mapping,
+}
 
 fn rng_len(l: usize) -> usize {
     random::<usize>() % l
@@ -40,7 +46,6 @@ fn pars_align_w_rng(
         rng,
     );
     pars_mats.fill_matrices(left_child_info, right_child_info);
-    println!("{}", pars_mats);
     pars_mats.traceback(left_child_info, right_child_info)
 }
 
@@ -75,11 +80,16 @@ pub(crate) fn pars_align_on_tree(
     assert_eq!(num, order.len());
 
     let mut node_info = vec![Vec::<ParsAlignSiteInfo>::new(); num];
-    let mut alignments = vec![Alignment::new(); num];
+    let mut alignments = vec![
+        Alignment {
+            map_x: Mapping::new(),
+            map_y: Mapping::new()
+        };
+        num
+    ];
     let mut scores = vec![0.0; num];
 
     for &node_idx in order {
-        println!("{}", node_idx);
         if tree.is_leaf(node_idx) {
             let pars_sets = sequences::get_parsimony_sets(&sequences[node_idx], sequence_type);
             node_info[node_idx] = pars_sets
@@ -89,9 +99,6 @@ pub(crate) fn pars_align_on_tree(
         } else {
             let ch1_idx = tree.nodes[node_idx].children[0];
             let ch2_idx = tree.nodes[node_idx].children[1];
-
-            println!("{:?}", node_info[ch1_idx]);
-            println!("{:?}", node_info[ch2_idx]);
             let (info, alignment, score) = pars_align(
                 mismatch_cost,
                 gap_open_cost,
@@ -102,38 +109,56 @@ pub(crate) fn pars_align_on_tree(
             node_info[node_idx] = info;
             alignments[node_idx] = alignment;
             scores[node_idx] = score;
-            println!("{:?}", node_info[node_idx]);
-            println!("Score for this alignment is {}", score);
-
-            if tree.is_leaf(tree.nodes[node_idx].children[0])
-                && tree.is_leaf(tree.nodes[node_idx].children[1])
-            {
-                print_alignment(
-                    sequences[tree.nodes[node_idx].children[0]].seq(),
-                    sequences[tree.nodes[node_idx].children[1]].seq(),
-                    &alignments[node_idx],
-                );
-            }
         }
     }
     (alignments, scores)
 }
 
-fn print_alignment(sequence1: &[u8], sequence2: &[u8], alignment: &Alignment) {
-    let mut one = Vec::<char>::with_capacity(alignment.len());
-    let mut two = Vec::<char>::with_capacity(alignment.len());
-    for (site1, site2) in alignment {
-        match site1 {
-            Some(index) => one.push(sequence1[*index] as char),
-            None => one.push('-'),
-        };
-        match site2 {
-            Some(index) => two.push(sequence2[*index] as char),
-            None => two.push('-'),
-        };
+pub(crate) fn print_full_alignment(
+    tree: &tree::Tree,
+    sequences: &[Record],
+    alignment: &[Alignment],
+) {
+    let order = &tree.preorder;
+    let mut alignment_stack = vec![Vec::<Option<usize>>::new(); order.len()];
+
+    alignment_stack[tree.root] = (0..alignment[tree.root].map_x.len())
+        .into_iter()
+        .map(|i| Some(i))
+        .collect();
+
+    for &node_idx in order {
+        if tree.is_leaf(node_idx) {
+            let mut sequence = vec![b'-'; alignment_stack[node_idx].len()];
+            for (alignment_index, site) in alignment_stack[node_idx].iter().enumerate() {
+                match site {
+                    Some(index) => sequence[alignment_index] = sequences[node_idx].seq()[*index],
+                    None => {}
+                };
+            }
+            println!("{}", String::from_utf8(sequence).unwrap());
+        } else {
+            let mut padded_map_x = Mapping::with_capacity(alignment_stack[node_idx].len());
+            let mut padded_map_y = Mapping::with_capacity(alignment_stack[node_idx].len());
+
+            for &site in &alignment_stack[node_idx] {
+                match site {
+                    Some(index) => {
+                        padded_map_x.push(alignment[node_idx].map_x[index]);
+                        padded_map_y.push(alignment[node_idx].map_y[index]);
+                    }
+                    None => {
+                        padded_map_x.push(None);
+                        padded_map_y.push(None);
+                    }
+                }
+            }
+            padded_map_x.reverse();
+            padded_map_y.reverse();
+            alignment_stack[tree.nodes[node_idx].children[0]] = padded_map_x;
+            alignment_stack[tree.nodes[node_idx].children[1]] = padded_map_y;
+        }
     }
-    println!("{}", String::from_iter(one));
-    println!("{}", String::from_iter(two));
 }
 
 #[test]
@@ -163,18 +188,11 @@ fn align_two_first_outcome() {
         &leaf_info2,
         |l| l - 1,
     );
-    print_alignment(&sequences[0].seq(), &sequences[1].seq(), &alignment);
     assert_eq!(score, 3.5);
-    assert_eq!(alignment.len(), 4);
-    assert_eq!(
-        alignment,
-        vec![
-            (Some(0), Some(0)),
-            (Some(1), Some(1)),
-            (Some(2), None),
-            (Some(3), None)
-        ]
-    );
+    assert_eq!(alignment.map_x.len(), 4);
+    assert_eq!(alignment.map_y.len(), 4);
+    assert_eq!(alignment.map_x, vec![Some(0), Some(1), Some(2), Some(3)]);
+    assert_eq!(alignment.map_y, vec![Some(0), Some(1), None, None]);
 }
 
 #[test]
@@ -205,16 +223,10 @@ fn align_two_second_outcome() {
         |_| 0,
     );
     assert_eq!(score, 3.5);
-    assert_eq!(alignment.len(), 4);
-    assert_eq!(
-        alignment,
-        vec![
-            (Some(0), Some(0)),
-            (Some(1), None),
-            (Some(2), None),
-            (Some(3), Some(1))
-        ]
-    );
+    assert_eq!(alignment.map_x.len(), 4);
+    assert_eq!(alignment.map_y.len(), 4);
+    assert_eq!(alignment.map_x, vec![Some(0), Some(1), Some(2), Some(3)]);
+    assert_eq!(alignment.map_y, vec![Some(0), None, None, Some(1)]);
 }
 
 #[test]
@@ -227,11 +239,9 @@ fn align_two_on_tree() {
         Record::with_attrs("A", None, b"AACT"),
         Record::with_attrs("A", None, b"AC"),
     ];
-
     let mut tree = tree::Tree::new(2, 2);
     tree.add_parent(2, 0, 1, 1.0, 1.0);
     tree.create_postorder();
-
     let (alignment_vec, score) = pars_align_on_tree(
         mismatch_cost,
         gap_open_cost,
@@ -240,10 +250,10 @@ fn align_two_on_tree() {
         &sequences,
         &SequenceType::DNA,
     );
-
     assert_eq!(score[tree.root], 3.5);
     let alignment = &alignment_vec[tree.root];
-    assert_eq!(alignment.len(), 4);
+    assert_eq!(alignment.map_x.len(), 4);
+    assert_eq!(alignment.map_y.len(), 4);
 }
 
 #[test]
@@ -273,15 +283,8 @@ fn internal_alignment_first_outcome() {
         |_| 0,
     );
     assert_eq!(score, 1.0);
-    assert_eq!(
-        alignment,
-        vec![
-            (Some(0), Some(0)),
-            (Some(1), Some(1)),
-            (Some(2), None),
-            (Some(3), None)
-        ]
-    );
+    assert_eq!(alignment.map_x, vec![Some(0), Some(1), Some(2), Some(3)]);
+    assert_eq!(alignment.map_y, vec![Some(0), Some(1), None, None]);
 }
 
 #[test]
@@ -311,15 +314,8 @@ fn internal_alignment_second_outcome() {
         |_| 0,
     );
     assert_eq!(score, 2.0);
-    assert_eq!(
-        alignment,
-        vec![
-            (Some(0), Some(0)),
-            (Some(1), None),
-            (Some(2), None),
-            (Some(3), Some(1))
-        ]
-    );
+    assert_eq!(alignment.map_x, vec![Some(0), Some(1), Some(2), Some(3)]);
+    assert_eq!(alignment.map_y, vec![Some(0), None, None, Some(1)]);
 }
 
 #[test]
@@ -346,19 +342,14 @@ fn internal_alignment_third_outcome() {
         gap_ext_cost,
         &leaf_info1,
         &leaf_info2,
-        |l| l-1,
+        |l| l - 1,
     );
     assert_eq!(score, 2.0);
     assert_eq!(
-        alignment,
-        vec![
-            (None, Some(0)),
-            (Some(0), Some(1)),
-            (Some(1), None),
-            (Some(2), None),
-            (Some(3), None)
-        ]
+        alignment.map_x,
+        vec![None, Some(0), Some(1), Some(2), Some(3)]
     );
+    assert_eq!(alignment.map_y, vec![Some(0), Some(1), None, None, None]);
 }
 
 #[test]
@@ -383,15 +374,15 @@ fn align_four_on_tree() {
     let (alignment_vec, score) = pars_align_on_tree(c, a, b, &tree, &sequences, &SequenceType::DNA);
     // first cherry
     assert_eq!(score[4], 3.5);
-    assert_eq!(alignment_vec[4].len(), 4);
+    assert_eq!(alignment_vec[4].map_x.len(), 4);
     // second cherry
     assert_eq!(score[5], 2.0);
-    assert_eq!(alignment_vec[5].len(), 2);
+    assert_eq!(alignment_vec[5].map_x.len(), 2);
     // root, three possible alignments
     assert!(score[6] == 1.0 || score[6] == 2.0);
     if score[6] == 1.0 {
-        assert_eq!(alignment_vec[6].len(), 4);
+        assert_eq!(alignment_vec[6].map_x.len(), 4);
     } else {
-        assert!(alignment_vec[6].len() == 4 || alignment_vec[6].len() == 5);
+        assert!(alignment_vec[6].map_x.len() == 4 || alignment_vec[6].map_x.len() == 5);
     }
 }

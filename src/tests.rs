@@ -91,24 +91,6 @@ fn reading_nonexistent_fasta() {
 #[case::aligned("./data/sequences_DNA1.fasta")]
 #[case::unaligned("./data/sequences_DNA2_unaligned.fasta")]
 #[case::long("./data/sequences_long.fasta")]
-fn dna_alphabet_test(#[case] input: &str) {
-    let alphabet = sequences::get_sequence_alphabet(&io::read_sequences_from_file(input).unwrap());
-    assert_eq!(alphabet, sequences::dna_alphabet());
-    assert_ne!(alphabet, sequences::protein_alphabet());
-}
-
-#[rstest]
-#[case("./data/sequences_protein1.fasta")]
-fn protein_alphabet_test(#[case] input: &str) {
-    let alphabet = sequences::get_sequence_alphabet(&io::read_sequences_from_file(input).unwrap());
-    assert_ne!(alphabet, sequences::dna_alphabet());
-    assert_eq!(alphabet, sequences::protein_alphabet());
-}
-
-#[rstest]
-#[case::aligned("./data/sequences_DNA1.fasta")]
-#[case::unaligned("./data/sequences_DNA2_unaligned.fasta")]
-#[case::long("./data/sequences_long.fasta")]
 fn dna_type_test(#[case] input: &str) {
     let alphabet = sequences::get_sequence_type(&io::read_sequences_from_file(input).unwrap());
     assert_eq!(alphabet, super::sequences::SequenceType::DNA);

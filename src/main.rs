@@ -15,10 +15,10 @@ fn main() -> Result<()> {
 
     let nj_distances = sequences::compute_distance_matrix(&sequences);
     let tree = tree::build_nj_tree(nj_distances)?;
-    println!("{:?}", tree);
 
-    parsimony_alignment::pars_align_on_tree(1.0, 2.0, 0.5, &tree, &sequences, &sequence_type);
-
+    let (alignment, scores) = parsimony_alignment::pars_align_on_tree(1.0, 2.0, 0.5, &tree, &sequences, &sequence_type);
+    parsimony_alignment::print_full_alignment(&tree, &sequences, &alignment);
+    println!("Alignment scores are {:?}", scores);
     Ok(())
 }
 

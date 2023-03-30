@@ -23,6 +23,7 @@ pub(crate) struct Tree {
     pub(crate) root: usize,
     pub(crate) nodes: Vec<Node>,
     pub(crate) postorder: Vec<usize>,
+    pub(crate) preorder: Vec<usize>,
     leaf_number: usize,
 }
 
@@ -39,6 +40,7 @@ impl Tree {
                 })
                 .collect(),
             postorder: Vec::new(),
+            preorder: Vec::new(),
             leaf_number: n,
         }
     }
@@ -62,20 +64,38 @@ impl Tree {
 
     pub(crate) fn create_postorder(&mut self) {
         if self.postorder.len() == 0 {
-                let mut order = Vec::<usize>::with_capacity(self.nodes.len());
-                let mut stack = Vec::<usize>::with_capacity(self.nodes.len());
-                let mut cur_root = self.root as usize;
-                stack.push(cur_root);
-                while !stack.is_empty() {
-                    cur_root = stack.pop().unwrap();
-                    order.push(cur_root);
-                    if !self.is_leaf(cur_root) {
-                        stack.push(self.nodes[cur_root].children[0]);
-                        stack.push(self.nodes[cur_root].children[1]);
-                    }
+            let mut order = Vec::<usize>::with_capacity(self.nodes.len());
+            let mut stack = Vec::<usize>::with_capacity(self.nodes.len());
+            let mut cur_root = self.root as usize;
+            stack.push(cur_root);
+            while !stack.is_empty() {
+                cur_root = stack.pop().unwrap();
+                order.push(cur_root);
+                if !self.is_leaf(cur_root) {
+                    stack.push(self.nodes[cur_root].children[0]);
+                    stack.push(self.nodes[cur_root].children[1]);
                 }
-                order.reverse();
-                self.postorder = order;
+            }
+            order.reverse();
+            self.postorder = order;
+        }
+    }
+
+    pub(crate) fn create_preorder(&mut self) {
+        if self.preorder.len() == 0 {
+            let mut order = Vec::<usize>::with_capacity(self.nodes.len());
+            let mut stack = Vec::<usize>::with_capacity(self.nodes.len());
+            let mut cur_root = self.root as usize;
+            stack.push(cur_root);
+            while !stack.is_empty() {
+                cur_root = stack.pop().unwrap();
+                order.push(cur_root);
+                if !self.is_leaf(cur_root) {
+                    stack.push(self.nodes[cur_root].children[1]);
+                    stack.push(self.nodes[cur_root].children[0]);
+                }
+            }
+            self.preorder = order;
         }
     }
 
@@ -104,5 +124,6 @@ pub(crate) fn build_nj_tree(mut nj_data: njmat::NJMat) -> Result<Tree> {
             .remove_merged_nodes(i, j);
     }
     tree.create_postorder();
+    tree.create_preorder();
     Ok(tree)
 }

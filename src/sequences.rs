@@ -9,27 +9,17 @@ mod dna_pars_sets;
 
 pub(crate) const DNA_GAP: u8 = 0b10000;
 
-#[allow(dead_code)]
 #[derive(PartialEq, Debug)]
 pub(crate) enum SequenceType {
     DNA,
     Protein,
 }
 
-pub(crate) fn get_sequence_alphabet(sequences: &Vec<fasta::Record>) -> Alphabet {
-    let dna_alphabet = dna_alphabet();
-    for record in sequences {
-        if !dna_alphabet.is_word(record.seq()) {
-            return protein_alphabet();
-        }
-    }
-    dna_alphabet
-}
-
 pub(crate) fn dna_alphabet() -> Alphabet {
     Alphabet::new(b"ACGTRYSWKMBDHVNZXacgtryswkmbdhvnzx-")
 }
 
+#[allow(dead_code)]
 pub(crate) fn protein_alphabet() -> Alphabet {
     Alphabet::new(b"ABCDEFGHIKLMNPQRSTVWXYZabcdefghiklmnpqrstvwxyz-")
 }
@@ -59,7 +49,6 @@ pub(crate) fn compute_distance_matrix(sequences: &Vec<fasta::Record>) -> njmat::
             distances[(j, i)] = corrected_dist;
         }
     }
-    println!("{:?}", distances);
     let nj_distances = njmat::NJMat {
         idx: (0..nseqs).collect(),
         distances,
