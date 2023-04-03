@@ -24,7 +24,7 @@ pub(crate) struct Tree {
     pub(crate) nodes: Vec<Node>,
     pub(crate) postorder: Vec<usize>,
     pub(crate) preorder: Vec<usize>,
-    leaf_number: usize,
+    pub(crate) leaf_number: usize,
 }
 
 impl Tree {
@@ -97,6 +97,18 @@ impl Tree {
             }
             self.preorder = order;
         }
+    }
+
+    pub(crate) fn preorder(&self) -> &[usize] {
+        self.preorder_subroot(self.root)
+    }
+
+    pub(crate) fn preorder_subroot(&self, subroot_idx: usize) -> &[usize] {
+        let &subroot = &self.preorder
+        .iter()
+        .position(|&x| x == subroot_idx)
+        .unwrap();
+        &self.preorder[subroot..]
     }
 
     pub(crate) fn is_leaf(&self, node_idx: usize) -> bool {

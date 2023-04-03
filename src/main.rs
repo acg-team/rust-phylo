@@ -17,7 +17,10 @@ fn main() -> Result<()> {
     let tree = tree::build_nj_tree(nj_distances)?;
 
     let (alignment, scores) = parsimony_alignment::pars_align_on_tree(1.0, 2.0, 0.5, &tree, &sequences, &sequence_type);
-    parsimony_alignment::print_full_alignment(&tree, &sequences, &alignment);
+    let msa = parsimony_alignment::compile_alignment(&tree, &sequences, &alignment, None);
+    for seq in msa {
+        println!("{}", seq);
+    }
     println!("Alignment scores are {:?}", scores);
     Ok(())
 }
