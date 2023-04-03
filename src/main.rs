@@ -18,9 +18,10 @@ fn main() -> Result<()> {
 
     let (alignment, scores) = parsimony_alignment::pars_align_on_tree(1.0, 2.0, 0.5, &tree, &sequences, &sequence_type);
     let msa = parsimony_alignment::compile_alignment(&tree, &sequences, &alignment, None);
-    for seq in msa {
+    for seq in &msa {
         println!("{}", seq);
     }
+    io::write_sequences_to_file(&msa, "msa.fasta")?;
     println!("Alignment scores are {:?}", scores);
     Ok(())
 }

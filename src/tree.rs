@@ -1,4 +1,4 @@
-use super::njmat;
+use super::njmat::NJMat;
 use super::Result;
 
 #[allow(dead_code)]
@@ -99,6 +99,7 @@ impl Tree {
         }
     }
 
+#[allow(dead_code)]
     pub(crate) fn preorder(&self) -> &[usize] {
         self.preorder_subroot(self.root)
     }
@@ -116,7 +117,7 @@ impl Tree {
     }
 }
 
-pub(crate) fn build_nj_tree(mut nj_data: njmat::NJMat) -> Result<Tree> {
+pub(crate) fn build_nj_tree(mut nj_data: NJMat) -> Result<Tree> {
     let n = nj_data.distances.ncols();
     let root_idx = n * 2 - 2;
     let mut tree = Tree::new(n, root_idx);

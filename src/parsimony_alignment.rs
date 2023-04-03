@@ -4,44 +4,26 @@ macro_rules! align {
     ( $( $e:tt )* ) => {vec![ $( align!(@collect $e), )* ]};
 }
 
+mod alignment;
+mod parsimony_info;
+
 use bio::io::fasta::Record;
 use rand::prelude::*;
 
 use crate::{
-    sequences::{self, SequenceType},
+    sequences::{get_parsimony_sets, SequenceType},
     tree::{self, Tree},
 };
 
-mod parsimony_info;
+use alignment::{Alignment};
+use parsimony_info::{ParsAlignSiteInfo, ParsimonyAlignmentMatrices};
 
-use parsimony_info::ParsAlignSiteInfo;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum Direction {
     Matc,
     GapX,
     GapY,
     Skip,
-}
-
-pub(crate) type Mapping = Vec<Option<usize>>;
-
-#[derive(Clone, Debug)]
-pub(crate) struct Alignment {
-    pub(crate) map_x: Mapping,
-    pub(crate) map_y: Mapping,
-}
-
-impl Alignment {
-    fn new(x: Mapping, y: Mapping) -> Alignment {
-        Alignment { map_x: x, map_y: y }
-    }
-
-    fn empty() -> Alignment {
-        Alignment {
-            map_x: vec![],
-            map_y: vec![],
-        }
-    }
 }
 
 fn rng_len(l: usize) -> usize {
@@ -52,11 +34,11 @@ fn pars_align_w_rng(
     mismatch_cost: f32,
     gap_open_cost: f32,
     gap_ext_cost: f32,
-    left_child_info: &[parsimony_info::ParsAlignSiteInfo],
-    right_child_info: &[parsimony_info::ParsAlignSiteInfo],
+    left_child_info: &[ParsAlignSiteInfo],
+    right_child_info: &[ParsAlignSiteInfo],
     rng: fn(usize) -> usize,
-) -> (Vec<parsimony_info::ParsAlignSiteInfo>, Alignment, f32) {
-    let mut pars_mats = parsimony_info::ParsimonyAlignmentMatrices::new(
+) -> (Vec<ParsAlignSiteInfo>, Alignment, f32) {
+    let mut pars_mats = ParsimonyAlignmentMatrices::new(
         left_child_info.len() + 1,
         right_child_info.len() + 1,
         mismatch_cost,
@@ -72,9 +54,9 @@ fn pars_align(
     mismatch_cost: f32,
     gap_open_cost: f32,
     gap_ext_cost: f32,
-    left_child_info: &[parsimony_info::ParsAlignSiteInfo],
-    right_child_info: &[parsimony_info::ParsAlignSiteInfo],
-) -> (Vec<parsimony_info::ParsAlignSiteInfo>, Alignment, f32) {
+    left_child_info: &[ParsAlignSiteInfo],
+    right_child_info: &[ParsAlignSiteInfo],
+) -> (Vec<ParsAlignSiteInfo>, Alignment, f32) {
     pars_align_w_rng(
         mismatch_cost,
         gap_open_cost,
@@ -99,21 +81,15 @@ pub(crate) fn pars_align_on_tree(
     assert_eq!(num, order.len());
 
     let mut node_info = vec![Vec::<ParsAlignSiteInfo>::new(); num];
-    let mut alignments = vec![
-        Alignment {
-            map_x: Mapping::new(),
-            map_y: Mapping::new()
-        };
-        num
-    ];
+    let mut alignments = vec![Alignment::empty(); num];
     let mut scores = vec![0.0; num];
 
     for &node_idx in order {
         if tree.is_leaf(node_idx) {
-            let pars_sets = sequences::get_parsimony_sets(&sequences[node_idx], sequence_type);
+            let pars_sets = get_parsimony_sets(&sequences[node_idx], sequence_type);
             node_info[node_idx] = pars_sets
                 .into_iter()
-                .map(|set| parsimony_info::ParsAlignSiteInfo::new_leaf(set))
+                .map(ParsAlignSiteInfo::new_leaf)
                 .collect();
         } else {
             let ch1_idx = tree.nodes[node_idx].children[0];
@@ -146,7 +122,7 @@ pub(crate) fn compile_alignment(
     let order = tree.preorder_subroot(subroot_idx);
     let mut alignment_stack = vec![Vec::<Option<usize>>::new(); tree.nodes.len()];
     alignment_stack[subroot_idx] = (0..alignment[subroot_idx].map_x.len()).map(Some).collect();
-    let mut msa = vec![Record::new(); tree.leaf_number];
+    let mut msa = Vec::<Record>::with_capacity(tree.leaf_number);
     for &node_idx in order {
         if tree.is_leaf(node_idx) {
             let mut sequence = vec![b'-'; alignment_stack[subroot_idx].len()];
@@ -155,11 +131,11 @@ pub(crate) fn compile_alignment(
                     sequence[alignment_index] = sequences[node_idx].seq()[*index]
                 }
             }
-            msa[node_idx] = Record::with_attrs(
+            msa.push(Record::with_attrs(
                 sequences[node_idx].id(),
                 sequences[node_idx].desc(),
                 &sequence,
-            );
+            ));
         } else {
             let mut padded_map_x = vec![None; alignment_stack[node_idx].len()];
             let mut padded_map_y = vec![None; alignment_stack[node_idx].len()];
@@ -241,8 +217,8 @@ fn alignment_compile_internal2() {
     for seq in &msa {
         println!("{}", seq);
     }
-    assert_eq!(msa[3].seq(), "-A-".as_bytes());
-    assert_eq!(msa[4].seq(), "AAA".as_bytes());
+    assert_eq!(msa[0].seq(), "-A-".as_bytes());
+    assert_eq!(msa[1].seq(), "AAA".as_bytes());
 }
 
 #[test]
@@ -254,16 +230,14 @@ fn align_two_first_outcome() {
         Record::with_attrs("A", None, b"AACT"),
         Record::with_attrs("B", None, b"AC"),
     ];
-    let leaf_info1: Vec<parsimony_info::ParsAlignSiteInfo> =
-        sequences::get_parsimony_sets(&sequences[0], &SequenceType::DNA)
-            .into_iter()
-            .map(|set| parsimony_info::ParsAlignSiteInfo::new_leaf(set))
-            .collect();
-    let leaf_info2: Vec<parsimony_info::ParsAlignSiteInfo> =
-        sequences::get_parsimony_sets(&sequences[1], &SequenceType::DNA)
-            .into_iter()
-            .map(|set| parsimony_info::ParsAlignSiteInfo::new_leaf(set))
-            .collect();
+    let leaf_info1: Vec<ParsAlignSiteInfo> = get_parsimony_sets(&sequences[0], &SequenceType::DNA)
+        .into_iter()
+        .map(ParsAlignSiteInfo::new_leaf)
+        .collect();
+    let leaf_info2: Vec<ParsAlignSiteInfo> = get_parsimony_sets(&sequences[1], &SequenceType::DNA)
+        .into_iter()
+        .map(ParsAlignSiteInfo::new_leaf)
+        .collect();
     let (_info, alignment, score) = pars_align_w_rng(
         mismatch_cost,
         gap_open_cost,
@@ -288,16 +262,14 @@ fn align_two_second_outcome() {
         Record::with_attrs("A", None, b"AACT"),
         Record::with_attrs("B", None, b"AC"),
     ];
-    let leaf_info1: Vec<parsimony_info::ParsAlignSiteInfo> =
-        sequences::get_parsimony_sets(&sequences[0], &SequenceType::DNA)
-            .into_iter()
-            .map(|set| parsimony_info::ParsAlignSiteInfo::new_leaf(set))
-            .collect();
-    let leaf_info2: Vec<parsimony_info::ParsAlignSiteInfo> =
-        sequences::get_parsimony_sets(&sequences[1], &SequenceType::DNA)
-            .into_iter()
-            .map(|set| parsimony_info::ParsAlignSiteInfo::new_leaf(set))
-            .collect();
+    let leaf_info1: Vec<ParsAlignSiteInfo> = get_parsimony_sets(&sequences[0], &SequenceType::DNA)
+        .into_iter()
+        .map(ParsAlignSiteInfo::new_leaf)
+        .collect();
+    let leaf_info2: Vec<ParsAlignSiteInfo> = get_parsimony_sets(&sequences[1], &SequenceType::DNA)
+        .into_iter()
+        .map(ParsAlignSiteInfo::new_leaf)
+        .collect();
     let (_info, alignment, score) = pars_align_w_rng(
         mismatch_cost,
         gap_open_cost,
@@ -323,7 +295,7 @@ fn align_two_on_tree() {
         Record::with_attrs("A", None, b"AACT"),
         Record::with_attrs("A", None, b"AC"),
     ];
-    let mut tree = tree::Tree::new(2, 2);
+    let mut tree = Tree::new(2, 2);
     tree.add_parent(2, 0, 1, 1.0, 1.0);
     tree.create_postorder();
     let (alignment_vec, score) = pars_align_on_tree(
@@ -421,7 +393,7 @@ fn internal_alignment_third_outcome() {
     );
     assert_eq!(score, 2.0);
     assert_eq!(alignment.map_x, align!(- 0 1 2 3));
-    assert_eq!(alignment.map_y, vec![Some(0), Some(1), None, None, None]);
+    assert_eq!(alignment.map_y, align!(0 1 - - -));
 }
 
 #[allow(dead_code)]
@@ -444,7 +416,7 @@ fn align_four_on_tree() {
         Record::with_attrs("D", None, b"GA"),
     ];
 
-    let mut tree = tree::Tree::new(4, 6);
+    let mut tree = Tree::new(4, 6);
     tree.add_parent(4, 0, 1, 1.0, 1.0);
     tree.add_parent(5, 2, 3, 1.0, 1.0);
     tree.add_parent(6, 4, 5, 1.0, 1.0);

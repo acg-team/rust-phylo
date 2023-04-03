@@ -20,3 +20,11 @@ pub(crate) fn read_sequences_from_file(path: &str) -> Result<Vec<fasta::Record>>
     }
     Ok(sequences)
 }
+
+pub(crate) fn write_sequences_to_file(sequences: &[fasta::Record], path: &str) -> Result<()> {
+    let mut writer = fasta::Writer::to_file(path)?;
+    for rec in sequences {
+        writer.write_record(rec)?;
+    }
+    Ok(())
+}

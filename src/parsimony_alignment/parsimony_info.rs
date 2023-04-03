@@ -1,6 +1,6 @@
-use super::Alignment;
+use super::alignment::Alignment;
+use super::alignment::Mapping;
 use super::Direction;
-use crate::parsimony_alignment::Mapping;
 use crate::sequences;
 use std::fmt;
 
@@ -314,20 +314,23 @@ impl ParsimonyAlignmentMatrices {
             self.select_direction(self.score.m[i][j], self.score.x[i][j], self.score.y[i][j]);
         let max_alignment_length = left_child_info.len() + right_child_info.len();
         let mut node_info = Vec::<ParsAlignSiteInfo>::with_capacity(max_alignment_length);
-        let mut alignment = Alignment{map_x: Mapping::with_capacity(max_alignment_length), map_y: Mapping::with_capacity(max_alignment_length)};
+        let mut alignment = Alignment::new(
+            Mapping::with_capacity(max_alignment_length),
+            Mapping::with_capacity(max_alignment_length),
+        );
         while i > 0 || j > 0 {
             match trace {
                 Direction::Matc => {
                     if left_child_info[i - 1].perm_gap && right_child_info[j - 1].perm_gap {
-                        alignment.map_x.push(Some(i-1));
+                        alignment.map_x.push(Some(i - 1));
                         alignment.map_y.push(None);
                         alignment.map_x.push(None);
-                        alignment.map_y.push(Some(j-1));
+                        alignment.map_y.push(Some(j - 1));
                         node_info.push(ParsAlignSiteInfo::new(sequences::DNA_GAP, true, true));
                         node_info.push(ParsAlignSiteInfo::new(sequences::DNA_GAP, true, true));
                     } else {
-                        alignment.map_x.push(Some(i-1));
-                        alignment.map_y.push(Some(j-1));
+                        alignment.map_x.push(Some(i - 1));
+                        alignment.map_y.push(Some(j - 1));
                         let mut set = left_child_info[i - 1].set & right_child_info[j - 1].set;
                         if set == 0 {
                             set = left_child_info[i - 1].set | right_child_info[j - 1].set;
@@ -339,7 +342,7 @@ impl ParsimonyAlignmentMatrices {
                     j -= 1;
                 }
                 Direction::GapX => {
-                    alignment.map_x.push(Some(i-1));
+                    alignment.map_x.push(Some(i - 1));
                     alignment.map_y.push(None);
                     if left_child_info[i - 1].perm_gap || left_child_info[i - 1].poss_gap {
                         node_info.push(ParsAlignSiteInfo::new(sequences::DNA_GAP, true, true));
@@ -355,7 +358,7 @@ impl ParsimonyAlignmentMatrices {
                 }
                 Direction::GapY => {
                     alignment.map_x.push(None);
-                    alignment.map_y.push(Some(j-1));
+                    alignment.map_y.push(Some(j - 1));
                     if right_child_info[j - 1].perm_gap || right_child_info[j - 1].poss_gap {
                         node_info.push(ParsAlignSiteInfo::new(sequences::DNA_GAP, true, true));
                     } else {
