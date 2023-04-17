@@ -3,6 +3,8 @@ use bio::alphabets::Alphabet;
 use bio::io::fasta;
 use nalgebra::{max, DMatrix};
 
+use crate::tree::NodeIdx;
+
 use super::njmat;
 
 mod dna_pars_sets;
@@ -50,7 +52,7 @@ pub(crate) fn compute_distance_matrix(sequences: &Vec<fasta::Record>) -> njmat::
         }
     }
     let nj_distances = njmat::NJMat {
-        idx: (0..nseqs).collect(),
+        idx: (0..nseqs).map(NodeIdx::Leaf).collect(),
         distances,
     };
     nj_distances

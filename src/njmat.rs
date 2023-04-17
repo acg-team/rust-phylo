@@ -1,4 +1,6 @@
 use nalgebra::{max, min, DMatrix};
+use super::tree::NodeIdx;
+use super::tree::NodeIdx::Internal as Int;
 
 use std::fmt::Display;
 
@@ -6,7 +8,7 @@ pub(crate) type Mat = DMatrix<f32>;
 
 #[derive(Debug)]
 pub(crate) struct NJMat {
-    pub(crate) idx: Vec<usize>,
+    pub(crate) idx: Vec<NodeIdx>,
     pub(crate) distances: Mat,
 }
 
@@ -23,7 +25,7 @@ impl NJMat {
             .distances
             .insert_row(new_row_index, 0.0)
             .insert_column(new_row_index, 0.0);
-        self.idx.push(idx_new);
+        self.idx.push(Int(idx_new));
         self
     }
 
