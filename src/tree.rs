@@ -1,6 +1,14 @@
 use super::njmat::NJMat;
 use super::Result;
 
+use pest::iterators::Pair;
+use pest::Parser;
+use pest_derive::Parser;
+
+#[derive(Parser)]
+#[grammar = "newick.pest"]
+pub struct NewickParser;
+
 #[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Eq, Ord)]
 pub(crate) enum NodeIdx {
     Internal(usize),
@@ -21,7 +29,7 @@ impl Into<usize> for NodeIdx {
 
 #[derive(Debug)]
 pub(crate) struct Node {
-    pub(crate) idx: usize,
+    pub(crate) idx: NodeIdx,
     pub(crate) parent: Option<NodeIdx>,
     pub(crate) children: Vec<NodeIdx>,
     pub(crate) blen: f32,
@@ -29,18 +37,38 @@ pub(crate) struct Node {
 }
 
 impl Node {
-    fn new_empty(node_idx: usize) -> Self {
-        Self::new_with_children(node_idx, Vec::new())
+    fn new_empty_leaf(node_idx: usize) -> Self {
+        Self::new_leaf(node_idx, None, 0.0, "".to_string())
     }
 
-    fn new_with_children(node_idx: usize, children: Vec<NodeIdx>) -> Self {
+    fn new_leaf(idx: usize, parent: Option<NodeIdx>, blen: f32, id: String) -> Self {
         Self {
-            idx: node_idx,
-            parent: None,
-            children: children,
-            blen: 0.0,
-            id: String::from(""),
+            idx: Leaf(idx),
+            parent,
+            children: Vec::new(),
+            blen,
+            id: id,
         }
+    }
+
+    fn new_internal(
+        idx: usize,
+        parent: Option<NodeIdx>,
+        children: Vec<NodeIdx>,
+        blen: f32,
+        id: String,
+    ) -> Self {
+        Self {
+            idx: Int(idx),
+            parent,
+            children: children.clone(),
+            blen,
+            id: id,
+        }
+    }
+
+    fn new_empty_internal(node_idx: usize) -> Self {
+        Self::new_internal(node_idx, None, Vec::new(), 0.0, "".to_string())
     }
 
     pub(crate) fn add_parent(&mut self, parent_idx: NodeIdx, blen: f32) {
@@ -53,11 +81,133 @@ impl Node {
 #[derive(Debug)]
 pub(crate) struct Tree {
     pub(crate) root: NodeIdx,
-    pub(crate) postorder: Vec<NodeIdx>,
-    pub(crate) preorder: Vec<NodeIdx>,
-    pub(crate) leaf_number: usize,
     pub(crate) leaves: Vec<Node>,
     pub(crate) internals: Vec<Node>,
+    pub(crate) postorder: Vec<NodeIdx>,
+    pub(crate) preorder: Vec<NodeIdx>,
+}
+
+pub(crate) fn from_newick_string(newick_string: &str) -> Result<Vec<Tree>> {
+    let mut trees = Vec::new();
+    let newick_tree_rule = NewickParser::parse(Rule::newick, newick_string)?
+        .next()
+        .unwrap();
+    match newick_tree_rule.as_rule() {
+        Rule::newick => {
+            for tree_rule in newick_tree_rule.into_inner() {
+                let tmp = tree_rule.into_inner().next();
+                if let Some(rule) = tmp {
+                    let mut tree = Tree::new_empty();
+                    tree.from_tree_rule(rule)?;
+                    trees.push(tree);
+                }
+            }
+        }
+        _ => unimplemented!(),
+    }
+    Ok(trees)
+}
+
+impl Tree {
+    pub(crate) fn new_empty() -> Self {
+        Self {
+            root: Int(0),
+            leaves: Vec::new(),
+            internals: Vec::new(),
+            postorder: Vec::new(),
+            preorder: Vec::new(),
+        }
+    }
+
+    fn from_tree_rule(&mut self, tree_rule: Pair<Rule>) -> Result<()> {
+        let mut leaf_idx = 0;
+        let mut internal_idx = 0;
+        let mut parent_stack = Vec::<usize>::new();
+        match tree_rule.as_rule() {
+            Rule::internal => {
+                self.from_internal_rule(
+                    &mut leaf_idx,
+                    &mut internal_idx,
+                    &mut parent_stack,
+                    tree_rule,
+                )?;
+            }
+            _ => unreachable!(),
+        }
+        self.create_postorder();
+        self.create_preorder();
+        Ok(())
+    }
+
+    fn from_internal_rule(
+        &mut self,
+        leaf_idx: &mut usize,
+        node_idx: &mut usize,
+        stack: &mut Vec<usize>,
+        internal_rule: Pair<Rule>,
+    ) -> Result<()> {
+        let mut id = String::from("");
+        let mut blen = 0.0;
+        let mut children: Vec<NodeIdx> = Vec::new();
+        stack.push(*node_idx);
+        self.internals.push(Node::new_empty_internal(*node_idx));
+        *node_idx += 1;
+        for rule in internal_rule.into_inner() {
+            match rule.as_rule() {
+                Rule::label => id = Tree::from_label_rule(rule),
+                Rule::branch_length => blen = Tree::from_branch_length_rule(rule),
+                Rule::internal => {
+                    children.push(Int(*node_idx));
+                    self.from_internal_rule(leaf_idx, node_idx, stack, rule)?;
+                }
+                Rule::leaf => {
+                    children.push(Leaf(*leaf_idx));
+                    self.from_leaf_rule(leaf_idx, rule)?;
+
+                    *leaf_idx += 1;
+                }
+                _ => unreachable!(),
+            }
+        }
+        let cur_node_idx = stack.pop().unwrap_or_default();
+        self.internals[cur_node_idx].id = id;
+        self.internals[cur_node_idx].blen = blen;
+        self.internals[cur_node_idx].children = children.clone();
+        for child_idx in &children {
+            match child_idx {
+                Int(idx) => self.internals[*idx].parent = Some(Int(cur_node_idx)),
+                Leaf(idx) => self.leaves[*idx].parent = Some(Int(cur_node_idx)),
+            }
+        }
+        Ok(())
+    }
+
+    fn from_leaf_rule(&mut self, node_idx: &usize, inner_rule: Pair<Rule>) -> Result<()> {
+        let mut id = String::from("");
+        let mut blen = 0.0;
+        for rule in inner_rule.into_inner() {
+            match rule.as_rule() {
+                Rule::label => id = Tree::from_label_rule(rule),
+                Rule::branch_length => blen = Tree::from_branch_length_rule(rule),
+                _ => unreachable!(),
+            }
+        }
+        self.leaves.push(Node::new_leaf(*node_idx, None, blen, id));
+        Ok(())
+    }
+
+    fn from_branch_length_rule(rule: Pair<Rule>) -> f32 {
+        rule.into_inner()
+            .next()
+            .unwrap()
+            .as_str()
+            .parse::<f32>()
+            .unwrap_or_default()
+    }
+
+    fn from_label_rule(rule: Pair<Rule>) -> String {
+        rule.as_str().to_string()
+    }
 }
 
 impl Tree {
@@ -66,9 +216,8 @@ impl Tree {
             root: Int(root),
             postorder: Vec::new(),
             preorder: Vec::new(),
-            leaf_number: n,
-            leaves: (0..n).map(Node::new_empty).collect(),
-            internals: Vec::new(),
+            leaves: (0..n).map(Node::new_empty_leaf).collect(),
+            internals: Vec::with_capacity(n - 1),
         }
     }
 
@@ -80,8 +229,13 @@ impl Tree {
         blen_i: f32,
         blen_j: f32,
     ) {
-        self.internals
-            .push(Node::new_with_children(parent_idx, vec![idx_i, idx_j]));
+        self.internals.push(Node::new_internal(
+            parent_idx,
+            None,
+            vec![idx_i, idx_j],
+            0.0,
+            "".to_string(),
+        ));
         self.add_parent_to_child(&idx_i, parent_idx, blen_i);
         self.add_parent_to_child(&idx_j, parent_idx, blen_j);
     }
@@ -116,10 +270,6 @@ impl Tree {
         if self.preorder.len() == 0 {
             self.preorder = self.preorder_subroot(self.root);
         }
-    }
-
-    pub(crate) fn preorder(&self) -> Vec<NodeIdx> {
-        self.preorder.clone()
     }
 
     pub(crate) fn preorder_subroot(&self, subroot_idx: NodeIdx) -> Vec<NodeIdx> {
@@ -166,13 +316,16 @@ pub(crate) fn build_nj_tree(mut nj_data: NJMat) -> Result<Tree> {
 
 #[cfg(test)]
 mod tree_tests {
-    use super::super::njmat::NJMat;
-    use super::{build_nj_tree, Node, NodeIdx, NodeIdx::Internal as I, NodeIdx::Leaf as L, Tree};
+    use crate::njmat::NJMat;
+    use crate::tree::{
+        build_nj_tree, from_newick_string, Node, NodeIdx, NodeIdx::Internal as I,
+        NodeIdx::Leaf as L, Tree,
+    };
     use approx::relative_eq;
     use nalgebra::dmatrix;
 
     #[cfg(test)]
-    pub(crate) fn setup_test_tree() -> Tree {
+    fn setup_test_tree() -> Tree {
         let mut tree = Tree::new(5, 3);
         tree.add_parent(0, L(0), L(1), 1.0, 1.0);
         tree.add_parent(1, L(3), L(4), 1.0, 1.0);
@@ -184,7 +337,7 @@ mod tree_tests {
     }
 
     #[test]
-    pub(crate) fn subroot_preorder() {
+    fn subroot_preorder() {
         let tree = setup_test_tree();
         assert_eq!(tree.preorder_subroot(I(0)), [I(0), L(0), L(1)]);
         assert_eq!(tree.preorder_subroot(I(1)), [I(1), L(3), L(4)]);
@@ -193,11 +346,11 @@ mod tree_tests {
             tree.preorder_subroot(I(3)),
             [I(3), I(0), L(0), L(1), I(2), L(2), I(1), L(3), L(4)]
         );
-        assert_eq!(tree.preorder_subroot(I(3)), tree.preorder());
+        assert_eq!(tree.preorder_subroot(I(3)), tree.preorder);
     }
 
     #[test]
-    pub(crate) fn postorder() {
+    fn postorder() {
         let tree = setup_test_tree();
         assert_eq!(
             tree.postorder,
@@ -216,37 +369,8 @@ mod tree_tests {
         }
     }
 
-    #[cfg(test)]
-    impl Node {
-        pub(crate) fn new_leaf(idx: usize, parent: Option<NodeIdx>, blen: f32, id: &str) -> Self {
-            Self {
-                idx,
-                parent,
-                children: Vec::new(),
-                blen,
-                id: id.to_string(),
-            }
-        }
-
-        pub(crate) fn new_internal(
-            idx: usize,
-            parent: Option<NodeIdx>,
-            children: Vec<NodeIdx>,
-            blen: f32,
-            id: &str,
-        ) -> Self {
-            Self {
-                idx,
-                parent,
-                children,
-                blen,
-                id: id.to_string(),
-            }
-        }
-    }
-
     #[test]
-    pub(crate) fn nj_correct() {
+    fn nj_correct() {
         let nj_distances = NJMat {
             idx: (0..5).map(NodeIdx::Leaf).collect(),
             distances: dmatrix![
@@ -258,24 +382,142 @@ mod tree_tests {
         };
         let nj_tree = build_nj_tree(nj_distances).unwrap();
         let leaves = vec![
-            Node::new_leaf(0, Some(I(0)), 2.0, ""),
-            Node::new_leaf(1, Some(I(0)), 3.0, ""),
-            Node::new_leaf(2, Some(I(1)), 4.0, ""),
-            Node::new_leaf(3, Some(I(2)), 2.0, ""),
-            Node::new_leaf(4, Some(I(2)), 1.0, ""),
+            Node::new_leaf(0, Some(I(0)), 2.0, "".to_string()),
+            Node::new_leaf(1, Some(I(0)), 3.0, "".to_string()),
+            Node::new_leaf(2, Some(I(1)), 4.0, "".to_string()),
+            Node::new_leaf(3, Some(I(2)), 2.0, "".to_string()),
+            Node::new_leaf(4, Some(I(2)), 1.0, "".to_string()),
         ];
         let internals = vec![
-            Node::new_internal(0, Some(I(1)), vec![L(1), L(0)], 3.0, ""),
-            Node::new_internal(1, Some(I(3)), vec![L(2), I(0)], 1.0, ""),
-            Node::new_internal(2, Some(I(3)), vec![L(4), L(3)], 1.0, ""),
-            Node::new_internal(3, None, vec![I(2), I(1)], 0.0, ""),
+            Node::new_internal(0, Some(I(1)), vec![L(1), L(0)], 3.0, "".to_string()),
+            Node::new_internal(1, Some(I(3)), vec![L(2), I(0)], 1.0, "".to_string()),
+            Node::new_internal(2, Some(I(3)), vec![L(4), L(3)], 1.0, "".to_string()),
+            Node::new_internal(3, None, vec![I(2), I(1)], 0.0, "".to_string()),
         ];
         assert_eq!(nj_tree.root, I(3));
-        for (i, node) in nj_tree.leaves.into_iter().enumerate() {
-            assert_eq!(node, leaves[i]);
-        }
-        for (i, node) in nj_tree.internals.into_iter().enumerate() {
-            assert_eq!(node, internals[i]);
-        }
+        assert_eq!(nj_tree.leaves, leaves);
+        assert_eq!(nj_tree.internals, internals);
+    }
+
+    #[test]
+    fn newick_single_correct() {
+        let trees = from_newick_string(&String::from(
+            "(((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0,D:1.0)G:2.0;",
+        ))
+        .unwrap();
+        assert_eq!(trees.len(), 1);
+        assert_eq!(trees[0].root, I(0));
+        let leaves = vec![
+            Node::new_leaf(0, Some(I(2)), 1.0, "A".to_string()),
+            Node::new_leaf(1, Some(I(2)), 1.0, "B".to_string()),
+            Node::new_leaf(2, Some(I(1)), 1.0, "C".to_string()),
+            Node::new_leaf(3, Some(I(0)), 1.0, "D".to_string()),
+        ];
+        let internals = vec![
+            Node::new_internal(0, None, vec![L(3), I(1)], 2.0, "G".to_string()),
+            Node::new_internal(1, Some(I(0)), vec![L(2), I(2)], 1.0, "F".to_string()),
+            Node::new_internal(2, Some(I(1)), vec![L(1), L(0)], 2.0, "E".to_string()),
+        ];
+        assert_eq!(trees[0].leaves, leaves);
+        assert_eq!(trees[0].internals, internals);
+        assert_eq!(trees[0].postorder.len(), 7);
+        assert_eq!(trees[0].preorder.len(), 7);
+    }
+
+    #[test]
+    fn newick_ladder_first_correct() {
+        let trees = from_newick_string(&String::from("((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0;")).unwrap();
+        assert_eq!(trees.len(), 1);
+        assert_eq!(trees[0].root, I(0));
+        let leaves = vec![
+            Node::new_leaf(0, Some(I(1)), 1.0, "A".to_string()),
+            Node::new_leaf(1, Some(I(1)), 1.0, "B".to_string()),
+            Node::new_leaf(2, Some(I(0)), 1.0, "C".to_string()),
+        ];
+        let internals = vec![
+            Node::new_internal(0, None, vec![I(1), L(2)], 1.0, "F".to_string()),
+            Node::new_internal(1, Some(I(0)), vec![L(1), L(0)], 2.0, "E".to_string()),
+        ];
+        assert_eq!(trees[0].leaves, leaves);
+        assert_eq!(trees[0].internals, internals);
+        assert_eq!(trees[0].postorder.len(), 5);
+        assert_eq!(trees[0].preorder.len(), 5);
+    }
+
+    #[test]
+    fn newick_ladder_second_correct() {
+        let trees = from_newick_string(&String::from("(A:1.0,(B:1.0,C:1.0)E:2.0)F:1.0;")).unwrap();
+        assert_eq!(trees.len(), 1);
+        assert_eq!(trees[0].root, I(0));
+        let leaves = vec![
+            Node::new_leaf(0, Some(I(0)), 1.0, "A".to_string()),
+            Node::new_leaf(1, Some(I(1)), 1.0, "B".to_string()),
+            Node::new_leaf(2, Some(I(1)), 1.0, "C".to_string()),
+        ];
+        let internals = vec![
+            Node::new_internal(0, None, vec![I(1), L(0)], 1.0, "F".to_string()),
+            Node::new_internal(1, Some(I(0)), vec![L(1), L(2)], 2.0, "E".to_string()),
+        ];
+        assert_eq!(trees[0].leaves, leaves);
+        assert_eq!(trees[0].internals, internals);
+        assert_eq!(trees[0].postorder.len(), 5);
+        assert_eq!(trees[0].preorder.len(), 5);
+    }
+
+    #[test]
+    fn newick_ladder_big_correct() {
+        let trees = from_newick_string(&String::from(
+            "((((A:1.0,B:1.0)F:1.0,C:2.0)G:1.0,D:3.0)H:1.0,E:4.0)I:1.0;",
+        ))
+        .unwrap();
+        assert_eq!(trees.len(), 1);
+        assert_eq!(trees[0].root, I(0));
+        assert_eq!(trees[0].leaves.len(), 5);
+        assert_eq!(trees[0].internals.len(), 4);
+        assert_eq!(trees[0].postorder.len(), 9);
+        assert_eq!(trees[0].preorder.len(), 9);
+    }
+
+    #[test]
+    fn newick_simple_balanced_correct() {
+        let trees = from_newick_string(&String::from(
+            "((A:1.0,B:2.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3;",
+        ))
+        .unwrap();
+        assert_eq!(trees.len(), 1);
+        assert_eq!(trees[0].root, I(0));
+        let leaves = vec![
+            Node::new_leaf(0, Some(I(1)), 1.0, "A".to_string()),
+            Node::new_leaf(1, Some(I(1)), 2.0, "B".to_string()),
+            Node::new_leaf(2, Some(I(2)), 3.0, "C".to_string()),
+            Node::new_leaf(3, Some(I(2)), 4.0, "D".to_string()),
+        ];
+        let internals = vec![
+            Node::new_internal(0, None, vec![I(1), I(2)], 7.3, "G".to_string()),
+            Node::new_internal(1, Some(I(0)), vec![L(1), L(0)], 5.1, "E".to_string()),
+            Node::new_internal(2, Some(I(0)), vec![L(2), L(3)], 6.2, "F".to_string()),
+        ];
+        assert_eq!(trees[0].leaves, leaves);
+        assert_eq!(trees[0].internals, internals);
+        assert_eq!(trees[0].postorder.len(), 7);
+        assert_eq!(trees[0].preorder.len(), 7);
+    }
+
+    #[test]
+    fn newick_multiple_correct() {
+        let trees = from_newick_string(&String::from(
+            "((((A:1.0,B:1.0)F:1.0,C:2.0)G:1.0,D:3.0)H:1.0,E:4.0)I:1.0;((A:1.0,B:2.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3;(A:1.0,(B:1.0,C:1.0)E:2.0)F:1.0;",
+        ))
+        .unwrap();
+        assert_eq!(trees.len(), 3);
+        assert_eq!(trees[0].root, I(0));
+        assert_eq!(trees[0].leaves.len(), 5);
+        assert_eq!(trees[0].internals.len(), 4);
+        assert_eq!(trees[1].root, I(0));
+        assert_eq!(trees[1].leaves.len(), 4);
+        assert_eq!(trees[1].internals.len(), 3);
+        assert_eq!(trees[2].root, I(0));
+        assert_eq!(trees[2].leaves.len(), 3);
+        assert_eq!(trees[2].internals.len(), 2);
     }
 }

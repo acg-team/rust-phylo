@@ -23,6 +23,10 @@ fn main() -> Result<()> {
     }
     io::write_sequences_to_file(&msa, "msa.fasta")?;
     println!("Alignment scores are {:?}", scores);
+
+    io::read_newick_from_string(&String::from("(((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0,D:0.0)G:2.0;"))?;
+
+    io::read_newick_from_string(&String::from("((A:1.0,B:1.0),(C:2.0,D:1.0))E:1.0;"))?;
     Ok(())
 }
 
