@@ -1,5 +1,7 @@
+use crate::Result2;
+use crate::Result;
+
 use super::njmat::NJMat;
-use super::Result;
 
 use pest::iterators::Pair;
 use pest::Parser;
@@ -87,7 +89,9 @@ pub(crate) struct Tree {
     pub(crate) preorder: Vec<NodeIdx>,
 }
 
-pub(crate) fn from_newick_string(newick_string: &str) -> Result<Vec<Tree>> {
+pub(crate) fn from_newick_string(
+    newick_string: &str,
+) -> Result2<Vec<Tree>, pest::error::Error<Rule>> {
     let mut trees = Vec::new();
     let newick_tree_rule = NewickParser::parse(Rule::newick, newick_string)?
         .next()
@@ -119,7 +123,7 @@ impl Tree {
         }
     }
 
-    fn from_tree_rule(&mut self, tree_rule: Pair<Rule>) -> Result<()> {
+    fn from_tree_rule(&mut self, tree_rule: Pair<Rule>) -> Result2<(), pest::error::Error<Rule>> {
         let mut leaf_idx = 0;
         let mut internal_idx = 0;
         let mut parent_stack = Vec::<usize>::new();
@@ -131,6 +135,10 @@ impl Tree {
                     &mut parent_stack,
                     tree_rule,
                 )?;
+            }
+            Rule::leaf => {
+                self.from_leaf_rule(&mut leaf_idx, tree_rule)?;
+                self.root = Leaf(0);
             }
             _ => unreachable!(),
         }
@@ -145,7 +153,7 @@ impl Tree {
         node_idx: &mut usize,
         stack: &mut Vec<usize>,
         internal_rule: Pair<Rule>,
-    ) -> Result<()> {
+    ) -> Result2<(), pest::error::Error<Rule>> {
         let mut id = String::from("");
         let mut blen = 0.0;
         let mut children: Vec<NodeIdx> = Vec::new();
@@ -163,7 +171,6 @@ impl Tree {
                 Rule::leaf => {
                     children.push(Leaf(*leaf_idx));
                     self.from_leaf_rule(leaf_idx, rule)?;
-
                     *leaf_idx += 1;
                 }
                 _ => unreachable!(),
@@ -182,7 +189,11 @@ impl Tree {
         Ok(())
     }
 
-    fn from_leaf_rule(&mut self, node_idx: &usize, inner_rule: Pair<Rule>) -> Result<()> {
+    fn from_leaf_rule(
+        &mut self,
+        node_idx: &usize,
+        inner_rule: Pair<Rule>,
+    ) -> Result2<(), pest::error::Error<Rule>> {
         let mut id = String::from("");
         let mut blen = 0.0;
         for rule in inner_rule.into_inner() {
@@ -323,6 +334,9 @@ mod tree_tests {
     };
     use approx::relative_eq;
     use nalgebra::dmatrix;
+    use pest::error::ErrorVariant;
+
+    use super::Rule;
 
     #[cfg(test)]
     fn setup_test_tree() -> Tree {
@@ -479,6 +493,23 @@ mod tree_tests {
     }
 
     #[test]
+    fn newick_complex_tree_correct() {
+        // tree from file samplefraction_0.99_taxa_16_treeheight_0.8_tree1_leaves.nwk
+        let trees = from_newick_string(&String::from(
+            "(((15:0.0334274,4:0.0334274):0.38581,7:0.419237):0.380763,(((6:0.0973428,14:0.0973428):0.0773821,\
+            (1:0.000738004,3:0.000738004):0.173987):0.548192,(((13:0.0799156,16:0.0799156):0.0667553,(5:0.123516,\
+                10:0.123516):0.0231551):0.0716431,((8:0.0571164,2:0.0571164):0.0539283,(12:0.0631742,(11:0.00312848,\
+                    9:0.00312848):0.0600458):0.0478705):0.107269):0.504603):0.0770827);
+            ",
+        ))
+        .unwrap();
+        assert_eq!(trees.len(), 1);
+        assert_eq!(trees[0].root, I(0));
+        assert_eq!(trees[0].leaves.len(), 16);
+        assert_eq!(trees[0].internals.len(), 15);
+    }
+
+    #[test]
     fn newick_simple_balanced_correct() {
         let trees = from_newick_string(&String::from(
             "((A:1.0,B:2.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3;",
@@ -504,9 +535,20 @@ mod tree_tests {
     }
 
     #[test]
+    fn newick_tiny_correct() {
+        let trees = from_newick_string(&String::from(
+            "A:1.0;",
+        ))
+        .unwrap();
+        assert_eq!(trees.len(), 1);
+    }
+
+    #[test]
     fn newick_multiple_correct() {
         let trees = from_newick_string(&String::from(
-            "((((A:1.0,B:1.0)F:1.0,C:2.0)G:1.0,D:3.0)H:1.0,E:4.0)I:1.0;((A:1.0,B:2.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3;(A:1.0,(B:1.0,C:1.0)E:2.0)F:1.0;",
+            "((((A:1.0,B:1.0)F:1.0,C:2.0)G:1.0,D:3.0)H:1.0,E:4.0)I:1.0;\
+            ((A:1.0,B:2.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3;\
+            (A:1.0,(B:1.0,C:1.0)E:2.0)F:1.0;",
         ))
         .unwrap();
         assert_eq!(trees.len(), 3);
@@ -519,5 +561,47 @@ mod tree_tests {
         assert_eq!(trees[2].root, I(0));
         assert_eq!(trees[2].leaves.len(), 3);
         assert_eq!(trees[2].internals.len(), 2);
+    }
+
+    #[cfg(test)]
+    fn parsing_error(rules: Vec<Rule>) -> ErrorVariant<Rule> {
+        ErrorVariant::ParsingError {
+            positives: rules,
+            negatives: vec![],
+        }
+    }
+
+    #[test]
+    fn newick_garbage() {
+        let trees = from_newick_string(&String::from(";"));
+        assert!(trees.is_err());
+        assert_eq!(
+            trees.unwrap_err().variant,
+            parsing_error(vec![Rule::newick])
+        );
+        let trees = from_newick_string(&String::from("()()();"));
+        assert!(trees.is_err());
+        assert_eq!(
+            trees.unwrap_err().variant,
+            parsing_error(vec![Rule::internal, Rule::label])
+        );
+        let trees = from_newick_string(&String::from("((A:1.0,B:1.0);"));
+        assert!(trees.is_err());
+        assert_eq!(
+            trees.unwrap_err().variant,
+            parsing_error(vec![Rule::label, Rule::branch_length])
+        );
+        let trees = from_newick_string(&String::from("((A:1.0,B:1.0));"));
+        assert!(trees.is_err());
+        assert_eq!(
+            trees.unwrap_err().variant,
+            parsing_error(vec![Rule::label, Rule::branch_length])
+        );
+        let trees = from_newick_string(&String::from("(:1.0,:2.0)E:5.1;"));
+        assert!(trees.is_err());
+        assert_eq!(
+            trees.unwrap_err().variant,
+            parsing_error(vec![Rule::internal, Rule::label])
+        );
     }
 }

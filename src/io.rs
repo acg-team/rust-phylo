@@ -1,8 +1,9 @@
+use crate::tree::{self, Tree};
+use crate::{Result, Result2};
 use anyhow::anyhow;
 use bio::alphabets;
 use bio::io::fasta;
-use crate::Result;
-use crate::tree::{self, Tree};
+use tree::Rule;
 
 pub(crate) fn read_sequences_from_file(path: &str) -> Result<Vec<fasta::Record>> {
     let reader = fasta::Reader::from_file(path)?;
@@ -31,6 +32,8 @@ pub(crate) fn write_sequences_to_file(sequences: &[fasta::Record], path: &str) -
 }
 
 // Currently parsing only rooted trees
-pub(crate) fn read_newick_from_string(newick: &str) -> Result<Vec<Tree>> {
+pub(crate) fn read_newick_from_string(
+    newick: &str,
+) -> Result2<Vec<Tree>, pest::error::Error<Rule>> {
     tree::from_newick_string(newick)
 }

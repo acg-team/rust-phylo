@@ -6,6 +6,7 @@ mod sequences;
 mod tree;
 
 type Result<T> = std::result::Result<T, Error>;
+type Result2<T, E> = std::result::Result<T, E>;
 
 mod parsimony_alignment;
 
