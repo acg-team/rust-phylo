@@ -308,7 +308,14 @@ pub(crate) fn build_nj_tree(mut nj_data: NJMat) -> Result<Tree> {
 
     for cur_idx in 0..=root_idx {
         let q = nj_data.compute_nj_q();
-        let (i, j) = q.iamax_full();
+        let (mut i, j) = q.iamax_full();
+        // This is a hack to make sure i != j because for some reason DMatrix doesn't have a method
+        // for finding the largest element (only the absolute largest) so this breaks when all
+        // distances are 0.
+        // TODO: Fix this to a proper index finiding of max value
+        if i == j {
+            i += 1;
+        }
         let idx_new = cur_idx;
 
         let (blen_i, blen_j) = nj_data.branch_lengths(i, j, cur_idx == root_idx);
