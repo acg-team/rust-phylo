@@ -11,7 +11,7 @@ type Result2<T, E> = std::result::Result<T, E>;
 mod parsimony_alignment;
 
 fn main() -> Result<()> {
-    let sequences = io::read_sequences_from_file("./data/sequences_DNA4_unaligned.fasta").unwrap();
+    let sequences = io::read_sequences_from_file("./data/sequences_protein1.fasta").unwrap();
     let sequence_type = sequences::get_sequence_type(&sequences);
 
     let nj_distances = sequences::compute_distance_matrix(&sequences);

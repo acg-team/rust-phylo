@@ -1,25 +1,25 @@
 use super::alignment::Alignment;
 use super::alignment::Mapping;
 use super::Direction;
-use crate::sequences;
+use crate::sequences::parsimony_sets;
 use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct ParsAlignSiteInfo {
-    pub(crate) set: u8,
+    pub(crate) set: u32,
     pub(crate) poss_gap: bool,
     pub(crate) perm_gap: bool,
 }
 
 impl ParsAlignSiteInfo {
-    pub(crate) fn new(set: u8, poss_gap: bool, perm_gap: bool) -> ParsAlignSiteInfo {
+    pub(crate) fn new(set: u32, poss_gap: bool, perm_gap: bool) -> ParsAlignSiteInfo {
         ParsAlignSiteInfo {
             set,
             poss_gap,
             perm_gap,
         }
     }
-    pub(crate) fn new_leaf(set: u8) -> ParsAlignSiteInfo {
+    pub(crate) fn new_leaf(set: u32) -> ParsAlignSiteInfo {
         ParsAlignSiteInfo::new(set, false, false)
     }
 }
@@ -326,8 +326,8 @@ impl ParsimonyAlignmentMatrices {
                         alignment.map_y.push(None);
                         alignment.map_x.push(None);
                         alignment.map_y.push(Some(j - 1));
-                        node_info.push(ParsAlignSiteInfo::new(sequences::DNA_GAP, true, true));
-                        node_info.push(ParsAlignSiteInfo::new(sequences::DNA_GAP, true, true));
+                        node_info.push(ParsAlignSiteInfo::new(parsimony_sets::GAP_SET, true, true));
+                        node_info.push(ParsAlignSiteInfo::new(parsimony_sets::GAP_SET, true, true));
                     } else {
                         alignment.map_x.push(Some(i - 1));
                         alignment.map_y.push(Some(j - 1));
@@ -345,7 +345,7 @@ impl ParsimonyAlignmentMatrices {
                     alignment.map_x.push(Some(i - 1));
                     alignment.map_y.push(None);
                     if left_child_info[i - 1].perm_gap || left_child_info[i - 1].poss_gap {
-                        node_info.push(ParsAlignSiteInfo::new(sequences::DNA_GAP, true, true));
+                        node_info.push(ParsAlignSiteInfo::new(parsimony_sets::GAP_SET, true, true));
                     } else {
                         node_info.push(ParsAlignSiteInfo::new(
                             left_child_info[i - 1].set,
@@ -360,7 +360,7 @@ impl ParsimonyAlignmentMatrices {
                     alignment.map_x.push(None);
                     alignment.map_y.push(Some(j - 1));
                     if right_child_info[j - 1].perm_gap || right_child_info[j - 1].poss_gap {
-                        node_info.push(ParsAlignSiteInfo::new(sequences::DNA_GAP, true, true));
+                        node_info.push(ParsAlignSiteInfo::new(parsimony_sets::GAP_SET, true, true));
                     } else {
                         node_info.push(ParsAlignSiteInfo::new(
                             right_child_info[j - 1].set,
@@ -372,7 +372,7 @@ impl ParsimonyAlignmentMatrices {
                     j -= 1;
                 }
                 Direction::Skip => {
-                    panic!("We shouldn't be here");
+                    unreachable!()
                 }
             }
         }

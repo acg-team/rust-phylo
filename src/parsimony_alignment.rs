@@ -372,13 +372,13 @@ mod parsimony_alignment_tests {
         let gap_ext_cost = 0.5;
 
         let leaf_info1 = create_site_info(&[
-            (4u8, false, false),
-            (6u8, false, false),
-            (2u8, true, false),
-            (1u8, true, false),
+            (8, false, false),
+            (12, false, false),
+            (4, true, false),
+            (2, true, false),
         ]);
 
-        let leaf_info2 = create_site_info(&[(8u8, true, false), (4u8, false, false)]);
+        let leaf_info2 = create_site_info(&[(16, true, false), (8, false, false)]);
 
         let (_info, alignment, score) = pars_align_w_rng(
             mismatch_cost,
@@ -394,7 +394,7 @@ mod parsimony_alignment_tests {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn create_site_info(info: &[(u8, bool, bool)]) -> Vec<ParsAlignSiteInfo> {
+    pub(crate) fn create_site_info(info: &[(u32, bool, bool)]) -> Vec<ParsAlignSiteInfo> {
         info.into_iter()
             .map(|(set, poss, perm)| ParsAlignSiteInfo::new(*set, *poss, *perm))
             .collect()
@@ -407,13 +407,13 @@ mod parsimony_alignment_tests {
         let gap_ext_cost = 0.5;
 
         let leaf_info1 = create_site_info(&[
-            (4u8, false, false),
-            (4u8, true, false),
-            (2u8, true, false),
-            (3u8, false, false),
+            (8, false, false),
+            (8, true, false),
+            (4, true, false),
+            (6, false, false),
         ]);
 
-        let leaf_info2 = create_site_info(&[(8u8, true, false), (4u8, false, false)]);
+        let leaf_info2 = create_site_info(&[(16, true, false), (8, false, false)]);
 
         let (_info, alignment, score) = pars_align_w_rng(
             mismatch_cost,
@@ -435,13 +435,13 @@ mod parsimony_alignment_tests {
         let gap_ext_cost = 0.5;
 
         let leaf_info1 = create_site_info(&[
-            (4u8, false, false),
-            (4u8, true, false),
-            (2u8, true, false),
-            (3u8, false, false),
+            (8, false, false),
+            (8, true, false),
+            (4, true, false),
+            (6, false, false),
         ]);
 
-        let leaf_info2 = create_site_info(&[(8u8, true, false), (4u8, false, false)]);
+        let leaf_info2 = create_site_info(&[(16, true, false), (8, false, false)]);
 
         let (_info, alignment, score) = pars_align_w_rng(
             mismatch_cost,
