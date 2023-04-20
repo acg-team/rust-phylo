@@ -1,4 +1,4 @@
-use nalgebra::{max, min, DMatrix};
+use nalgebra::{max, min, DMatrix, ComplexField};
 use super::tree::NodeIdx;
 use super::tree::NodeIdx::Internal as Int;
 
@@ -55,7 +55,7 @@ impl NJMat {
             self.distances[(i, j)] / 2.0
         } else {
             self.distances[(i, j)] / 2.0
-                + (self.distances.row_sum()[i] - self.distances.row_sum()[j])
+                + (self.distances.row_sum()[i] - self.distances.row_sum()[j]).abs()
                     / (2 * (self.distances.ncols() - 2)) as f32
         };
         let blen_j = self.distances[(i, j)] - blen_i;
