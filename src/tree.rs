@@ -1,5 +1,6 @@
-use crate::Result2;
+use crate::njmat::Mat;
 use crate::Result;
+use crate::Result2;
 
 use super::njmat::NJMat;
 
@@ -11,12 +12,13 @@ use pest_derive::Parser;
 #[grammar = "newick.pest"]
 pub struct NewickParser;
 
-#[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Eq, Ord)]
+#[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Eq, Ord, Hash)]
 pub(crate) enum NodeIdx {
     Internal(usize),
     Leaf(usize),
 }
 
+use rand::random;
 use NodeIdx::Internal as Int;
 use NodeIdx::Leaf;
 
@@ -301,21 +303,40 @@ impl Tree {
     }
 }
 
-pub(crate) fn build_nj_tree(mut nj_data: NJMat) -> Result<Tree> {
+fn argmin_wo_diagonal(q: Mat, rng: fn(usize) -> usize) -> (usize, usize) {
+    assert!(!q.is_empty(), "The input matrix must not be empty.");
+    assert!(
+        q.ncols() > 1 && q.nrows() > 1,
+        "The input matrix should have more than 1 element."
+    );
+    let mut arg_min = vec![];
+    let mut val_min = &f32::MAX;
+    for i in 0..q.nrows() {
+        for j in 0..i {
+            let val = &q[(i, j)];
+            if val < val_min {
+                val_min = val;
+                arg_min = vec![(i, j)];
+            } else if val == val_min {
+                arg_min.push((i, j));
+            }
+        }
+    }
+    arg_min[(rng)(arg_min.len())]
+}
+
+fn rng_len(l: usize) -> usize {
+    random::<usize>() % l
+}
+
+pub(crate) fn build_nj_tree_w_rng(mut nj_data: NJMat, rng: fn(usize) -> usize) -> Result<Tree> {
     let n = nj_data.distances.ncols();
     let root_idx = n - 2;
     let mut tree = Tree::new(n, root_idx);
 
     for cur_idx in 0..=root_idx {
         let q = nj_data.compute_nj_q();
-        let (mut i, j) = q.iamax_full();
-        // This is a hack to make sure i != j because for some reason DMatrix doesn't have a method
-        // for finding the largest element (only the absolute largest) so this breaks when all
-        // distances are 0.
-        // TODO: Fix this to a proper index finiding of max value
-        if i == j {
-            i += 1;
-        }
+        let (i, j) = argmin_wo_diagonal(q, rng);
         let idx_new = cur_idx;
 
         let (blen_i, blen_j) = nj_data.branch_lengths(i, j, cur_idx == root_idx);
@@ -332,9 +353,14 @@ pub(crate) fn build_nj_tree(mut nj_data: NJMat) -> Result<Tree> {
     Ok(tree)
 }
 
+pub(crate) fn build_nj_tree(nj_data: NJMat) -> Result<Tree> {
+    build_nj_tree_w_rng(nj_data, rng_len)
+}
+
 #[cfg(test)]
 mod tree_tests {
     use crate::njmat::NJMat;
+    use crate::tree::build_nj_tree_w_rng;
     use crate::tree::{
         build_nj_tree, from_newick_string, Node, NodeIdx, NodeIdx::Internal as I,
         NodeIdx::Leaf as L, Tree,
@@ -391,6 +417,34 @@ mod tree_tests {
     }
 
     #[test]
+    fn nj_correct_web_example() {
+        let nj_distances = NJMat {
+            idx: (0..4).map(NodeIdx::Leaf).collect(),
+            distances: dmatrix![
+                0.0, 4.0, 5.0, 10.0;
+                4.0, 0.0, 7.0, 12.0;
+                5.0, 7.0, 0.0, 9.0;
+                10.0, 12.0, 9.0, 0.0],
+        };
+        let nj_tree = build_nj_tree_w_rng(nj_distances, |_| 0).unwrap();
+        let leaves = vec![
+            Node::new_leaf(0, Some(I(0)), 1.0, "".to_string()),
+            Node::new_leaf(1, Some(I(0)), 3.0, "".to_string()),
+            Node::new_leaf(2, Some(I(1)), 2.0, "".to_string()),
+            Node::new_leaf(3, Some(I(1)), 7.0, "".to_string()),
+        ];
+        let internals = vec![
+            Node::new_internal(0, Some(I(2)), vec![L(0), L(1)], 1.0, "".to_string()),
+            Node::new_internal(1, Some(I(2)), vec![L(3), L(2)], 1.0, "".to_string()),
+            Node::new_internal(2, None, vec![I(0), I(1)], 0.0, "".to_string()),
+        ];
+
+        assert_eq!(nj_tree.root, I(2));
+        assert_eq!(nj_tree.leaves, leaves);
+        assert_eq!(nj_tree.internals, internals);
+    }
+
+    #[test]
     fn nj_correct() {
         let nj_distances = NJMat {
             idx: (0..5).map(NodeIdx::Leaf).collect(),
@@ -401,7 +455,7 @@ mod tree_tests {
                 9.0, 10.0, 8.0, 0.0, 3.0;
                 8.0, 9.0, 7.0, 3.0, 0.0],
         };
-        let nj_tree = build_nj_tree(nj_distances).unwrap();
+        let nj_tree = build_nj_tree_w_rng(nj_distances, |l| 3 % l).unwrap();
         let leaves = vec![
             Node::new_leaf(0, Some(I(0)), 2.0, "".to_string()),
             Node::new_leaf(1, Some(I(0)), 3.0, "".to_string()),
@@ -418,6 +472,31 @@ mod tree_tests {
         assert_eq!(nj_tree.root, I(3));
         assert_eq!(nj_tree.leaves, leaves);
         assert_eq!(nj_tree.internals, internals);
+    }
+
+    #[cfg(test)]
+    fn is_unique<T: std::cmp::Eq + std::hash::Hash>(vec: &Vec<T>) -> bool {
+        let set: std::collections::HashSet<_> = vec.iter().collect();
+        set.len() == vec.len()
+    }
+
+    #[test]
+    fn protein_nj_correct() {
+        // NJ based on example sequences from "./data/sequences_protein1.fasta"
+        let nj_distances = NJMat {
+            idx: (0..4).map(NodeIdx::Leaf).collect(),
+            distances: dmatrix![
+                0.0, 0.0, 0.0, 0.2;
+                0.0, 0.0, 0.0, 0.2;
+                0.0, 0.0, 0.0, 0.2;
+                0.2, 0.2, 0.2, 0.0],
+        };
+        let tree = build_nj_tree(nj_distances).unwrap();
+        assert_eq!(tree.internals.len(), 3);
+        assert_eq!(tree.postorder.len(), 7);
+        assert!(is_unique(&tree.postorder));
+        assert_eq!(tree.preorder.len(), 7);
+        assert!(is_unique(&tree.preorder));
     }
 
     #[test]
@@ -543,11 +622,11 @@ mod tree_tests {
 
     #[test]
     fn newick_tiny_correct() {
-        let trees = from_newick_string(&String::from(
-            "A:1.0;",
-        ))
-        .unwrap();
+        let trees = from_newick_string(&String::from("A:1.0;")).unwrap();
         assert_eq!(trees.len(), 1);
+        assert_eq!(trees[0].root, L(0));
+        assert_eq!(trees[0].leaves.len(), 1);
+        assert_eq!(trees[0].internals.len(), 0);
     }
 
     #[test]
