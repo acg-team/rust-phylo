@@ -1,6 +1,6 @@
-use nalgebra::{max, min, DMatrix, ComplexField};
 use super::tree::NodeIdx;
 use super::tree::NodeIdx::Internal as Int;
+use nalgebra::{max, min, DMatrix};
 
 use std::fmt::Display;
 
@@ -55,17 +55,25 @@ impl NJMat {
             self.distances[(i, j)] / 2.0
         } else {
             self.distances[(i, j)] / 2.0
-                + (self.distances.row_sum()[i] - self.distances.row_sum()[j]).abs()
-                    / (2 * (self.distances.ncols() - 2)) as f32
+                + (self.distances.row_sum()[i]
+                - self.distances.row_sum()[j])
+                / (2 * (self.distances.ncols() - 2)) as f32
         };
-        let blen_j = self.distances[(i, j)] - blen_i;
-        (blen_i, if blen_j < 0.0 {0.0} else {blen_j})
+        let blen_j = if is_root {
+            self.distances[(j, i)] / 2.0
+        } else {
+            self.distances[(j, i)] / 2.0
+                + (self.distances.row_sum()[j]
+                - self.distances.row_sum()[i])
+                / (2 * (self.distances.ncols() - 2)) as f32
+        };
+        (if blen_i < 0.0 { 0.0 } else { blen_i }, if blen_j < 0.0 { 0.0 } else { blen_j })
     }
 
     pub(crate) fn compute_nj_q(&self) -> Mat {
         let n = self.distances.ncols();
         let s = self.distances.row_sum();
-        Mat::from_fn(n, n, |r, c| {
+        Mat::from_fn(n, n, |r, c| -> f32 {
             if r == c {
                 0.0
             } else {
