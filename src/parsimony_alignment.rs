@@ -240,7 +240,6 @@ mod parsimony_alignment_tests {
     pub(crate) fn alignment_compile_root() {
         let (tree, sequences, alignment) = setup_test_tree();
         let msa = compile_alignment(&tree, &sequences, &alignment, None);
-        println!("{:?}", msa);
         assert_eq!(msa[0].seq(), "AAAAA".as_bytes());
         assert_eq!(msa[1].seq(), "---A-".as_bytes());
         assert_eq!(msa[2].seq(), "AA---".as_bytes());
@@ -252,9 +251,6 @@ mod parsimony_alignment_tests {
     pub(crate) fn alignment_compile_internal1() {
         let (tree, sequences, alignment) = setup_test_tree();
         let msa = compile_alignment(&tree, &sequences, &alignment, Some(I(0)));
-        for seq in &msa {
-            println!("{}", seq);
-        }
         assert_eq!(msa[0].seq(), "AAAAA".as_bytes());
         assert_eq!(msa[1].seq(), "---A-".as_bytes());
     }
@@ -263,9 +259,6 @@ mod parsimony_alignment_tests {
     pub(crate) fn alignment_compile_internal2() {
         let (tree, sequences, alignment) = setup_test_tree();
         let msa = compile_alignment(&tree, &sequences, &alignment, Some(I(1)));
-        for seq in &msa {
-            println!("{}", seq);
-        }
         assert_eq!(msa[0].seq(), "-A-".as_bytes());
         assert_eq!(msa[1].seq(), "AAA".as_bytes());
     }
