@@ -2,6 +2,7 @@ use super::alignment::Alignment;
 use super::alignment::Mapping;
 use super::Direction;
 use crate::sequences::parsimony_sets;
+use crate::sequences::parsimony_sets::EMPTY_SET;
 use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -332,7 +333,7 @@ impl ParsimonyAlignmentMatrices {
                         alignment.map_x.push(Some(i - 1));
                         alignment.map_y.push(Some(j - 1));
                         let mut set = left_child_info[i - 1].set & right_child_info[j - 1].set;
-                        if set == 0 {
+                        if set == EMPTY_SET {
                             set = left_child_info[i - 1].set | right_child_info[j - 1].set;
                         }
                         node_info.push(ParsAlignSiteInfo::new(set, false, false));
