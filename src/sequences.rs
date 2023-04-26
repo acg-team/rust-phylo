@@ -15,17 +15,17 @@ pub(crate) enum SequenceType {
     Protein,
 }
 
-fn charify(chars: &str) -> Vec<u8> {
+pub(crate) fn charify(chars: &str) -> Vec<u8> {
     chars
         .chars()
         .map(|c| c as u8)
         .collect()
 }
 
-static AMINOACIDS_STR: &str = "ARNDCQEGHILKMFPSTWYV";
+pub(crate) static AMINOACIDS_STR: &str = "ARNDCQEGHILKMFPSTWYV";
 static AMB_AMINOACIDS_STR: &str = "BJZX";
 
-static NUCLEOTIDES_STR: &str = "TCAG";
+pub(crate) static NUCLEOTIDES_STR: &str = "TCAG";
 static AMB_NUCLEOTIDES_STR: &str = "RYSWKMBDHVNZX";
 
 static GAP: u8 = b'-';
