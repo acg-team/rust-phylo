@@ -1,6 +1,6 @@
-use nalgebra::SMatrix;
-
 use crate::sequences::{AMINOACIDS_STR, charify};
+
+use super::ProteinSubstMatrix;
 
 pub(crate) fn aminoacid_index() -> [i32; 255] {
     let mut index = [-1 as i32; 255];
@@ -11,11 +11,19 @@ pub(crate) fn aminoacid_index() -> [i32; 255] {
     index
 }
 
-pub(crate) fn protein_matrix(q: [[f64; 20]; 20]) -> SMatrix<f64, 20, 20> {
-    SMatrix::from(q)
+pub(crate) fn WAG() -> ProteinSubstMatrix {
+    ProteinSubstMatrix::from(WAG_arr)
 }
 
-pub(crate) const WAG: [[f64; 20]; 20] = [
+pub(crate) fn BLOSUM() -> ProteinSubstMatrix {
+    ProteinSubstMatrix::from(BLOSUM_arr)
+}
+
+pub(crate) fn HIVB() -> ProteinSubstMatrix {
+    ProteinSubstMatrix::from(HIVB_arr)
+}
+
+const WAG_arr: [[f64; 20]; 20] = [
     [
         -1.11715057e+00,
         2.54545984e-02,
@@ -458,7 +466,7 @@ pub(crate) const WAG: [[f64; 20]; 20] = [
     ],
 ];
 
-pub(crate) const BLOSUM: [[f64; 20]; 20] = [
+const BLOSUM_arr: [[f64; 20]; 20] = [
     [
         -1.16422331,
         0.04700554,
@@ -901,7 +909,7 @@ pub(crate) const BLOSUM: [[f64; 20]; 20] = [
     ],
 ];
 
-pub(crate) const HIVB: [[f64; 20]; 20] = [
+const HIVB_arr: [[f64; 20]; 20] = [
     [
         -9.43243978e-01,
         3.44885537e-03,
