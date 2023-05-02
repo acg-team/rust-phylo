@@ -1,6 +1,6 @@
 use crate::sequences::{charify, NUCLEOTIDES_STR};
 
-use super::DNASubstMatrix;
+use super::{DNASubstMatrix, DNAFrequencies};
 
 pub(crate) fn nucleotide_index() -> [i32; 255] {
     let mut index = [-1 as i32; 255];
@@ -11,11 +11,11 @@ pub(crate) fn nucleotide_index() -> [i32; 255] {
     index
 }
 
-pub(crate) fn JC69() -> DNASubstMatrix {
-    DNASubstMatrix::from(JC69_arr)
+pub(crate) fn jc69() -> (DNASubstMatrix, DNAFrequencies) {
+    (DNASubstMatrix::from(JC69_ARR), DNAFrequencies::from(JC69_PI_ARR))
 }
 
-pub(crate) fn K80(alpha: f64, beta: f64) -> DNASubstMatrix {
+pub(crate) fn k80(alpha: f64, beta: f64) -> DNASubstMatrix {
     DNASubstMatrix::from([
         [
             -1.0,
@@ -44,7 +44,7 @@ pub(crate) fn K80(alpha: f64, beta: f64) -> DNASubstMatrix {
     ])
 }
 
-pub(crate) fn GTR(
+pub(crate) fn gtr(
     f_t: f64,
     f_c: f64,
     f_a: f64,
@@ -90,9 +90,11 @@ pub(crate) fn GTR(
     q * scale
 }
 
-const JC69_arr: [[f64; 4]; 4] = [
+const JC69_ARR: [[f64; 4]; 4] = [
     [-1.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0],
     [1.0 / 3.0, -1.0, 1.0 / 3.0, 1.0 / 3.0],
     [1.0 / 3.0, 1.0 / 3.0, -1.0, 1.0 / 3.0],
     [1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, -1.0],
 ];
+
+const JC69_PI_ARR: [f64; 4] = [0.25, 0.25, 0.25, 0.25];

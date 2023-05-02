@@ -1,6 +1,6 @@
-use crate::sequences::{AMINOACIDS_STR, charify};
+use crate::sequences::{charify, AMINOACIDS_STR};
 
-use super::ProteinSubstMatrix;
+use super::{ProteinSubstMatrix, ProteinFrequencies};
 
 pub(crate) fn aminoacid_index() -> [i32; 255] {
     let mut index = [-1 as i32; 255];
@@ -11,19 +11,19 @@ pub(crate) fn aminoacid_index() -> [i32; 255] {
     index
 }
 
-pub(crate) fn WAG() -> ProteinSubstMatrix {
-    ProteinSubstMatrix::from(WAG_arr)
+pub(crate) fn wag() -> (ProteinSubstMatrix, ProteinFrequencies) {
+    (ProteinSubstMatrix::from(WAG_ARR), ProteinFrequencies::from(WAG_PI_ARR))
 }
 
-pub(crate) fn BLOSUM() -> ProteinSubstMatrix {
-    ProteinSubstMatrix::from(BLOSUM_arr)
-}
+// pub(crate) fn blosum() -> (ProteinSubstMatrix, ProteinFrequencies) {
+//     ProteinSubstMatrix::from(BLOSUM_ARR)
+// }
 
-pub(crate) fn HIVB() -> ProteinSubstMatrix {
-    ProteinSubstMatrix::from(HIVB_arr)
-}
+// pub(crate) fn hivb() -> (ProteinSubstMatrix, ProteinFrequencies) {
+//     ProteinSubstMatrix::from(HIVB_ARR)
+// }
 
-const WAG_arr: [[f64; 20]; 20] = [
+const WAG_ARR: [[f64; 20]; 20] = [
     [
         -1.11715057e+00,
         2.54545984e-02,
@@ -466,7 +466,13 @@ const WAG_arr: [[f64; 20]; 20] = [
     ],
 ];
 
-const BLOSUM_arr: [[f64; 20]; 20] = [
+const WAG_PI_ARR: [f64; 20] = [
+    0.0866279, 0.0439720, 0.0390894, 0.0570451, 0.0193078, 0.0367281, 0.0580589, 0.0832518,
+    0.0244313, 0.0484660, 0.0862090, 0.0620286, 0.0195027, 0.0384319, 0.0457631, 0.0695179,
+    0.0610127, 0.0143859, 0.0352742, 0.0708956,
+];
+
+const BLOSUM_ARR: [[f64; 20]; 20] = [
     [
         -1.16422331,
         0.04700554,
@@ -909,7 +915,7 @@ const BLOSUM_arr: [[f64; 20]; 20] = [
     ],
 ];
 
-const HIVB_arr: [[f64; 20]; 20] = [
+const HIVB_ARR: [[f64; 20]; 20] = [
     [
         -9.43243978e-01,
         3.44885537e-03,
