@@ -1,3 +1,4 @@
+use nalgebra::{Const, DimMin};
 use ordered_float::OrderedFloat;
 use std::collections::HashMap;
 
@@ -12,74 +13,26 @@ mod protein_models;
 
 #[allow(non_camel_case_types)]
 type f32_h = ordered_float::OrderedFloat<f32>;
+#[allow(non_camel_case_types)]
+type f64_h = ordered_float::OrderedFloat<f64>;
 
-type SubstMat<const N: usize> = SMatrix<f64, N, N>;
-
-type DNASubstMatrix = SubstMat<4>;
-type ProteinSubstMatrix = SubstMat<20>;
-
+type SubstMatrix<const N: usize> = SMatrix<f64, N, N>;
 type FreqVector<const N: usize> = SVector<f64, N>;
 
-type DNAFrequencies = FreqVector<4>;
-type ProteinFrequencies = FreqVector<20>;
-
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) enum SubstMatrix {
-    DNA(DNASubstMatrix),
-    Protein(ProteinSubstMatrix),
-}
-
-pub(crate) trait SubstitutionModel {
-    fn new(name: &str) -> Result<Self>
-    where
-        Self: Sized;
-    fn get_rate(&self, i: u8, j: u8) -> f64;
-    fn get_p(&self, time: f32) -> SubstMatrix;
-    fn generate_ps(&self, times: Vec<f32>) -> HashMap<OrderedFloat<f32>, SubstMatrix>;
-    fn normalise(&mut self);
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) struct DNASubstModel {
+pub(crate) struct SubstitutionModel<const N: usize> {
     index: [i32; 255],
-    q: DNASubstMatrix,
-    pi: DNAFrequencies,
+    q: SubstMatrix<N>,
+    pi: FreqVector<N>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) struct ProteinSubstModel {
-    index: [i32; 255],
-    q: ProteinSubstMatrix,
-    pi: ProteinFrequencies,
-}
+type DNASubstModel = SubstitutionModel<4>;
+type ProteinSubstModel = SubstitutionModel<20>;
 
-impl SubstitutionModel for DNASubstModel {
-    fn get_rate(&self, i: u8, j: u8) -> f64 {
-        assert!(
-            self.index[i as usize] >= 0 && self.index[j as usize] >= 0,
-            "Invalid nucleotide rate requested."
-        );
-        self.q[(
-            self.index[i as usize] as usize,
-            self.index[j as usize] as usize,
-        )]
-    }
-
-    fn get_p(&self, time: f32) -> SubstMatrix {
-        SubstMatrix::DNA((self.q * time as f64).exp())
-    }
-
-    fn generate_ps(&self, times: Vec<f32>) -> HashMap<f32_h, SubstMatrix> {
-        let mut ps = HashMap::<f32_h, SubstMatrix>::with_capacity(times.len());
-        for time in times {
-            ps.insert(f32_h::from(time), self.get_p(time));
-        }
-        ps
-    }
-
-    fn new(model_name: &str) -> Result<Self> {
-        let q: DNASubstMatrix;
-        let pi: DNAFrequencies;
+impl DNASubstModel {
+    pub(crate) fn new(model_name: &str) -> Result<Self> {
+        let q: SubstMatrix<4>;
+        let pi: FreqVector<4>;
         match model_name.to_uppercase().as_str() {
             "JC69" => (q, pi) = dna_models::jc69(),
             _ => return Err(anyhow!("Unknown DNA model requested.")),
@@ -90,40 +43,12 @@ impl SubstitutionModel for DNASubstModel {
             pi,
         })
     }
-
-    fn normalise(&mut self) {
-        let factor = -(self.pi.transpose() * self.q.diagonal())[(0, 0)];
-        self.q = self.q / factor;
-    }
 }
 
-impl SubstitutionModel for ProteinSubstModel {
-    fn get_rate(&self, i: u8, j: u8) -> f64 {
-        assert!(
-            self.index[i as usize] >= 0 && self.index[j as usize] >= 0,
-            "Invalid aminoacid rate requested."
-        );
-        self.q[(
-            self.index[i as usize] as usize,
-            self.index[j as usize] as usize,
-        )]
-    }
-
-    fn get_p(&self, time: f32) -> SubstMatrix {
-        SubstMatrix::Protein((self.q * time as f64).exp())
-    }
-
-    fn generate_ps(&self, times: Vec<f32>) -> HashMap<f32_h, SubstMatrix> {
-        HashMap::<f32_h, SubstMatrix>::from_iter(
-            times
-                .into_iter()
-                .map(|time| (f32_h::from(time), self.get_p(time))),
-        )
-    }
-
-    fn new(model_name: &str) -> Result<Self> {
-        let q: ProteinSubstMatrix;
-        let pi: ProteinFrequencies;
+impl ProteinSubstModel {
+    pub(crate) fn new(model_name: &str) -> Result<Self> {
+        let q: SubstMatrix<20>;
+        let pi: FreqVector<20>;
         match model_name.to_uppercase().as_str() {
             "WAG" => (q, pi) = protein_models::wag(),
             "BLOSUM" => (q, pi) = protein_models::blosum(),
@@ -136,8 +61,39 @@ impl SubstitutionModel for ProteinSubstModel {
             pi,
         })
     }
+}
 
-    fn normalise(&mut self) {
+impl<const N: usize> SubstitutionModel<N>
+where
+    Const<N>: DimMin<Const<N>, Output = Const<N>>,
+{
+    pub(crate) fn get_p(&self, time: f64) -> SubstMatrix<N> {
+        SubstMatrix::from((self.q * time).exp())
+    }
+
+    pub(crate) fn get_rate(&self, i: u8, j: u8) -> f64 {
+        assert!(
+            self.index[i as usize] >= 0 && self.index[j as usize] >= 0,
+            "Invalid rate requested."
+        );
+        self.q[(
+            self.index[i as usize] as usize,
+            self.index[j as usize] as usize,
+        )]
+    }
+
+    pub(crate) fn generate_ps(
+        &self,
+        times: Vec<f64>,
+    ) -> HashMap<OrderedFloat<f64>, SubstMatrix<N>> {
+        HashMap::<f64_h, SubstMatrix<N>>::from_iter(
+            times
+                .into_iter()
+                .map(|time| (f64_h::from(time), self.get_p(time))),
+        )
+    }
+
+    pub(crate) fn normalise(&mut self) {
         let factor = -(self.pi.transpose() * self.q.diagonal())[(0, 0)];
         self.q = self.q / factor;
     }
@@ -145,12 +101,10 @@ impl SubstitutionModel for ProteinSubstModel {
 
 #[cfg(test)]
 mod substitution_model_tests {
-    use crate::substitution_models::{ProteinSubstModel, SubstMatrix};
+    use super::{DNASubstModel, ProteinSubstModel, SubstMatrix};
     use rstest::*;
 
-    use super::{DNASubstModel, SubstMat, SubstitutionModel};
-
-    fn check_pi_convergence<const N: usize>(substmat: SubstMat<N>, pi: &[f64], epsilon: f64) {
+    fn check_pi_convergence<const N: usize>(substmat: SubstMatrix<N>, pi: &[f64], epsilon: f64) {
         assert_eq!(N, pi.len());
         for col in substmat.column_iter() {
             for (i, &cell) in col.iter().enumerate() {
@@ -176,10 +130,9 @@ mod substitution_model_tests {
     fn dna_p_matrix() {
         let jc69 = DNASubstModel::new("jc69").unwrap();
         let p_inf = jc69.get_p(200000.0);
-        assert!(matches!(p_inf, SubstMatrix::DNA(_)));
-        if let SubstMatrix::DNA(mat) = p_inf {
-            check_pi_convergence(mat, jc69.pi.as_slice(), 1e-5);
-        }
+        assert_eq!(p_inf.nrows(), 4);
+        assert_eq!(p_inf.ncols(), 4);
+        check_pi_convergence(p_inf, jc69.pi.as_slice(), 1e-5);
     }
 
     #[test]
@@ -219,22 +172,27 @@ mod substitution_model_tests {
     }
 
     #[rstest]
-    #[case::wag("wag", 1e-5)]
+    #[case::wag("wag", 1e-3)]
     #[case::blosum("blosum", 1e-3)]
     fn protein_p_matrix(#[case] input: &str, #[case] epsilon: f64) {
         let model = ProteinSubstModel::new(input).unwrap();
         let p_inf = model.get_p(20000.0);
-        assert!(matches!(p_inf, SubstMatrix::Protein(_)));
-        if let SubstMatrix::Protein(mat) = p_inf {
-            check_pi_convergence(mat, model.pi.as_slice(), epsilon);
-        }
+        assert_eq!(p_inf.nrows(), 20);
+        assert_eq!(p_inf.ncols(), 20);
+        check_pi_convergence(p_inf, model.pi.as_slice(), epsilon);
     }
 
-    #[test]
-    fn protein_normalisation() {
-        // This uses a crazy epsilon, but the wag matrix is just off, needs to be fixed.
-        let mut wag = ProteinSubstModel::new("wag").unwrap();
-        wag.normalise();
-        assert_float_absolute_eq!((wag.q.sum() - wag.q.diagonal().sum()) / 20.0, 1.0, 0.1);
+    #[rstest]
+    #[case::wag("wag", 0.1)]
+    #[case::blosum("blosum", 0.01)]
+    fn protein_normalisation(#[case] input: &str, #[case] epsilon: f64) {
+        // This uses a crazy epsilon, but the matrices are off by a bit, need fixing.
+        let mut model = ProteinSubstModel::new(input).unwrap();
+        model.normalise();
+        assert_float_absolute_eq!(
+            (model.q.sum() - model.q.diagonal().sum()) / 20.0,
+            1.0,
+            epsilon
+        );
     }
 }

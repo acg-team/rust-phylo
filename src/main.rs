@@ -10,8 +10,6 @@ mod tree;
 mod substitution_models;
 mod parsimony_alignment;
 
-use crate::substitution_models::SubstitutionModel;
-
 type Result<T> = std::result::Result<T, Error>;
 type Result2<T, E> = std::result::Result<T, E>;
 
@@ -31,7 +29,7 @@ fn main() -> Result<()> {
 
     io::read_newick_from_string(&String::from("(((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0,D:0.0)G:2.0;"))?;
 
-    let wag = substitution_models::ProteinSubstModel::new("WAG").unwrap();
+    let wag = substitution_models::SubstitutionModel::<20>::new("WAG").unwrap();
     println!("{:?}", wag.get_rate(b'A', b'A'));
 
     Ok(())

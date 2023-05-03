@@ -1,6 +1,9 @@
 use crate::sequences::{charify, NUCLEOTIDES_STR};
 
-use super::{DNASubstMatrix, DNAFrequencies};
+use super::{FreqVector, SubstMatrix};
+
+type DNASubstMatrix = SubstMatrix<4>;
+type DNAFreqVector = FreqVector<4>;
 
 pub(crate) fn nucleotide_index() -> [i32; 255] {
     let mut index = [-1 as i32; 255];
@@ -11,8 +14,11 @@ pub(crate) fn nucleotide_index() -> [i32; 255] {
     index
 }
 
-pub(crate) fn jc69() -> (DNASubstMatrix, DNAFrequencies) {
-    (DNASubstMatrix::from(JC69_ARR), DNAFrequencies::from(JC69_PI_ARR))
+pub(crate) fn jc69() -> (DNASubstMatrix, DNAFreqVector) {
+    (
+        DNASubstMatrix::from(JC69_ARR),
+        DNAFreqVector::from(JC69_PI_ARR),
+    )
 }
 
 pub(crate) fn k80(alpha: f64, beta: f64) -> DNASubstMatrix {
