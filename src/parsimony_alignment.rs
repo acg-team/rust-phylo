@@ -1,18 +1,21 @@
-mod alignment;
-mod parsimony_info;
+pub(crate) mod parsimony_info;
+pub(crate) mod parsimony_matrices;
+pub(crate) mod parsimony_sets;
 
 use bio::io::fasta::Record;
 // use nalgebra::SMatrix;
 use rand::prelude::*;
 
 use crate::{
-    sequences::{get_parsimony_sets, SequenceType},
+    parsimony_alignment::parsimony_sets::get_parsimony_sets,
+    sequences::SequenceType,
     // substitution_models::{dna_models, protein_models},
-    tree::{self, NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf},
+    tree::{self, NodeIdx::Internal as Int, NodeIdx::Leaf},
 };
 
-use alignment::Alignment;
-use parsimony_info::{ParsAlignSiteInfo, ParsimonyAlignmentMatrices};
+use crate::alignment::Alignment;
+use parsimony_info::ParsimonySiteInfo;
+use parsimony_matrices::ParsimonyAlignmentMatrices;
 
 // type CostMatrix<const N: usize> = SMatrix<f64, N, N>;
 
@@ -103,10 +106,10 @@ fn rng_len(l: usize) -> usize {
 
 fn pars_align_w_rng(
     scoring: &impl ParsimonyCosts,
-    left_child_info: &[ParsAlignSiteInfo],
-    right_child_info: &[ParsAlignSiteInfo],
+    left_child_info: &[ParsimonySiteInfo],
+    right_child_info: &[ParsimonySiteInfo],
     rng: fn(usize) -> usize,
-) -> (Vec<ParsAlignSiteInfo>, Alignment, f64) {
+) -> (Vec<ParsimonySiteInfo>, Alignment, f64) {
     let mut pars_mats =
         ParsimonyAlignmentMatrices::new(left_child_info.len() + 1, right_child_info.len() + 1, rng);
     pars_mats.fill_matrices(left_child_info, right_child_info, scoring);
@@ -115,9 +118,9 @@ fn pars_align_w_rng(
 
 fn pars_align(
     scoring: &impl ParsimonyCosts,
-    left_child_info: &[ParsAlignSiteInfo],
-    right_child_info: &[ParsAlignSiteInfo],
-) -> (Vec<ParsAlignSiteInfo>, Alignment, f64) {
+    left_child_info: &[ParsimonySiteInfo],
+    right_child_info: &[ParsimonySiteInfo],
+) -> (Vec<ParsimonySiteInfo>, Alignment, f64) {
     pars_align_w_rng(scoring, left_child_info, right_child_info, rng_len)
 }
 
@@ -134,8 +137,8 @@ pub(crate) fn pars_align_on_tree(
 
     assert_eq!(tree.internals.len() + tree.leaves.len(), order.len());
 
-    let mut internal_info = vec![Vec::<ParsAlignSiteInfo>::new(); tree.internals.len()];
-    let mut leaf_info = vec![Vec::<ParsAlignSiteInfo>::new(); tree.leaves.len()];
+    let mut internal_info = vec![Vec::<ParsimonySiteInfo>::new(); tree.internals.len()];
+    let mut leaf_info = vec![Vec::<ParsimonySiteInfo>::new(); tree.leaves.len()];
     let mut alignments = vec![Alignment::empty(); tree.internals.len()];
     let mut scores = vec![0.0; tree.internals.len()];
 
@@ -164,78 +167,12 @@ pub(crate) fn pars_align_on_tree(
                 let pars_sets = get_parsimony_sets(&sequences[idx], sequence_type);
                 leaf_info[idx] = pars_sets
                     .into_iter()
-                    .map(ParsAlignSiteInfo::new_leaf)
+                    .map(ParsimonySiteInfo::new_leaf)
                     .collect();
             }
         }
     }
     (alignments, scores)
-}
-
-pub(crate) fn compile_alignment(
-    tree: &tree::Tree,
-    sequences: &[Record],
-    alignment: &[Alignment],
-    subroot: Option<NodeIdx>,
-) -> Vec<Record> {
-    let subroot_idx = match subroot {
-        Some(idx) => idx,
-        None => tree.root,
-    };
-    let order = tree.preorder_subroot(subroot_idx);
-    let mut alignment_stack =
-        vec![Vec::<Option<usize>>::new(); tree.internals.len() + tree.leaves.len()];
-
-    match subroot_idx {
-        Int(idx) => alignment_stack[idx] = (0..alignment[idx].map_x.len()).map(Some).collect(),
-        Leaf(idx) => return vec![sequences[idx].clone()],
-    }
-
-    let mut msa = Vec::<Record>::with_capacity(tree.leaves.len());
-    for node_idx in order {
-        match node_idx {
-            Int(idx) => {
-                let mut padded_map_x = vec![None; alignment_stack[idx].len()];
-                let mut padded_map_y = vec![None; alignment_stack[idx].len()];
-                for (mapping_index, site) in alignment_stack[idx].iter().enumerate() {
-                    if let Some(index) = site {
-                        padded_map_x[mapping_index] = alignment[idx].map_x[*index];
-                        padded_map_y[mapping_index] = alignment[idx].map_y[*index];
-                    }
-                }
-                match tree.internals[idx].children[0] {
-                    Int(child_idx) => alignment_stack[child_idx] = padded_map_x,
-                    Leaf(child_idx) => {
-                        alignment_stack[tree.internals.len() + child_idx] = padded_map_x
-                    }
-                }
-                match tree.internals[idx].children[1] {
-                    Int(child_idx) => alignment_stack[child_idx] = padded_map_y,
-                    Leaf(child_idx) => {
-                        alignment_stack[tree.internals.len() + child_idx] = padded_map_y
-                    }
-                }
-            }
-            Leaf(idx) => {
-                let mut sequence = vec![b'-'; alignment_stack[tree.internals.len() + idx].len()];
-                for (alignment_index, site) in alignment_stack[tree.internals.len() + idx]
-                    .iter()
-                    .enumerate()
-                {
-                    if let Some(index) = site {
-                        sequence[alignment_index] = sequences[idx].seq()[*index]
-                    }
-                }
-                msa.push(Record::with_attrs(
-                    sequences[idx].id(),
-                    sequences[idx].desc(),
-                    &sequence,
-                ));
-            }
-        }
-    }
-    msa.sort_by(|a, b| sequence_idx(sequences, a).cmp(&sequence_idx(sequences, b)));
-    msa
 }
 
 pub(crate) fn sequence_idx(sequences: &[Record], search: &Record) -> usize {
@@ -247,12 +184,12 @@ pub(crate) fn sequence_idx(sequences: &[Record], search: &Record) -> usize {
 
 #[cfg(test)]
 mod parsimony_alignment_tests {
-    use crate::parsimony_alignment::ParsimonyCostsSimple;
+    use crate::alignment::{compile_alignment_representation, Alignment};
     use crate::parsimony_alignment::{
-        alignment::Alignment, compile_alignment, pars_align_on_tree, pars_align_w_rng,
-        parsimony_info::ParsAlignSiteInfo,
+        pars_align_on_tree, pars_align_w_rng, parsimony_info::ParsimonySiteInfo,
+        parsimony_sets::get_parsimony_sets, ParsimonyCostsSimple,
     };
-    use crate::sequences::{get_parsimony_sets, SequenceType};
+    use crate::sequences::SequenceType;
     use crate::tree::{NodeIdx::Internal as I, NodeIdx::Leaf as L, Tree};
 
     use bio::io::fasta::Record;
@@ -296,7 +233,7 @@ mod parsimony_alignment_tests {
     #[test]
     pub(crate) fn alignment_compile_root() {
         let (tree, sequences, alignment) = setup_test_tree();
-        let msa = compile_alignment(&tree, &sequences, &alignment, None);
+        let msa = compile_alignment_representation(&tree, &sequences, &alignment, None);
         assert_eq!(msa[0].seq(), "AAAAA".as_bytes());
         assert_eq!(msa[1].seq(), "---A-".as_bytes());
         assert_eq!(msa[2].seq(), "AA---".as_bytes());
@@ -307,7 +244,7 @@ mod parsimony_alignment_tests {
     #[test]
     pub(crate) fn alignment_compile_internal1() {
         let (tree, sequences, alignment) = setup_test_tree();
-        let msa = compile_alignment(&tree, &sequences, &alignment, Some(I(0)));
+        let msa = compile_alignment_representation(&tree, &sequences, &alignment, Some(I(0)));
         assert_eq!(msa[0].seq(), "AAAAA".as_bytes());
         assert_eq!(msa[1].seq(), "---A-".as_bytes());
     }
@@ -315,7 +252,7 @@ mod parsimony_alignment_tests {
     #[test]
     pub(crate) fn alignment_compile_internal2() {
         let (tree, sequences, alignment) = setup_test_tree();
-        let msa = compile_alignment(&tree, &sequences, &alignment, Some(I(1)));
+        let msa = compile_alignment_representation(&tree, &sequences, &alignment, Some(I(1)));
         assert_eq!(msa[0].seq(), "-A-".as_bytes());
         assert_eq!(msa[1].seq(), "AAA".as_bytes());
     }
@@ -331,15 +268,15 @@ mod parsimony_alignment_tests {
             Record::with_attrs("A", None, b"AACT"),
             Record::with_attrs("B", None, b"AC"),
         ];
-        let leaf_info1: Vec<ParsAlignSiteInfo> =
+        let leaf_info1: Vec<ParsimonySiteInfo> =
             get_parsimony_sets(&sequences[0], &SequenceType::DNA)
                 .into_iter()
-                .map(ParsAlignSiteInfo::new_leaf)
+                .map(ParsimonySiteInfo::new_leaf)
                 .collect();
-        let leaf_info2: Vec<ParsAlignSiteInfo> =
+        let leaf_info2: Vec<ParsimonySiteInfo> =
             get_parsimony_sets(&sequences[1], &SequenceType::DNA)
                 .into_iter()
-                .map(ParsAlignSiteInfo::new_leaf)
+                .map(ParsimonySiteInfo::new_leaf)
                 .collect();
         let (_info, alignment, score) =
             pars_align_w_rng(&scoring, &leaf_info1, &leaf_info2, |l| l - 1);
@@ -360,22 +297,17 @@ mod parsimony_alignment_tests {
             Record::with_attrs("A", None, b"AACT"),
             Record::with_attrs("B", None, b"AC"),
         ];
-        let leaf_info1: Vec<ParsAlignSiteInfo> =
+        let leaf_info1: Vec<ParsimonySiteInfo> =
             get_parsimony_sets(&sequences[0], &SequenceType::DNA)
                 .into_iter()
-                .map(ParsAlignSiteInfo::new_leaf)
+                .map(ParsimonySiteInfo::new_leaf)
                 .collect();
-        let leaf_info2: Vec<ParsAlignSiteInfo> =
+        let leaf_info2: Vec<ParsimonySiteInfo> =
             get_parsimony_sets(&sequences[1], &SequenceType::DNA)
                 .into_iter()
-                .map(ParsAlignSiteInfo::new_leaf)
+                .map(ParsimonySiteInfo::new_leaf)
                 .collect();
-        let (_info, alignment, score) = pars_align_w_rng(
-         &scoring,
-            &leaf_info1,
-            &leaf_info2,
-            |_| 0,
-        );
+        let (_info, alignment, score) = pars_align_w_rng(&scoring, &leaf_info1, &leaf_info2, |_| 0);
         assert_eq!(score, 3.5);
         assert_eq!(alignment.map_x.len(), 4);
         assert_eq!(alignment.map_y.len(), 4);
@@ -426,21 +358,16 @@ mod parsimony_alignment_tests {
 
         let leaf_info2 = create_site_info(&[(16, true, false), (8, false, false)]);
 
-        let (_info, alignment, score) = pars_align_w_rng(
-            &scoring,
-            &leaf_info1,
-            &leaf_info2,
-            |_| 0,
-        );
+        let (_info, alignment, score) = pars_align_w_rng(&scoring, &leaf_info1, &leaf_info2, |_| 0);
         assert_eq!(score, 1.0);
         assert_eq!(alignment.map_x, align!(0 1 2 3));
         assert_eq!(alignment.map_y, align!(0 1 - -));
     }
 
     #[allow(dead_code)]
-    pub(crate) fn create_site_info(info: &[(u32, bool, bool)]) -> Vec<ParsAlignSiteInfo> {
+    pub(crate) fn create_site_info(info: &[(u32, bool, bool)]) -> Vec<ParsimonySiteInfo> {
         info.into_iter()
-            .map(|(set, poss, perm)| ParsAlignSiteInfo::new(*set, *poss, *perm))
+            .map(|(set, poss, perm)| ParsimonySiteInfo::new(*set, *poss, *perm))
             .collect()
     }
 
@@ -460,12 +387,7 @@ mod parsimony_alignment_tests {
 
         let leaf_info2 = create_site_info(&[(16, true, false), (8, false, false)]);
 
-        let (_info, alignment, score) = pars_align_w_rng(
-           &scoring,
-            &leaf_info1,
-            &leaf_info2,
-            |_| 0,
-        );
+        let (_info, alignment, score) = pars_align_w_rng(&scoring, &leaf_info1, &leaf_info2, |_| 0);
         assert_eq!(score, 2.0);
         assert_eq!(alignment.map_x, align!(0 1 2 3));
         assert_eq!(alignment.map_y, align!(0 - -1));
@@ -487,12 +409,8 @@ mod parsimony_alignment_tests {
 
         let leaf_info2 = create_site_info(&[(16, true, false), (8, false, false)]);
 
-        let (_info, alignment, score) = pars_align_w_rng(
-            &scoring,
-            &leaf_info1,
-            &leaf_info2,
-            |l| l - 1,
-        );
+        let (_info, alignment, score) =
+            pars_align_w_rng(&scoring, &leaf_info1, &leaf_info2, |l| l - 1);
         assert_eq!(score, 2.0);
         assert_eq!(alignment.map_x, align!(- 0 1 2 3));
         assert_eq!(alignment.map_y, align!(0 1 - - -));

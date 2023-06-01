@@ -1,4 +1,8 @@
-use crate::sequences::{NUCLEOTIDES_STR, AMB_NUCLEOTIDES_STR, AMINOACIDS_STR, AMB_AMINOACIDS_STR, charify, GAP};
+use crate::sequences::{
+    charify, SequenceType, AMB_AMINOACIDS_STR, AMB_NUCLEOTIDES_STR, AMINOACIDS_STR, GAP,
+    NUCLEOTIDES_STR,
+};
+use bio::io::fasta;
 
 pub(crate) const GAP_SET: u32 = 0b1;
 pub(crate) const EMPTY_SET: u32 = 0b0;
@@ -48,23 +52,47 @@ pub(crate) fn protein_pars_sets() -> [u32; u8::MAX as usize] {
     pars_table
 }
 
+pub(crate) fn get_parsimony_sets(record: &fasta::Record, sequence_type: &SequenceType) -> Vec<u32> {
+    let set_table = match sequence_type {
+        SequenceType::DNA => dna_pars_sets(),
+        SequenceType::Protein => protein_pars_sets(),
+    };
+    record
+        .seq()
+        .into_iter()
+        .map(|c| set_table[*c as usize])
+        .collect()
+}
 
 #[cfg(test)]
 mod parsimony_sets_tests {
-    use crate::sequences::{parsimony_sets::{GAP_SET, EMPTY_SET}, GAP};
-
-    use super::{dna_pars_sets, protein_pars_sets};
+    use crate::parsimony_alignment::parsimony_sets::{
+        dna_pars_sets, protein_pars_sets, EMPTY_SET, GAP_SET,
+    };
+    use crate::sequences::GAP;
 
     #[test]
     fn protein_sets() {
         let pars_table = protein_pars_sets();
         assert_eq!(pars_table['X' as usize], pars_table['O' as usize]);
-        assert_eq!(pars_table['X' as usize], !pars_table[GAP as usize] % (0b1 << 21));
+        assert_eq!(
+            pars_table['X' as usize],
+            !pars_table[GAP as usize] % (0b1 << 21)
+        );
         assert_eq!(pars_table['n' as usize], pars_table['N' as usize]);
         assert_eq!(pars_table['e' as usize], pars_table['E' as usize]);
-        assert_eq!(pars_table['b' as usize], pars_table['D' as usize] | pars_table['n' as usize]);
-        assert_eq!(pars_table['Z' as usize], pars_table['E' as usize] | pars_table['q' as usize]);
-        assert_eq!(pars_table['j' as usize], pars_table['i' as usize] | pars_table['L' as usize]);
+        assert_eq!(
+            pars_table['b' as usize],
+            pars_table['D' as usize] | pars_table['n' as usize]
+        );
+        assert_eq!(
+            pars_table['Z' as usize],
+            pars_table['E' as usize] | pars_table['q' as usize]
+        );
+        assert_eq!(
+            pars_table['j' as usize],
+            pars_table['i' as usize] | pars_table['L' as usize]
+        );
     }
 
     #[test]
@@ -76,13 +104,30 @@ mod parsimony_sets_tests {
         assert_eq!(pars_table['C' as usize], pars_table['c' as usize]);
         assert_eq!(pars_table['A' as usize], pars_table['a' as usize]);
         assert_eq!(pars_table['G' as usize], pars_table['g' as usize]);
-        assert_eq!(pars_table['V' as usize] & pars_table['t' as usize], EMPTY_SET);
-        assert_eq!(pars_table['D' as usize] & pars_table['c' as usize], EMPTY_SET);
-        assert_eq!(pars_table['b' as usize] & pars_table['A' as usize], EMPTY_SET);
-        assert_eq!(pars_table['h' as usize] & pars_table['G' as usize], EMPTY_SET);
-        assert_eq!(pars_table['m' as usize], pars_table['A' as usize] | pars_table['C' as usize]);
-        assert_eq!(pars_table['k' as usize], pars_table['G' as usize] | pars_table['T' as usize]);
+        assert_eq!(
+            pars_table['V' as usize] & pars_table['t' as usize],
+            EMPTY_SET
+        );
+        assert_eq!(
+            pars_table['D' as usize] & pars_table['c' as usize],
+            EMPTY_SET
+        );
+        assert_eq!(
+            pars_table['b' as usize] & pars_table['A' as usize],
+            EMPTY_SET
+        );
+        assert_eq!(
+            pars_table['h' as usize] & pars_table['G' as usize],
+            EMPTY_SET
+        );
+        assert_eq!(
+            pars_table['m' as usize],
+            pars_table['A' as usize] | pars_table['C' as usize]
+        );
+        assert_eq!(
+            pars_table['k' as usize],
+            pars_table['G' as usize] | pars_table['T' as usize]
+        );
         assert_eq!(pars_table['-' as usize], GAP_SET);
     }
-
 }

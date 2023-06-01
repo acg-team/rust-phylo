@@ -4,11 +4,11 @@ extern crate assert_float_eq;
 use anyhow::Error;
 
 mod io;
-mod njmat;
 mod sequences;
 mod tree;
 mod substitution_models;
 mod parsimony_alignment;
+mod alignment;
 
 type Result<T> = std::result::Result<T, Error>;
 type Result2<T, E> = std::result::Result<T, E>;
@@ -18,11 +18,10 @@ fn main() -> Result<()> {
     let sequences = io::read_sequences_from_file("./data/sequences_protein1.fasta").unwrap();
     let sequence_type = sequences::get_sequence_type(&sequences);
 
-    let nj_distances = sequences::compute_distance_matrix(&sequences);
-    let tree = tree::build_nj_tree(nj_distances)?;
+    let tree = tree::build_nj_tree(&sequences)?;
 
     let (alignment, scores) = parsimony_alignment::pars_align_on_tree(1.0, 2.0, 0.5, &tree, &sequences, &sequence_type);
-    let msa = parsimony_alignment::compile_alignment(&tree, &sequences, &alignment, None);
+    let msa = alignment::compile_alignment_representation(&tree, &sequences, &alignment, None);
 
     io::write_sequences_to_file(&msa, "msa.fasta")?;
     println!("Alignment scores are {:?}", scores);
@@ -34,6 +33,3 @@ fn main() -> Result<()> {
 
     Ok(())
 }
-
-#[cfg(test)]
-mod tests;

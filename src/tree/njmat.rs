@@ -1,8 +1,6 @@
-use super::tree::NodeIdx;
-use super::tree::NodeIdx::Internal as Int;
+use crate::tree::NodeIdx::{self, Internal as Int};
 use nalgebra::{max, min, DMatrix};
-
-use std::fmt::Display;
+use std::fmt::{Display, Formatter, Result};
 
 pub(crate) type Mat = DMatrix<f32>;
 
@@ -13,7 +11,7 @@ pub(crate) struct NJMat {
 }
 
 impl Display for NJMat {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{:?}\n {}", self.idx, self.distances)
     }
 }
@@ -55,19 +53,20 @@ impl NJMat {
             self.distances[(i, j)] / 2.0
         } else {
             self.distances[(i, j)] / 2.0
-                + (self.distances.row_sum()[i]
-                - self.distances.row_sum()[j])
-                / (2 * (self.distances.ncols() - 2)) as f32
+                + (self.distances.row_sum()[i] - self.distances.row_sum()[j])
+                    / (2 * (self.distances.ncols() - 2)) as f32
         };
         let blen_j = if is_root {
             self.distances[(j, i)] / 2.0
         } else {
             self.distances[(j, i)] / 2.0
-                + (self.distances.row_sum()[j]
-                - self.distances.row_sum()[i])
-                / (2 * (self.distances.ncols() - 2)) as f32
+                + (self.distances.row_sum()[j] - self.distances.row_sum()[i])
+                    / (2 * (self.distances.ncols() - 2)) as f32
         };
-        (if blen_i < 0.0 { 0.0 } else { blen_i }, if blen_j < 0.0 { 0.0 } else { blen_j })
+        (
+            if blen_i < 0.0 { 0.0 } else { blen_i },
+            if blen_j < 0.0 { 0.0 } else { blen_j },
+        )
     }
 
     pub(crate) fn compute_nj_q(&self) -> Mat {

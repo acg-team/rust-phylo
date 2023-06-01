@@ -1,6 +1,5 @@
 use crate::sequences::{charify, NUCLEOTIDES_STR};
-
-use super::{FreqVector, SubstMatrix};
+use crate::substitution_models::{FreqVector, SubstMatrix};
 
 type DNASubstMatrix = SubstMatrix<4>;
 type DNAFreqVector = FreqVector<4>;

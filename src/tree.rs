@@ -1,9 +1,11 @@
-use crate::njmat::Mat;
-use crate::Result;
-use crate::Result2;
+pub(crate) mod njmat;
 
-use super::njmat::NJMat;
-
+use crate::{Result, Result2};
+use bio::alignment::distance::levenshtein;
+use bio::io::fasta;
+use nalgebra::max;
+use nalgebra::DMatrix;
+use njmat::{Mat, NJMat};
 use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
@@ -329,7 +331,10 @@ fn rng_len(l: usize) -> usize {
     random::<usize>() % l
 }
 
-pub(crate) fn build_nj_tree_w_rng(mut nj_data: NJMat, rng: fn(usize) -> usize) -> Result<Tree> {
+pub(crate) fn build_nj_tree_w_rng_from_matrix(
+    mut nj_data: NJMat,
+    rng: fn(usize) -> usize,
+) -> Result<Tree> {
     let n = nj_data.distances.ncols();
     let root_idx = n - 2;
     let mut tree = Tree::new(n, root_idx);
@@ -353,25 +358,47 @@ pub(crate) fn build_nj_tree_w_rng(mut nj_data: NJMat, rng: fn(usize) -> usize) -
     Ok(tree)
 }
 
-pub(crate) fn build_nj_tree(nj_data: NJMat) -> Result<Tree> {
-    build_nj_tree_w_rng(nj_data, rng_len)
+pub(crate) fn build_nj_tree_from_matrix(nj_data: NJMat) -> Result<Tree> {
+    build_nj_tree_w_rng_from_matrix(nj_data, rng_len)
+}
+
+pub(crate) fn build_nj_tree(sequences: &Vec<fasta::Record>) -> Result<Tree> {
+    let nj_data = compute_distance_matrix(sequences);
+    build_nj_tree_from_matrix(nj_data)
+}
+
+fn compute_distance_matrix(sequences: &Vec<fasta::Record>) -> njmat::NJMat {
+    let nseqs = sequences.len();
+    let mut distances = DMatrix::zeros(nseqs, nseqs);
+    for i in 0..nseqs {
+        for j in (i + 1)..nseqs {
+            let lev_dist = levenshtein(sequences[i].seq(), sequences[j].seq()) as f32;
+            let proportion_diff = f32::min(
+                lev_dist / (max(sequences[i].seq().len(), sequences[j].seq().len()) as f32),
+                0.75 - f32::EPSILON,
+            );
+            let corrected_dist = -3.0 / 4.0 * (1.0 - 4.0 / 3.0 * proportion_diff).ln();
+            distances[(i, j)] = corrected_dist;
+            distances[(j, i)] = corrected_dist;
+        }
+    }
+    let nj_distances = njmat::NJMat {
+        idx: (0..nseqs).map(NodeIdx::Leaf).collect(),
+        distances,
+    };
+    nj_distances
 }
 
 #[cfg(test)]
 mod tree_tests {
-    use crate::njmat::NJMat;
-    use crate::tree::build_nj_tree_w_rng;
     use crate::tree::{
-        build_nj_tree, from_newick_string, Node, NodeIdx, NodeIdx::Internal as I,
-        NodeIdx::Leaf as L, Tree,
+        build_nj_tree_from_matrix, build_nj_tree_w_rng_from_matrix, from_newick_string,
+        njmat::NJMat, Node, NodeIdx, NodeIdx::Internal as I, NodeIdx::Leaf as L, Rule, Tree,
     };
     use approx::relative_eq;
     use nalgebra::dmatrix;
     use pest::error::ErrorVariant;
 
-    use super::Rule;
-
-    #[cfg(test)]
     fn setup_test_tree() -> Tree {
         let mut tree = Tree::new(5, 3);
         tree.add_parent(0, L(0), L(1), 1.0, 1.0);
@@ -405,7 +432,6 @@ mod tree_tests {
         );
     }
 
-    #[cfg(test)]
     impl PartialEq for Node {
         fn eq(&self, other: &Self) -> bool {
             (self.idx == other.idx)
@@ -426,7 +452,7 @@ mod tree_tests {
                 5.0, 7.0, 0.0, 9.0;
                 10.0, 12.0, 9.0, 0.0],
         };
-        let nj_tree = build_nj_tree_w_rng(nj_distances, |_| 0).unwrap();
+        let nj_tree = build_nj_tree_w_rng_from_matrix(nj_distances, |_| 0).unwrap();
         let leaves = vec![
             Node::new_leaf(0, Some(I(0)), 1.0, "".to_string()),
             Node::new_leaf(1, Some(I(0)), 3.0, "".to_string()),
@@ -455,7 +481,7 @@ mod tree_tests {
                 9.0, 10.0, 8.0, 0.0, 3.0;
                 8.0, 9.0, 7.0, 3.0, 0.0],
         };
-        let nj_tree = build_nj_tree_w_rng(nj_distances, |l| 3 % l).unwrap();
+        let nj_tree = build_nj_tree_w_rng_from_matrix(nj_distances, |l| 3 % l).unwrap();
         let leaves = vec![
             Node::new_leaf(0, Some(I(0)), 2.0, "".to_string()),
             Node::new_leaf(1, Some(I(0)), 3.0, "".to_string()),
@@ -491,7 +517,7 @@ mod tree_tests {
                 0.0, 0.0, 0.0, 0.2;
                 0.2, 0.2, 0.2, 0.0],
         };
-        let tree = build_nj_tree(nj_distances).unwrap();
+        let tree = build_nj_tree_from_matrix(nj_distances).unwrap();
         assert_eq!(tree.internals.len(), 3);
         assert_eq!(tree.postorder.len(), 7);
         assert!(is_unique(&tree.postorder));
@@ -649,7 +675,6 @@ mod tree_tests {
         assert_eq!(trees[2].internals.len(), 2);
     }
 
-    #[cfg(test)]
     fn parsing_error(rules: Vec<Rule>) -> ErrorVariant<Rule> {
         ErrorVariant::ParsingError {
             positives: rules,

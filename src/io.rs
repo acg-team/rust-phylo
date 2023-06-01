@@ -1,9 +1,7 @@
-use crate::tree::{self, Tree};
+use crate::tree::{self, Rule, Tree};
 use crate::{Result, Result2};
 use anyhow::anyhow;
-use bio::alphabets;
-use bio::io::fasta;
-use tree::Rule;
+use bio::{alphabets, io::fasta};
 
 pub(crate) fn read_sequences_from_file(path: &str) -> Result<Vec<fasta::Record>> {
     let reader = fasta::Reader::from_file(path)?;
@@ -36,4 +34,39 @@ pub(crate) fn read_newick_from_string(
     newick: &str,
 ) -> Result2<Vec<Tree>, pest::error::Error<Rule>> {
     tree::from_newick_string(newick)
+}
+
+#[cfg(test)]
+mod io_test {
+    use crate::io::read_sequences_from_file;
+    use rstest::*;
+
+    #[test]
+    fn reading_correct_fasta() {
+        let sequences = read_sequences_from_file("./data/sequences_DNA1.fasta").unwrap();
+        assert_eq!(sequences.len(), 4);
+        for seq in sequences {
+            assert_eq!(seq.seq().len(), 5);
+        }
+
+        let corr_lengths = vec![1, 2, 2, 4];
+        let sequences = read_sequences_from_file("./data/sequences_DNA2_unaligned.fasta").unwrap();
+        assert_eq!(sequences.len(), 4);
+        for (i, seq) in sequences.into_iter().enumerate() {
+            assert_eq!(seq.seq().len(), corr_lengths[i]);
+        }
+    }
+
+    #[rstest]
+    #[case::empty_sequence_name("./data/sequences_garbage_empty_name.fasta")]
+    #[case::garbage_sequence("./data/sequences_garbage_non-ascii.fasta")]
+    #[case::weird_chars("./data/sequences_garbage_weird_symbols.fasta")]
+    fn reading_incorrect_fasta(#[case] input: &str) {
+        assert!(read_sequences_from_file(input).is_err());
+    }
+
+    #[test]
+    fn reading_nonexistent_fasta() {
+        assert!(read_sequences_from_file("./data/sequences_nonexistent.fasta").is_err());
+    }
 }

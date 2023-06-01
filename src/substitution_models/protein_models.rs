@@ -1,6 +1,5 @@
 use crate::sequences::{charify, AMINOACIDS_STR};
-
-use super::{FreqVector, SubstMatrix};
+use crate::substitution_models::{FreqVector, SubstMatrix};
 
 type ProteinSubstArray = [[f64; 20]; 20];
 type ProteinSubstMatrix = SubstMatrix<20>;
