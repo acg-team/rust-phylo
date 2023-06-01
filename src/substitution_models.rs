@@ -8,8 +8,8 @@ use nalgebra::{SMatrix, SVector};
 
 use crate::Result;
 
-mod dna_models;
-mod protein_models;
+pub(crate) mod dna_models;
+pub(crate) mod protein_models;
 
 #[allow(non_camel_case_types)]
 type f32_h = ordered_float::OrderedFloat<f32>;

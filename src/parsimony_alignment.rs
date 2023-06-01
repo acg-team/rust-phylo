@@ -2,18 +2,92 @@ mod alignment;
 mod parsimony_info;
 
 use bio::io::fasta::Record;
+// use nalgebra::SMatrix;
 use rand::prelude::*;
-
-use tree::NodeIdx::Internal as Int;
-use tree::NodeIdx::Leaf;
 
 use crate::{
     sequences::{get_parsimony_sets, SequenceType},
-    tree::{self, NodeIdx},
+    // substitution_models::{dna_models, protein_models},
+    tree::{self, NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf},
 };
 
 use alignment::Alignment;
 use parsimony_info::{ParsAlignSiteInfo, ParsimonyAlignmentMatrices};
+
+// type CostMatrix<const N: usize> = SMatrix<f64, N, N>;
+
+pub(crate) struct ParsimonyCostsSimple {
+    mismatch: f64,
+    gap_open: f64,
+    gap_ext: f64,
+}
+
+impl ParsimonyCostsSimple {
+    pub(crate) fn new_default() -> ParsimonyCostsSimple {
+        Self::new(1.0, 2.5, 0.5)
+    }
+
+    pub(crate) fn new(mismatch: f64, gap_open: f64, gap_ext: f64) -> ParsimonyCostsSimple {
+        ParsimonyCostsSimple {
+            mismatch,
+            gap_open,
+            gap_ext,
+        }
+    }
+}
+
+// impl ParsimonyCostsSimple<20> {
+//     fn new() -> ParsimonyCostsSimple<20> {
+//         ParsimonyCostsSimple {
+//             index: protein_models::aminoacid_index(),
+//             c: ParsimonyCostsSimple::<20>::make_c(),
+//             gap_open_mult: 0.5,
+//             gap_ext_mult: 2.5,
+//         }
+//     }
+// }
+
+// impl ParsimonyCostsSimple<4> {
+//     fn new() -> ParsimonyCostsSimple<4> {
+//         ParsimonyCostsSimple {
+//             index: dna_models::nucleotide_index(),
+//             c: ParsimonyCostsSimple::<4>::make_c(),
+//             gap_open_mult: 0.5,
+//             gap_ext_mult: 2.5,
+//         }
+//     }
+// }
+
+// impl<const N: usize> ParsimonyCostsSimple<N> {
+//     fn make_c() -> CostMatrix<N> {
+//         let mut c = CostMatrix::<N>::from_element(1.0);
+//         c.fill_diagonal(0.0);
+//         c
+//     }
+// }
+
+pub trait ParsimonyCosts {
+    fn match_cost(&self, branch_length: f64, i: u8, j: u8) -> f64;
+    fn gap_ext_cost(&self, branch_length: f64) -> f64;
+    fn gap_open_cost(&self, branch_length: f64) -> f64;
+}
+
+impl ParsimonyCosts for ParsimonyCostsSimple {
+    fn match_cost(&self, _: f64, i: u8, j: u8) -> f64 {
+        if i == j {
+            0.0
+        } else {
+            self.mismatch
+        }
+    }
+    fn gap_ext_cost(&self, _: f64) -> f64 {
+        self.gap_ext
+    }
+
+    fn gap_open_cost(&self, _: f64) -> f64 {
+        self.gap_open
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum Direction {
@@ -28,51 +102,35 @@ fn rng_len(l: usize) -> usize {
 }
 
 fn pars_align_w_rng(
-    mismatch_cost: f32,
-    gap_open_cost: f32,
-    gap_ext_cost: f32,
+    scoring: &impl ParsimonyCosts,
     left_child_info: &[ParsAlignSiteInfo],
     right_child_info: &[ParsAlignSiteInfo],
     rng: fn(usize) -> usize,
-) -> (Vec<ParsAlignSiteInfo>, Alignment, f32) {
-    let mut pars_mats = ParsimonyAlignmentMatrices::new(
-        left_child_info.len() + 1,
-        right_child_info.len() + 1,
-        mismatch_cost,
-        gap_open_cost,
-        gap_ext_cost,
-        rng,
-    );
-    pars_mats.fill_matrices(left_child_info, right_child_info);
+) -> (Vec<ParsAlignSiteInfo>, Alignment, f64) {
+    let mut pars_mats =
+        ParsimonyAlignmentMatrices::new(left_child_info.len() + 1, right_child_info.len() + 1, rng);
+    pars_mats.fill_matrices(left_child_info, right_child_info, scoring);
     pars_mats.traceback(left_child_info, right_child_info)
 }
 
 fn pars_align(
-    mismatch_cost: f32,
-    gap_open_cost: f32,
-    gap_ext_cost: f32,
+    scoring: &impl ParsimonyCosts,
     left_child_info: &[ParsAlignSiteInfo],
     right_child_info: &[ParsAlignSiteInfo],
-) -> (Vec<ParsAlignSiteInfo>, Alignment, f32) {
-    pars_align_w_rng(
-        mismatch_cost,
-        gap_open_cost,
-        gap_ext_cost,
-        left_child_info,
-        right_child_info,
-        rng_len,
-    )
+) -> (Vec<ParsAlignSiteInfo>, Alignment, f64) {
+    pars_align_w_rng(scoring, left_child_info, right_child_info, rng_len)
 }
 
 pub(crate) fn pars_align_on_tree(
-    mismatch_cost: f32,
-    gap_open_cost: f32,
-    gap_ext_cost: f32,
+    mismatch_cost: f64,
+    gap_open_cost: f64,
+    gap_ext_cost: f64,
     tree: &tree::Tree,
     sequences: &[Record],
     sequence_type: &SequenceType,
-) -> (Vec<Alignment>, Vec<f32>) {
+) -> (Vec<Alignment>, Vec<f64>) {
     let order = &tree.postorder;
+    let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
 
     assert_eq!(tree.internals.len() + tree.leaves.len(), order.len());
 
@@ -87,9 +145,7 @@ pub(crate) fn pars_align_on_tree(
                 let ch1_idx = tree.internals[idx].children[0];
                 let ch2_idx = tree.internals[idx].children[1];
                 let (info, alignment, score) = pars_align(
-                    mismatch_cost,
-                    gap_open_cost,
-                    gap_ext_cost,
+                    &scoring,
                     match ch1_idx {
                         Int(idx1) => &internal_info[idx1],
                         Leaf(idx1) => &leaf_info[idx1],
@@ -191,6 +247,7 @@ pub(crate) fn sequence_idx(sequences: &[Record], search: &Record) -> usize {
 
 #[cfg(test)]
 mod parsimony_alignment_tests {
+    use crate::parsimony_alignment::ParsimonyCostsSimple;
     use crate::parsimony_alignment::{
         alignment::Alignment, compile_alignment, pars_align_on_tree, pars_align_w_rng,
         parsimony_info::ParsAlignSiteInfo,
@@ -268,6 +325,8 @@ mod parsimony_alignment_tests {
         let mismatch_cost = 1.0;
         let gap_open_cost = 2.0;
         let gap_ext_cost = 0.5;
+        let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
+
         let sequences = [
             Record::with_attrs("A", None, b"AACT"),
             Record::with_attrs("B", None, b"AC"),
@@ -282,14 +341,8 @@ mod parsimony_alignment_tests {
                 .into_iter()
                 .map(ParsAlignSiteInfo::new_leaf)
                 .collect();
-        let (_info, alignment, score) = pars_align_w_rng(
-            mismatch_cost,
-            gap_open_cost,
-            gap_ext_cost,
-            &leaf_info1,
-            &leaf_info2,
-            |l| l - 1,
-        );
+        let (_info, alignment, score) =
+            pars_align_w_rng(&scoring, &leaf_info1, &leaf_info2, |l| l - 1);
         assert_eq!(score, 3.5);
         assert_eq!(alignment.map_x.len(), 4);
         assert_eq!(alignment.map_y.len(), 4);
@@ -302,6 +355,7 @@ mod parsimony_alignment_tests {
         let mismatch_cost = 1.0;
         let gap_open_cost = 2.0;
         let gap_ext_cost = 0.5;
+        let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
         let sequences = [
             Record::with_attrs("A", None, b"AACT"),
             Record::with_attrs("B", None, b"AC"),
@@ -317,9 +371,7 @@ mod parsimony_alignment_tests {
                 .map(ParsAlignSiteInfo::new_leaf)
                 .collect();
         let (_info, alignment, score) = pars_align_w_rng(
-            mismatch_cost,
-            gap_open_cost,
-            gap_ext_cost,
+         &scoring,
             &leaf_info1,
             &leaf_info2,
             |_| 0,
@@ -363,6 +415,7 @@ mod parsimony_alignment_tests {
         let mismatch_cost = 1.0;
         let gap_open_cost = 2.0;
         let gap_ext_cost = 0.5;
+        let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
 
         let leaf_info1 = create_site_info(&[
             (8, false, false),
@@ -374,9 +427,7 @@ mod parsimony_alignment_tests {
         let leaf_info2 = create_site_info(&[(16, true, false), (8, false, false)]);
 
         let (_info, alignment, score) = pars_align_w_rng(
-            mismatch_cost,
-            gap_open_cost,
-            gap_ext_cost,
+            &scoring,
             &leaf_info1,
             &leaf_info2,
             |_| 0,
@@ -398,6 +449,7 @@ mod parsimony_alignment_tests {
         let mismatch_cost = 1.0;
         let gap_open_cost = 2.0;
         let gap_ext_cost = 0.5;
+        let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
 
         let leaf_info1 = create_site_info(&[
             (8, false, false),
@@ -409,9 +461,7 @@ mod parsimony_alignment_tests {
         let leaf_info2 = create_site_info(&[(16, true, false), (8, false, false)]);
 
         let (_info, alignment, score) = pars_align_w_rng(
-            mismatch_cost,
-            gap_open_cost,
-            gap_ext_cost,
+           &scoring,
             &leaf_info1,
             &leaf_info2,
             |_| 0,
@@ -426,6 +476,7 @@ mod parsimony_alignment_tests {
         let mismatch_cost = 1.0;
         let gap_open_cost = 2.0;
         let gap_ext_cost = 0.5;
+        let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
 
         let leaf_info1 = create_site_info(&[
             (8, false, false),
@@ -437,9 +488,7 @@ mod parsimony_alignment_tests {
         let leaf_info2 = create_site_info(&[(16, true, false), (8, false, false)]);
 
         let (_info, alignment, score) = pars_align_w_rng(
-            mismatch_cost,
-            gap_open_cost,
-            gap_ext_cost,
+            &scoring,
             &leaf_info1,
             &leaf_info2,
             |l| l - 1,
