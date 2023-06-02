@@ -38,7 +38,7 @@ pub(crate) struct Node {
     pub(crate) idx: NodeIdx,
     pub(crate) parent: Option<NodeIdx>,
     pub(crate) children: Vec<NodeIdx>,
-    pub(crate) blen: f32,
+    pub(crate) blen: f64,
     pub(crate) id: String,
 }
 
@@ -47,7 +47,7 @@ impl Node {
         Self::new_leaf(node_idx, None, 0.0, "".to_string())
     }
 
-    fn new_leaf(idx: usize, parent: Option<NodeIdx>, blen: f32, id: String) -> Self {
+    fn new_leaf(idx: usize, parent: Option<NodeIdx>, blen: f64, id: String) -> Self {
         Self {
             idx: Leaf(idx),
             parent,
@@ -61,7 +61,7 @@ impl Node {
         idx: usize,
         parent: Option<NodeIdx>,
         children: Vec<NodeIdx>,
-        blen: f32,
+        blen: f64,
         id: String,
     ) -> Self {
         Self {
@@ -77,7 +77,7 @@ impl Node {
         Self::new_internal(node_idx, None, Vec::new(), 0.0, "".to_string())
     }
 
-    pub(crate) fn add_parent(&mut self, parent_idx: NodeIdx, blen: f32) {
+    pub(crate) fn add_parent(&mut self, parent_idx: NodeIdx, blen: f64) {
         assert!(matches!(parent_idx, Int(_)));
         self.parent = Some(parent_idx);
         self.blen = blen;
@@ -211,12 +211,12 @@ impl Tree {
         Ok(())
     }
 
-    fn from_branch_length_rule(rule: Pair<Rule>) -> f32 {
+    fn from_branch_length_rule(rule: Pair<Rule>) -> f64 {
         rule.into_inner()
             .next()
             .unwrap()
             .as_str()
-            .parse::<f32>()
+            .parse::<f64>()
             .unwrap_or_default()
     }
 
@@ -241,8 +241,8 @@ impl Tree {
         parent_idx: usize,
         idx_i: NodeIdx,
         idx_j: NodeIdx,
-        blen_i: f32,
-        blen_j: f32,
+        blen_i: f64,
+        blen_j: f64,
     ) {
         self.internals.push(Node::new_internal(
             parent_idx,
@@ -255,7 +255,7 @@ impl Tree {
         self.add_parent_to_child(&idx_j, parent_idx, blen_j);
     }
 
-    fn add_parent_to_child(&mut self, idx: &NodeIdx, parent_idx: usize, blen: f32) {
+    fn add_parent_to_child(&mut self, idx: &NodeIdx, parent_idx: usize, blen: f64) {
         match *idx {
             Int(idx) => self.internals[idx].add_parent(Int(parent_idx), blen),
             Leaf(idx) => self.leaves[idx].add_parent(Int(parent_idx), blen),
@@ -312,7 +312,7 @@ fn argmin_wo_diagonal(q: Mat, rng: fn(usize) -> usize) -> (usize, usize) {
         "The input matrix should have more than 1 element."
     );
     let mut arg_min = vec![];
-    let mut val_min = &f32::MAX;
+    let mut val_min = &f64::MAX;
     for i in 0..q.nrows() {
         for j in 0..i {
             let val = &q[(i, j)];
@@ -372,10 +372,10 @@ fn compute_distance_matrix(sequences: &Vec<fasta::Record>) -> njmat::NJMat {
     let mut distances = DMatrix::zeros(nseqs, nseqs);
     for i in 0..nseqs {
         for j in (i + 1)..nseqs {
-            let lev_dist = levenshtein(sequences[i].seq(), sequences[j].seq()) as f32;
-            let proportion_diff = f32::min(
-                lev_dist / (max(sequences[i].seq().len(), sequences[j].seq().len()) as f32),
-                0.75 - f32::EPSILON,
+            let lev_dist = levenshtein(sequences[i].seq(), sequences[j].seq()) as f64;
+            let proportion_diff = f64::min(
+                lev_dist / (max(sequences[i].seq().len(), sequences[j].seq().len()) as f64),
+                0.75 - f64::EPSILON,
             );
             let corrected_dist = -3.0 / 4.0 * (1.0 - 4.0 / 3.0 * proportion_diff).ln();
             distances[(i, j)] = corrected_dist;

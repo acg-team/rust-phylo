@@ -2,7 +2,7 @@ use crate::tree::NodeIdx::{self, Internal as Int};
 use nalgebra::{max, min, DMatrix};
 use std::fmt::{Display, Formatter, Result};
 
-pub(crate) type Mat = DMatrix<f32>;
+pub(crate) type Mat = DMatrix<f64>;
 
 #[derive(Debug)]
 pub(crate) struct NJMat {
@@ -48,20 +48,20 @@ impl NJMat {
         self
     }
 
-    pub(crate) fn branch_lengths(&self, i: usize, j: usize, is_root: bool) -> (f32, f32) {
+    pub(crate) fn branch_lengths(&self, i: usize, j: usize, is_root: bool) -> (f64, f64) {
         let blen_i = if is_root {
             self.distances[(i, j)] / 2.0
         } else {
             self.distances[(i, j)] / 2.0
                 + (self.distances.row_sum()[i] - self.distances.row_sum()[j])
-                    / (2 * (self.distances.ncols() - 2)) as f32
+                    / (2 * (self.distances.ncols() - 2)) as f64
         };
         let blen_j = if is_root {
             self.distances[(j, i)] / 2.0
         } else {
             self.distances[(j, i)] / 2.0
                 + (self.distances.row_sum()[j] - self.distances.row_sum()[i])
-                    / (2 * (self.distances.ncols() - 2)) as f32
+                    / (2 * (self.distances.ncols() - 2)) as f64
         };
         (
             if blen_i < 0.0 { 0.0 } else { blen_i },
@@ -72,11 +72,11 @@ impl NJMat {
     pub(crate) fn compute_nj_q(&self) -> Mat {
         let n = self.distances.ncols();
         let s = self.distances.row_sum();
-        Mat::from_fn(n, n, |r, c| -> f32 {
+        Mat::from_fn(n, n, |r, c| -> f64 {
             if r == c {
                 0.0
             } else {
-                (n - 2) as f32 * self.distances[(r, c)] - s[r] - s[c]
+                (n - 2) as f64 * self.distances[(r, c)] - s[r] - s[c]
             }
         })
     }
