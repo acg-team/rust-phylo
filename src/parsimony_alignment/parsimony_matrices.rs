@@ -1,9 +1,10 @@
 use crate::alignment::{Alignment, Mapping};
-use crate::parsimony_alignment::parsimony_sets::{self, EMPTY_SET};
+use crate::parsimony_alignment::parsimony_sets;
 use crate::parsimony_alignment::{parsimony_info::ParsimonySiteInfo, Direction};
 use std::fmt;
 
 use super::parsimony_costs::BranchParsimonyCosts;
+use super::parsimony_sets::ParsimonySet;
 
 pub(super) struct ScoreMatrices {
     pub(super) m: Vec<Vec<f64>>,
@@ -167,14 +168,22 @@ impl ParsimonyAlignmentMatrices {
                         alignment.map_y.push(None);
                         alignment.map_x.push(None);
                         alignment.map_y.push(Some(j - 1));
-                        node_info.push(ParsimonySiteInfo::new(parsimony_sets::GAP_SET, true, true));
-                        node_info.push(ParsimonySiteInfo::new(parsimony_sets::GAP_SET, true, true));
+                        node_info.push(ParsimonySiteInfo::new(
+                            parsimony_sets::gap_set(),
+                            true,
+                            true,
+                        ));
+                        node_info.push(ParsimonySiteInfo::new(
+                            parsimony_sets::gap_set(),
+                            true,
+                            true,
+                        ));
                     } else {
                         alignment.map_x.push(Some(i - 1));
                         alignment.map_y.push(Some(j - 1));
-                        let mut set = left_child_info[i - 1].set & right_child_info[j - 1].set;
-                        if set == EMPTY_SET {
-                            set = left_child_info[i - 1].set | right_child_info[j - 1].set;
+                        let mut set = &left_child_info[i - 1].set & &right_child_info[j - 1].set;
+                        if set.is_empty() {
+                            set = &left_child_info[i - 1].set | &right_child_info[j - 1].set;
                         }
                         node_info.push(ParsimonySiteInfo::new(set, false, false));
                     }
@@ -186,10 +195,14 @@ impl ParsimonyAlignmentMatrices {
                     alignment.map_x.push(Some(i - 1));
                     alignment.map_y.push(None);
                     if left_child_info[i - 1].perm_gap || left_child_info[i - 1].poss_gap {
-                        node_info.push(ParsimonySiteInfo::new(parsimony_sets::GAP_SET, true, true));
+                        node_info.push(ParsimonySiteInfo::new(
+                            parsimony_sets::gap_set(),
+                            true,
+                            true,
+                        ));
                     } else {
                         node_info.push(ParsimonySiteInfo::new(
-                            left_child_info[i - 1].set,
+                            left_child_info[i - 1].set.clone(),
                             true,
                             false,
                         ));
@@ -201,10 +214,14 @@ impl ParsimonyAlignmentMatrices {
                     alignment.map_x.push(None);
                     alignment.map_y.push(Some(j - 1));
                     if right_child_info[j - 1].perm_gap || right_child_info[j - 1].poss_gap {
-                        node_info.push(ParsimonySiteInfo::new(parsimony_sets::GAP_SET, true, true));
+                        node_info.push(ParsimonySiteInfo::new(
+                            parsimony_sets::gap_set(),
+                            true,
+                            true,
+                        ));
                     } else {
                         node_info.push(ParsimonySiteInfo::new(
-                            right_child_info[j - 1].set,
+                            right_child_info[j - 1].set.clone(),
                             true,
                             false,
                         ));
@@ -310,7 +327,7 @@ impl ParsimonyAlignmentMatrices {
         right_info: &[ParsimonySiteInfo],
         right_scoring: &Box<dyn BranchParsimonyCosts>,
     ) -> (f64, Direction) {
-        if left_info[ni].set & right_info[nj].set != 0 {
+        if !(&left_info[ni].set & &right_info[nj].set).is_empty() {
             self.select_direction(
                 self.score.m[ni][nj],
                 self.score.x[ni][nj],
@@ -318,9 +335,9 @@ impl ParsimonyAlignmentMatrices {
             )
         } else {
             let score = self.get_match_cost(
-                left_info[ni].set,
+                &left_info[ni].set,
                 left_scoring,
-                right_info[nj].set,
+                &right_info[nj].set,
                 right_scoring,
             );
             self.select_direction(
@@ -333,9 +350,9 @@ impl ParsimonyAlignmentMatrices {
 
     fn get_match_cost(
         &self,
-        left_set: u32,
+        left_set: &ParsimonySet,
         left_scoring: &Box<dyn BranchParsimonyCosts>,
-        right_set: u32,
+        right_set: &ParsimonySet,
         right_scoring: &Box<dyn BranchParsimonyCosts>,
     ) -> f64 {
         left_scoring.match_cost(1, 2)
@@ -446,12 +463,12 @@ mod parsimony_matrices_tests {
         let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
 
         let node_info_1 = vec![
-            ParsimonySiteInfo::new(0b00100, false, false),
-            ParsimonySiteInfo::new(0b00100, false, false),
+            ParsimonySiteInfo::new([b'C'], false, false),
+            ParsimonySiteInfo::new([b'C'], false, false),
         ];
         let node_info_2 = vec![
-            ParsimonySiteInfo::new(0b01000, false, false),
-            ParsimonySiteInfo::new(0b00100, false, false),
+            ParsimonySiteInfo::new([b'A'], false, false),
+            ParsimonySiteInfo::new([b'C'], false, false),
         ];
 
         let mut pars_mats = ParsimonyAlignmentMatrices::new(3, 3, |_| 0);
@@ -521,12 +538,12 @@ mod parsimony_matrices_tests {
         let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
 
         let node_info_1 = vec![
-            ParsimonySiteInfo::new(0b00100, false, false),
-            ParsimonySiteInfo::new(0b00100, false, false),
+            ParsimonySiteInfo::new([b'C'], false, false),
+            ParsimonySiteInfo::new([b'C'], false, false),
         ];
         let node_info_2 = vec![
-            ParsimonySiteInfo::new(0b01000, false, false),
-            ParsimonySiteInfo::new(0b00100, false, false),
+            ParsimonySiteInfo::new([b'A'], false, false),
+            ParsimonySiteInfo::new([b'C'], false, false),
         ];
 
         let mut pars_mats = ParsimonyAlignmentMatrices::new(3, 3, |l| l - 1);
@@ -595,12 +612,12 @@ mod parsimony_matrices_tests {
         let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
 
         let node_info_1 = vec![
-            ParsimonySiteInfo::new(0b00100, false, false),
-            ParsimonySiteInfo::new(0b00100, false, false),
+            ParsimonySiteInfo::new([b'C'], false, false),
+            ParsimonySiteInfo::new([b'C'], false, false),
         ];
         let node_info_2 = vec![
-            ParsimonySiteInfo::new(0b01000, false, false),
-            ParsimonySiteInfo::new(0b00100, false, false),
+            ParsimonySiteInfo::new([b'A'], false, false),
+            ParsimonySiteInfo::new([b'C'], false, false),
         ];
         let mut pars_mats = ParsimonyAlignmentMatrices::new(3, 3, |l| l - 1);
         pars_mats.fill_matrices(
@@ -613,9 +630,9 @@ mod parsimony_matrices_tests {
         let (node_info, alignment, score) = pars_mats.traceback(&node_info_1, &node_info_2);
         assert_eq!(
             node_info[0],
-            ParsimonySiteInfo::new(0b00100 + 0b01000, false, false)
+            ParsimonySiteInfo::new([b'C', b'A'], false, false)
         );
-        assert_eq!(node_info[1], ParsimonySiteInfo::new(0b00100, false, false));
+        assert_eq!(node_info[1], ParsimonySiteInfo::new([b'C'], false, false));
         assert_eq!(alignment.map_x, vec![Some(0), Some(1)]);
         assert_eq!(alignment.map_y, vec![Some(0), Some(1)]);
         assert_eq!(score, 1.0);
@@ -631,9 +648,9 @@ mod parsimony_matrices_tests {
         let (node_info, alignment, score) = pars_mats.traceback(&node_info_1, &node_info_2);
         assert_eq!(
             node_info[0],
-            ParsimonySiteInfo::new(0b00100 + 0b01000, false, false)
+            ParsimonySiteInfo::new([b'C', b'A'], false, false)
         );
-        assert_eq!(node_info[1], ParsimonySiteInfo::new(0b00100, false, false));
+        assert_eq!(node_info[1], ParsimonySiteInfo::new([b'C'], false, false));
         assert_eq!(alignment.map_x, vec![Some(0), Some(1)]);
         assert_eq!(alignment.map_y, vec![Some(0), Some(1)]);
         assert_eq!(score, 1.0);

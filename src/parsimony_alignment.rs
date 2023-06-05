@@ -75,25 +75,19 @@ pub(crate) fn pars_align_on_tree(
     for &node_idx in order {
         match node_idx {
             Int(idx) => {
-                let ch1_idx = tree.internals[idx].children[0];
-                let ch2_idx = tree.internals[idx].children[1];
+                let (left_info, left_branch) = match tree.internals[idx].children[0] {
+                    Int(idx) => (&internal_info[idx], tree.internals[idx].blen),
+                    Leaf(idx) => (&leaf_info[idx], tree.leaves[idx].blen),
+                };
+                let (right_info, right_branch) = match tree.internals[idx].children[1] {
+                    Int(idx) => (&internal_info[idx], tree.internals[idx].blen),
+                    Leaf(idx) => (&leaf_info[idx], tree.leaves[idx].blen),
+                };
                 let (info, alignment, score) = pars_align(
-                    match ch1_idx {
-                        Int(idx1) => &internal_info[idx1],
-                        Leaf(idx1) => &leaf_info[idx1],
-                    },
-                    &scoring.get_branch_costs(match ch1_idx {
-                        Int(idx1) => tree.internals[idx1].blen,
-                        Leaf(idx1) => tree.leaves[idx1].blen,
-                    }),
-                    match ch2_idx {
-                        Int(idx2) => &internal_info[idx2],
-                        Leaf(idx2) => &leaf_info[idx2],
-                    },
-                    &scoring.get_branch_costs(match ch2_idx {
-                        Int(idx2) => tree.internals[idx2].blen,
-                        Leaf(idx2) => tree.leaves[idx2].blen,
-                    }),
+                    &left_info,
+                    &scoring.get_branch_costs(left_branch),
+                    &right_info,
+                    &scoring.get_branch_costs(right_branch),
                 );
 
                 internal_info[idx] = info;
@@ -122,10 +116,10 @@ pub(crate) fn sequence_idx(sequences: &[Record], search: &Record) -> usize {
 #[cfg(test)]
 mod parsimony_alignment_tests {
     use crate::alignment::{compile_alignment_representation, Alignment};
-    use crate::parsimony_alignment::parsimony_costs::ParsimonyCosts;
+    use crate::parsimony_alignment::parsimony_costs::{ParsimonyCosts, ParsimonyCostsSimple};
     use crate::parsimony_alignment::{
-        pars_align_on_tree, pars_align_w_rng, parsimony_costs::ParsimonyCostsSimple,
-        parsimony_info::ParsimonySiteInfo, parsimony_sets::get_parsimony_sets,
+        pars_align_on_tree, pars_align_w_rng, parsimony_info::ParsimonySiteInfo,
+        parsimony_sets::get_parsimony_sets,
     };
     use crate::sequences::SequenceType;
     use crate::tree::{NodeIdx::Internal as I, NodeIdx::Leaf as L, Tree};
@@ -298,14 +292,15 @@ mod parsimony_alignment_tests {
         let gap_ext_cost = 0.5;
         let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
 
-        let leaf_info1 = create_site_info(&[
-            (8, false, false),
-            (12, false, false),
-            (4, true, false),
-            (2, true, false),
-        ]);
+        let leaf_info1 = [
+            (vec![b'A'], false, false),
+            (vec![b'C', b'A'], false, false),
+            (vec![b'C'], true, false),
+            (vec![b'T'], true, false),
+        ]
+        .map(create_site_info);
 
-        let leaf_info2 = create_site_info(&[(16, true, false), (8, false, false)]);
+        let leaf_info2 = [([b'G'], true, false), ([b'A'], false, false)].map(create_site_info);
 
         let (_info, alignment, score) = pars_align_w_rng(
             &leaf_info1,
@@ -320,10 +315,10 @@ mod parsimony_alignment_tests {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn create_site_info(info: &[(u32, bool, bool)]) -> Vec<ParsimonySiteInfo> {
-        info.into_iter()
-            .map(|(set, poss, perm)| ParsimonySiteInfo::new(*set, *poss, *perm))
-            .collect()
+    pub(crate) fn create_site_info(
+        args: (impl IntoIterator<Item = u8>, bool, bool),
+    ) -> ParsimonySiteInfo {
+        ParsimonySiteInfo::new(args.0, args.1, args.2)
     }
 
     #[test]
@@ -333,14 +328,15 @@ mod parsimony_alignment_tests {
         let gap_ext_cost = 0.5;
         let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
 
-        let leaf_info1 = create_site_info(&[
-            (8, false, false),
-            (8, true, false),
-            (4, true, false),
-            (6, false, false),
-        ]);
+        let leaf_info1 = [
+            (vec![b'A'], false, false),
+            (vec![b'A'], true, false),
+            (vec![b'C'], true, false),
+            (vec![b'T', b'C'], false, false),
+        ]
+        .map(create_site_info);
 
-        let leaf_info2 = create_site_info(&[(16, true, false), (8, false, false)]);
+        let leaf_info2 = [([b'G'], true, false), ([b'A'], false, false)].map(create_site_info);
 
         let (_info, alignment, score) = pars_align_w_rng(
             &leaf_info1,
@@ -361,14 +357,16 @@ mod parsimony_alignment_tests {
         let gap_ext_cost = 0.5;
         let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
 
-        let leaf_info1 = create_site_info(&[
-            (8, false, false),
-            (8, true, false),
-            (4, true, false),
-            (6, false, false),
-        ]);
+        let leaf_info1 = [
+            (vec![b'A'], false, false),
+            (vec![b'A'], true, false),
+            (vec![b'C'], true, false),
+            (vec![b'C', b'T'], false, false),
+        ]
+        .map(create_site_info);
 
-        let leaf_info2 = create_site_info(&[(16, true, false), (8, false, false)]);
+        let leaf_info2 =
+            [(vec![b'G'], true, false), (vec![b'A'], false, false)].map(create_site_info);
 
         let (_info, alignment, score) = pars_align_w_rng(
             &leaf_info1,

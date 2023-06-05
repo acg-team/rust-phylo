@@ -1,133 +1,167 @@
-use crate::sequences::{
-    charify, SequenceType, AMB_AMINOACIDS_STR, AMB_NUCLEOTIDES_STR, AMINOACIDS_STR, GAP,
-    NUCLEOTIDES_STR,
-};
+use crate::sequences::{charify, SequenceType, AMINOACIDS_STR, NUCLEOTIDES_STR};
 use bio::io::fasta;
+use std::collections::HashSet;
 
-pub(crate) const GAP_SET: u32 = 0b1;
-pub(crate) const EMPTY_SET: u32 = 0b0;
+pub(crate) type ParsimonySet = HashSet<u8>;
 
-pub(crate) fn dna_pars_sets() -> [u32; u8::MAX as usize] {
+pub(crate) fn make_parsimony_set(chars: impl IntoIterator<Item = u8>) -> ParsimonySet {
+    ParsimonySet::from_iter(chars)
+}
+
+pub(crate) fn get_dna_set(char: &u8) -> ParsimonySet {
     let nucleotides = charify(NUCLEOTIDES_STR);
-    let ambiguous_nucleotides = charify(AMB_NUCLEOTIDES_STR);
-    let mut pars_table = [0b11110 as u32; u8::MAX as usize];
-    let mut cur_code = GAP_SET;
-    pars_table[GAP as usize] = GAP_SET;
-    for &ch in &nucleotides {
-        cur_code <<= 1;
-        pars_table[ch as usize] = cur_code;
+    if nucleotides.contains(char) {
+        ParsimonySet::from_iter(nucleotides.into_iter().filter(|c| c == char))
+    } else {
+        match *char {
+            b'-' => gap_set(),
+            b'V' => ParsimonySet::from_iter(nucleotides.into_iter().filter(|c| *c != b'T')),
+            b'D' => ParsimonySet::from_iter(nucleotides.into_iter().filter(|c| *c != b'C')),
+            b'B' => ParsimonySet::from_iter(nucleotides.into_iter().filter(|c| *c != b'A')),
+            b'H' => ParsimonySet::from_iter(nucleotides.into_iter().filter(|c| *c != b'G')),
+            b'M' => ParsimonySet::from_iter(
+                nucleotides.into_iter().filter(|c| *c == b'A' || *c == b'C'),
+            ),
+            b'R' => ParsimonySet::from_iter(
+                nucleotides.into_iter().filter(|c| *c == b'A' || *c == b'G'),
+            ),
+            b'W' => ParsimonySet::from_iter(
+                nucleotides.into_iter().filter(|c| *c == b'A' || *c == b'T'),
+            ),
+            b'S' => ParsimonySet::from_iter(
+                nucleotides.into_iter().filter(|c| *c == b'C' || *c == b'G'),
+            ),
+            b'Y' => ParsimonySet::from_iter(
+                nucleotides.into_iter().filter(|c| *c == b'C' || *c == b'T'),
+            ),
+            b'K' => ParsimonySet::from_iter(
+                nucleotides.into_iter().filter(|c| *c == b'G' || *c == b'T'),
+            ),
+            _ => ParsimonySet::from_iter(nucleotides.into_iter()),
+        }
     }
-    pars_table['V' as usize] = pars_table['X' as usize] ^ pars_table['T' as usize];
-    pars_table['D' as usize] = pars_table['X' as usize] ^ pars_table['C' as usize];
-    pars_table['B' as usize] = pars_table['X' as usize] ^ pars_table['A' as usize];
-    pars_table['H' as usize] = pars_table['X' as usize] ^ pars_table['G' as usize];
-    pars_table['M' as usize] = pars_table['A' as usize] | pars_table['C' as usize];
-    pars_table['R' as usize] = pars_table['A' as usize] | pars_table['G' as usize];
-    pars_table['W' as usize] = pars_table['A' as usize] | pars_table['T' as usize];
-    pars_table['S' as usize] = pars_table['C' as usize] | pars_table['G' as usize];
-    pars_table['Y' as usize] = pars_table['C' as usize] | pars_table['T' as usize];
-    pars_table['K' as usize] = pars_table['G' as usize] | pars_table['T' as usize];
-    for &ch in nucleotides.iter().chain(ambiguous_nucleotides.iter()) {
-        pars_table[ch.to_ascii_lowercase() as usize] = pars_table[ch as usize];
-    }
-    pars_table
 }
 
-pub(crate) fn protein_pars_sets() -> [u32; u8::MAX as usize] {
+fn get_protein_set(char: &u8) -> ParsimonySet {
     let aminoacids = charify(AMINOACIDS_STR);
-    let ambiguous_acids = charify(AMB_AMINOACIDS_STR);
-    let mut pars_table = [0b11111_11111_11111_11111_0 as u32; u8::MAX as usize];
-    let mut cur_code = GAP_SET;
-    pars_table[GAP as usize] = GAP_SET;
-    for &ch in &aminoacids {
-        cur_code <<= 1;
-        pars_table[ch as usize] = cur_code;
+    if aminoacids.contains(char) {
+        ParsimonySet::from_iter(aminoacids.into_iter().filter(|c| c == char))
+    } else {
+        match *char {
+            b'-' => gap_set(),
+            b'B' => ParsimonySet::from_iter([b'D', b'N'].into_iter()),
+            b'Z' => ParsimonySet::from_iter([b'E', b'Q'].into_iter()),
+            b'J' => ParsimonySet::from_iter([b'I', b'L'].into_iter()),
+            _ => ParsimonySet::from_iter(aminoacids.into_iter()),
+        }
     }
-    pars_table['B' as usize] = pars_table['D' as usize] | pars_table['N' as usize];
-    pars_table['Z' as usize] = pars_table['E' as usize] | pars_table['Q' as usize];
-    pars_table['J' as usize] = pars_table['I' as usize] | pars_table['L' as usize];
-    for &ch in aminoacids.iter().chain(ambiguous_acids.iter()) {
-        pars_table[ch.to_ascii_lowercase() as usize] = pars_table[ch as usize];
-    }
-    pars_table
 }
 
-pub(crate) fn get_parsimony_sets(record: &fasta::Record, sequence_type: &SequenceType) -> Vec<u32> {
-    let set_table = match sequence_type {
-        SequenceType::DNA => dna_pars_sets(),
-        SequenceType::Protein => protein_pars_sets(),
+pub(crate) fn get_parsimony_sets(
+    record: &fasta::Record,
+    sequence_type: &SequenceType,
+) -> Vec<ParsimonySet> {
+    let char_set = match sequence_type {
+        SequenceType::DNA => |c| get_dna_set(&c),
+        SequenceType::Protein => |c| get_dna_set(&c),
     };
     record
         .seq()
+        .to_ascii_uppercase()
         .into_iter()
-        .map(|c| set_table[*c as usize])
+        .map(char_set)
         .collect()
+}
+
+pub(crate) fn gap_set() -> ParsimonySet {
+    ParsimonySet::from_iter([b'-'].into_iter())
 }
 
 #[cfg(test)]
 mod parsimony_sets_tests {
-    use crate::parsimony_alignment::parsimony_sets::{
-        dna_pars_sets, protein_pars_sets, EMPTY_SET, GAP_SET,
-    };
-    use crate::sequences::GAP;
+    use bio::io::fasta::Record;
 
-    #[test]
-    fn protein_sets() {
-        let pars_table = protein_pars_sets();
-        assert_eq!(pars_table['X' as usize], pars_table['O' as usize]);
-        assert_eq!(
-            pars_table['X' as usize],
-            !pars_table[GAP as usize] % (0b1 << 21)
-        );
-        assert_eq!(pars_table['n' as usize], pars_table['N' as usize]);
-        assert_eq!(pars_table['e' as usize], pars_table['E' as usize]);
-        assert_eq!(
-            pars_table['b' as usize],
-            pars_table['D' as usize] | pars_table['n' as usize]
-        );
-        assert_eq!(
-            pars_table['Z' as usize],
-            pars_table['E' as usize] | pars_table['q' as usize]
-        );
-        assert_eq!(
-            pars_table['j' as usize],
-            pars_table['i' as usize] | pars_table['L' as usize]
-        );
-    }
+    use crate::{
+        parsimony_alignment::parsimony_sets::{
+            gap_set, get_dna_set, get_parsimony_sets, get_protein_set,
+        },
+        sequences::SequenceType,
+    };
 
     #[test]
     fn dna_sets() {
-        let pars_table = dna_pars_sets();
-        assert_eq!(pars_table['N' as usize], pars_table['X' as usize]);
-        assert_eq!(pars_table['N' as usize], pars_table['n' as usize]);
-        assert_eq!(pars_table['T' as usize], pars_table['t' as usize]);
-        assert_eq!(pars_table['C' as usize], pars_table['c' as usize]);
-        assert_eq!(pars_table['A' as usize], pars_table['a' as usize]);
-        assert_eq!(pars_table['G' as usize], pars_table['g' as usize]);
+        let record = Record::with_attrs("", None, b"AaCcTtGgXn-");
+        let sets = get_parsimony_sets(&record, &SequenceType::DNA);
+        assert_eq!(sets.len(), 11);
+        assert_eq!(sets[0], sets[1]);
+        assert_eq!(sets[2], sets[3]);
+        assert_eq!(sets[4], sets[5]);
+        assert_eq!(sets[6], sets[7]);
+        assert_eq!(sets[8], sets[9]);
+        assert_eq!(sets[10], gap_set());
+        assert_eq!(&(&sets[0] | &sets[2]) | &(&sets[4] | &sets[6]), sets[8]);
+    }
+
+    #[test]
+    fn protein_sets() {
+        let record = Record::with_attrs("", None, b"rRlLeEqQxO-");
+        let sets = get_parsimony_sets(&record, &SequenceType::Protein);
+        assert_eq!(sets.len(), 11);
+        assert_eq!(sets[0], sets[1]);
+        assert_eq!(sets[2], sets[3]);
+        assert_eq!(sets[4], sets[5]);
+        assert_eq!(sets[6], sets[7]);
+        assert_eq!(sets[8], sets[9]);
+        assert_eq!(sets[10], gap_set());
+    }
+
+    #[test]
+    fn dna_characters() {
+        assert_eq!(get_dna_set(&b'N'), get_dna_set(&b'X'));
         assert_eq!(
-            pars_table['V' as usize] & pars_table['t' as usize],
-            EMPTY_SET
+            &(&get_dna_set(&b'A') | &get_dna_set(&b'C'))
+                | &(&get_dna_set(&b'G') | &get_dna_set(&b'T')),
+            get_dna_set(&b'X')
+        );
+        assert_eq!(get_dna_set(&b'-'), gap_set());
+        assert!(get_dna_set(&b'-').is_disjoint(&get_dna_set(&b'X')));
+        assert!((&get_dna_set(&b'-') & &get_dna_set(&b'X')).is_empty());
+        assert_eq!(get_dna_set(&b'E'), get_dna_set(&b'E'));
+        assert_eq!(get_dna_set(&b'T'), get_dna_set(&b'T'));
+        assert!((&get_dna_set(&b'V') & &get_dna_set(&b'T')).is_empty());
+        assert!((&get_dna_set(&b'D') & &get_dna_set(&b'C')).is_empty());
+        assert!((&get_dna_set(&b'B') & &get_dna_set(&b'A')).is_empty());
+        assert!((&get_dna_set(&b'H') & &get_dna_set(&b'G')).is_empty());
+        assert_eq!(
+            get_dna_set(&b'M'),
+            &get_dna_set(&b'A') | &get_dna_set(&b'C')
         );
         assert_eq!(
-            pars_table['D' as usize] & pars_table['c' as usize],
-            EMPTY_SET
+            get_dna_set(&b'K'),
+            &get_dna_set(&b'G') | &get_dna_set(&b'T')
+        );
+        assert_eq!(get_dna_set(&b'-'), gap_set());
+    }
+
+    #[test]
+    fn protein_characters() {
+        assert_eq!(get_protein_set(&b'X'), get_protein_set(&b'O'));
+        assert_eq!(get_protein_set(&b'-'), gap_set());
+        assert!(get_protein_set(&b'-').is_disjoint(&get_protein_set(&b'X')));
+        assert!((&get_protein_set(&b'-') & &get_protein_set(&b'X')).is_empty());
+        assert_eq!(get_protein_set(&b'E'), get_protein_set(&b'E'));
+        assert_eq!(get_protein_set(&b'N'), get_protein_set(&b'N'));
+        assert_eq!(
+            get_protein_set(&b'B'),
+            &get_protein_set(&b'D') | &get_protein_set(&b'N')
         );
         assert_eq!(
-            pars_table['b' as usize] & pars_table['A' as usize],
-            EMPTY_SET
+            get_protein_set(&b'Z'),
+            &get_protein_set(&b'E') | &get_protein_set(&b'Q')
         );
         assert_eq!(
-            pars_table['h' as usize] & pars_table['G' as usize],
-            EMPTY_SET
+            get_protein_set(&b'J'),
+            &get_protein_set(&b'I') | &get_protein_set(&b'L')
         );
-        assert_eq!(
-            pars_table['m' as usize],
-            pars_table['A' as usize] | pars_table['C' as usize]
-        );
-        assert_eq!(
-            pars_table['k' as usize],
-            pars_table['G' as usize] | pars_table['T' as usize]
-        );
-        assert_eq!(pars_table['-' as usize], GAP_SET);
     }
 }
