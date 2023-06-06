@@ -327,35 +327,31 @@ impl ParsimonyAlignmentMatrices {
         right_info: &[ParsimonySiteInfo],
         right_scoring: &Box<dyn BranchParsimonyCosts>,
     ) -> (f64, Direction) {
-        if !(&left_info[ni].set & &right_info[nj].set).is_empty() {
-            self.select_direction(
-                self.score.m[ni][nj],
-                self.score.x[ni][nj],
-                self.score.y[ni][nj],
-            )
-        } else {
-            let score = self.get_match_cost(
-                &left_info[ni].set,
-                left_scoring,
-                &right_info[nj].set,
-                right_scoring,
-            );
-            self.select_direction(
-                self.score.m[ni][nj] + score,
-                self.score.x[ni][nj] + score,
-                self.score.y[ni][nj] + score,
-            )
-        }
+        let score = self.get_match_cost(
+            &left_info[ni].set,
+            left_scoring,
+            &right_info[nj].set,
+            right_scoring,
+        );
+        self.select_direction(
+            self.score.m[ni][nj] + score,
+            self.score.x[ni][nj] + score,
+            self.score.y[ni][nj] + score,
+        )
     }
 
     fn get_match_cost(
         &self,
-        left_set: &ParsimonySet,
-        left_scoring: &Box<dyn BranchParsimonyCosts>,
-        right_set: &ParsimonySet,
-        right_scoring: &Box<dyn BranchParsimonyCosts>,
+        lset: &ParsimonySet,
+        lscoring: &Box<dyn BranchParsimonyCosts>,
+        rset: &ParsimonySet,
+        rscoring: &Box<dyn BranchParsimonyCosts>,
     ) -> f64 {
-        left_scoring.match_cost(1, 2)
+        (lset | rset)
+            .into_iter()
+            .map(|a| min_score(lset, lscoring, a) + min_score(rset, rscoring, a))
+            .min_by(cmp_f64())
+            .unwrap_or(f64::INFINITY)
     }
 
     fn select_direction(&self, sm: f64, sx: f64, sy: f64) -> (f64, Direction) {
@@ -444,6 +440,17 @@ impl ParsimonyAlignmentMatrices {
             self.score.y[ni][skip_index] + scoring.gap_ext_cost()
         }
     }
+}
+
+fn min_score(set: &ParsimonySet, scoring: &Box<dyn BranchParsimonyCosts>, ancestor: u8) -> f64 {
+    set.into_iter()
+        .map(|l: &u8| scoring.match_cost(ancestor, *l))
+        .min_by(cmp_f64())
+        .unwrap()
+}
+
+fn cmp_f64() -> impl Fn(&f64, &f64) -> std::cmp::Ordering {
+    |a, b| a.partial_cmp(b).unwrap()
 }
 
 #[cfg(test)]
