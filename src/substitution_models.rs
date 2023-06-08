@@ -6,15 +6,10 @@ use anyhow::anyhow;
 
 use nalgebra::{SMatrix, SVector};
 
-use crate::Result;
+use crate::{Result, f64_h};
 
 pub(crate) mod dna_models;
 pub(crate) mod protein_models;
-
-#[allow(non_camel_case_types)]
-type f32_h = ordered_float::OrderedFloat<f32>;
-#[allow(non_camel_case_types)]
-type f64_h = ordered_float::OrderedFloat<f64>;
 
 type SubstMatrix<const N: usize> = SMatrix<f64, N, N>;
 type FreqVector<const N: usize> = SVector<f64, N>;
@@ -26,8 +21,8 @@ pub(crate) struct SubstitutionModel<const N: usize> {
     pi: FreqVector<N>,
 }
 
-type DNASubstModel = SubstitutionModel<4>;
-type ProteinSubstModel = SubstitutionModel<20>;
+pub(crate) type DNASubstModel = SubstitutionModel<4>;
+pub(crate) type ProteinSubstModel = SubstitutionModel<20>;
 
 impl DNASubstModel {
     pub(crate) fn new(model_name: &str) -> Result<Self> {
@@ -82,15 +77,25 @@ where
         )]
     }
 
-    pub(crate) fn generate_ps(
-        &self,
-        times: Vec<f64>,
-    ) -> HashMap<OrderedFloat<f64>, SubstMatrix<N>> {
+    pub(crate) fn generate_ps(&self, times: &[f64]) -> HashMap<OrderedFloat<f64>, SubstMatrix<N>> {
         HashMap::<f64_h, SubstMatrix<N>>::from_iter(
             times
                 .into_iter()
-                .map(|time| (f64_h::from(time), self.get_p(time))),
+                .map(|&time| (f64_h::from(time), self.get_p(time))),
         )
+    }
+
+    pub(crate) fn generate_scorings(
+        &self,
+        times: &[f64],
+        zero_diag: bool,
+    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix<N>, f64)> {
+        HashMap::<f64_h, (SubstMatrix<N>, f64)>::from_iter(times.iter().map(|&time| {
+            (
+                f64_h::from(time),
+                self.get_scoring_matrix_corrected(time, zero_diag),
+            )
+        }))
     }
 
     pub(crate) fn normalise(&mut self) {

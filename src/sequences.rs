@@ -1,7 +1,4 @@
-use crate::tree::njmat;
-use crate::tree::NodeIdx;
-use bio::{alignment::distance::*, alphabets::Alphabet, io::fasta};
-use nalgebra::{max, DMatrix};
+use bio::{alphabets::Alphabet, io::fasta};
 
 #[derive(PartialEq, Debug)]
 pub(crate) enum SequenceType {

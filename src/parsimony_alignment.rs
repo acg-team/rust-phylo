@@ -17,7 +17,7 @@ use parsimony_costs::ParsimonyCosts;
 use parsimony_info::ParsimonySiteInfo;
 use parsimony_matrices::ParsimonyAlignmentMatrices;
 
-use self::parsimony_costs::BranchParsimonyCosts;
+use parsimony_costs::BranchParsimonyCosts;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum Direction {
@@ -33,9 +33,9 @@ fn rng_len(l: usize) -> usize {
 
 fn pars_align_w_rng(
     left_info: &[ParsimonySiteInfo],
-    left_scoring: &Box<dyn BranchParsimonyCosts>,
+    left_scoring: &Box<&dyn BranchParsimonyCosts>,
     right_info: &[ParsimonySiteInfo],
-    right_scoring: &Box<dyn BranchParsimonyCosts>,
+    right_scoring: &Box<&dyn BranchParsimonyCosts>,
     rng: fn(usize) -> usize,
 ) -> (Vec<ParsimonySiteInfo>, Alignment, f64) {
     let mut pars_mats =
@@ -46,9 +46,9 @@ fn pars_align_w_rng(
 
 fn pars_align(
     left_info: &[ParsimonySiteInfo],
-    left_scoring: &Box<dyn BranchParsimonyCosts>,
+    left_scoring: &Box<&dyn BranchParsimonyCosts>,
     right_info: &[ParsimonySiteInfo],
-    right_scoring: &Box<dyn BranchParsimonyCosts>,
+    right_scoring: &Box<&dyn BranchParsimonyCosts>,
 ) -> (Vec<ParsimonySiteInfo>, Alignment, f64) {
     pars_align_w_rng(left_info, left_scoring, right_info, right_scoring, rng_len)
 }
@@ -63,7 +63,7 @@ pub(crate) fn pars_align_on_tree(
 ) -> (Vec<Alignment>, Vec<f64>) {
     let order = &tree.postorder;
     let scoring =
-        parsimony_costs::ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
+        parsimony_costs::parsimony_costs_simple::ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
 
     assert_eq!(tree.internals.len() + tree.leaves.len(), order.len());
 
@@ -116,7 +116,7 @@ pub(crate) fn sequence_idx(sequences: &[Record], search: &Record) -> usize {
 #[cfg(test)]
 mod parsimony_alignment_tests {
     use crate::alignment::{compile_alignment_representation, Alignment};
-    use crate::parsimony_alignment::parsimony_costs::{ParsimonyCosts, ParsimonyCostsSimple};
+    use crate::parsimony_alignment::parsimony_costs::{ParsimonyCosts, parsimony_costs_simple::ParsimonyCostsSimple};
     use crate::parsimony_alignment::{
         pars_align_on_tree, pars_align_w_rng, parsimony_info::ParsimonySiteInfo,
         parsimony_sets::get_parsimony_sets,

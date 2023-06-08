@@ -42,7 +42,7 @@ pub(crate) fn get_dna_set(char: &u8) -> ParsimonySet {
     }
 }
 
-fn get_protein_set(char: &u8) -> ParsimonySet {
+pub(crate) fn get_protein_set(char: &u8) -> ParsimonySet {
     let aminoacids = charify(AMINOACIDS_STR);
     if aminoacids.contains(char) {
         ParsimonySet::from_iter(aminoacids.into_iter().filter(|c| c == char))
@@ -63,7 +63,7 @@ pub(crate) fn get_parsimony_sets(
 ) -> Vec<ParsimonySet> {
     let char_set = match sequence_type {
         SequenceType::DNA => |c| get_dna_set(&c),
-        SequenceType::Protein => |c| get_dna_set(&c),
+        SequenceType::Protein => |c| get_protein_set(&c),
     };
     record
         .seq()

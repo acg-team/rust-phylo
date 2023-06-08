@@ -1,4 +1,5 @@
 use crate::alignment::{Alignment, Mapping};
+use crate::cmp_f64;
 use crate::parsimony_alignment::parsimony_sets;
 use crate::parsimony_alignment::{parsimony_info::ParsimonySiteInfo, Direction};
 use std::fmt;
@@ -105,9 +106,9 @@ impl ParsimonyAlignmentMatrices {
     pub(crate) fn fill_matrices(
         &mut self,
         left_info: &[ParsimonySiteInfo],
-        left_scoring: &Box<dyn BranchParsimonyCosts>,
+        left_scoring: &Box<&dyn BranchParsimonyCosts>,
         right_info: &[ParsimonySiteInfo],
-        right_scoring: &Box<dyn BranchParsimonyCosts>,
+        right_scoring: &Box<&dyn BranchParsimonyCosts>,
     ) {
         self.init_x(left_info, left_scoring);
         self.init_y(right_info, right_scoring);
@@ -240,7 +241,7 @@ impl ParsimonyAlignmentMatrices {
         (node_info, alignment, pars_score)
     }
 
-    fn init_x(&mut self, node_info: &[ParsimonySiteInfo], scoring: &Box<dyn BranchParsimonyCosts>) {
+    fn init_x(&mut self, node_info: &[ParsimonySiteInfo], scoring: &Box<&dyn BranchParsimonyCosts>) {
         for i in 1..self.rows {
             self.score.x[i][0] = self.score.x[i - 1][0];
             if node_info[i - 1].perm_gap || node_info[i - 1].poss_gap {
@@ -257,7 +258,7 @@ impl ParsimonyAlignmentMatrices {
         }
     }
 
-    fn init_y(&mut self, node_info: &[ParsimonySiteInfo], scoring: &Box<dyn BranchParsimonyCosts>) {
+    fn init_y(&mut self, node_info: &[ParsimonySiteInfo], scoring: &Box<&dyn BranchParsimonyCosts>) {
         for j in 1..self.cols {
             self.score.y[0][j] = self.score.y[0][j - 1];
             if node_info[j - 1].perm_gap || node_info[j - 1].poss_gap {
@@ -279,7 +280,7 @@ impl ParsimonyAlignmentMatrices {
         ni: usize,
         nj: usize,
         node_info: &[ParsimonySiteInfo],
-        scoring: &Box<dyn BranchParsimonyCosts>,
+        scoring: &Box<&dyn BranchParsimonyCosts>,
     ) -> (f64, Direction) {
         if node_info[ni].poss_gap {
             self.select_direction(
@@ -301,7 +302,7 @@ impl ParsimonyAlignmentMatrices {
         ni: usize,
         nj: usize,
         node_info: &[ParsimonySiteInfo],
-        scoring: &Box<dyn BranchParsimonyCosts>,
+        scoring: &Box<&dyn BranchParsimonyCosts>,
     ) -> (f64, Direction) {
         if node_info[nj].poss_gap {
             self.select_direction(
@@ -323,9 +324,9 @@ impl ParsimonyAlignmentMatrices {
         ni: usize,
         nj: usize,
         left_info: &[ParsimonySiteInfo],
-        left_scoring: &Box<dyn BranchParsimonyCosts>,
+        left_scoring: &Box<&dyn BranchParsimonyCosts>,
         right_info: &[ParsimonySiteInfo],
-        right_scoring: &Box<dyn BranchParsimonyCosts>,
+        right_scoring: &Box<&dyn BranchParsimonyCosts>,
     ) -> (f64, Direction) {
         let score = self.get_match_cost(
             &left_info[ni].set,
@@ -343,9 +344,9 @@ impl ParsimonyAlignmentMatrices {
     fn get_match_cost(
         &self,
         lset: &ParsimonySet,
-        lscoring: &Box<dyn BranchParsimonyCosts>,
+        lscoring: &Box<&dyn BranchParsimonyCosts>,
         rset: &ParsimonySet,
-        rscoring: &Box<dyn BranchParsimonyCosts>,
+        rscoring: &Box<&dyn BranchParsimonyCosts>,
     ) -> f64 {
         (lset | rset)
             .into_iter()
@@ -400,7 +401,7 @@ impl ParsimonyAlignmentMatrices {
         ni: usize,
         nj: usize,
         node_info: &[ParsimonySiteInfo],
-        scoring: &Box<dyn BranchParsimonyCosts>,
+        scoring: &Box<&dyn BranchParsimonyCosts>,
     ) -> f64 {
         let mut skip_index = ni;
         while skip_index > 0
@@ -423,7 +424,7 @@ impl ParsimonyAlignmentMatrices {
         ni: usize,
         nj: usize,
         node_info: &[ParsimonySiteInfo],
-        scoring: &Box<dyn BranchParsimonyCosts>,
+        scoring: &Box<&dyn BranchParsimonyCosts>,
     ) -> f64 {
         let mut skip_index = nj;
         while skip_index > 0
@@ -442,21 +443,17 @@ impl ParsimonyAlignmentMatrices {
     }
 }
 
-fn min_score(set: &ParsimonySet, scoring: &Box<dyn BranchParsimonyCosts>, ancestor: u8) -> f64 {
+fn min_score(set: &ParsimonySet, scoring: &Box<&dyn BranchParsimonyCosts>, ancestor: u8) -> f64 {
     set.into_iter()
         .map(|l: &u8| scoring.match_cost(ancestor, *l))
         .min_by(cmp_f64())
         .unwrap()
 }
 
-fn cmp_f64() -> impl Fn(&f64, &f64) -> std::cmp::Ordering {
-    |a, b| a.partial_cmp(b).unwrap()
-}
-
 #[cfg(test)]
 mod parsimony_matrices_tests {
     use crate::parsimony_alignment::{
-        parsimony_costs::{ParsimonyCosts, ParsimonyCostsSimple},
+        parsimony_costs::{parsimony_costs_simple::ParsimonyCostsSimple, ParsimonyCosts},
         parsimony_info::ParsimonySiteInfo,
         parsimony_matrices::ParsimonyAlignmentMatrices,
         Direction,
@@ -542,7 +539,8 @@ mod parsimony_matrices_tests {
         let mismatch_cost = 1.0;
         let gap_open_cost = 2.5;
         let gap_ext_cost = 0.5;
-        let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
+        let scoring =
+            ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
 
         let node_info_1 = vec![
             ParsimonySiteInfo::new([b'C'], false, false),
@@ -616,7 +614,8 @@ mod parsimony_matrices_tests {
         let mismatch_cost = 1.0;
         let gap_open_cost = 2.5;
         let gap_ext_cost = 0.5;
-        let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
+        let scoring =
+            ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
 
         let node_info_1 = vec![
             ParsimonySiteInfo::new([b'C'], false, false),

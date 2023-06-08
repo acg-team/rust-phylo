@@ -13,6 +13,12 @@ mod alignment;
 type Result<T> = std::result::Result<T, Error>;
 type Result2<T, E> = std::result::Result<T, E>;
 
+#[allow(non_camel_case_types)]
+type f64_h = ordered_float::OrderedFloat<f64>;
+
+fn cmp_f64() -> impl Fn(&f64, &f64) -> std::cmp::Ordering {
+    |a, b| a.partial_cmp(b).unwrap()
+}
 
 fn main() -> Result<()> {
     let sequences = io::read_sequences_from_file("./data/sequences_protein1.fasta").unwrap();
