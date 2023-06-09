@@ -13,6 +13,7 @@ use ordered_float::OrderedFloat;
 use super::{BranchParsimonyCosts, ParsimonyCosts};
 type CostMatrix<const N: usize> = SMatrix<f64, N, N>;
 
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ParsimonyCostsWModel<const N: usize> {
     times: Vec<f64>,
     costs: HashMap<OrderedFloat<f64>, BranchCostsWModel<N>>,
@@ -27,6 +28,7 @@ impl DNAParsCosts {
         gap_open_mult: f64,
         gap_ext_mult: f64,
         times: &[f64],
+        zero_diag: bool,
     ) -> Result<Self> {
         let model = DNASubstModel::new(model_name)?;
         let costs = generate_costs(
@@ -35,6 +37,7 @@ impl DNAParsCosts {
             gap_open_mult,
             gap_ext_mult,
             dna_models::nucleotide_index(),
+            zero_diag,
         );
         let mut sorted_times = Vec::from(times);
         sorted_times.sort_by(cmp_f64());
@@ -51,6 +54,7 @@ impl ProteinParsCosts {
         gap_open_mult: f64,
         gap_ext_mult: f64,
         times: &[f64],
+        zero_diag: bool,
     ) -> Result<Self> {
         let model = ProteinSubstModel::new(model_name)?;
         let costs = generate_costs(
@@ -59,6 +63,7 @@ impl ProteinParsCosts {
             gap_open_mult,
             gap_ext_mult,
             protein_models::aminoacid_index(),
+            zero_diag,
         );
         Ok(ProteinParsCosts {
             times: sort_times(times),
@@ -73,18 +78,20 @@ fn generate_costs<const N: usize>(
     gap_open_mult: f64,
     gap_ext_mult: f64,
     index: [i32; 255],
+    zero_diag: bool,
 ) -> HashMap<OrderedFloat<f64>, BranchCostsWModel<N>>
 where
     Const<N>: DimMin<Const<N>, Output = Const<N>>,
 {
     let costs = model
-        .generate_scorings(times, true)
+        .generate_scorings(times, zero_diag)
         .into_iter()
         .map(|(key, (branch_costs, avg_cost))| {
             (
                 key,
                 BranchCostsWModel {
                     index,
+                    avg_cost,
                     gap_open: gap_open_mult * avg_cost,
                     gap_ext: gap_ext_mult * avg_cost,
                     costs: branch_costs,
@@ -118,8 +125,10 @@ impl<const N: usize> ParsimonyCosts for ParsimonyCostsWModel<N> {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct BranchCostsWModel<const N: usize> {
     index: [i32; 255],
+    avg_cost: f64,
     gap_open: f64,
     gap_ext: f64,
     costs: CostMatrix<N>,
@@ -139,5 +148,173 @@ impl<const N: usize> BranchParsimonyCosts for BranchCostsWModel<N> {
 
     fn gap_open_cost(&self) -> f64 {
         self.gap_open
+    }
+
+    fn avg_cost(&self) -> f64 {
+        self.avg_cost
+    }
+}
+
+#[cfg(test)]
+mod parsimony_costs_model_test {
+    use crate::{
+        f64_h,
+        parsimony_alignment::parsimony_costs::{
+            parsimony_costs_model::{DNAParsCosts, ProteinParsCosts},
+            ParsimonyCosts,
+        },
+        substitution_models::{protein_models, DNASubstModel, ProteinSubstModel},
+    };
+
+    use super::generate_costs;
+
+    #[test]
+    fn protein_branch_scoring() {
+        let gap_open = 2.5;
+        let gap_ext = 0.5;
+        let avg_01 = 5.7675;
+        let avg_07 = 4.0075;
+        let times = [0.1, 0.7];
+        let model = ProteinSubstModel::new("wag").unwrap();
+        let costs = generate_costs(
+            model,
+            &times,
+            gap_open,
+            gap_ext,
+            protein_models::aminoacid_index(),
+            false,
+        );
+        let branch_costs = costs.get(&f64_h::from(0.1)).unwrap();
+        assert_eq!(branch_costs.costs.mean(), avg_01);
+        assert_eq!(branch_costs.avg_cost, avg_01);
+        assert_eq!(branch_costs.gap_ext, avg_01 * gap_ext);
+        assert_eq!(branch_costs.gap_open, avg_01 * gap_open);
+        let branch_costs = costs.get(&f64_h::from(0.7)).unwrap();
+        assert_eq!(branch_costs.costs.mean(), avg_07);
+        assert_eq!(branch_costs.avg_cost, avg_07);
+
+        let model = ProteinSubstModel::new("wag").unwrap();
+        let costs = generate_costs(
+            model,
+            &times,
+            gap_open,
+            gap_ext,
+            protein_models::aminoacid_index(),
+            true,
+        );
+        let branch_costs = costs.get(&f64_h::from(0.1)).unwrap();
+        assert_eq!(branch_costs.costs.mean(), avg_01);
+        assert_eq!(branch_costs.costs.diagonal().sum(), 0.0);
+        let branch_costs = costs.get(&f64_h::from(0.7)).unwrap();
+        assert_ne!(branch_costs.costs.mean(), avg_07);
+        assert_eq!(branch_costs.costs.diagonal().sum(), 0.0);
+    }
+
+    #[test]
+    fn protein_scoring() {
+        let gap_open = 2.0;
+        let gap_ext = 0.1;
+        let avg_01 = 5.7675;
+        let avg_03 = 4.7475;
+        let avg_05 = 4.2825;
+        let avg_07 = 4.0075;
+        let times = [0.1, 0.3, 0.5, 0.7];
+        let model =
+            ProteinParsCosts::new("wag", gap_open, gap_ext, &times, false).unwrap();
+        let branch_scores = model.get_branch_costs(0.1);
+        assert_eq!(branch_scores.avg_cost(), avg_01);
+        assert_eq!(branch_scores.gap_ext_cost(), avg_01 * gap_ext);
+        assert_eq!(branch_scores.gap_open_cost(), avg_01 * gap_open);
+        let branch_scores = model.get_branch_costs(0.3);
+        assert_eq!(branch_scores.avg_cost(), avg_03);
+        let branch_scores = model.get_branch_costs(0.5);
+        assert_eq!(branch_scores.avg_cost(), avg_05);
+        let branch_scores = model.get_branch_costs(0.7);
+        assert_eq!(branch_scores.avg_cost(), avg_07);
+    }
+
+    #[test]
+    fn protein_scoring_nearest() {
+        let gap_open = 2.0;
+        let gap_ext = 0.1;
+        let avg_01 = 5.7675;
+        let avg_05 = 4.2825;
+        let times = [0.1, 0.5];
+        let model = ProteinParsCosts::new("wag", gap_open, gap_ext, &times, false).unwrap();
+        let branch_scores_01 = model.get_branch_costs(0.1);
+        assert_eq!(branch_scores_01.avg_cost(), avg_01);
+        assert_eq!(branch_scores_01.gap_ext_cost(), avg_01 * gap_ext);
+        assert_eq!(branch_scores_01.gap_open_cost(), avg_01 * gap_open);
+        let branch_scores_02 = model.get_branch_costs(0.2);
+        assert_eq!(branch_scores_01.avg_cost(), branch_scores_02.avg_cost());
+        assert_eq!(
+            branch_scores_01.gap_ext_cost(),
+            branch_scores_02.gap_ext_cost()
+        );
+        assert_eq!(
+            branch_scores_01.gap_open_cost(),
+            branch_scores_02.gap_open_cost()
+        );
+        let branch_scores_05 = model.get_branch_costs(0.5);
+        assert_eq!(branch_scores_05.avg_cost(), avg_05);
+        let branch_scores_100 = model.get_branch_costs(100.0);
+        assert_eq!(branch_scores_100.avg_cost(), avg_05);
+    }
+
+    #[test]
+    fn dna_branch_scoring() {
+        let gap_open = 2.5;
+        let gap_ext = 0.5;
+        let avg_01 = 2.25;
+        let avg_07 = 1.75;
+        let times = [0.1, 0.7];
+        let model = DNASubstModel::new("jc69").unwrap();
+        let costs = generate_costs(
+            model,
+            &times,
+            gap_open,
+            gap_ext,
+            protein_models::aminoacid_index(),
+            false,
+        );
+        let branch_costs = costs.get(&f64_h::from(0.1)).unwrap();
+        assert_eq!(branch_costs.costs.mean(), avg_01);
+        assert_eq!(branch_costs.avg_cost, avg_01);
+        assert_eq!(branch_costs.gap_ext, avg_01 * gap_ext);
+        assert_eq!(branch_costs.gap_open, avg_01 * gap_open);
+        let branch_costs = costs.get(&f64_h::from(0.7)).unwrap();
+        assert_eq!(branch_costs.costs.mean(), avg_07);
+        assert_eq!(branch_costs.avg_cost, avg_07);
+        let model = DNASubstModel::new("jc69").unwrap();
+        let costs = generate_costs(
+            model,
+            &times,
+            gap_open,
+            gap_ext,
+            protein_models::aminoacid_index(),
+            true,
+        );
+        let branch_costs = costs.get(&f64_h::from(0.1)).unwrap();
+        assert_eq!(branch_costs.costs.mean(), avg_01);
+        assert_eq!(branch_costs.costs.diagonal().sum(), 0.0);
+        let branch_costs = costs.get(&f64_h::from(0.7)).unwrap();
+        assert_ne!(branch_costs.avg_cost, avg_07);
+        assert_eq!(branch_costs.costs.diagonal().sum(), 0.0);
+    }
+
+    #[test]
+    fn dna_scoring() {
+        let gap_open = 3.0;
+        let gap_ext = 0.75;
+        let avg_01 = 2.25;
+        let avg_07 = 1.75;
+        let times = [0.1, 0.7];
+        let model = DNAParsCosts::new("jc69", gap_open, gap_ext, &times, false).unwrap();
+        let branch_scores_01 = model.get_branch_costs(0.1);
+        assert_eq!(branch_scores_01.avg_cost(), avg_01);
+        assert_eq!(branch_scores_01.gap_ext_cost(), avg_01 * gap_ext);
+        assert_eq!(branch_scores_01.gap_open_cost(), avg_01 * gap_open);
+        let branch_scores_07 = model.get_branch_costs(0.8);
+        assert_eq!(branch_scores_07.avg_cost(), avg_07);
     }
 }

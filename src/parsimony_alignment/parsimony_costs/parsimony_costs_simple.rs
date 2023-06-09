@@ -48,6 +48,10 @@ impl BranchParsimonyCosts for BranchParsimonyCostsSimple {
     fn gap_open_cost(&self) -> f64 {
         self.gap_open
     }
+
+    fn avg_cost(&self) -> f64 {
+        self.mismatch
+    }
 }
 
 #[cfg(test)]
@@ -62,6 +66,7 @@ mod parsimony_costs_simple_test {
         assert_eq!(default_costs.costs.match_cost(b'B', b'A'), 1.0);
         assert_eq!(default_costs.costs.match_cost(b'N', b'K'), 1.0);
         assert_eq!(default_costs.costs.match_cost(b'C', b'C'), 0.0);
+        assert_eq!(default_costs.costs.avg_cost(), 1.0);
         assert_eq!(default_costs.costs.gap_ext_cost(), 0.5);
         assert_eq!(default_costs.costs.gap_open_cost(), 2.5);
     }
@@ -74,7 +79,17 @@ mod parsimony_costs_simple_test {
         let costs = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext);
         assert_eq!(costs.costs.match_cost(b'A', b'B'), mismatch);
         assert_eq!(costs.costs.match_cost(b'A', b'A'), 0.0);
+        assert_eq!(costs.costs.avg_cost(), mismatch);
         assert_eq!(costs.costs.gap_open_cost(), gap_open * mismatch);
         assert_eq!(costs.costs.gap_ext_cost(), gap_ext * mismatch);
+        let mismatch = 1.0;
+        let gap_open = 10.0;
+        let gap_ext = 2.5;
+        let costs = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext);
+        assert_eq!(costs.costs.match_cost(b'A', b'B'), mismatch);
+        assert_eq!(costs.costs.match_cost(b'A', b'A'), 0.0);
+        assert_eq!(costs.costs.avg_cost(), mismatch);
+        assert_eq!(costs.costs.gap_open_cost(), gap_open);
+        assert_eq!(costs.costs.gap_ext_cost(), gap_ext);
     }
 }
