@@ -126,6 +126,8 @@ mod parsimony_alignment_tests {
 
     use bio::io::fasta::Record;
 
+    use super::parsimony_info::GapFlag::{self, NoGap, GapPossible, GapFixed};
+
     macro_rules! align {
         (@collect -) => { None };
         (@collect $l:tt) => { Some($l) };
@@ -293,14 +295,14 @@ mod parsimony_alignment_tests {
         let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
 
         let leaf_info1 = [
-            (vec![b'A'], false, false),
-            (vec![b'C', b'A'], false, false),
-            (vec![b'C'], true, false),
-            (vec![b'T'], true, false),
+            (vec![b'A'], NoGap),
+            (vec![b'C', b'A'], NoGap),
+            (vec![b'C'], GapPossible),
+            (vec![b'T'], GapPossible),
         ]
         .map(create_site_info);
 
-        let leaf_info2 = [([b'G'], true, false), ([b'A'], false, false)].map(create_site_info);
+        let leaf_info2 = [([b'G'], GapPossible), ([b'A'], NoGap)].map(create_site_info);
 
         let (_info, alignment, score) = pars_align_w_rng(
             &leaf_info1,
@@ -316,9 +318,9 @@ mod parsimony_alignment_tests {
 
     #[allow(dead_code)]
     pub(crate) fn create_site_info(
-        args: (impl IntoIterator<Item = u8>, bool, bool),
+        args: (impl IntoIterator<Item = u8>, GapFlag),
     ) -> ParsimonySiteInfo {
-        ParsimonySiteInfo::new(args.0, args.1, args.2)
+        ParsimonySiteInfo::new(args.0, args.1)
     }
 
     #[test]
@@ -329,14 +331,14 @@ mod parsimony_alignment_tests {
         let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
 
         let leaf_info1 = [
-            (vec![b'A'], false, false),
-            (vec![b'A'], true, false),
-            (vec![b'C'], true, false),
-            (vec![b'T', b'C'], false, false),
+            (vec![b'A'], NoGap),
+            (vec![b'A'], GapPossible),
+            (vec![b'C'], GapPossible),
+            (vec![b'T', b'C'], NoGap),
         ]
         .map(create_site_info);
 
-        let leaf_info2 = [([b'G'], true, false), ([b'A'], false, false)].map(create_site_info);
+        let leaf_info2 = [([b'G'],  GapPossible), ([b'A'], NoGap)].map(create_site_info);
 
         let (_info, alignment, score) = pars_align_w_rng(
             &leaf_info1,
@@ -358,15 +360,15 @@ mod parsimony_alignment_tests {
         let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
 
         let leaf_info1 = [
-            (vec![b'A'], false, false),
-            (vec![b'A'], true, false),
-            (vec![b'C'], true, false),
-            (vec![b'C', b'T'], false, false),
+            (vec![b'A'],  NoGap),
+            (vec![b'A'], GapPossible),
+            (vec![b'C'], GapPossible),
+            (vec![b'C', b'T'], NoGap),
         ]
         .map(create_site_info);
 
         let leaf_info2 =
-            [(vec![b'G'], true, false), (vec![b'A'], false, false)].map(create_site_info);
+            [(vec![b'G'], GapPossible), (vec![b'A'], NoGap)].map(create_site_info);
 
         let (_info, alignment, score) = pars_align_w_rng(
             &leaf_info1,
