@@ -126,7 +126,7 @@ mod parsimony_alignment_tests {
 
     use bio::io::fasta::Record;
 
-    use super::parsimony_info::GapFlag::{self, NoGap, GapPossible, GapFixed};
+    use super::parsimony_info::GapFlag::{self, NoGap, GapOpen, GapFixed};
 
     macro_rules! align {
         (@collect -) => { None };
@@ -297,12 +297,12 @@ mod parsimony_alignment_tests {
         let leaf_info1 = [
             (vec![b'A'], NoGap),
             (vec![b'C', b'A'], NoGap),
-            (vec![b'C'], GapPossible),
-            (vec![b'T'], GapPossible),
+            (vec![b'C'], GapOpen),
+            (vec![b'T'], GapOpen),
         ]
         .map(create_site_info);
 
-        let leaf_info2 = [([b'G'], GapPossible), ([b'A'], NoGap)].map(create_site_info);
+        let leaf_info2 = [([b'G'], GapOpen), ([b'A'], NoGap)].map(create_site_info);
 
         let (_info, alignment, score) = pars_align_w_rng(
             &leaf_info1,
@@ -332,13 +332,13 @@ mod parsimony_alignment_tests {
 
         let leaf_info1 = [
             (vec![b'A'], NoGap),
-            (vec![b'A'], GapPossible),
-            (vec![b'C'], GapPossible),
+            (vec![b'A'], GapOpen),
+            (vec![b'C'], GapOpen),
             (vec![b'T', b'C'], NoGap),
         ]
         .map(create_site_info);
 
-        let leaf_info2 = [([b'G'],  GapPossible), ([b'A'], NoGap)].map(create_site_info);
+        let leaf_info2 = [([b'G'],  GapOpen), ([b'A'], NoGap)].map(create_site_info);
 
         let (_info, alignment, score) = pars_align_w_rng(
             &leaf_info1,
@@ -361,14 +361,14 @@ mod parsimony_alignment_tests {
 
         let leaf_info1 = [
             (vec![b'A'],  NoGap),
-            (vec![b'A'], GapPossible),
-            (vec![b'C'], GapPossible),
+            (vec![b'A'], GapOpen),
+            (vec![b'C'], GapOpen),
             (vec![b'C', b'T'], NoGap),
         ]
         .map(create_site_info);
 
         let leaf_info2 =
-            [(vec![b'G'], GapPossible), (vec![b'A'], NoGap)].map(create_site_info);
+            [(vec![b'G'], GapOpen), (vec![b'A'], NoGap)].map(create_site_info);
 
         let (_info, alignment, score) = pars_align_w_rng(
             &leaf_info1,
