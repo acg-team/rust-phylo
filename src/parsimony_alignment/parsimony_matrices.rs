@@ -1,6 +1,5 @@
 use crate::alignment::{Alignment, Mapping};
 use crate::cmp_f64;
-use crate::parsimony_alignment::parsimony_sets;
 use crate::parsimony_alignment::{
     parsimony_info::ParsimonySiteInfo,
     Direction::{self, GapX, GapY, Matc, Skip},
@@ -10,7 +9,7 @@ use std::fmt;
 
 use super::parsimony_costs::BranchParsimonyCosts;
 use super::parsimony_info::GapFlag::{GapExt, GapFixed, GapOpen, NoGap};
-use super::parsimony_sets::ParsimonySet;
+use super::parsimony_sets::{gap_set, ParsimonySet};
 
 pub(super) struct ScoreMatrices {
     pub(super) m: Vec<Vec<f64>>,
@@ -110,16 +109,16 @@ impl ParsimonyAlignmentMatrices {
 
     pub(crate) fn fill_matrices(
         &mut self,
-        left_info: &[ParsimonySiteInfo],
-        left_scoring: &Box<&dyn BranchParsimonyCosts>,
-        right_info: &[ParsimonySiteInfo],
-        right_scoring: &Box<&dyn BranchParsimonyCosts>,
+        l_info: &[ParsimonySiteInfo],
+        l_scoring: &Box<&dyn BranchParsimonyCosts>,
+        r_info: &[ParsimonySiteInfo],
+        r_scoring: &Box<&dyn BranchParsimonyCosts>,
     ) {
-        self.init_x(left_info, left_scoring);
-        self.init_y(right_info, right_scoring);
+        self.init_x(l_info, l_scoring);
+        self.init_y(r_info, r_scoring);
         for i in 1..self.rows {
             for j in 1..self.cols {
-                if left_info[i - 1].flag == GapFixed || right_info[j - 1].flag == GapFixed {
+                if l_info[i - 1].is_fixed() || r_info[j - 1].is_fixed() {
                     (
                         self.score.m[i][j],
                         self.score.x[i][j],
@@ -128,24 +127,18 @@ impl ParsimonyAlignmentMatrices {
                     ) = self.fixed_gap_either(
                         i,
                         j,
-                        left_info[i - 1].flag == GapFixed,
-                        right_info[j - 1].flag == GapFixed,
+                        l_info[i - 1].is_fixed(),
+                        r_info[j - 1].is_fixed(),
                     );
                     self.trace.x[i][j] = self.trace.m[i][j];
                     self.trace.y[i][j] = self.trace.m[i][j];
                 } else {
-                    (self.score.m[i][j], self.trace.m[i][j]) = self.possible_match(
-                        i - 1,
-                        j - 1,
-                        left_info,
-                        left_scoring,
-                        right_info,
-                        right_scoring,
-                    );
+                    (self.score.m[i][j], self.trace.m[i][j]) =
+                        self.possible_match(i - 1, j - 1, l_info, l_scoring, r_info, r_scoring);
                     (self.score.x[i][j], self.trace.x[i][j]) =
-                        self.possible_gap_x(i - 1, j, left_info, left_scoring, right_info);
+                        self.possible_gap_x(i - 1, j, l_info, l_scoring, r_info);
                     (self.score.y[i][j], self.trace.y[i][j]) =
-                        self.possible_gap_y(i, j - 1, right_info, right_scoring, left_info);
+                        self.possible_gap_y(i, j - 1, l_info, r_info, r_scoring);
                 }
             }
         }
@@ -153,14 +146,14 @@ impl ParsimonyAlignmentMatrices {
 
     pub(crate) fn traceback(
         &self,
-        left_child_info: &[ParsimonySiteInfo],
-        right_child_info: &[ParsimonySiteInfo],
+        l_info: &[ParsimonySiteInfo],
+        r_info: &[ParsimonySiteInfo],
     ) -> (Vec<ParsimonySiteInfo>, Alignment, f64) {
         let mut i = self.rows - 1;
         let mut j = self.cols - 1;
         let (pars_score, mut trace) =
             self.select_direction(self.score.m[i][j], self.score.x[i][j], self.score.y[i][j]);
-        let max_alignment_length = left_child_info.len() + right_child_info.len();
+        let max_alignment_length = l_info.len() + r_info.len();
         let mut node_info = Vec::<ParsimonySiteInfo>::with_capacity(max_alignment_length);
         let mut alignment = Alignment::new(
             Mapping::with_capacity(max_alignment_length),
@@ -169,21 +162,19 @@ impl ParsimonyAlignmentMatrices {
         while i > 0 || j > 0 {
             match trace {
                 Matc => {
-                    if left_child_info[i - 1].flag == GapFixed
-                        && right_child_info[j - 1].flag == GapFixed
-                    {
+                    if l_info[i - 1].is_fixed() && r_info[j - 1].is_fixed() {
                         alignment.map_x.push(Some(i - 1));
                         alignment.map_y.push(None);
                         alignment.map_x.push(None);
                         alignment.map_y.push(Some(j - 1));
-                        node_info.push(ParsimonySiteInfo::new(parsimony_sets::gap_set(), GapFixed));
-                        node_info.push(ParsimonySiteInfo::new(parsimony_sets::gap_set(), GapFixed));
+                        node_info.push(ParsimonySiteInfo::new(gap_set(), GapFixed));
+                        node_info.push(ParsimonySiteInfo::new(gap_set(), GapFixed));
                     } else {
                         alignment.map_x.push(Some(i - 1));
                         alignment.map_y.push(Some(j - 1));
-                        let mut set = &left_child_info[i - 1].set & &right_child_info[j - 1].set;
+                        let mut set = &l_info[i - 1].set & &r_info[j - 1].set;
                         if set.is_empty() {
-                            set = &left_child_info[i - 1].set | &right_child_info[j - 1].set;
+                            set = &l_info[i - 1].set | &r_info[j - 1].set;
                         }
                         node_info.push(ParsimonySiteInfo::new(set, NoGap));
                     }
@@ -194,13 +185,12 @@ impl ParsimonyAlignmentMatrices {
                 GapX => {
                     alignment.map_x.push(Some(i - 1));
                     alignment.map_y.push(None);
-                    match left_child_info[j - 1].flag {
-                        GapFixed | GapOpen | GapExt => node_info
-                            .push(ParsimonySiteInfo::new(parsimony_sets::gap_set(), GapFixed)),
-                        NoGap => node_info.push(ParsimonySiteInfo::new(
-                            left_child_info[i - 1].set.clone(),
-                            GapOpen,
-                        )),
+                    match l_info[j - 1].flag {
+                        GapFixed | GapOpen | GapExt => {
+                            node_info.push(ParsimonySiteInfo::new(gap_set(), GapFixed))
+                        }
+                        NoGap => node_info
+                            .push(ParsimonySiteInfo::new(l_info[i - 1].set.clone(), GapOpen)),
                     }
                     trace = self.trace.x[i][j];
                     i -= 1;
@@ -208,13 +198,12 @@ impl ParsimonyAlignmentMatrices {
                 GapY => {
                     alignment.map_x.push(None);
                     alignment.map_y.push(Some(j - 1));
-                    match right_child_info[j - 1].flag {
-                        GapFixed | GapOpen | GapExt => node_info
-                            .push(ParsimonySiteInfo::new(parsimony_sets::gap_set(), GapFixed)),
-                        NoGap => node_info.push(ParsimonySiteInfo::new(
-                            right_child_info[j - 1].set.clone(),
-                            GapOpen,
-                        )),
+                    match r_info[j - 1].flag {
+                        GapFixed | GapOpen | GapExt => {
+                            node_info.push(ParsimonySiteInfo::new(gap_set(), GapFixed))
+                        }
+                        NoGap => node_info
+                            .push(ParsimonySiteInfo::new(r_info[j - 1].set.clone(), GapOpen)),
                     }
                     trace = self.trace.y[i][j];
                     j -= 1;
@@ -285,18 +274,18 @@ impl ParsimonyAlignmentMatrices {
         &self,
         i: usize,
         j: usize,
-        left_info: &[ParsimonySiteInfo],
-        left_scoring: &Box<&dyn BranchParsimonyCosts>,
-        right_info: &[ParsimonySiteInfo],
+        l_info: &[ParsimonySiteInfo],
+        l_scoring: &Box<&dyn BranchParsimonyCosts>,
+        r_info: &[ParsimonySiteInfo],
     ) -> (f64, Direction) {
-        match left_info[i].flag {
+        match l_info[i].flag {
             GapOpen | GapFixed => {
                 self.select_direction(self.score.m[i][j], self.score.x[i][j], self.score.y[i][j])
             }
             GapExt => {
-                let m_gap_adjustment = left_scoring.gap_open_cost() - left_scoring.gap_ext_cost();
+                let m_gap_adjustment = l_scoring.gap_open_cost() - l_scoring.gap_ext_cost();
                 let y_gap_adjustment =
-                    self.left_gap_cost_adjustment(i, j, left_info, left_scoring, right_info);
+                    self.left_gap_cost_adjustment(i, j, l_info, l_scoring, r_info);
                 self.select_direction(
                     self.score.m[i][j] + m_gap_adjustment,
                     self.score.x[i][j],
@@ -304,9 +293,9 @@ impl ParsimonyAlignmentMatrices {
                 )
             }
             NoGap => self.select_direction(
-                self.score.m[i][j] + left_scoring.gap_open_cost(),
-                self.gap_x_score(i, j, left_info, left_scoring),
-                self.score.y[i][j] + left_scoring.gap_open_cost(),
+                self.score.m[i][j] + l_scoring.gap_open_cost(),
+                self.gap_x_score(i, j, l_info, l_scoring),
+                self.score.y[i][j] + l_scoring.gap_open_cost(),
             ),
         }
     }
@@ -315,26 +304,28 @@ impl ParsimonyAlignmentMatrices {
         &self,
         i: usize,
         j: usize,
-        left_info: &[ParsimonySiteInfo],
-        left_scoring: &Box<&dyn BranchParsimonyCosts>,
-        right_info: &[ParsimonySiteInfo],
+        l_info: &[ParsimonySiteInfo],
+        l_scoring: &Box<&dyn BranchParsimonyCosts>,
+        r_info: &[ParsimonySiteInfo],
     ) -> f64 {
         let mut y_gap_adjustment = 0.0;
         let mut skip_i = i;
         let mut skip_j = j;
-        while (skip_j > 0 && right_info[skip_j - 1].flag == GapFixed)
-            || (skip_i > 0 && left_info[skip_i - 1].flag == GapFixed)
-            || self.trace.y[skip_i][skip_j] == GapY
+        while skip_j > 0
+            && skip_i > 0
+            && (l_info[skip_i - 1].is_fixed()
+                || r_info[skip_j - 1].is_fixed()
+                || self.trace.y[skip_i][skip_j] == GapY)
         {
-            if right_info[skip_j - 1].flag == GapFixed || self.trace.y[skip_i][skip_j] == GapY {
-                skip_j -= 1;
-            }
-            if left_info[skip_i - 1].flag == GapFixed {
+            if l_info[skip_i - 1].is_fixed() {
                 skip_i -= 1;
+            }
+            if r_info[skip_j - 1].is_fixed() || self.trace.y[skip_i][skip_j] == GapY {
+                skip_j -= 1;
             }
         }
         if self.trace.y[skip_i][skip_j] != GapX {
-            y_gap_adjustment = left_scoring.gap_open_cost() - left_scoring.gap_ext_cost();
+            y_gap_adjustment = l_scoring.gap_open_cost() - l_scoring.gap_ext_cost();
         }
         y_gap_adjustment
     }
@@ -343,18 +334,18 @@ impl ParsimonyAlignmentMatrices {
         &self,
         i: usize,
         j: usize,
-        right_info: &[ParsimonySiteInfo],
-        right_scoring: &Box<&dyn BranchParsimonyCosts>,
-        left_info: &[ParsimonySiteInfo],
+        l_info: &[ParsimonySiteInfo],
+        r_info: &[ParsimonySiteInfo],
+        r_scoring: &Box<&dyn BranchParsimonyCosts>,
     ) -> (f64, Direction) {
-        match right_info[j].flag {
+        match r_info[j].flag {
             GapFixed | GapOpen => {
                 self.select_direction(self.score.m[i][j], self.score.x[i][j], self.score.y[i][j])
             }
             GapExt => {
                 let x_gap_adjustment =
-                    self.right_gap_cost_adjustment(i, j, left_info, right_info, right_scoring);
-                let m_gap_adjustment = right_scoring.gap_open_cost() - right_scoring.gap_ext_cost();
+                    self.right_gap_cost_adjustment(i, j, l_info, r_info, r_scoring);
+                let m_gap_adjustment = r_scoring.gap_open_cost() - r_scoring.gap_ext_cost();
                 self.select_direction(
                     self.score.m[i][j] + m_gap_adjustment,
                     self.score.x[i][j] + x_gap_adjustment,
@@ -362,9 +353,9 @@ impl ParsimonyAlignmentMatrices {
                 )
             }
             NoGap => self.select_direction(
-                self.score.m[i][j] + right_scoring.gap_open_cost(),
-                self.score.x[i][j] + right_scoring.gap_open_cost(),
-                self.gap_y_score(i, j, right_info, right_scoring),
+                self.score.m[i][j] + r_scoring.gap_open_cost(),
+                self.score.x[i][j] + r_scoring.gap_open_cost(),
+                self.gap_y_score(i, j, r_info, r_scoring),
             ),
         }
     }
@@ -373,26 +364,28 @@ impl ParsimonyAlignmentMatrices {
         &self,
         i: usize,
         j: usize,
-        left_info: &[ParsimonySiteInfo],
-        right_info: &[ParsimonySiteInfo],
-        right_scoring: &Box<&dyn BranchParsimonyCosts>,
+        l_info: &[ParsimonySiteInfo],
+        r_info: &[ParsimonySiteInfo],
+        r_scoring: &Box<&dyn BranchParsimonyCosts>,
     ) -> f64 {
         let mut x_gap_adjustment = 0.0;
         let mut skip_i = i;
         let mut skip_j = j;
-        while (skip_j > 0 && right_info[skip_j - 1].flag == GapFixed)
-            || (skip_i > 0 && left_info[skip_i - 1].flag == GapFixed)
-            || self.trace.x[skip_i][skip_j] == GapX
+        while skip_i > 0
+            && skip_j > 0
+            && (r_info[skip_j - 1].is_fixed()
+                || l_info[skip_i - 1].is_fixed()
+                || self.trace.x[skip_i][skip_j] == GapX)
         {
-            if right_info[skip_j - 1].flag == GapFixed || self.trace.x[skip_i][skip_j] == GapX {
-                skip_j -= 1;
-            }
-            if left_info[skip_i - 1].flag == GapFixed {
+            if l_info[skip_i - 1].is_fixed() || self.trace.x[skip_i][skip_j] == GapX {
                 skip_i -= 1;
+            }
+            if r_info[skip_j - 1].is_fixed() {
+                skip_j -= 1;
             }
         }
         if self.trace.x[skip_i][skip_j] != GapY {
-            x_gap_adjustment = right_scoring.gap_open_cost() - right_scoring.gap_ext_cost();
+            x_gap_adjustment = r_scoring.gap_open_cost() - r_scoring.gap_ext_cost();
         }
         x_gap_adjustment
     }
@@ -401,19 +394,14 @@ impl ParsimonyAlignmentMatrices {
         &self,
         i: usize,
         j: usize,
-        left_info: &[ParsimonySiteInfo],
-        left_scoring: &Box<&dyn BranchParsimonyCosts>,
-        right_info: &[ParsimonySiteInfo],
-        right_scoring: &Box<&dyn BranchParsimonyCosts>,
+        l_info: &[ParsimonySiteInfo],
+        l_scoring: &Box<&dyn BranchParsimonyCosts>,
+        r_info: &[ParsimonySiteInfo],
+        r_scoring: &Box<&dyn BranchParsimonyCosts>,
     ) -> (f64, Direction) {
         let (x_gap_adjustment, y_gap_adjustment) =
-            self.gap_cost_adjustment(i, j, left_info, left_scoring, right_info, right_scoring);
-        let score = self.get_match_cost(
-            &left_info[i].set,
-            left_scoring,
-            &right_info[j].set,
-            right_scoring,
-        );
+            self.gap_cost_adjustment(i, j, l_info, l_scoring, r_info, r_scoring);
+        let score = self.get_match_cost(&l_info[i].set, l_scoring, &r_info[j].set, r_scoring);
         self.select_direction(
             self.score.m[i][j] + score,
             self.score.x[i][j] + x_gap_adjustment + score,
@@ -425,41 +413,39 @@ impl ParsimonyAlignmentMatrices {
         &self,
         i: usize,
         j: usize,
-        left_info: &[ParsimonySiteInfo],
-        left_scoring: &Box<&dyn BranchParsimonyCosts>,
-        right_info: &[ParsimonySiteInfo],
-        right_scoring: &Box<&dyn BranchParsimonyCosts>,
+        l_info: &[ParsimonySiteInfo],
+        l_scoring: &Box<&dyn BranchParsimonyCosts>,
+        r_info: &[ParsimonySiteInfo],
+        r_scoring: &Box<&dyn BranchParsimonyCosts>,
     ) -> (f64, f64) {
         let mut x_gap_adjustment = 0.0;
         let mut y_gap_adjustment = 0.0;
-        if left_info[i].flag != GapExt && right_info[j].flag != GapExt {
-        } else {
-            if left_info[i].flag == GapExt {
+        if l_info[i].is_ext() || r_info[j].is_ext() {
+            if l_info[i].is_ext() {
                 let skip_j = (1..=j)
                     .rev()
                     .find(|&skip_j| {
-                        self.trace.y[i][skip_j] != GapY && right_info[skip_j - 1].flag != GapFixed
+                        self.trace.y[i][skip_j] != GapY && !r_info[skip_j - 1].is_fixed()
                     })
-                    .unwrap_or(0);
+                    .unwrap_or(1);
                 if self.trace.y[i][skip_j] != Matc {
-                    y_gap_adjustment += left_scoring.gap_open_cost() - left_scoring.gap_ext_cost();
+                    y_gap_adjustment += l_scoring.gap_open_cost() - l_scoring.gap_ext_cost();
                 }
             } else {
-                y_gap_adjustment += left_scoring.gap_open_cost() - left_scoring.gap_ext_cost();
+                y_gap_adjustment += l_scoring.gap_open_cost() - l_scoring.gap_ext_cost();
             }
-            if right_info[j].flag == GapExt {
+            if r_info[j].is_ext() {
                 let skip_i = (1..=i)
                     .rev()
                     .find(|&skip_i| {
-                        self.trace.x[skip_i][j] != GapX && left_info[skip_i - 1].flag != GapFixed
+                        self.trace.x[skip_i][j] != GapX && !l_info[skip_i - 1].is_fixed()
                     })
-                    .unwrap_or(0);
+                    .unwrap_or(1);
                 if self.trace.x[skip_i][j] != Matc {
-                    x_gap_adjustment +=
-                        right_scoring.gap_open_cost() - right_scoring.gap_ext_cost();
+                    x_gap_adjustment += r_scoring.gap_open_cost() - r_scoring.gap_ext_cost();
                 }
             } else {
-                x_gap_adjustment += right_scoring.gap_open_cost() - right_scoring.gap_ext_cost();
+                x_gap_adjustment += r_scoring.gap_open_cost() - r_scoring.gap_ext_cost();
             }
         }
         (x_gap_adjustment, y_gap_adjustment)
@@ -467,14 +453,14 @@ impl ParsimonyAlignmentMatrices {
 
     fn get_match_cost(
         &self,
-        lset: &ParsimonySet,
-        lscoring: &Box<&dyn BranchParsimonyCosts>,
-        rset: &ParsimonySet,
-        rscoring: &Box<&dyn BranchParsimonyCosts>,
+        l_set: &ParsimonySet,
+        l_scoring: &Box<&dyn BranchParsimonyCosts>,
+        r_set: &ParsimonySet,
+        r_scoring: &Box<&dyn BranchParsimonyCosts>,
     ) -> f64 {
-        (lset | rset)
+        (l_set | r_set)
             .into_iter()
-            .map(|a| min_score(lset, lscoring, a) + min_score(rset, rscoring, a))
+            .map(|a| min_score(l_set, l_scoring, a) + min_score(r_set, r_scoring, a))
             .min_by(cmp_f64())
             .unwrap_or(INF)
     }
@@ -527,15 +513,13 @@ impl ParsimonyAlignmentMatrices {
     ) -> f64 {
         let mut skip_i = i;
         while skip_i > 0
-            && (node_info[skip_i - 1].flag == GapOpen || node_info[skip_i - 1].flag == GapExt)
+            && (node_info[skip_i - 1].is_open() || node_info[skip_i - 1].is_ext())
             && self.trace.x[skip_i][j] == GapX
         {
             skip_i -= 1;
         }
         if self.trace.x[skip_i][j] != GapX
-            && (skip_i == 0
-                || node_info[skip_i - 1].flag == GapOpen
-                || node_info[skip_i - 1].flag == GapExt)
+            && (skip_i == 0 || node_info[skip_i - 1].is_open() || node_info[skip_i - 1].is_ext())
         {
             self.score.x[skip_i][j] + scoring.gap_open_cost()
         } else {
@@ -551,12 +535,10 @@ impl ParsimonyAlignmentMatrices {
         scoring: &Box<&dyn BranchParsimonyCosts>,
     ) -> f64 {
         let mut skip_j = j;
-        while skip_j > 0 && node_info[skip_j - 1].flag == GapOpen && self.trace.y[i][skip_j] == GapY
-        {
+        while skip_j > 0 && node_info[skip_j - 1].is_open() && self.trace.y[i][skip_j] == GapY {
             skip_j -= 1;
         }
-        if self.trace.y[i][skip_j] != GapY && (skip_j == 0 || node_info[skip_j - 1].flag == GapOpen)
-        {
+        if self.trace.y[i][skip_j] != GapY && (skip_j == 0 || node_info[skip_j - 1].is_open()) {
             self.score.y[i][skip_j] + scoring.gap_open_cost()
         } else {
             self.score.y[i][skip_j] + scoring.gap_ext_cost()
