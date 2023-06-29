@@ -31,24 +31,24 @@ fn rng_len(l: usize) -> usize {
 }
 
 fn pars_align_w_rng(
-    l_info: &[ParsimonySiteInfo],
-    l_scoring: &Box<&dyn BranchParsimonyCosts>,
-    r_info: &[ParsimonySiteInfo],
-    r_scoring: &Box<&dyn BranchParsimonyCosts>,
+    x_info: &[ParsimonySiteInfo],
+    x_scoring: &Box<&dyn BranchParsimonyCosts>,
+    y_info: &[ParsimonySiteInfo],
+    y_scoring: &Box<&dyn BranchParsimonyCosts>,
     rng: fn(usize) -> usize,
 ) -> (Vec<ParsimonySiteInfo>, Alignment, f64) {
-    let mut pars_mats = ParsimonyAlignmentMatrices::new(l_info.len() + 1, r_info.len() + 1, rng);
-    pars_mats.fill_matrices(l_info, l_scoring, r_info, r_scoring);
-    pars_mats.traceback(l_info, r_info)
+    let mut pars_mats = ParsimonyAlignmentMatrices::new(x_info.len() + 1, y_info.len() + 1, rng);
+    pars_mats.fill_matrices(x_info, x_scoring, y_info, y_scoring);
+    pars_mats.traceback(x_info, y_info)
 }
 
 fn pars_align(
-    l_info: &[ParsimonySiteInfo],
-    l_scoring: &Box<&dyn BranchParsimonyCosts>,
-    r_info: &[ParsimonySiteInfo],
-    r_scoring: &Box<&dyn BranchParsimonyCosts>,
+    x_info: &[ParsimonySiteInfo],
+    x_scoring: &Box<&dyn BranchParsimonyCosts>,
+    y_info: &[ParsimonySiteInfo],
+    y_scoring: &Box<&dyn BranchParsimonyCosts>,
 ) -> (Vec<ParsimonySiteInfo>, Alignment, f64) {
-    pars_align_w_rng(l_info, l_scoring, r_info, r_scoring, rng_len)
+    pars_align_w_rng(x_info, x_scoring, y_info, y_scoring, rng_len)
 }
 
 pub(crate) fn pars_align_on_tree(
@@ -76,19 +76,19 @@ pub(crate) fn pars_align_on_tree(
     for &node_idx in order {
         match node_idx {
             Int(idx) => {
-                let (l_info, left_branch) = match tree.internals[idx].children[0] {
+                let (x_info, x_branch) = match tree.internals[idx].children[0] {
                     Int(idx) => (&internal_info[idx], tree.internals[idx].blen),
                     Leaf(idx) => (&leaf_info[idx], tree.leaves[idx].blen),
                 };
-                let (r_info, right_branch) = match tree.internals[idx].children[1] {
+                let (y_info, y_branch) = match tree.internals[idx].children[1] {
                     Int(idx) => (&internal_info[idx], tree.internals[idx].blen),
                     Leaf(idx) => (&leaf_info[idx], tree.leaves[idx].blen),
                 };
                 let (info, alignment, score) = pars_align(
-                    &l_info,
-                    &scoring.get_branch_costs(left_branch),
-                    &r_info,
-                    &scoring.get_branch_costs(right_branch),
+                    &x_info,
+                    &scoring.get_branch_costs(x_branch),
+                    &y_info,
+                    &scoring.get_branch_costs(y_branch),
                 );
 
                 internal_info[idx] = info;
@@ -129,7 +129,7 @@ mod parsimony_alignment_tests {
 
     use bio::io::fasta::Record;
 
-    use super::parsimony_info::GapFlag::{self, GapOpen, NoGap};
+    use super::parsimony_info::SiteFlag::{self, GapOpen, NoGap};
 
     macro_rules! align {
         (@collect -) => { None };
@@ -321,7 +321,7 @@ mod parsimony_alignment_tests {
 
     #[allow(dead_code)]
     pub(crate) fn create_site_info(
-        args: (impl IntoIterator<Item = u8>, GapFlag),
+        args: (impl IntoIterator<Item = u8>, SiteFlag),
     ) -> ParsimonySiteInfo {
         ParsimonySiteInfo::new(args.0, args.1)
     }

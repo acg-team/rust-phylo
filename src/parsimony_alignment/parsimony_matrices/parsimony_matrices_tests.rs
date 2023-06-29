@@ -1,7 +1,7 @@
 use crate::parsimony_alignment::{
     parsimony_costs::{parsimony_costs_simple::ParsimonyCostsSimple, ParsimonyCosts},
     parsimony_info::{
-        GapFlag::{GapExt, GapFixed, GapOpen, NoGap},
+        SiteFlag::{GapExt, GapFixed, GapOpen, NoGap},
         ParsimonySiteInfo as PSI,
     },
     parsimony_matrices::ParsimonyAlignmentMatrices as PAM,

@@ -5,7 +5,7 @@ use crate::parsimony_alignment::parsimony_sets::make_parsimony_set;
 use crate::parsimony_alignment::parsimony_sets::ParsimonySet;
 
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) enum GapFlag {
+pub(crate) enum SiteFlag {
     GapFixed,
     GapOpen,
     GapExt,
@@ -15,7 +15,7 @@ pub(crate) enum GapFlag {
 #[derive(Clone, PartialEq)]
 pub(crate) struct ParsimonySiteInfo {
     pub(crate) set: ParsimonySet,
-    pub(super) flag: GapFlag,
+    pub(super) flag: SiteFlag,
 }
 
 impl Debug for ParsimonySiteInfo {
@@ -32,33 +32,33 @@ impl Debug for ParsimonySiteInfo {
 }
 
 impl ParsimonySiteInfo {
-    pub(crate) fn new(set: impl IntoIterator<Item = u8>, gap_flag: GapFlag) -> ParsimonySiteInfo {
+    pub(crate) fn new(set: impl IntoIterator<Item = u8>, gap_flag: SiteFlag) -> ParsimonySiteInfo {
         ParsimonySiteInfo {
             set: make_parsimony_set(set),
             flag: gap_flag,
         }
     }
     pub(crate) fn new_leaf(set: impl IntoIterator<Item = u8>) -> ParsimonySiteInfo {
-        ParsimonySiteInfo::new(set, GapFlag::NoGap)
+        ParsimonySiteInfo::new(set, SiteFlag::NoGap)
     }
 
     pub(crate) fn is_fixed(&self) -> bool {
-        self.flag == GapFlag::GapFixed
+        self.flag == SiteFlag::GapFixed
     }
 
     pub(crate) fn is_open(&self) -> bool {
-        self.flag == GapFlag::GapOpen
+        self.flag == SiteFlag::GapOpen
     }
 
     pub(crate) fn is_ext(&self) -> bool {
-        self.flag == GapFlag::GapExt
+        self.flag == SiteFlag::GapExt
     }
 
     pub(crate) fn is_possible(&self) -> bool {
-        self.flag == GapFlag::GapOpen || self.flag == GapFlag::GapExt
+        self.flag == SiteFlag::GapOpen || self.flag == SiteFlag::GapExt
     }
 
     pub(crate) fn no_gap(&self) -> bool {
-        self.flag == GapFlag::NoGap
+        self.flag == SiteFlag::NoGap
     }
 }
