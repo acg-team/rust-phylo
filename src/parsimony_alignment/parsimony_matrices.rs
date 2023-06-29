@@ -101,7 +101,7 @@ impl ParsimonyAlignmentMatrices {
                 /* 100 */ &[GapY][..],
                 /* 101 */ &[Matc, GapY][..],
                 /* 110 */ &[GapX, GapY][..],
-                /* 111 */ &[Matc, GapX, GapY][..],
+                /* 111 */ &[Matc, GapY, GapX][..],
             ],
             rng,
         }
@@ -119,19 +119,14 @@ impl ParsimonyAlignmentMatrices {
         for i in 1..self.rows {
             for j in 1..self.cols {
                 if l_info[i - 1].is_fixed() || r_info[j - 1].is_fixed() {
-                    (
-                        self.score.m[i][j],
-                        self.score.x[i][j],
-                        self.score.y[i][j],
-                        self.trace.m[i][j],
-                    ) = self.fixed_gap_either(
-                        i,
-                        j,
-                        l_info[i - 1].is_fixed(),
-                        r_info[j - 1].is_fixed(),
-                    );
-                    self.trace.x[i][j] = self.trace.m[i][j];
-                    self.trace.y[i][j] = self.trace.m[i][j];
+                    let ni = i - l_info[i - 1].is_fixed() as usize;
+                    let nj = j - r_info[j - 1].is_fixed() as usize;
+                    self.score.m[i][j] = self.score.m[ni][nj];
+                    self.trace.m[i][j] = Skip;
+                    self.score.x[i][j] = self.score.x[ni][nj];
+                    self.trace.x[i][j] = Skip;
+                    self.score.y[i][j] = self.score.y[ni][nj];
+                    self.trace.y[i][j] = Skip;
                 } else {
                     (self.score.m[i][j], self.trace.m[i][j]) =
                         self.possible_match(i - 1, j - 1, l_info, l_scoring, r_info, r_scoring);
@@ -151,7 +146,7 @@ impl ParsimonyAlignmentMatrices {
     ) -> (Vec<ParsimonySiteInfo>, Alignment, f64) {
         let mut i = self.rows - 1;
         let mut j = self.cols - 1;
-        let (pars_score, mut trace) =
+        let (pars_score, mut action) =
             self.select_direction(self.score.m[i][j], self.score.x[i][j], self.score.y[i][j]);
         let max_alignment_length = l_info.len() + r_info.len();
         let mut node_info = Vec::<ParsimonySiteInfo>::with_capacity(max_alignment_length);
@@ -160,16 +155,27 @@ impl ParsimonyAlignmentMatrices {
             Mapping::with_capacity(max_alignment_length),
         );
         while i > 0 || j > 0 {
-            match trace {
-                Matc => {
-                    if l_info[i - 1].is_fixed() && r_info[j - 1].is_fixed() {
-                        alignment.map_x.push(Some(i - 1));
-                        alignment.map_y.push(None);
-                        alignment.map_x.push(None);
-                        alignment.map_y.push(Some(j - 1));
-                        node_info.push(ParsimonySiteInfo::new(gap_set(), GapFixed));
-                        node_info.push(ParsimonySiteInfo::new(gap_set(), GapFixed));
-                    } else {
+            println!("{i}, {j}");
+            println!("Matrix: {:?}", action);
+            if self.trace.m[i][j] == Skip {
+                assert!(l_info[i - 1].is_fixed() || r_info[j - 1].is_fixed());
+                if i > 0 && l_info[i - 1].is_fixed() {
+                    alignment.map_x.push(Some(i - 1));
+                    alignment.map_y.push(None);
+                    node_info.push(ParsimonySiteInfo::new(gap_set(), GapFixed));
+                    i -= 1;
+                }
+                if j > 0 && r_info[j - 1].is_fixed() {
+                    alignment.map_x.push(None);
+                    alignment.map_y.push(Some(j - 1));
+                    node_info.push(ParsimonySiteInfo::new(gap_set(), GapFixed));
+                    j -= 1;
+                }
+            } else {
+                match action {
+                    Skip => unreachable!(),
+                    Matc => {
+                        assert!(!l_info[i - 1].is_fixed() && !r_info[j - 1].is_fixed());
                         alignment.map_x.push(Some(i - 1));
                         alignment.map_y.push(Some(j - 1));
                         let mut set = &l_info[i - 1].set & &r_info[j - 1].set;
@@ -177,39 +183,64 @@ impl ParsimonyAlignmentMatrices {
                             set = &l_info[i - 1].set | &r_info[j - 1].set;
                         }
                         node_info.push(ParsimonySiteInfo::new(set, NoGap));
+                        action = self.trace.m[i][j];
+                        i -= 1;
+                        j -= 1;
                     }
-                    trace = self.trace.m[i][j];
-                    i -= 1;
-                    j -= 1;
-                }
-                GapX => {
-                    alignment.map_x.push(Some(i - 1));
-                    alignment.map_y.push(None);
-                    match l_info[j - 1].flag {
-                        GapFixed | GapOpen | GapExt => {
-                            node_info.push(ParsimonySiteInfo::new(gap_set(), GapFixed))
+                    GapX => {
+                        alignment.map_x.push(Some(i - 1));
+                        alignment.map_y.push(None);
+                        match l_info[i - 1].flag {
+                            GapFixed => unreachable!(),
+                            GapOpen | GapExt => {
+                                node_info.push(ParsimonySiteInfo::new(gap_set(), GapFixed))
+                            }
+                            NoGap => {
+                                node_info.push(ParsimonySiteInfo::new(
+                                    l_info[i - 1].set.clone(),
+                                    if self.trace.x[i][j] != GapX
+                                        || (i > 1
+                                            && self.trace.x[i][j] == GapX
+                                            && l_info[i - 2].is_possible()
+                                            && self.trace.x[i - 1][j] != GapY)
+                                    {
+                                        GapOpen
+                                    } else {
+                                        GapExt
+                                    },
+                                ));
+                            }
                         }
-                        NoGap => node_info
-                            .push(ParsimonySiteInfo::new(l_info[i - 1].set.clone(), GapOpen)),
+                        action = self.trace.x[i][j];
+                        i -= 1;
                     }
-                    trace = self.trace.x[i][j];
-                    i -= 1;
-                }
-                GapY => {
-                    alignment.map_x.push(None);
-                    alignment.map_y.push(Some(j - 1));
-                    match r_info[j - 1].flag {
-                        GapFixed | GapOpen | GapExt => {
-                            node_info.push(ParsimonySiteInfo::new(gap_set(), GapFixed))
+                    GapY => {
+                        alignment.map_x.push(None);
+                        alignment.map_y.push(Some(j - 1));
+                        match r_info[j - 1].flag {
+                            GapFixed => unreachable!(),
+                            GapOpen | GapExt => {
+                                node_info.push(ParsimonySiteInfo::new(gap_set(), GapFixed))
+                            }
+                            NoGap => {
+                                node_info.push(ParsimonySiteInfo::new(
+                                    r_info[j - 1].set.clone(),
+                                    if self.trace.y[i][j] != GapY
+                                        || (j > 1
+                                            && self.trace.y[i][j] == GapY
+                                            && r_info[j - 2].is_possible()
+                                            && self.trace.y[i][j - 1] != GapX)
+                                    {
+                                        GapOpen
+                                    } else {
+                                        GapExt
+                                    },
+                                ));
+                            }
                         }
-                        NoGap => node_info
-                            .push(ParsimonySiteInfo::new(r_info[j - 1].set.clone(), GapOpen)),
+                        action = self.trace.y[i][j];
+                        j -= 1;
                     }
-                    trace = self.trace.y[i][j];
-                    j -= 1;
-                }
-                Skip => {
-                    unreachable!()
                 }
             }
         }
@@ -226,21 +257,23 @@ impl ParsimonyAlignmentMatrices {
     ) {
         for i in 1..self.rows {
             self.score.x[i][0] = self.score.x[i - 1][0];
-            match node_info[i - 1].flag {
-                GapFixed | GapOpen | GapExt => {}
+            let dir = match node_info[i - 1].flag {
+                GapFixed => Skip,
+                GapOpen | GapExt => GapX,
                 NoGap => {
                     if self.score.x[i - 1][0] == 0.0 {
                         self.score.x[i][0] += scoring.gap_open_cost();
                     } else {
                         self.score.x[i][0] += scoring.gap_ext_cost();
                     }
+                    GapX
                 }
-            }
+            };
             self.score.y[i][0] = INF;
             self.score.m[i][0] = INF;
-            self.trace.m[i][0] = GapX;
-            self.trace.x[i][0] = GapX;
-            self.trace.y[i][0] = GapX;
+            self.trace.m[i][0] = dir;
+            self.trace.x[i][0] = dir;
+            self.trace.y[i][0] = dir;
         }
     }
 
@@ -251,22 +284,23 @@ impl ParsimonyAlignmentMatrices {
     ) {
         for j in 1..self.cols {
             self.score.y[0][j] = self.score.y[0][j - 1];
-
-            match node_info[j - 1].flag {
-                GapFixed | GapOpen | GapExt => {}
-                NoGap => {
-                    if self.score.y[0][j - 1] == 0.0 {
-                        self.score.y[0][j] += scoring.gap_open_cost();
-                    } else {
-                        self.score.y[0][j] += scoring.gap_ext_cost();
-                    }
+            if node_info[j-1].flag == NoGap {
+                if self.score.y[0][j - 1] == 0.0 {
+                    self.score.y[0][j] += scoring.gap_open_cost();
+                } else {
+                    self.score.y[0][j] += scoring.gap_ext_cost();
                 }
             }
+            let dir = if node_info[j-1].flag == GapFixed {
+                Skip
+            } else{
+                GapY
+            };
             self.score.x[0][j] = INF;
             self.score.m[0][j] = INF;
-            self.trace.m[0][j] = GapY;
-            self.trace.x[0][j] = GapY;
-            self.trace.y[0][j] = GapY;
+            self.trace.m[0][j] = dir;
+            self.trace.x[0][j] = dir;
+            self.trace.y[0][j] = dir;
         }
     }
 
@@ -480,27 +514,6 @@ impl ParsimonyAlignmentMatrices {
         (
             min_val,
             self.direction_picker[sel_mat][(self.rng)(self.direction_picker[sel_mat].len())],
-        )
-    }
-
-    fn fixed_gap_either(
-        &self,
-        i: usize,
-        j: usize,
-        gap_x: bool,
-        gap_y: bool,
-    ) -> (f64, f64, f64, Direction) {
-        (
-            self.score.m[i - gap_x as usize][j - gap_y as usize],
-            self.score.x[i - gap_x as usize][j - gap_y as usize],
-            self.score.y[i - gap_x as usize][j - gap_y as usize],
-            if gap_x && gap_y {
-                Matc
-            } else if gap_x {
-                GapY
-            } else {
-                GapX
-            },
         )
     }
 

@@ -1,5 +1,8 @@
-use crate::parsimony_alignment::parsimony_sets::ParsimonySet;
+use std::fmt;
+use std::fmt::Debug;
+
 use crate::parsimony_alignment::parsimony_sets::make_parsimony_set;
+use crate::parsimony_alignment::parsimony_sets::ParsimonySet;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum GapFlag {
@@ -9,11 +12,23 @@ pub(crate) enum GapFlag {
     NoGap,
 }
 
-
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub(crate) struct ParsimonySiteInfo {
     pub(crate) set: ParsimonySet,
     pub(super) flag: GapFlag,
+}
+
+impl Debug for ParsimonySiteInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:?}: {:?}",
+            self.set.iter().map(|&a| a as char).collect::<Vec<char>>(),
+            self.flag
+        )
+        .unwrap();
+        Ok(())
+    }
 }
 
 impl ParsimonySiteInfo {
@@ -37,6 +52,10 @@ impl ParsimonySiteInfo {
 
     pub(crate) fn is_ext(&self) -> bool {
         self.flag == GapFlag::GapExt
+    }
+
+    pub(crate) fn is_possible(&self) -> bool {
+        self.flag == GapFlag::GapOpen || self.flag == GapFlag::GapExt
     }
 
     pub(crate) fn no_gap(&self) -> bool {
