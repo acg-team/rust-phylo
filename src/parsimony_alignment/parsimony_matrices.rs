@@ -155,8 +155,6 @@ impl ParsimonyAlignmentMatrices {
             Mapping::with_capacity(max_alignment_length),
         );
         while i > 0 || j > 0 {
-            println!("{i}, {j}");
-            println!("Matrix: {:?}", action);
             if self.trace.m[i][j] == Skip {
                 assert!(l_info[i - 1].is_fixed() || r_info[j - 1].is_fixed());
                 if i > 0 && l_info[i - 1].is_fixed() {
@@ -203,6 +201,7 @@ impl ParsimonyAlignmentMatrices {
                                             && self.trace.x[i][j] == GapX
                                             && l_info[i - 2].is_possible()
                                             && self.trace.x[i - 1][j] != GapY)
+                                        || i == 1
                                     {
                                         GapOpen
                                     } else {
@@ -230,6 +229,7 @@ impl ParsimonyAlignmentMatrices {
                                             && self.trace.y[i][j] == GapY
                                             && r_info[j - 2].is_possible()
                                             && self.trace.y[i][j - 1] != GapX)
+                                        || j == 1
                                     {
                                         GapOpen
                                     } else {
@@ -284,16 +284,16 @@ impl ParsimonyAlignmentMatrices {
     ) {
         for j in 1..self.cols {
             self.score.y[0][j] = self.score.y[0][j - 1];
-            if node_info[j-1].flag == NoGap {
+            if node_info[j - 1].flag == NoGap {
                 if self.score.y[0][j - 1] == 0.0 {
                     self.score.y[0][j] += scoring.gap_open_cost();
                 } else {
                     self.score.y[0][j] += scoring.gap_ext_cost();
                 }
             }
-            let dir = if node_info[j-1].flag == GapFixed {
+            let dir = if node_info[j - 1].flag == GapFixed {
                 Skip
-            } else{
+            } else {
                 GapY
             };
             self.score.x[0][j] = INF;

@@ -529,3 +529,129 @@ fn traceback_gap_adjustment_3() {
     assert_eq!(alignment.map_y, align!(- - - 0 1 - -));
     assert_eq!(score + 2.75, 4.25);
 }
+
+#[cfg(test)]
+fn setup_gap_adjustment_4() -> (Vec<PSI>, Vec<PSI>, PAM) {
+    // Sequence file: sequences_fill_matrix_gap_adjustment_3.fasta
+    // Tree file: tree_fill_matrix_gap_adjustment_3.newick
+    // Slightly different setup to ensure there's a gap opening at the beginning of the alignment
+    let mismatch_cost = 1.0;
+    let gap_open_cost = 0.75;
+    let gap_ext_cost = 0.5;
+    let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
+    let left_info = vec![
+        PSI::new([b'-'], GapFixed),
+        PSI::new([b'A'], NoGap),
+        PSI::new([b'A'], GapOpen),
+        PSI::new([b'C'], NoGap),
+        PSI::new([b'-'], GapFixed),
+        PSI::new([b'-'], GapFixed),
+    ];
+    let right_info = vec![PSI::new([b'C'], NoGap), PSI::new([b'A'], NoGap)];
+    let mut pars_mats = PAM::new(7, 3, |_| 0);
+    pars_mats.fill_matrices(
+        &left_info,
+        &scoring.get_branch_costs(1.0),
+        &right_info,
+        &scoring.get_branch_costs(1.0),
+    );
+    (left_info, right_info, pars_mats)
+}
+
+#[test]
+fn fill_matrix_gap_adjustment_4() {
+    let (_, _, pars_mats) = setup_gap_adjustment_4();
+    assert_eq!(
+        pars_mats.score.m,
+        vec![
+            vec![0.0, INF, INF],
+            vec![INF, INF, INF],
+            vec![INF, 1.0, 0.75],
+            vec![INF, 1.75, 1.0],
+            vec![INF, 0.75, 2.0],
+            vec![INF, 0.75, 2.0],
+            vec![INF, 0.75, 2.0],
+        ]
+    );
+    assert_eq!(
+        pars_mats.score.x,
+        vec![
+            vec![0.0, INF, INF],
+            vec![0.0, INF, INF],
+            vec![0.75, 1.5, 2.0],
+            vec![0.75, 1.0, 0.75],
+            vec![1.25, 1.75, 1.5],
+            vec![1.25, 1.75, 1.5],
+            vec![1.25, 1.75, 1.5],
+        ]
+    );
+    assert_eq!(
+        pars_mats.score.y,
+        vec![
+            vec![0.0, 0.75, 1.25],
+            vec![INF, 0.75, 1.25],
+            vec![INF, 1.5, 1.75],
+            vec![INF, 1.5, 1.75],
+            vec![INF, 2.0, 1.5],
+            vec![INF, 2.0, 1.5],
+            vec![INF, 2.0, 1.5],
+        ]
+    );
+    assert_eq!(
+        pars_mats.trace.m,
+        vec![
+            vec![Skip, GapY, GapY],
+            vec![Skip, Skip, Skip],
+            vec![GapX, GapX, GapY],
+            vec![GapX, GapX, Matc],
+            vec![GapX, GapX, GapX],
+            vec![Skip, Skip, Skip],
+            vec![Skip, Skip, Skip],
+        ]
+    );
+    assert_eq!(
+        pars_mats.trace.x,
+        vec![
+            vec![Skip, GapY, GapY],
+            vec![Skip, Skip, Skip],
+            vec![GapX, GapY, GapY],
+            vec![GapX, Matc, Matc],
+            vec![GapX, GapX, GapX],
+            vec![Skip, Skip, Skip],
+            vec![Skip, Skip, Skip],
+        ]
+    );
+    assert_eq!(
+        pars_mats.trace.y,
+        vec![
+            vec![Skip, GapY, GapY],
+            vec![Skip, Skip, Skip],
+            vec![GapX, GapX, Matc],
+            vec![GapX, GapX, GapX],
+            vec![GapX, GapX, Matc],
+            vec![Skip, Skip, Skip],
+            vec![Skip, Skip, Skip],
+        ]
+    );
+}
+
+#[test]
+fn traceback_gap_adjustment_4() {
+    // Last step of the alignment with gap adjustments
+    let (left_info, right_info, pars_mats) = setup_gap_adjustment_4();
+    let (node_info, alignment, score) = pars_mats.traceback(&left_info, &right_info);
+    let true_info = vec![
+        PSI::new([b'C'], GapOpen),
+        PSI::new([b'-'], GapFixed),
+        PSI::new([b'A'], NoGap),
+        PSI::new([b'-'], GapFixed),
+        PSI::new([b'C'], GapOpen),
+        PSI::new([b'-'], GapFixed),
+        PSI::new([b'-'], GapFixed),
+    ];
+    assert_eq!(node_info.len(), true_info.len());
+    assert_eq!(node_info, true_info);
+    assert_eq!(alignment.map_x, align!(- 0 1 2 3 4 5));
+    assert_eq!(alignment.map_y, align!(0 - 1 - - - -));
+    assert_eq!(score + 2.75, 4.25);
+}
