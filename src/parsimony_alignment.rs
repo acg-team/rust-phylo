@@ -24,7 +24,6 @@ pub(crate) enum Direction {
     Matc,
     GapX,
     GapY,
-    Skip,
 }
 
 fn rng_len(l: usize) -> usize {

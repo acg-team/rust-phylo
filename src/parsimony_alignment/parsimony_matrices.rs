@@ -2,7 +2,7 @@ use crate::alignment::{Alignment, Mapping};
 use crate::cmp_f64;
 use crate::parsimony_alignment::{
     parsimony_info::ParsimonySiteInfo,
-    Direction::{self, GapX, GapY, Matc, Skip},
+    Direction::{self, GapX, GapY, Matc},
 };
 use std::f64::INFINITY as INF;
 use std::fmt;
@@ -36,9 +36,9 @@ pub(super) struct TracebackMatrices {
 impl TracebackMatrices {
     pub(super) fn new(len1: usize, len2: usize) -> TracebackMatrices {
         TracebackMatrices {
-            m: vec![vec![Skip; len2]; len1],
-            x: vec![vec![Skip; len2]; len1],
-            y: vec![vec![Skip; len2]; len1],
+            m: vec![vec![Matc; len2]; len1],
+            x: vec![vec![GapX; len2]; len1],
+            y: vec![vec![GapY; len2]; len1],
         }
     }
 }
@@ -122,11 +122,8 @@ impl ParsimonyAlignmentMatrices {
                     let ni = i - l_info[i - 1].is_fixed() as usize;
                     let nj = j - r_info[j - 1].is_fixed() as usize;
                     self.score.m[i][j] = self.score.m[ni][nj];
-                    self.trace.m[i][j] = Skip;
                     self.score.x[i][j] = self.score.x[ni][nj];
-                    self.trace.x[i][j] = Skip;
                     self.score.y[i][j] = self.score.y[ni][nj];
-                    self.trace.y[i][j] = Skip;
                 } else {
                     (self.score.m[i][j], self.trace.m[i][j]) =
                         self.possible_match(i - 1, j - 1, l_info, l_scoring, r_info, r_scoring);
@@ -155,8 +152,7 @@ impl ParsimonyAlignmentMatrices {
             Mapping::with_capacity(max_alignment_length),
         );
         while i > 0 || j > 0 {
-            if self.trace.m[i][j] == Skip {
-                assert!(l_info[i - 1].is_fixed() || r_info[j - 1].is_fixed());
+            if (i > 0 && l_info[i - 1].is_fixed()) || (j > 0 && r_info[j - 1].is_fixed()) {
                 if i > 0 && l_info[i - 1].is_fixed() {
                     alignment.map_x.push(Some(i - 1));
                     alignment.map_y.push(None);
@@ -171,7 +167,6 @@ impl ParsimonyAlignmentMatrices {
                 }
             } else {
                 match action {
-                    Skip => unreachable!(),
                     Matc => {
                         assert!(!l_info[i - 1].is_fixed() && !r_info[j - 1].is_fixed());
                         alignment.map_x.push(Some(i - 1));
@@ -257,23 +252,20 @@ impl ParsimonyAlignmentMatrices {
     ) {
         for i in 1..self.rows {
             self.score.x[i][0] = self.score.x[i - 1][0];
-            let dir = match node_info[i - 1].flag {
-                GapFixed => Skip,
-                GapOpen | GapExt => GapX,
-                NoGap => {
-                    if self.score.x[i - 1][0] == 0.0 {
-                        self.score.x[i][0] += scoring.gap_open_cost();
-                    } else {
-                        self.score.x[i][0] += scoring.gap_ext_cost();
-                    }
-                    GapX
+            if node_info[i - 1].flag == NoGap {
+                if self.score.x[i - 1][0] == 0.0 {
+                    self.score.x[i][0] += scoring.gap_open_cost();
+                } else {
+                    self.score.x[i][0] += scoring.gap_ext_cost();
                 }
-            };
+            } 
+            if node_info[i - 1].flag != GapFixed {
+                self.trace.m[i][0] = GapX;
+                self.trace.x[i][0] = GapX;
+                self.trace.y[i][0] = GapX;
+            }
             self.score.y[i][0] = INF;
             self.score.m[i][0] = INF;
-            self.trace.m[i][0] = dir;
-            self.trace.x[i][0] = dir;
-            self.trace.y[i][0] = dir;
         }
     }
 
@@ -291,16 +283,13 @@ impl ParsimonyAlignmentMatrices {
                     self.score.y[0][j] += scoring.gap_ext_cost();
                 }
             }
-            let dir = if node_info[j - 1].flag == GapFixed {
-                Skip
-            } else {
-                GapY
-            };
+            if node_info[j - 1].flag != GapFixed {
+                self.trace.m[0][j] = GapY;
+                self.trace.x[0][j] = GapY;
+                self.trace.y[0][j] = GapY;
+            }
             self.score.x[0][j] = INF;
             self.score.m[0][j] = INF;
-            self.trace.m[0][j] = dir;
-            self.trace.x[0][j] = dir;
-            self.trace.y[0][j] = dir;
         }
     }
 
