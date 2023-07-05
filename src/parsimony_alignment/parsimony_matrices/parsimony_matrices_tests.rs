@@ -5,7 +5,7 @@ use crate::parsimony_alignment::{
         ParsimonySiteInfo as PSI,
     },
     parsimony_matrices::ParsimonyAlignmentMatrices as PAM,
-    Direction::{GapX, GapY, Matc},
+    Direction::{GapInY, GapInX, Matc},
 };
 
 use std::f64::INFINITY as INF;
@@ -62,25 +62,25 @@ fn fill_matrix() {
     assert_eq!(
         pars_mats.trace.m,
         vec![
-            vec![Matc, GapY, GapY],
-            vec![GapX, Matc, GapY],
-            vec![GapX, GapX, Matc]
+            vec![Matc, GapInX, GapInX],
+            vec![GapInY, Matc, GapInX],
+            vec![GapInY, GapInY, Matc]
         ]
     );
     assert_eq!(
         pars_mats.trace.x,
         vec![
-            vec![GapX, GapY, GapY],
-            vec![GapX, GapY, GapY],
-            vec![GapX, Matc, Matc]
+            vec![GapInY, GapInX, GapInX],
+            vec![GapInY, GapInX, GapInX],
+            vec![GapInY, Matc, Matc]
         ]
     );
     assert_eq!(
         pars_mats.trace.y,
         vec![
-            vec![GapY, GapY, GapY],
-            vec![GapX, GapX, Matc],
-            vec![GapX, GapX, Matc]
+            vec![GapInX, GapInX, GapInX],
+            vec![GapInY, GapInY, Matc],
+            vec![GapInY, GapInY, Matc]
         ]
     );
 }
@@ -130,25 +130,25 @@ fn fill_matrix_other_outcome() {
     assert_eq!(
         pars_mats.trace.m,
         vec![
-            vec![Matc, GapY, GapY],
-            vec![GapX, GapX, GapY],
-            vec![GapX, GapX, Matc]
+            vec![Matc, GapInX, GapInX],
+            vec![GapInY, GapInY, GapInX],
+            vec![GapInY, GapInY, Matc]
         ]
     );
     assert_eq!(
         pars_mats.trace.x,
         vec![
-            vec![GapX, GapY, GapY],
-            vec![GapX, GapY, GapY],
-            vec![GapX, Matc, Matc]
+            vec![GapInY, GapInX, GapInX],
+            vec![GapInY, GapInX, GapInX],
+            vec![GapInY, Matc, Matc]
         ]
     );
     assert_eq!(
         pars_mats.trace.y,
         vec![
-            vec![GapY, GapY, GapY],
-            vec![GapX, GapX, Matc],
-            vec![GapX, GapX, GapX]
+            vec![GapInX, GapInX, GapInX],
+            vec![GapInY, GapInY, Matc],
+            vec![GapInY, GapInY, GapInY]
         ]
     );
 }
@@ -255,31 +255,31 @@ fn fill_matrix_gap_adjustment_1() {
     assert_eq!(
         pars_mats.trace.m,
         vec![
-            vec![Matc, GapY, GapY],
-            vec![GapX, Matc, GapY],
-            vec![GapX, GapX, Matc],
-            vec![GapX, GapX, Matc],
-            vec![GapX, GapX, Matc],
+            vec![Matc, GapInX, GapInX],
+            vec![GapInY, Matc, GapInX],
+            vec![GapInY, GapInY, Matc],
+            vec![GapInY, GapInY, Matc],
+            vec![GapInY, GapInY, Matc],
         ]
     );
     assert_eq!(
         pars_mats.trace.x,
         vec![
-            vec![GapX, GapY, GapY],
-            vec![GapX, GapY, GapY],
-            vec![GapX, Matc, Matc],
-            vec![GapX, Matc, Matc],
-            vec![GapX, GapX, GapX],
+            vec![GapInY, GapInX, GapInX],
+            vec![GapInY, GapInX, GapInX],
+            vec![GapInY, Matc, Matc],
+            vec![GapInY, Matc, Matc],
+            vec![GapInY, GapInY, GapInY],
         ]
     );
     assert_eq!(
         pars_mats.trace.y,
         vec![
-            vec![GapY, GapY, GapY],
-            vec![GapX, GapX, Matc],
-            vec![GapX, GapX, Matc],
-            vec![GapX, GapX, GapX],
-            vec![GapX, GapX, GapX],
+            vec![GapInX, GapInX, GapInX],
+            vec![GapInY, GapInY, Matc],
+            vec![GapInY, GapInY, Matc],
+            vec![GapInY, GapInY, GapInY],
+            vec![GapInY, GapInY, GapInY],
         ]
     );
 }
@@ -363,28 +363,28 @@ fn fill_matrix_gap_adjustment_2() {
     assert_eq!(
         pars_mats.trace.m,
         vec![
-            vec![Matc, GapY, GapY, GapY],
-            vec![GapX, Matc, GapY, GapY],
-            vec![GapX, GapX, Matc, GapY],
-            vec![GapX, GapX, GapX, Matc],
+            vec![Matc, GapInX, GapInX, GapInX],
+            vec![GapInY, Matc, GapInX, GapInX],
+            vec![GapInY, GapInY, Matc, GapInX],
+            vec![GapInY, GapInY, GapInY, Matc],
         ]
     );
     assert_eq!(
         pars_mats.trace.x,
         vec![
-            vec![GapX, GapY, GapY, GapY],
-            vec![GapX, GapY, GapY, GapY],
-            vec![GapX, Matc, GapY, GapY],
-            vec![GapX, GapX, Matc, Matc],
+            vec![GapInY, GapInX, GapInX, GapInX],
+            vec![GapInY, GapInX, GapInX, GapInX],
+            vec![GapInY, Matc, GapInX, GapInX],
+            vec![GapInY, GapInY, Matc, Matc],
         ]
     );
     assert_eq!(
         pars_mats.trace.y,
         vec![
-            vec![GapY, GapY, GapY, GapY],
-            vec![GapX, GapX, Matc, GapY],
-            vec![GapX, GapX, GapX, Matc],
-            vec![GapX, GapX, Matc, GapY],
+            vec![GapInX, GapInX, GapInX, GapInX],
+            vec![GapInY, GapInY, Matc, GapInX],
+            vec![GapInY, GapInY, GapInY, Matc],
+            vec![GapInY, GapInY, Matc, GapInX],
         ]
     );
 }
@@ -474,11 +474,11 @@ fn fill_matrix_gap_adjustment_3() {
     assert_eq!(
         pars_mats.trace.m,
         vec![
-            vec![Matc, GapY, GapY],
+            vec![Matc, GapInX, GapInX],
             vec![Matc, Matc, Matc],
-            vec![GapX, GapX, GapY],
-            vec![GapX, GapX, GapY],
-            vec![GapX, GapX, Matc],
+            vec![GapInY, GapInY, GapInX],
+            vec![GapInY, GapInY, GapInX],
+            vec![GapInY, GapInY, Matc],
             vec![Matc, Matc, Matc],
             vec![Matc, Matc, Matc],
         ]
@@ -486,25 +486,25 @@ fn fill_matrix_gap_adjustment_3() {
     assert_eq!(
         pars_mats.trace.x,
         vec![
-            vec![GapX, GapY, GapY],
-            vec![GapX, GapX, GapX],
-            vec![GapX, GapY, GapY],
-            vec![GapX, GapY, Matc],
-            vec![GapX, Matc, Matc],
-            vec![GapX, GapX, GapX],
-            vec![GapX, GapX, GapX],
+            vec![GapInY, GapInX, GapInX],
+            vec![GapInY, GapInY, GapInY],
+            vec![GapInY, GapInX, GapInX],
+            vec![GapInY, GapInX, Matc],
+            vec![GapInY, Matc, Matc],
+            vec![GapInY, GapInY, GapInY],
+            vec![GapInY, GapInY, GapInY],
         ]
     );
     assert_eq!(
         pars_mats.trace.y,
         vec![
-            vec![GapY, GapY, GapY],
-            vec![GapY, GapY, GapY],
-            vec![GapX, GapX, GapY],
-            vec![GapX, GapX, Matc],
-            vec![GapX, GapX, Matc],
-            vec![GapY, GapY, GapY],
-            vec![GapY, GapY, GapY],
+            vec![GapInX, GapInX, GapInX],
+            vec![GapInX, GapInX, GapInX],
+            vec![GapInY, GapInY, GapInX],
+            vec![GapInY, GapInY, Matc],
+            vec![GapInY, GapInY, Matc],
+            vec![GapInX, GapInX, GapInX],
+            vec![GapInX, GapInX, GapInX],
         ]
     );
 }
@@ -600,11 +600,11 @@ fn fill_matrix_gap_adjustment_4() {
     assert_eq!(
         pars_mats.trace.m,
         vec![
-            vec![Matc, GapY, GapY],
+            vec![Matc, GapInX, GapInX],
             vec![Matc, Matc, Matc],
-            vec![GapX, GapX, GapY],
-            vec![GapX, GapX, Matc],
-            vec![GapX, GapX, GapX],
+            vec![GapInY, GapInY, GapInX],
+            vec![GapInY, GapInY, Matc],
+            vec![GapInY, GapInY, GapInY],
             vec![Matc, Matc, Matc],
             vec![Matc, Matc, Matc],
         ]
@@ -612,25 +612,25 @@ fn fill_matrix_gap_adjustment_4() {
     assert_eq!(
         pars_mats.trace.x,
         vec![
-            vec![GapX, GapY, GapY],
-            vec![GapX, GapX, GapX],
-            vec![GapX, GapY, GapY],
-            vec![GapX, Matc, Matc],
-            vec![GapX, GapX, GapX],
-            vec![GapX, GapX, GapX],
-            vec![GapX, GapX, GapX],
+            vec![GapInY, GapInX, GapInX],
+            vec![GapInY, GapInY, GapInY],
+            vec![GapInY, GapInX, GapInX],
+            vec![GapInY, Matc, Matc],
+            vec![GapInY, GapInY, GapInY],
+            vec![GapInY, GapInY, GapInY],
+            vec![GapInY, GapInY, GapInY],
         ]
     );
     assert_eq!(
         pars_mats.trace.y,
         vec![
-            vec![GapY, GapY, GapY],
-            vec![GapY, GapY, GapY],
-            vec![GapX, GapX, Matc],
-            vec![GapX, GapX, GapX],
-            vec![GapX, GapX, Matc],
-            vec![GapY, GapY, GapY],
-            vec![GapY, GapY, GapY],
+            vec![GapInX, GapInX, GapInX],
+            vec![GapInX, GapInX, GapInX],
+            vec![GapInY, GapInY, Matc],
+            vec![GapInY, GapInY, GapInY],
+            vec![GapInY, GapInY, Matc],
+            vec![GapInX, GapInX, GapInX],
+            vec![GapInX, GapInX, GapInX],
         ]
     );
 }

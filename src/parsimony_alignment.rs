@@ -22,8 +22,8 @@ use parsimony_costs::BranchParsimonyCosts;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum Direction {
     Matc,
-    GapX,
-    GapY,
+    GapInY,
+    GapInX,
 }
 
 fn rng_len(l: usize) -> usize {
