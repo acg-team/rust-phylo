@@ -30,6 +30,7 @@ impl DNASubstModel {
         let pi: FreqVector<4>;
         match model_name.to_uppercase().as_str() {
             "JC69" => (q, pi) = dna_models::jc69(),
+            "K80" => (q, pi) = dna_models::k80(2.0, 1.0),
             _ => return Err(anyhow!("Unknown DNA model requested.")),
         }
         Ok(DNASubstModel {
@@ -89,11 +90,12 @@ where
         &self,
         times: &[f64],
         zero_diag: bool,
+        rounded: bool,
     ) -> HashMap<OrderedFloat<f64>, (SubstMatrix<N>, f64)> {
         HashMap::<f64_h, (SubstMatrix<N>, f64)>::from_iter(times.iter().map(|&time| {
             (
                 f64_h::from(time),
-                self.get_scoring_matrix_corrected(time, zero_diag),
+                self.get_scoring_matrix_corrected(time, zero_diag, rounded),
             )
         }))
     }
@@ -103,13 +105,14 @@ where
         self.q = self.q / factor;
     }
 
-    pub(crate) fn get_scoring_matrix(&self, time: f64) -> (SubstMatrix<N>, f64) {
-        self.get_scoring_matrix_corrected(time, false)
+    pub(crate) fn get_scoring_matrix(&self, time: f64, rounded: bool) -> (SubstMatrix<N>, f64) {
+        self.get_scoring_matrix_corrected(time, false, rounded)
     }
 
-    fn get_scoring_matrix_corrected(&self, time: f64, zero_diag: bool) -> (SubstMatrix<N>, f64) {
+    fn get_scoring_matrix_corrected(&self, time: f64, zero_diag: bool, rounded: bool) -> (SubstMatrix<N>, f64) {
         let p = self.get_p(time);
-        let mut scores = p.map(|x| (-x.ln()).round());
+        let mapping = if rounded {|x: f64| (-x.ln().round())} else {|x: f64| -x.ln()};
+        let mut scores = p.map(mapping);
         if zero_diag {
             scores.fill_diagonal(0.0);
         }
@@ -300,14 +303,14 @@ mod substitution_model_tests {
                 5.0, 8.0, 7.0, 0.0,
             ],
         ]);
-        let (mat, avg) = model.get_scoring_matrix(0.1);
+        let (mat, avg) = model.get_scoring_matrix(0.1, true);
         assert_eq!(mat.to_string(), true_matrix_01.to_string());
         assert_float_absolute_eq!(avg, 5.7675);
-        let (_, avg) = model.get_scoring_matrix(0.3);
+        let (_, avg) = model.get_scoring_matrix(0.3, true);
         assert_float_absolute_eq!(avg, 4.7475);
-        let (_, avg) = model.get_scoring_matrix(0.5);
+        let (_, avg) = model.get_scoring_matrix(0.5, true);
         assert_float_absolute_eq!(avg, 4.2825);
-        let (_, avg) = model.get_scoring_matrix(0.7);
+        let (_, avg) = model.get_scoring_matrix(0.7, true);
         assert_float_absolute_eq!(avg, 4.0075);
     }
 }

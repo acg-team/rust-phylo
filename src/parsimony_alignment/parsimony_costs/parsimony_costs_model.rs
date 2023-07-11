@@ -19,8 +19,8 @@ pub(crate) struct ParsimonyCostsWModel<const N: usize> {
     costs: HashMap<OrderedFloat<f64>, BranchCostsWModel<N>>,
 }
 
-type DNAParsCosts = ParsimonyCostsWModel<4>;
-type ProteinParsCosts = ParsimonyCostsWModel<20>;
+pub(crate) type DNAParsCosts = ParsimonyCostsWModel<4>;
+pub(crate) type ProteinParsCosts = ParsimonyCostsWModel<20>;
 
 impl DNAParsCosts {
     pub(crate) fn new(
@@ -29,6 +29,7 @@ impl DNAParsCosts {
         gap_ext_mult: f64,
         times: &[f64],
         zero_diag: bool,
+        rounded: bool,
     ) -> Result<Self> {
         let model = DNASubstModel::new(model_name)?;
         let costs = generate_costs(
@@ -38,6 +39,7 @@ impl DNAParsCosts {
             gap_ext_mult,
             dna_models::nucleotide_index(),
             zero_diag,
+            rounded,
         );
         let mut sorted_times = Vec::from(times);
         sorted_times.sort_by(cmp_f64());
@@ -55,6 +57,7 @@ impl ProteinParsCosts {
         gap_ext_mult: f64,
         times: &[f64],
         zero_diag: bool,
+        rounded: bool,
     ) -> Result<Self> {
         let model = ProteinSubstModel::new(model_name)?;
         let costs = generate_costs(
@@ -64,6 +67,7 @@ impl ProteinParsCosts {
             gap_ext_mult,
             protein_models::aminoacid_index(),
             zero_diag,
+            rounded,
         );
         Ok(ProteinParsCosts {
             times: sort_times(times),
@@ -79,12 +83,13 @@ fn generate_costs<const N: usize>(
     gap_ext_mult: f64,
     index: [i32; 255],
     zero_diag: bool,
+    rounded: bool,
 ) -> HashMap<OrderedFloat<f64>, BranchCostsWModel<N>>
 where
     Const<N>: DimMin<Const<N>, Output = Const<N>>,
 {
     let costs = model
-        .generate_scorings(times, zero_diag)
+        .generate_scorings(times, zero_diag, rounded)
         .into_iter()
         .map(|(key, (branch_costs, avg_cost))| {
             (
@@ -183,6 +188,7 @@ mod parsimony_costs_model_test {
             gap_ext,
             protein_models::aminoacid_index(),
             false,
+            true,
         );
         let branch_costs = costs.get(&f64_h::from(0.1)).unwrap();
         assert_eq!(branch_costs.costs.mean(), avg_01);
@@ -200,6 +206,7 @@ mod parsimony_costs_model_test {
             gap_open,
             gap_ext,
             protein_models::aminoacid_index(),
+            true,
             true,
         );
         let branch_costs = costs.get(&f64_h::from(0.1)).unwrap();
@@ -219,8 +226,7 @@ mod parsimony_costs_model_test {
         let avg_05 = 4.2825;
         let avg_07 = 4.0075;
         let times = [0.1, 0.3, 0.5, 0.7];
-        let model =
-            ProteinParsCosts::new("wag", gap_open, gap_ext, &times, false).unwrap();
+        let model = ProteinParsCosts::new("wag", gap_open, gap_ext, &times, false, true).unwrap();
         let branch_scores = model.get_branch_costs(0.1);
         assert_eq!(branch_scores.avg_cost(), avg_01);
         assert_eq!(branch_scores.gap_ext_cost(), avg_01 * gap_ext);
@@ -240,7 +246,7 @@ mod parsimony_costs_model_test {
         let avg_01 = 5.7675;
         let avg_05 = 4.2825;
         let times = [0.1, 0.5];
-        let model = ProteinParsCosts::new("wag", gap_open, gap_ext, &times, false).unwrap();
+        let model = ProteinParsCosts::new("wag", gap_open, gap_ext, &times, false, true).unwrap();
         let branch_scores_01 = model.get_branch_costs(0.1);
         assert_eq!(branch_scores_01.avg_cost(), avg_01);
         assert_eq!(branch_scores_01.gap_ext_cost(), avg_01 * gap_ext);
@@ -276,6 +282,7 @@ mod parsimony_costs_model_test {
             gap_ext,
             protein_models::aminoacid_index(),
             false,
+            true,
         );
         let branch_costs = costs.get(&f64_h::from(0.1)).unwrap();
         assert_eq!(branch_costs.costs.mean(), avg_01);
@@ -293,6 +300,7 @@ mod parsimony_costs_model_test {
             gap_ext,
             protein_models::aminoacid_index(),
             true,
+            true,
         );
         let branch_costs = costs.get(&f64_h::from(0.1)).unwrap();
         assert_eq!(branch_costs.costs.mean(), avg_01);
@@ -309,7 +317,7 @@ mod parsimony_costs_model_test {
         let avg_01 = 2.25;
         let avg_07 = 1.75;
         let times = [0.1, 0.7];
-        let model = DNAParsCosts::new("jc69", gap_open, gap_ext, &times, false).unwrap();
+        let model = DNAParsCosts::new("jc69", gap_open, gap_ext, &times, false, true).unwrap();
         let branch_scores_01 = model.get_branch_costs(0.1);
         assert_eq!(branch_scores_01.avg_cost(), avg_01);
         assert_eq!(branch_scores_01.gap_ext_cost(), avg_01 * gap_ext);
