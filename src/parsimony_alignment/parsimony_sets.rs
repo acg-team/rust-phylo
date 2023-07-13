@@ -1,6 +1,6 @@
 use crate::sequences::{charify, SequenceType, AMINOACIDS_STR, NUCLEOTIDES_STR};
 use bio::io::fasta;
-use std::{collections::HashSet};
+use std::collections::HashSet;
 
 pub(crate) type ParsimonySet = HashSet<u8>;
 

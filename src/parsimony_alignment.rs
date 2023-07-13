@@ -52,19 +52,12 @@ fn pars_align(
 }
 
 pub(crate) fn pars_align_on_tree(
-    mismatch_cost: f64,
-    gap_open_cost: f64,
-    gap_ext_cost: f64,
+    scoring: &Box<&dyn ParsimonyCosts>,
     tree: &tree::Tree,
     sequences: &[Record],
     sequence_type: &SequenceType,
 ) -> (Vec<Alignment>, Vec<f64>) {
     let order = &tree.postorder;
-    let scoring = parsimony_costs::parsimony_costs_simple::ParsimonyCostsSimple::new(
-        mismatch_cost,
-        gap_open_cost,
-        gap_ext_cost,
-    );
 
     assert_eq!(tree.internals.len() + tree.leaves.len(), order.len());
 
@@ -117,6 +110,7 @@ pub(crate) fn sequence_idx(sequences: &[Record], search: &Record) -> usize {
 #[cfg(test)]
 mod parsimony_alignment_tests {
     use crate::alignment::{compile_alignment_representation, Alignment};
+    use crate::parsimony_alignment::parsimony_costs;
     use crate::parsimony_alignment::parsimony_costs::{
         parsimony_costs_simple::ParsimonyCostsSimple, ParsimonyCosts,
     };
@@ -276,10 +270,14 @@ mod parsimony_alignment_tests {
         let mut tree = Tree::new(2, 0);
         tree.add_parent(0, L(0), L(1), 1.0, 1.0);
         tree.create_postorder();
-        let (alignment_vec, score) = pars_align_on_tree(
+        let scoring = ParsimonyCostsSimple::new(
             mismatch_cost,
             gap_open_cost,
             gap_ext_cost,
+        );
+
+        let (alignment_vec, score) = pars_align_on_tree(
+            &Box::new(&scoring),
             &tree,
             &sequences,
             &SequenceType::DNA,
@@ -307,7 +305,7 @@ mod parsimony_alignment_tests {
 
         let leaf_info2 = [([b'G'], GapOpen), ([b'A'], NoGap)].map(create_site_info);
 
-        let (_info, alignment, score) = pars_align_w_rng(
+        let (_, alignment, score) = pars_align_w_rng(
             &leaf_info1,
             &scoring.get_branch_costs(1.0),
             &leaf_info2,
@@ -403,8 +401,14 @@ mod parsimony_alignment_tests {
         tree.add_parent(2, I(0), I(1), 1.0, 1.0);
         tree.create_postorder();
 
+        let scoring = ParsimonyCostsSimple::new(
+            c,
+            a,
+            b,
+        );
+
         let (alignment_vec, score) =
-            pars_align_on_tree(c, a, b, &tree, &sequences, &SequenceType::DNA);
+            pars_align_on_tree(&Box::new(&scoring), &tree, &sequences, &SequenceType::DNA);
         // first cherry
         assert_eq!(score[0], 3.5);
         assert_eq!(alignment_vec[0].map_x.len(), 4);

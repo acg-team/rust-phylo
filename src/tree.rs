@@ -1,6 +1,6 @@
 pub(crate) mod njmat;
 
-use crate::{Result, Result2};
+use crate::Result;
 use bio::alignment::distance::levenshtein;
 use bio::io::fasta;
 use nalgebra::max;
@@ -93,9 +93,7 @@ pub(crate) struct Tree {
     pub(crate) preorder: Vec<NodeIdx>,
 }
 
-pub(crate) fn from_newick_string(
-    newick_string: &str,
-) -> Result2<Vec<Tree>, pest::error::Error<Rule>> {
+pub(crate) fn from_newick_string(newick_string: &str) -> Result<Vec<Tree>> {
     let mut trees = Vec::new();
     let newick_tree_rule = NewickParser::parse(Rule::newick, newick_string)?
         .next()
@@ -127,7 +125,7 @@ impl Tree {
         }
     }
 
-    fn from_tree_rule(&mut self, tree_rule: Pair<Rule>) -> Result2<(), pest::error::Error<Rule>> {
+    fn from_tree_rule(&mut self, tree_rule: Pair<Rule>) -> Result<()> {
         let mut leaf_idx = 0;
         let mut internal_idx = 0;
         let mut parent_stack = Vec::<usize>::new();
@@ -157,7 +155,7 @@ impl Tree {
         node_idx: &mut usize,
         stack: &mut Vec<usize>,
         internal_rule: Pair<Rule>,
-    ) -> Result2<(), pest::error::Error<Rule>> {
+    ) -> Result<()> {
         let mut id = String::from("");
         let mut blen = 0.0;
         let mut children: Vec<NodeIdx> = Vec::new();
@@ -197,7 +195,7 @@ impl Tree {
         &mut self,
         node_idx: &usize,
         inner_rule: Pair<Rule>,
-    ) -> Result2<(), pest::error::Error<Rule>> {
+    ) -> Result<()> {
         let mut id = String::from("");
         let mut blen = 0.0;
         for rule in inner_rule.into_inner() {
@@ -302,6 +300,10 @@ impl Tree {
             }
         }
         order
+    }
+
+    pub(crate) fn get_leaf_ids(&self) -> Vec<String> {
+        self.leaves.iter().map(|node| node.id.clone()).collect()
     }
 }
 
@@ -675,10 +677,18 @@ mod tree_tests {
         assert_eq!(trees[2].internals.len(), 2);
     }
 
-    fn parsing_error(rules: Vec<Rule>) -> ErrorVariant<Rule> {
+    fn parsing_error(rules: &[Rule]) -> ErrorVariant<Rule> {
         ErrorVariant::ParsingError {
-            positives: rules,
+            positives: rules.to_vec(),
             negatives: vec![],
+        }
+    }
+
+    fn check_parsing_error(error: anyhow::Error, expected_parsing_error: &[Rule]) {
+        if let Some(pest_error) = error.downcast_ref::<pest::error::Error<Rule>>() {
+            assert_eq!(pest_error.variant, parsing_error(expected_parsing_error));
+        } else {
+            panic!();
         }
     }
 
@@ -686,33 +696,18 @@ mod tree_tests {
     fn newick_garbage() {
         let trees = from_newick_string(&String::from(";"));
         assert!(trees.is_err());
-        assert_eq!(
-            trees.unwrap_err().variant,
-            parsing_error(vec![Rule::newick])
-        );
+        check_parsing_error(trees.unwrap_err(), &[Rule::newick]);
         let trees = from_newick_string(&String::from("()()();"));
         assert!(trees.is_err());
-        assert_eq!(
-            trees.unwrap_err().variant,
-            parsing_error(vec![Rule::internal, Rule::label])
-        );
+        check_parsing_error(trees.unwrap_err(), &[Rule::internal, Rule::label]);
         let trees = from_newick_string(&String::from("((A:1.0,B:1.0);"));
         assert!(trees.is_err());
-        assert_eq!(
-            trees.unwrap_err().variant,
-            parsing_error(vec![Rule::label, Rule::branch_length])
-        );
+        check_parsing_error(trees.unwrap_err(), &[Rule::label, Rule::branch_length]);
         let trees = from_newick_string(&String::from("((A:1.0,B:1.0));"));
         assert!(trees.is_err());
-        assert_eq!(
-            trees.unwrap_err().variant,
-            parsing_error(vec![Rule::label, Rule::branch_length])
-        );
+        check_parsing_error(trees.unwrap_err(), &[Rule::label, Rule::branch_length]);
         let trees = from_newick_string(&String::from("(:1.0,:2.0)E:5.1;"));
         assert!(trees.is_err());
-        assert_eq!(
-            trees.unwrap_err().variant,
-            parsing_error(vec![Rule::internal, Rule::label])
-        );
+        check_parsing_error(trees.unwrap_err(), &[Rule::internal, Rule::label]);
     }
 }

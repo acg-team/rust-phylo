@@ -2,16 +2,23 @@
 extern crate assert_float_eq;
 
 use anyhow::Error;
+use clap::Parser;
+use cli::Cli;
+use env_logger::Env;
+use log::{error, info, trace, warn};
+use phylo_info::setup_phylogenetic_info;
+use phylo_info::PhyloInfo;
 
-mod io;
-mod sequences;
-mod tree;
-mod substitution_models;
-mod parsimony_alignment;
 mod alignment;
+mod cli;
+mod io;
+mod parsimony_alignment;
+mod phylo_info;
+mod sequences;
+mod substitution_models;
+mod tree;
 
 type Result<T> = std::result::Result<T, Error>;
-type Result2<T, E> = std::result::Result<T, E>;
 
 #[allow(non_camel_case_types)]
 type f64_h = ordered_float::OrderedFloat<f64>;
@@ -21,21 +28,15 @@ fn cmp_f64() -> impl Fn(&f64, &f64) -> std::cmp::Ordering {
 }
 
 fn main() -> Result<()> {
-    let sequences = io::read_sequences_from_file("./data/sequences_protein1.fasta").unwrap();
-    let sequence_type = sequences::get_sequence_type(&sequences);
-
-    let tree = tree::build_nj_tree(&sequences)?;
-
-    let (alignment, scores) = parsimony_alignment::pars_align_on_tree(1.0, 2.0, 0.5, &tree, &sequences, &sequence_type);
-    let msa = alignment::compile_alignment_representation(&tree, &sequences, &alignment, None);
-
-    io::write_sequences_to_file(&msa, "msa.fasta")?;
-    println!("Alignment scores are {:?}", scores);
-
-    io::read_newick_from_string(&String::from("(((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0,D:0.0)G:2.0;"))?;
-
-    let wag = substitution_models::SubstitutionModel::<20>::new("WAG").unwrap();
-    println!("{:?}", wag.get_rate(b'A', b'A'));
-
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    info!("JATI run started");
+    let cli = Cli::try_parse()?;
+    info!("Successfully parsed the command line parameters");
+    let info = setup_phylogenetic_info(cli.seq_file, cli.tree_file);
+    if let Err(error) = &info {
+        error!("Error in input data: {}", error);
+        return Ok(());
+    }
+    println!("{:?}", info.unwrap().sequences);
     Ok(())
 }

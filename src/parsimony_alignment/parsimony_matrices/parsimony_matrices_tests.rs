@@ -1031,7 +1031,6 @@ fn fill_matrix_diff_branch_models_3() {
     );
 }
 
-
 #[test]
 fn traceback_diff_branch_models_3() {
     let (left_info, right_info, pars_mats) = setup_different_branch_lengths_3();

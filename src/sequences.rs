@@ -51,6 +51,7 @@ mod sequences_tests {
     use crate::sequences::{dna_alphabet, get_sequence_type, protein_alphabet, SequenceType};
     use bio::alphabets::Alphabet;
     use rstest::*;
+    use std::path::PathBuf;
 
     #[test]
     fn alphabets() {
@@ -69,7 +70,7 @@ mod sequences_tests {
     #[case::unaligned("./data/sequences_DNA2_unaligned.fasta")]
     #[case::long("./data/sequences_long.fasta")]
     fn dna_type_test(#[case] input: &str) {
-        let alphabet = get_sequence_type(&read_sequences_from_file(input).unwrap());
+        let alphabet = get_sequence_type(&read_sequences_from_file(PathBuf::from(input)).unwrap());
         assert_eq!(alphabet, SequenceType::DNA);
         assert_ne!(alphabet, SequenceType::Protein);
     }
@@ -77,7 +78,7 @@ mod sequences_tests {
     #[rstest]
     #[case("./data/sequences_protein1.fasta")]
     fn protein_type_test(#[case] input: &str) {
-        let alphabet = get_sequence_type(&read_sequences_from_file(input).unwrap());
+        let alphabet = get_sequence_type(&read_sequences_from_file(PathBuf::from(input)).unwrap());
         assert_ne!(alphabet, SequenceType::DNA);
         assert_eq!(alphabet, SequenceType::Protein);
     }
