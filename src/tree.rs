@@ -1,18 +1,32 @@
 pub(crate) mod njmat;
 
 use crate::Result;
+use anyhow::bail;
 use bio::alignment::distance::levenshtein;
 use bio::io::fasta;
 use nalgebra::max;
 use nalgebra::DMatrix;
 use njmat::{Mat, NJMat};
-use pest::iterators::Pair;
-use pest::Parser;
+use pest::{error::Error as PestError, iterators::Pair, Parser};
 use pest_derive::Parser;
+use std::error::Error;
+use std::fmt;
+use std::result::Result as stdResult;
 
 #[derive(Parser)]
 #[grammar = "newick.pest"]
 pub struct NewickParser;
+
+#[derive(Debug)]
+pub(crate) struct ParsingError(PestError<Rule>);
+
+impl fmt::Display for ParsingError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Malformed newick string")?;
+        write!(f, "{}", self.0)
+    }
+}
+impl Error for ParsingError {}
 
 #[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Eq, Ord, Hash)]
 pub(crate) enum NodeIdx {
@@ -95,16 +109,21 @@ pub(crate) struct Tree {
 
 pub(crate) fn from_newick_string(newick_string: &str) -> Result<Vec<Tree>> {
     let mut trees = Vec::new();
-    let newick_tree_rule = NewickParser::parse(Rule::newick, newick_string)?
-        .next()
-        .unwrap();
+    let newick_tree_res = NewickParser::parse(Rule::newick, newick_string);
+    if newick_tree_res.is_err() {
+        bail!(ParsingError(newick_tree_res.err().unwrap()));
+    }
+    let newick_tree_rule = newick_tree_res.unwrap().next().unwrap();
     match newick_tree_rule.as_rule() {
         Rule::newick => {
             for tree_rule in newick_tree_rule.into_inner() {
                 let tmp = tree_rule.into_inner().next();
                 if let Some(rule) = tmp {
                     let mut tree = Tree::new_empty();
-                    tree.from_tree_rule(rule)?;
+                    let res = tree.from_tree_rule(rule);
+                    if res.is_err() {
+                        bail!(ParsingError(res.err().unwrap()));
+                    }
                     trees.push(tree);
                 }
             }
@@ -125,7 +144,7 @@ impl Tree {
         }
     }
 
-    fn from_tree_rule(&mut self, tree_rule: Pair<Rule>) -> Result<()> {
+    fn from_tree_rule(&mut self, tree_rule: Pair<Rule>) -> stdResult<(), PestError<Rule>> {
         let mut leaf_idx = 0;
         let mut internal_idx = 0;
         let mut parent_stack = Vec::<usize>::new();
@@ -155,7 +174,7 @@ impl Tree {
         node_idx: &mut usize,
         stack: &mut Vec<usize>,
         internal_rule: Pair<Rule>,
-    ) -> Result<()> {
+    ) -> stdResult<(), PestError<Rule>> {
         let mut id = String::from("");
         let mut blen = 0.0;
         let mut children: Vec<NodeIdx> = Vec::new();
@@ -195,7 +214,7 @@ impl Tree {
         &mut self,
         node_idx: &usize,
         inner_rule: Pair<Rule>,
-    ) -> Result<()> {
+    ) -> stdResult<(), PestError<Rule>> {
         let mut id = String::from("");
         let mut blen = 0.0;
         for rule in inner_rule.into_inner() {
@@ -398,8 +417,10 @@ mod tree_tests {
         njmat::NJMat, Node, NodeIdx, NodeIdx::Internal as I, NodeIdx::Leaf as L, Rule, Tree,
     };
     use approx::relative_eq;
-    use nalgebra::dmatrix;
+    use nalgebra::{dmatrix, partial_gt};
     use pest::error::ErrorVariant;
+
+    use super::ParsingError;
 
     fn setup_test_tree() -> Tree {
         let mut tree = Tree::new(5, 3);
@@ -677,7 +698,7 @@ mod tree_tests {
         assert_eq!(trees[2].internals.len(), 2);
     }
 
-    fn parsing_error(rules: &[Rule]) -> ErrorVariant<Rule> {
+    fn make_parsing_error(rules: &[Rule]) -> ErrorVariant<Rule> {
         ErrorVariant::ParsingError {
             positives: rules.to_vec(),
             negatives: vec![],
@@ -685,29 +706,23 @@ mod tree_tests {
     }
 
     fn check_parsing_error(error: anyhow::Error, expected_parsing_error: &[Rule]) {
-        if let Some(pest_error) = error.downcast_ref::<pest::error::Error<Rule>>() {
-            assert_eq!(pest_error.variant, parsing_error(expected_parsing_error));
-        } else {
-            panic!();
-        }
+        assert_eq!(
+            error.downcast_ref::<ParsingError>().unwrap().0.variant,
+            make_parsing_error(expected_parsing_error)
+        );
     }
 
     #[test]
     fn newick_garbage() {
         let trees = from_newick_string(&String::from(";"));
-        assert!(trees.is_err());
         check_parsing_error(trees.unwrap_err(), &[Rule::newick]);
         let trees = from_newick_string(&String::from("()()();"));
-        assert!(trees.is_err());
         check_parsing_error(trees.unwrap_err(), &[Rule::internal, Rule::label]);
         let trees = from_newick_string(&String::from("((A:1.0,B:1.0);"));
-        assert!(trees.is_err());
         check_parsing_error(trees.unwrap_err(), &[Rule::label, Rule::branch_length]);
         let trees = from_newick_string(&String::from("((A:1.0,B:1.0));"));
-        assert!(trees.is_err());
         check_parsing_error(trees.unwrap_err(), &[Rule::label, Rule::branch_length]);
         let trees = from_newick_string(&String::from("(:1.0,:2.0)E:5.1;"));
-        assert!(trees.is_err());
         check_parsing_error(trees.unwrap_err(), &[Rule::internal, Rule::label]);
     }
 }

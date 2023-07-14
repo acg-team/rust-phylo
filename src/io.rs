@@ -1,3 +1,4 @@
+use std::fmt;
 use std::fs;
 use std::path::PathBuf;
 
@@ -5,6 +6,18 @@ use crate::tree::{self, Tree};
 use crate::Result;
 use anyhow::bail;
 use bio::{alphabets, io::fasta};
+use std::error::Error;
+
+#[derive(Debug)]
+pub(crate) struct DataError {
+    pub(crate) message: String,
+}
+impl fmt::Display for DataError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+impl Error for DataError {}
 
 pub(crate) fn read_sequences_from_file(path: PathBuf) -> Result<Vec<fasta::Record>> {
     let reader = fasta::Reader::from_file(path)?;
@@ -14,10 +27,14 @@ pub(crate) fn read_sequences_from_file(path: PathBuf) -> Result<Vec<fasta::Recor
     for result in reader.records() {
         let rec = result?;
         if let Err(e) = rec.check() {
-            bail!("{}", e);
+            bail!(DataError {
+                message: e.to_string()
+            });
         }
         if !alphabet.is_word(rec.seq()) {
-            bail!("These are not valid genetic sequences");
+            bail!(DataError {
+                message: String::from("Invalid genetic sequences")
+            });
         }
         sequences.push(rec);
     }
@@ -36,11 +53,6 @@ pub(crate) fn write_sequences_to_file(sequences: &[fasta::Record], path: &str) -
 pub(crate) fn read_newick_from_file(path: PathBuf) -> Result<Vec<Tree>> {
     let newick = fs::read_to_string(path)?;
     tree::from_newick_string(&newick)
-}
-
-// Currently parsing only rooted trees
-pub(crate) fn read_newick_from_string(newick: &str) -> Result<Vec<Tree>> {
-    tree::from_newick_string(newick)
 }
 
 #[cfg(test)]

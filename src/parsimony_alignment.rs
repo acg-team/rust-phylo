@@ -110,7 +110,6 @@ pub(crate) fn sequence_idx(sequences: &[Record], search: &Record) -> usize {
 #[cfg(test)]
 mod parsimony_alignment_tests {
     use crate::alignment::{compile_alignment_representation, Alignment};
-    use crate::parsimony_alignment::parsimony_costs;
     use crate::parsimony_alignment::parsimony_costs::{
         parsimony_costs_simple::ParsimonyCostsSimple, ParsimonyCosts,
     };
