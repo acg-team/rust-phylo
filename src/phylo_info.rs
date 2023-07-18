@@ -22,7 +22,7 @@ pub(super) fn setup_phylogenetic_info(
 ) -> Result<PhyloInfo> {
     info!(
         "Reading unaligned sequences from file {}",
-        sequence_file.to_str().unwrap()
+        sequence_file.display()
     );
     let sequences = io::read_sequences_from_file(sequence_file)?;
     info!("{} sequence(s) read successfully", sequences.len());
@@ -34,7 +34,8 @@ pub(super) fn setup_phylogenetic_info(
 
     let sequence_ids: HashSet<String> =
         HashSet::from_iter(sequences.iter().map(|rec| rec.id().to_string()));
-    info!("Reading trees from file {}", tree_file.to_str().unwrap());
+
+    info!("Reading trees from file {}", tree_file.display());
     let mut trees = io::read_newick_from_file(tree_file)?;
     info!("{} tree(s) read successfully", trees.len());
 
@@ -67,7 +68,6 @@ mod phylo_info_tests {
     use super::PhyloInfo;
     use crate::io::DataError;
     use crate::tree::ParsingError;
-    use crate::tree::Rule;
     use assert_matches::assert_matches;
 
     use std::{fmt::Debug, fmt::Display, path::PathBuf};
@@ -77,13 +77,9 @@ mod phylo_info_tests {
         let res_info = setup_phylogenetic_info(
             PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
             PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
-        );
-        assert!(res_info.is_ok());
-        let info = res_info.unwrap();
-        let tree = info.tree;
-        assert_eq!(tree.leaves.len(), 4);
-        let sequences = info.sequences;
-        assert_eq!(sequences.len(), 4);
+        ).unwrap();
+        assert_eq!(res_info.tree.leaves.len(), 4);
+        assert_eq!(res_info.sequences.len(), 4);
     }
 
     #[test]
