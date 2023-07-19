@@ -6,6 +6,7 @@ use crate::tree::{self, Tree};
 use crate::Result;
 use anyhow::bail;
 use bio::{alphabets, io::fasta};
+use log::info;
 use std::error::Error;
 
 #[derive(Debug)]
@@ -20,6 +21,7 @@ impl fmt::Display for DataError {
 impl Error for DataError {}
 
 pub(crate) fn read_sequences_from_file(path: PathBuf) -> Result<Vec<fasta::Record>> {
+    info!("Reading sequences from file {}.", path.display());
     let reader = fasta::Reader::from_file(path)?;
     let mut sequences = Vec::new();
     let mut alphabet = alphabets::protein::iupac_alphabet();
@@ -38,20 +40,25 @@ pub(crate) fn read_sequences_from_file(path: PathBuf) -> Result<Vec<fasta::Recor
         }
         sequences.push(rec);
     }
+    info!("Read sequences successfully.");
     Ok(sequences)
 }
 
-pub(crate) fn write_sequences_to_file(sequences: &[fasta::Record], path: &str) -> Result<()> {
+pub(crate) fn write_sequences_to_file(sequences: &[fasta::Record], path: PathBuf) -> Result<()> {
+    info!("Writing sequences/MSA to file {}.", path.display());
     let mut writer = fasta::Writer::to_file(path)?;
     for rec in sequences {
         writer.write_record(rec)?;
     }
+    info!("Finished writing successfully.");
     Ok(())
 }
 
 // Currently parsing only rooted trees
 pub(crate) fn read_newick_from_file(path: PathBuf) -> Result<Vec<Tree>> {
+    info!("Reading rooted newick tree from file {}.", path.display());
     let newick = fs::read_to_string(path)?;
+    info!("Read file successfully.");
     tree::from_newick_string(&newick)
 }
 

@@ -4,6 +4,7 @@ use crate::Result;
 use anyhow::bail;
 use bio::alignment::distance::levenshtein;
 use bio::io::fasta;
+use log::info;
 use nalgebra::max;
 use nalgebra::DMatrix;
 use njmat::{Mat, NJMat};
@@ -108,6 +109,7 @@ pub(crate) struct Tree {
 }
 
 pub(crate) fn from_newick_string(newick_string: &str) -> Result<Vec<Tree>> {
+    info!("Parsing newick trees.");
     let mut trees = Vec::new();
     let newick_tree_res = NewickParser::parse(Rule::newick, newick_string);
     if newick_tree_res.is_err() {
@@ -130,6 +132,7 @@ pub(crate) fn from_newick_string(newick_string: &str) -> Result<Vec<Tree>> {
         }
         _ => unimplemented!(),
     }
+    info!("Finished parsing newick trees successfully.");
     Ok(trees)
 }
 

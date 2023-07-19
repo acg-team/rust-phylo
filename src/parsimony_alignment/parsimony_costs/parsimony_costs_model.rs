@@ -7,6 +7,7 @@ use crate::{
     },
     Result,
 };
+use log::info;
 use nalgebra::{Const, DimMin, SMatrix};
 use ordered_float::OrderedFloat;
 
@@ -25,13 +26,17 @@ pub(crate) type ProteinParsCosts = ParsimonyCostsWModel<20>;
 impl DNAParsCosts {
     pub(crate) fn new(
         model_name: &str,
+        model_params: &[f64],
         gap_open_mult: f64,
         gap_ext_mult: f64,
         times: &[f64],
         zero_diag: bool,
         rounded: bool,
     ) -> Result<Self> {
-        let model = DNASubstModel::new(model_name)?;
+        info!("Setting up the parsimony scoring from the {} substitution model.", model_name);
+        info!("The scoring matrix diagonals will {}be set to zero.", if zero_diag {""} else {"not "});
+        info!("The scoring matrix entries will {}be rounded to the closest integer value.", if rounded {""} else {"not "});
+        let model = DNASubstModel::new(model_name, model_params)?;
         let costs = generate_costs(
             model,
             times,
@@ -41,10 +46,9 @@ impl DNAParsCosts {
             zero_diag,
             rounded,
         );
-        let mut sorted_times = Vec::from(times);
-        sorted_times.sort_by(cmp_f64());
+        info!("Created scoring matrices from the {} substitution model for {:?} branch lengths.", model_name, times);
         Ok(DNAParsCosts {
-            times: sorted_times,
+            times: sort_times(times),
             costs,
         })
     }
@@ -59,6 +63,7 @@ impl ProteinParsCosts {
         zero_diag: bool,
         rounded: bool,
     ) -> Result<Self> {
+        info!("Setting up the parsimony scoring from the {} substitution model.", model_name);
         let model = ProteinSubstModel::new(model_name)?;
         let costs = generate_costs(
             model,
@@ -69,6 +74,7 @@ impl ProteinParsCosts {
             zero_diag,
             rounded,
         );
+        info!("Created scoring matrices from the {} substitution model for {:?} branch lengths.", model_name, times);
         Ok(ProteinParsCosts {
             times: sort_times(times),
             costs,
@@ -274,7 +280,7 @@ mod parsimony_costs_model_test {
         let avg_01 = 2.25;
         let avg_07 = 1.75;
         let times = [0.1, 0.7];
-        let model = DNASubstModel::new("jc69").unwrap();
+        let model = DNASubstModel::new("jc69", &Vec::new()).unwrap();
         let costs = generate_costs(
             model,
             &times,
@@ -292,7 +298,7 @@ mod parsimony_costs_model_test {
         let branch_costs = costs.get(&f64_h::from(0.7)).unwrap();
         assert_eq!(branch_costs.costs.mean(), avg_07);
         assert_eq!(branch_costs.avg_cost, avg_07);
-        let model = DNASubstModel::new("jc69").unwrap();
+        let model = DNASubstModel::new("jc69", &Vec::new()).unwrap();
         let costs = generate_costs(
             model,
             &times,
@@ -317,7 +323,8 @@ mod parsimony_costs_model_test {
         let avg_01 = 2.25;
         let avg_07 = 1.75;
         let times = [0.1, 0.7];
-        let model = DNAParsCosts::new("jc69", gap_open, gap_ext, &times, false, true).unwrap();
+        let model =
+            DNAParsCosts::new("jc69", &Vec::new(), gap_open, gap_ext, &times, false, true).unwrap();
         let branch_scores_01 = model.get_branch_costs(0.1);
         assert_eq!(branch_scores_01.avg_cost(), avg_01);
         assert_eq!(branch_scores_01.gap_ext_cost(), avg_01 * gap_ext);

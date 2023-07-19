@@ -1,6 +1,6 @@
 use crate::{
     parsimony_alignment::sequence_idx,
-    tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree},
+    tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree}, phylo_info::PhyloInfo, sequences,
 };
 use bio::io::fasta::Record;
 
@@ -26,11 +26,12 @@ impl Alignment {
 }
 
 pub(crate) fn compile_alignment_representation(
-    tree: &Tree,
-    sequences: &[Record],
+    info: &PhyloInfo,
     alignment: &[Alignment],
     subroot: Option<NodeIdx>,
 ) -> Vec<Record> {
+    let tree = &info.tree;
+    let sequences = &info.sequences;
     let subroot_idx = match subroot {
         Some(idx) => idx,
         None => tree.root,

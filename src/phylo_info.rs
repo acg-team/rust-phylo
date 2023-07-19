@@ -16,6 +16,12 @@ pub(super) struct PhyloInfo {
     pub(super) tree: Tree,
 }
 
+impl PhyloInfo {
+    pub(crate) fn new(tree: Tree, sequences: Vec<Record>) -> Self {
+        PhyloInfo { sequences, tree }
+    }
+}
+
 pub(super) fn setup_phylogenetic_info(
     sequence_file: PathBuf,
     tree_file: PathBuf,

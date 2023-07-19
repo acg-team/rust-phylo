@@ -6,7 +6,7 @@ use anyhow::anyhow;
 
 use nalgebra::{SMatrix, SVector};
 
-use crate::{Result, f64_h};
+use crate::{f64_h, Result};
 
 pub(crate) mod dna_models;
 pub(crate) mod protein_models;
@@ -25,12 +25,12 @@ pub(crate) type DNASubstModel = SubstitutionModel<4>;
 pub(crate) type ProteinSubstModel = SubstitutionModel<20>;
 
 impl DNASubstModel {
-    pub(crate) fn new(model_name: &str) -> Result<Self> {
+    pub(crate) fn new(model_name: &str, model_params: &[f64]) -> Result<Self> {
         let q: SubstMatrix<4>;
         let pi: FreqVector<4>;
         match model_name.to_uppercase().as_str() {
-            "JC69" => (q, pi) = dna_models::jc69(),
-            "K80" => (q, pi) = dna_models::k80(2.0, 1.0),
+            "JC69" => (q, pi) = dna_models::jc69(model_params),
+            "K80" => (q, pi) = dna_models::k80(model_params),
             _ => return Err(anyhow!("Unknown DNA model requested.")),
         }
         Ok(DNASubstModel {
@@ -109,9 +109,18 @@ where
         self.get_scoring_matrix_corrected(time, false, rounded)
     }
 
-    fn get_scoring_matrix_corrected(&self, time: f64, zero_diag: bool, rounded: bool) -> (SubstMatrix<N>, f64) {
+    fn get_scoring_matrix_corrected(
+        &self,
+        time: f64,
+        zero_diag: bool,
+        rounded: bool,
+    ) -> (SubstMatrix<N>, f64) {
         let p = self.get_p(time);
-        let mapping = if rounded {|x: f64| (-x.ln().round())} else {|x: f64| -x.ln()};
+        let mapping = if rounded {
+            |x: f64| (-x.ln().round())
+        } else {
+            |x: f64| -x.ln()
+        };
         let mut scores = p.map(mapping);
         if zero_diag {
             scores.fill_diagonal(0.0);
@@ -136,20 +145,20 @@ mod substitution_model_tests {
 
     #[test]
     fn dna_model_correct() {
-        let jc69 = DNASubstModel::new("jc69").unwrap();
-        let jc692 = DNASubstModel::new("JC69").unwrap();
+        let jc69 = DNASubstModel::new("jc69", &Vec::new()).unwrap();
+        let jc692 = DNASubstModel::new("JC69", &Vec::new()).unwrap();
         assert_eq!(jc69, jc692);
     }
 
     #[test]
     fn dna_model_incorrect() {
-        assert!(DNASubstModel::new("jc70").is_err());
-        assert!(DNASubstModel::new("wag").is_err());
+        assert!(DNASubstModel::new("jc70", &Vec::new()).is_err());
+        assert!(DNASubstModel::new("wag", &Vec::new()).is_err());
     }
 
     #[test]
     fn dna_p_matrix() {
-        let jc69 = DNASubstModel::new("jc69").unwrap();
+        let jc69 = DNASubstModel::new("jc69", &Vec::new()).unwrap();
         let p_inf = jc69.get_p(200000.0);
         assert_eq!(p_inf.nrows(), 4);
         assert_eq!(p_inf.ncols(), 4);
@@ -158,7 +167,7 @@ mod substitution_model_tests {
 
     #[test]
     fn dna_normalisation() {
-        let mut jc69 = DNASubstModel::new("jc69").unwrap();
+        let mut jc69 = DNASubstModel::new("jc69", &Vec::new()).unwrap();
         jc69.normalise();
         assert_eq!((jc69.q.sum() - jc69.q.diagonal().sum()) / 4.0, 1.0);
     }

@@ -670,6 +670,7 @@ fn setup_different_branch_lengths() -> (Vec<PSI>, Vec<PSI>, PAM) {
 
     let scoring = DNAParsCosts::new(
         "k80",
+        &Vec::new(),
         gap_open_cost,
         gap_ext_cost,
         &[1.0, 2.0],
@@ -809,6 +810,7 @@ fn setup_different_branch_lengths_2() -> (Vec<PSI>, Vec<PSI>, PAM) {
 
     let scoring = DNAParsCosts::new(
         "k80",
+        &Vec::new(),
         gap_open_cost,
         gap_ext_cost,
         &[3.5, 3.0],
@@ -933,6 +935,7 @@ fn setup_different_branch_lengths_3() -> (Vec<PSI>, Vec<PSI>, PAM) {
 
     let scoring = DNAParsCosts::new(
         "k80",
+        &Vec::new(),
         gap_open_cost,
         gap_ext_cost,
         &[0.52, 2.58],

@@ -1,3 +1,5 @@
+use log::{info, warn};
+
 use crate::sequences::{charify, NUCLEOTIDES_STR};
 use crate::substitution_models::{FreqVector, SubstMatrix};
 
@@ -13,14 +15,30 @@ pub(crate) fn nucleotide_index() -> [i32; 255] {
     index
 }
 
-pub(crate) fn jc69() -> (DNASubstMatrix, DNAFreqVector) {
+pub(crate) fn jc69(model_params: &[f64]) -> (DNASubstMatrix, DNAFreqVector) {
+    if model_params.len() > 0 {
+        warn!("Too many values provided for JC69 (>0).");
+        warn!("Provided values will be ignored.");
+    }
     (
         DNASubstMatrix::from(JC69_ARR),
         DNAFreqVector::from(JC69_PI_ARR),
     )
 }
 
-pub(crate) fn k80(alpha: f64, beta: f64) -> (DNASubstMatrix, DNAFreqVector) {
+pub(crate) fn k80(model_params: &[f64]) -> (DNASubstMatrix, DNAFreqVector) {
+    let (alpha, beta) = if model_params.len() < 2 {
+        warn!("Too few values provided for K80, required 2 values, alpha and beta.");
+        warn!("Falling back to default values.");
+        (2.0, 1.0)
+    } else {
+        if model_params.len() > 2 {
+            warn!("Too many values provided for K80, required 2 values, alpha and beta.");
+            warn!("Will only use the first two values provided.");
+        }
+        (model_params[0], model_params[1])
+    };
+    info!("Setting up k80 with alpha = {}, beta = {}", alpha, beta);
     (
         DNASubstMatrix::from([
             [

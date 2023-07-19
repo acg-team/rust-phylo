@@ -4,12 +4,13 @@ pub(crate) mod parsimony_matrices;
 pub(crate) mod parsimony_sets;
 
 use bio::io::fasta::Record;
+use log::info;
 use rand::prelude::*;
 
 use crate::{
     parsimony_alignment::parsimony_sets::get_parsimony_sets,
-    sequences::SequenceType,
-    tree::{self, NodeIdx::Internal as Int, NodeIdx::Leaf},
+    sequences::{SequenceType, get_sequence_type},
+    tree::{self, NodeIdx::Internal as Int, NodeIdx::Leaf}, phylo_info::PhyloInfo,
 };
 
 use crate::alignment::Alignment;
@@ -51,12 +52,18 @@ fn pars_align(
     pars_align_w_rng(x_info, x_scoring, y_info, y_scoring, rng_len)
 }
 
-pub(crate) fn pars_align_on_tree(
+pub(crate) fn pars_align_on_tree(scoring: &Box<&dyn ParsimonyCosts>, info: &PhyloInfo) -> (Vec<Alignment>, Vec<f64>) {
+    pars_align_on_tree_(scoring, &info.tree, &info.sequences, &get_sequence_type(&info.sequences))
+}
+
+
+fn pars_align_on_tree_(
     scoring: &Box<&dyn ParsimonyCosts>,
     tree: &tree::Tree,
     sequences: &[Record],
     sequence_type: &SequenceType,
 ) -> (Vec<Alignment>, Vec<f64>) {
+    info!("Starting the IndelMAP alignment.");
     let order = &tree.postorder;
 
     assert_eq!(tree.internals.len() + tree.leaves.len(), order.len());
@@ -97,6 +104,7 @@ pub(crate) fn pars_align_on_tree(
             }
         }
     }
+    info!("Finished IndelMAP alignment.");
     (alignments, scores)
 }
 
@@ -114,9 +122,10 @@ mod parsimony_alignment_tests {
         parsimony_costs_simple::ParsimonyCostsSimple, ParsimonyCosts,
     };
     use crate::parsimony_alignment::{
-        pars_align_on_tree, pars_align_w_rng, parsimony_info::ParsimonySiteInfo,
+        pars_align_on_tree_, pars_align_w_rng, parsimony_info::ParsimonySiteInfo,
         parsimony_sets::get_parsimony_sets,
     };
+    use crate::phylo_info::PhyloInfo;
     use crate::sequences::SequenceType;
     use crate::tree::{NodeIdx::Internal as I, NodeIdx::Leaf as L, Tree};
 
@@ -130,7 +139,7 @@ mod parsimony_alignment_tests {
         ( $( $e:tt )* ) => {vec![ $( align!(@collect $e), )* ]};
     }
 
-    pub(crate) fn setup_test_tree() -> (Tree, Vec<Record>, Vec<Alignment>) {
+    pub(crate) fn setup_test_tree() -> (PhyloInfo, Vec<Alignment>) {
         let sequences = vec![
             Record::with_attrs("A0", None, b"AAAAA"),
             Record::with_attrs("B1", None, b"A"),
@@ -145,6 +154,7 @@ mod parsimony_alignment_tests {
         tree.add_parent(3, I(0), I(2), 1.0, 1.0);
         tree.create_postorder();
         tree.create_preorder();
+        let info = PhyloInfo::new(tree, sequences);
         // ((0:1.0, 1:1.0)5:1.0,(2:1.0,(3:1.0, 4:1.0)6:1.0)7:1.0)8:1.0;
         let alignment = vec![
             Alignment::new(align!(0 1 2 3 4), align!(- - - 0 -)),
@@ -157,13 +167,13 @@ mod parsimony_alignment_tests {
         // C2> AA---
         // D3> ---A-
         // E4> -A-AA
-        (tree, sequences, alignment)
+        (info, alignment)
     }
 
     #[test]
     pub(crate) fn alignment_compile_root() {
-        let (tree, sequences, alignment) = setup_test_tree();
-        let msa = compile_alignment_representation(&tree, &sequences, &alignment, None);
+        let (info, alignment) = setup_test_tree();
+        let msa = compile_alignment_representation(&info, &alignment, None);
         assert_eq!(msa[0].seq(), "AAAAA".as_bytes());
         assert_eq!(msa[1].seq(), "---A-".as_bytes());
         assert_eq!(msa[2].seq(), "AA---".as_bytes());
@@ -173,16 +183,16 @@ mod parsimony_alignment_tests {
 
     #[test]
     pub(crate) fn alignment_compile_internal1() {
-        let (tree, sequences, alignment) = setup_test_tree();
-        let msa = compile_alignment_representation(&tree, &sequences, &alignment, Some(I(0)));
+        let (info, alignment) = setup_test_tree();
+        let msa = compile_alignment_representation(&info, &alignment, Some(I(0)));
         assert_eq!(msa[0].seq(), "AAAAA".as_bytes());
         assert_eq!(msa[1].seq(), "---A-".as_bytes());
     }
 
     #[test]
     pub(crate) fn alignment_compile_internal2() {
-        let (tree, sequences, alignment) = setup_test_tree();
-        let msa = compile_alignment_representation(&tree, &sequences, &alignment, Some(I(1)));
+        let (info, alignment) = setup_test_tree();
+        let msa = compile_alignment_representation(&info, &alignment, Some(I(1)));
         assert_eq!(msa[0].seq(), "-A-".as_bytes());
         assert_eq!(msa[1].seq(), "AAA".as_bytes());
     }
@@ -275,7 +285,7 @@ mod parsimony_alignment_tests {
             gap_ext_cost,
         );
 
-        let (alignment_vec, score) = pars_align_on_tree(
+        let (alignment_vec, score) = pars_align_on_tree_(
             &Box::new(&scoring),
             &tree,
             &sequences,
@@ -407,7 +417,7 @@ mod parsimony_alignment_tests {
         );
 
         let (alignment_vec, score) =
-            pars_align_on_tree(&Box::new(&scoring), &tree, &sequences, &SequenceType::DNA);
+            pars_align_on_tree_(&Box::new(&scoring), &tree, &sequences, &SequenceType::DNA);
         // first cherry
         assert_eq!(score[0], 3.5);
         assert_eq!(alignment_vec[0].map_x.len(), 4);
