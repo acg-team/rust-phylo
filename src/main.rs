@@ -1,21 +1,20 @@
 #[macro_use]
 extern crate assert_float_eq;
 
-use alignment::Alignment;
+use crate::alignment::Alignment;
+use crate::cli::Cli;
+use crate::parsimony_alignment::pars_align_on_tree;
+use crate::parsimony_alignment::parsimony_costs::parsimony_costs_model::DNAParsCosts;
+use crate::parsimony_alignment::parsimony_costs::parsimony_costs_model::ProteinParsCosts;
+use crate::phylo_info::setup_phylogenetic_info;
+use crate::phylo_info::PhyloInfo;
+use crate::sequences::get_sequence_type;
 use anyhow::Error;
-// use anyhow::Ok;
 use clap::Parser;
-use cli::Cli;
-use env_logger::Env;
-use log::{error, info, trace, warn};
-use parsimony_alignment::pars_align_on_tree;
-use parsimony_alignment::parsimony_costs::parsimony_costs_model::DNAParsCosts;
-use parsimony_alignment::parsimony_costs::parsimony_costs_model::ProteinParsCosts;
-use phylo_info::setup_phylogenetic_info;
-use phylo_info::PhyloInfo;
-
-use sequences::get_sequence_type;
-
+use log::LevelFilter;
+use log::{error, info};
+use pretty_env_logger::env_logger::Builder;
+use std::path::PathBuf;
 use std::result::Result::Ok;
 
 mod alignment;
@@ -36,7 +35,7 @@ fn cmp_f64() -> impl Fn(&f64, &f64) -> std::cmp::Ordering {
     |a, b| a.partial_cmp(b).unwrap()
 }
 
-fn indelMAP_align_DNA(
+fn indel_map_align_dna(
     info: &PhyloInfo,
     model_name: String,
     model_params: Vec<f64>,
@@ -55,10 +54,10 @@ fn indelMAP_align_DNA(
     Ok(pars_align_on_tree(&Box::new(&scoring), info))
 }
 
-fn indelMAP_align_protein(
+fn indel_map_align_protein(
     info: &PhyloInfo,
     model_name: String,
-    model_params: Vec<f64>,
+    _: Vec<f64>,
     go: f64,
     ge: f64,
 ) -> Result<(Vec<Alignment>, Vec<f64>)> {
@@ -67,7 +66,11 @@ fn indelMAP_align_protein(
 }
 
 fn main() -> Result<()> {
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    Builder::new()
+        .filter_level(LevelFilter::Info)
+        .format_timestamp_secs()
+        .format_module_path(false)
+        .init();
     info!("JATI run started");
     let cli = Cli::try_parse()?;
     info!("Successfully parsed the command line parameters");
@@ -80,17 +83,28 @@ fn main() -> Result<()> {
                         let (alignment, scores) = match get_sequence_type(&info.sequences) {
                             crate::sequences::SequenceType::DNA => {
                                 info!("Working on DNA data -- please ensure that data type is inferred correctly.");
-                                indelMAP_align_DNA(&info, cli.model, cli.model_params, go, ge)?
+                                indel_map_align_dna(&info, cli.model, cli.model_params, go, ge)?
                             }
                             crate::sequences::SequenceType::Protein => {
-                                info!("Working on DNA data -- please ensure that data type is inferred correctly.");
-                                indelMAP_align_protein(&info, cli.model, cli.model_params, go, ge)?
+                                info!("Working on protein data -- please ensure that data type is inferred correctly.");
+                                indel_map_align_protein(&info, cli.model, cli.model_params, go, ge)?
                             }
                         };
                         info!("Final alignment scores are: \n{:?}", scores);
+                        let out_msa_path = match cli.output_msa_file {
+                            Some(path) => path,
+                            None => {
+                                let path = PathBuf::from("msa.fasta");
+                                info!(
+                                    "No output file name provided, writing MSA to default file {}.",
+                                    path.display()
+                                );
+                                path
+                            }
+                        };
                         io::write_sequences_to_file(
                             &alignment::compile_alignment_representation(&info, &alignment, None),
-                            cli.output_msa_file,
+                            out_msa_path,
                         )?;
                         info!("IndelMAP alignment done, quitting.");
                     }

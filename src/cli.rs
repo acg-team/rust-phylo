@@ -14,7 +14,7 @@ pub(super) struct Cli {
 
     /// Tree file in newick format
     #[arg(short, long, value_name = "OUTPUT_MSA_FILE")]
-    pub(super) output_msa_file: PathBuf,
+    pub(super) output_msa_file: Option<PathBuf>,
 
     /// Sequence evolution model
     #[arg(short, long, value_name = "MODEL", rename_all = "UPPER")]

@@ -567,6 +567,7 @@ const BLOSUM_PI_ARR: ProteinFrequencyArray = [
     0.0219, 0.045, 0.042, 0.0682, 0.0564, 0.0157, 0.036, 0.0715,
 ];
 
+#[allow(dead_code)]
 const HIVB_ARR: ProteinSubstArray = [
     [
         -9.43243978e-01,

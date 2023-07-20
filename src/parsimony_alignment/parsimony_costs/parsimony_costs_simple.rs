@@ -5,6 +5,7 @@ pub(crate) struct ParsimonyCostsSimple {
     costs: BranchParsimonyCostsSimple,
 }
 
+#[allow(dead_code)]
 impl ParsimonyCostsSimple {
     pub(crate) fn new_default() -> ParsimonyCostsSimple {
         Self::new(1.0, 2.5, 0.5)

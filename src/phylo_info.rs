@@ -16,6 +16,7 @@ pub(super) struct PhyloInfo {
     pub(super) tree: Tree,
 }
 
+#[allow(dead_code)]
 impl PhyloInfo {
     pub(crate) fn new(tree: Tree, sequences: Vec<Record>) -> Self {
         PhyloInfo { sequences, tree }

@@ -46,6 +46,7 @@ impl ParsimonySiteInfo {
         self.flag == SiteFlag::GapFixed
     }
 
+    #[allow(dead_code)]
     pub(crate) fn is_open(&self) -> bool {
         self.flag == SiteFlag::GapOpen
     }

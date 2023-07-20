@@ -1,6 +1,7 @@
 use crate::{
     parsimony_alignment::sequence_idx,
-    tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree}, phylo_info::PhyloInfo, sequences,
+    phylo_info::PhyloInfo,
+    tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf},
 };
 use bio::io::fasta::Record;
 

@@ -70,6 +70,7 @@ pub(crate) fn k80(model_params: &[f64]) -> (DNASubstMatrix, DNAFreqVector) {
     )
 }
 
+#[allow(dead_code)]
 pub(crate) fn gtr(
     f_t: f64,
     f_c: f64,

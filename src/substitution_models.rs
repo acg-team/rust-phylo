@@ -67,6 +67,7 @@ where
         SubstMatrix::from((self.q * time).exp())
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_rate(&self, i: u8, j: u8) -> f64 {
         assert!(
             self.index[i as usize] >= 0 && self.index[j as usize] >= 0,
@@ -78,6 +79,7 @@ where
         )]
     }
 
+    #[allow(dead_code)]
     pub(crate) fn generate_ps(&self, times: &[f64]) -> HashMap<OrderedFloat<f64>, SubstMatrix<N>> {
         HashMap::<f64_h, SubstMatrix<N>>::from_iter(
             times
@@ -100,11 +102,13 @@ where
         }))
     }
 
+    #[allow(dead_code)]
     pub(crate) fn normalise(&mut self) {
         let factor = -(self.pi.transpose() * self.q.diagonal())[(0, 0)];
         self.q = self.q / factor;
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_scoring_matrix(&self, time: f64, rounded: bool) -> (SubstMatrix<N>, f64) {
         self.get_scoring_matrix_corrected(time, false, rounded)
     }

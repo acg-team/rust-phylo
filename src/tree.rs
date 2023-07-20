@@ -48,6 +48,7 @@ impl Into<usize> for NodeIdx {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct Node {
     pub(crate) idx: NodeIdx,
@@ -329,6 +330,7 @@ impl Tree {
     }
 }
 
+#[allow(dead_code)]
 fn argmin_wo_diagonal(q: Mat, rng: fn(usize) -> usize) -> (usize, usize) {
     assert!(!q.is_empty(), "The input matrix must not be empty.");
     assert!(
@@ -351,10 +353,12 @@ fn argmin_wo_diagonal(q: Mat, rng: fn(usize) -> usize) -> (usize, usize) {
     arg_min[(rng)(arg_min.len())]
 }
 
+#[allow(dead_code)]
 fn rng_len(l: usize) -> usize {
     random::<usize>() % l
 }
 
+#[allow(dead_code)]
 pub(crate) fn build_nj_tree_w_rng_from_matrix(
     mut nj_data: NJMat,
     rng: fn(usize) -> usize,
@@ -382,15 +386,18 @@ pub(crate) fn build_nj_tree_w_rng_from_matrix(
     Ok(tree)
 }
 
+#[allow(dead_code)]
 pub(crate) fn build_nj_tree_from_matrix(nj_data: NJMat) -> Result<Tree> {
     build_nj_tree_w_rng_from_matrix(nj_data, rng_len)
 }
 
+#[allow(dead_code)]
 pub(crate) fn build_nj_tree(sequences: &Vec<fasta::Record>) -> Result<Tree> {
     let nj_data = compute_distance_matrix(sequences);
     build_nj_tree_from_matrix(nj_data)
 }
 
+#[allow(dead_code)]
 fn compute_distance_matrix(sequences: &Vec<fasta::Record>) -> njmat::NJMat {
     let nseqs = sequences.len();
     let mut distances = DMatrix::zeros(nseqs, nseqs);
@@ -420,7 +427,7 @@ mod tree_tests {
         njmat::NJMat, Node, NodeIdx, NodeIdx::Internal as I, NodeIdx::Leaf as L, Rule, Tree,
     };
     use approx::relative_eq;
-    use nalgebra::{dmatrix, partial_gt};
+    use nalgebra::{dmatrix};
     use pest::error::ErrorVariant;
 
     use super::ParsingError;
