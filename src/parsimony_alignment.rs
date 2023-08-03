@@ -9,8 +9,9 @@ use rand::prelude::*;
 
 use crate::{
     parsimony_alignment::parsimony_sets::get_parsimony_sets,
-    sequences::{SequenceType, get_sequence_type},
-    tree::{self, NodeIdx::Internal as Int, NodeIdx::Leaf}, phylo_info::PhyloInfo,
+    phylo_info::PhyloInfo,
+    sequences::get_sequence_type,
+    tree::{NodeIdx::Internal as Int, NodeIdx::Leaf},
 };
 
 use crate::alignment::Alignment;
@@ -52,18 +53,15 @@ fn pars_align(
     pars_align_w_rng(x_info, x_scoring, y_info, y_scoring, rng_len)
 }
 
-pub(crate) fn pars_align_on_tree(scoring: &Box<&dyn ParsimonyCosts>, info: &PhyloInfo) -> (Vec<Alignment>, Vec<f64>) {
-    pars_align_on_tree_(scoring, &info.tree, &info.sequences, &get_sequence_type(&info.sequences))
-}
-
-// #[todo(remove this)]
-fn pars_align_on_tree_(
+pub(crate) fn pars_align_on_tree(
     scoring: &Box<&dyn ParsimonyCosts>,
-    tree: &tree::Tree,
-    sequences: &[Record],
-    sequence_type: &SequenceType,
+    info: &PhyloInfo,
 ) -> (Vec<Alignment>, Vec<f64>) {
     info!("Starting the IndelMAP alignment.");
+
+    let tree = &info.tree;
+    let sequences = &info.sequences;
+    let sequence_type = &get_sequence_type(&info.sequences);
     let order = &tree.postorder;
 
     assert_eq!(tree.internals.len() + tree.leaves.len(), order.len());
@@ -122,7 +120,7 @@ mod parsimony_alignment_tests {
         parsimony_costs_simple::ParsimonyCostsSimple, ParsimonyCosts,
     };
     use crate::parsimony_alignment::{
-        pars_align_on_tree_, pars_align_w_rng, parsimony_info::ParsimonySiteInfo,
+        pars_align_on_tree, pars_align_w_rng, parsimony_info::ParsimonySiteInfo,
         parsimony_sets::get_parsimony_sets,
     };
     use crate::phylo_info::PhyloInfo;
@@ -279,20 +277,13 @@ mod parsimony_alignment_tests {
         let mut tree = Tree::new(2, 0);
         tree.add_parent(0, L(0), L(1), 1.0, 1.0);
         tree.create_postorder();
-        let scoring = ParsimonyCostsSimple::new(
-            mismatch_cost,
-            gap_open_cost,
-            gap_ext_cost,
-        );
+        let info = PhyloInfo::new(tree, sequences.to_vec());
 
-        let (alignment_vec, score) = pars_align_on_tree_(
-            &Box::new(&scoring),
-            &tree,
-            &sequences,
-            &SequenceType::DNA,
-        );
-        assert_eq!(score[Into::<usize>::into(tree.root)], 3.5);
-        let alignment = &alignment_vec[Into::<usize>::into(tree.root)];
+        let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost);
+
+        let (alignment_vec, score) = pars_align_on_tree(&Box::new(&scoring), &info);
+        assert_eq!(score[Into::<usize>::into(info.tree.root)], 3.5);
+        let alignment = &alignment_vec[Into::<usize>::into(info.tree.root)];
         assert_eq!(alignment.map_x.len(), 4);
         assert_eq!(alignment.map_y.len(), 4);
     }
@@ -410,14 +401,11 @@ mod parsimony_alignment_tests {
         tree.add_parent(2, I(0), I(1), 1.0, 1.0);
         tree.create_postorder();
 
-        let scoring = ParsimonyCostsSimple::new(
-            c,
-            a,
-            b,
-        );
+        let info = PhyloInfo::new(tree, sequences.to_vec());
 
-        let (alignment_vec, score) =
-            pars_align_on_tree_(&Box::new(&scoring), &tree, &sequences, &SequenceType::DNA);
+        let scoring = ParsimonyCostsSimple::new(c, a, b);
+
+        let (alignment_vec, score) = pars_align_on_tree(&Box::new(&scoring), &info);
         // first cherry
         assert_eq!(score[0], 3.5);
         assert_eq!(alignment_vec[0].map_x.len(), 4);
