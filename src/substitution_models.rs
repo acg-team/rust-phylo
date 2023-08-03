@@ -51,7 +51,7 @@ impl ProteinSubstModel {
         match model_name.to_uppercase().as_str() {
             "WAG" => (q, pi) = protein_models::wag()?,
             "BLOSUM" => (q, pi) = protein_models::blosum()?,
-            // "HIVB" => q = protein_models::hivb(),
+            "HIVB" => (q, pi) = protein_models::hivb()?,
             _ => return Err(anyhow!("Unknown protein model requested.")),
         }
         Ok(ProteinSubstModel {
@@ -217,12 +217,19 @@ mod substitution_model_tests {
         assert_eq!(wag, wag2);
         wag.get_rate(b'A', b'L');
         wag.get_rate(b'H', b'K');
+        assert_float_relative_eq!(wag.pi.sum(), 1.0, 0.0001);
         let blos = ProteinSubstModel::new("Blosum").unwrap();
         let blos2 = ProteinSubstModel::new("bLoSuM").unwrap();
         assert_eq!(blos, blos2);
         blos.get_rate(b'R', b'N');
         blos.get_rate(b'M', b'K');
-        // ProteinSubstModel::new("HIVb").unwrap();
+        assert_float_relative_eq!(blos.pi.sum(), 1.0, 0.0001);
+        let hivb = ProteinSubstModel::new("hivB").unwrap();
+        let hivb2 = ProteinSubstModel::new("HIVb").unwrap();
+        assert_eq!(hivb, hivb2);
+        hivb.get_rate(b'L', b'P');
+        hivb.get_rate(b'C', b'Q');
+        assert_float_relative_eq!(hivb.pi.sum(), 1.0, 0.0001);
     }
 
     #[test]

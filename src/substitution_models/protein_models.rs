@@ -27,9 +27,9 @@ pub(crate) fn blosum() -> Result<(ProteinSubstMatrix, ProteinFrequencyVector)> {
     ))
 }
 
-// pub(crate) fn hivb() -> (ProteinSubstMatrix, ProteinFrequencies) {
-//     ProteinSubstMatrix::from(HIVB_ARR)
-// }
+pub(crate) fn hivb() -> Result<(ProteinSubstMatrix, ProteinFrequencyVector)> {
+    Ok((SubstMatrix::from(HIVB_ARR), FreqVector::from(HIVB_PI_ARR)))
+}
 
 const WAG_ARR: ProteinSubstArray = [
     [
@@ -568,7 +568,6 @@ const BLOSUM_PI_ARR: ProteinFrequencyArray = [
     0.0219, 0.045, 0.042, 0.0682, 0.0564, 0.0157, 0.036, 0.0715,
 ];
 
-#[allow(dead_code)]
 const HIVB_ARR: ProteinSubstArray = [
     [
         -9.43243978e-01,
@@ -1010,4 +1009,10 @@ const HIVB_ARR: ProteinSubstArray = [
         7.77236826e-04,
         -1.63805309e+00,
     ],
+];
+
+const HIVB_PI_ARR: ProteinFrequencyArray = [
+    0.0377494, 0.057321, 0.0891129, 0.0342034, 0.0240105, 0.0437824, 0.0618606, 0.0838496,
+    0.0156076, 0.0983641, 0.0577867, 0.0641682, 0.0158419, 0.0422741, 0.0458601, 0.0550846,
+    0.0813774, 0.019597, 0.0205847, 0.0515638,
 ];
