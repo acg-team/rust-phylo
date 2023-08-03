@@ -1,7 +1,9 @@
+use anyhow::bail;
 use log::{info, warn};
 
 use crate::sequences::{charify, NUCLEOTIDES_STR};
 use crate::substitution_models::{FreqVector, SubstMatrix};
+use crate::Result;
 
 type DNASubstMatrix = SubstMatrix<4>;
 type DNAFreqVector = FreqVector<4>;
@@ -15,18 +17,18 @@ pub(crate) fn nucleotide_index() -> [i32; 255] {
     index
 }
 
-pub(crate) fn jc69(model_params: &[f64]) -> (DNASubstMatrix, DNAFreqVector) {
+pub(crate) fn jc69(model_params: &[f64]) -> Result<(DNASubstMatrix, DNAFreqVector)> {
     if model_params.len() > 0 {
         warn!("Too many values provided for JC69 (>0).");
         warn!("Provided values will be ignored.");
     }
-    (
+    Ok((
         DNASubstMatrix::from(JC69_ARR),
         DNAFreqVector::from(JC69_PI_ARR),
-    )
+    ))
 }
 
-pub(crate) fn k80(model_params: &[f64]) -> (DNASubstMatrix, DNAFreqVector) {
+pub(crate) fn k80(model_params: &[f64]) -> Result<(DNASubstMatrix, DNAFreqVector)> {
     let (alpha, beta) = if model_params.len() < 2 {
         warn!("Too few values provided for K80, required 2 values, alpha and beta.");
         warn!("Falling back to default values.");
@@ -39,7 +41,7 @@ pub(crate) fn k80(model_params: &[f64]) -> (DNASubstMatrix, DNAFreqVector) {
         (model_params[0], model_params[1])
     };
     info!("Setting up k80 with alpha = {}, beta = {}", alpha, beta);
-    (
+    Ok((
         DNASubstMatrix::from([
             [
                 -1.0,
@@ -67,24 +69,37 @@ pub(crate) fn k80(model_params: &[f64]) -> (DNASubstMatrix, DNAFreqVector) {
             ],
         ]),
         DNAFreqVector::from(JC69_PI_ARR),
-    )
+    ))
 }
 
-#[allow(dead_code)]
 pub(crate) fn gtr(
-    f_t: f64,
-    f_c: f64,
-    f_a: f64,
-    f_g: f64,
-    r_tc: f64,
-    r_ta: f64,
-    r_tg: f64,
-    r_ca: f64,
-    r_cg: f64,
-    r_ag: f64,
-) -> (DNASubstMatrix, DNAFreqVector) {
-    assert_f64_near!(f_t + f_c + f_a + f_g, 1.0);
-    (
+    model_params: &[f64]
+) -> Result<(DNASubstMatrix, DNAFreqVector)> {
+    if model_params.len() != 10 {
+        bail!(
+            "{} parameters for the GTR model, expected 10, got {}",
+            if model_params.len() < 10 {
+                "Not enough"
+            } else {
+                "Too many"
+            },
+            model_params.len()
+        );
+    }
+    let f_t = model_params[0];
+    let f_c = model_params[1];
+    let f_a = model_params[2];
+    let f_g = model_params[3];
+    let r_tc = model_params[4];
+    let r_ta = model_params[5];
+    let r_tg = model_params[6];
+    let r_ca = model_params[7];
+    let r_cg = model_params[8];
+    let r_ag = model_params[9];
+    if (f_t + f_c + f_a + f_g) != 1.0 {
+        bail!("The equilibrium frequencies provided do not sum up to 1.");
+    }
+    Ok((
         DNASubstMatrix::from([
             [
                 -(r_tc * f_c + r_ta * f_a + r_tg * f_g),
@@ -112,7 +127,7 @@ pub(crate) fn gtr(
             ],
         ]),
         DNAFreqVector::from([f_t, f_c, f_a, f_g]),
-    )
+    ))
 }
 
 const JC69_ARR: [[f64; 4]; 4] = [

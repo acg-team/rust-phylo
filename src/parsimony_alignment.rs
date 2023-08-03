@@ -261,7 +261,7 @@ mod parsimony_alignment_tests {
         assert_eq!(alignment.map_x.len(), 4);
         assert_eq!(alignment.map_y.len(), 4);
         assert_eq!(alignment.map_x, align!(0 1 2 3));
-        assert_eq!(alignment.map_y, align!(0 - -1));
+        assert_eq!(alignment.map_y, align!(0 - - 1));
     }
 
     #[test]

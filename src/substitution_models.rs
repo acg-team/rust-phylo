@@ -29,15 +29,18 @@ impl DNASubstModel {
         let q: SubstMatrix<4>;
         let pi: FreqVector<4>;
         match model_name.to_uppercase().as_str() {
-            "JC69" => (q, pi) = dna_models::jc69(model_params),
-            "K80" => (q, pi) = dna_models::k80(model_params),
+            "JC69" => (q, pi) = dna_models::jc69(model_params)?,
+            "K80" => (q, pi) = dna_models::k80(model_params)?,
+            "GTR" => (q, pi) = dna_models::gtr(model_params)?,
             _ => return Err(anyhow!("Unknown DNA model requested.")),
         }
-        Ok(DNASubstModel {
+        let mut model = DNASubstModel {
             index: dna_models::nucleotide_index(),
             q,
             pi,
-        })
+        };
+        model.normalise();
+        Ok(model)
     }
 }
 
@@ -46,8 +49,8 @@ impl ProteinSubstModel {
         let q: SubstMatrix<20>;
         let pi: FreqVector<20>;
         match model_name.to_uppercase().as_str() {
-            "WAG" => (q, pi) = protein_models::wag(),
-            "BLOSUM" => (q, pi) = protein_models::blosum(),
+            "WAG" => (q, pi) = protein_models::wag()?,
+            "BLOSUM" => (q, pi) = protein_models::blosum()?,
             // "HIVB" => q = protein_models::hivb(),
             _ => return Err(anyhow!("Unknown protein model requested.")),
         }
@@ -135,7 +138,12 @@ where
 
 #[cfg(test)]
 mod substitution_model_tests {
+    use std::iter::repeat;
+
+    use crate::assert_float_relative_slice_eq;
+
     use super::{DNASubstModel, ProteinSubstModel, SubstMatrix};
+    use nalgebra::vector;
     use rstest::*;
 
     fn check_pi_convergence<const N: usize>(substmat: SubstMatrix<N>, pi: &[f64], epsilon: f64) {
@@ -152,12 +160,38 @@ mod substitution_model_tests {
         let jc69 = DNASubstModel::new("jc69", &Vec::new()).unwrap();
         let jc692 = DNASubstModel::new("JC69", &Vec::new()).unwrap();
         assert_eq!(jc69, jc692);
+        let k80 = DNASubstModel::new("k80", &Vec::new()).unwrap();
+        let k802 = DNASubstModel::new("k80", &vec![2.0, 1.0]).unwrap();
+        assert_eq!(k80, k802);
+        let gtr = DNASubstModel::new(
+            "gtr",
+            &repeat(0.25)
+                .take(4)
+                .chain(repeat(0.7).take(6))
+                .collect::<Vec<f64>>(),
+        )
+        .unwrap();
+        assert_eq!(gtr.pi, vector![0.25, 0.25, 0.25, 0.25]);
+        assert_eq!(gtr.q[(0, 0)], -1.0);
+
+        let gtr2 = DNASubstModel::new(
+            "gtr",
+            &repeat(0.25)
+                .take(4)
+                .chain(repeat(1.0).take(6))
+                .collect::<Vec<f64>>(),
+        )
+        .unwrap();
+        assert_float_relative_slice_eq(gtr.q.as_slice(), gtr2.q.as_slice(), 0.00001);
     }
 
     #[test]
     fn dna_model_incorrect() {
         assert!(DNASubstModel::new("jc70", &Vec::new()).is_err());
         assert!(DNASubstModel::new("wag", &Vec::new()).is_err());
+        assert!(DNASubstModel::new("gtr", &repeat(0.25).take(7).collect::<Vec<f64>>()).is_err());
+        assert!(DNASubstModel::new("gtr", &repeat(0.25).take(11).collect::<Vec<f64>>()).is_err());
+        assert!(DNASubstModel::new("gtr", &repeat(0.4).take(10).collect::<Vec<f64>>()).is_err());
     }
 
     #[test]

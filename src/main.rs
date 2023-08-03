@@ -36,6 +36,23 @@ fn cmp_f64() -> impl Fn(&f64, &f64) -> std::cmp::Ordering {
     |a, b| a.partial_cmp(b).unwrap()
 }
 
+#[cfg(test)]
+fn assert_float_relative_slice_eq(actual: &[f64], expected: &[f64], epsilon: f64) {
+    use approx::relative_eq;
+    assert_eq!(
+        actual.len(),
+        expected.len(),
+        "Must have the same number of entries."
+    );
+    for (i, (&act, &exp)) in actual.iter().zip(expected.iter()).enumerate() {
+        assert!(
+            relative_eq!(exp, act, epsilon = epsilon),
+            "Entries at position {} do not match",
+            i,
+        );
+    }
+}
+
 fn indel_map_align_dna(
     info: &PhyloInfo,
     model_name: String,

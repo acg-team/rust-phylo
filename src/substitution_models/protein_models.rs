@@ -1,5 +1,6 @@
 use crate::sequences::{charify, AMINOACIDS_STR};
 use crate::substitution_models::{FreqVector, SubstMatrix};
+use crate::Result;
 
 type ProteinSubstArray = [[f64; 20]; 20];
 type ProteinSubstMatrix = SubstMatrix<20>;
@@ -15,15 +16,15 @@ pub(crate) fn aminoacid_index() -> [i32; 255] {
     index
 }
 
-pub(crate) fn wag() -> (ProteinSubstMatrix, ProteinFrequencyVector) {
-    (SubstMatrix::from(WAG_ARR), FreqVector::from(WAG_PI_ARR))
+pub(crate) fn wag() -> Result<(ProteinSubstMatrix, ProteinFrequencyVector)> {
+    Ok((SubstMatrix::from(WAG_ARR), FreqVector::from(WAG_PI_ARR)))
 }
 
-pub(crate) fn blosum() -> (ProteinSubstMatrix, ProteinFrequencyVector) {
-    (
+pub(crate) fn blosum() -> Result<(ProteinSubstMatrix, ProteinFrequencyVector)> {
+    Ok((
         SubstMatrix::from(BLOSUM_ARR),
         FreqVector::from(BLOSUM_PI_ARR),
-    )
+    ))
 }
 
 // pub(crate) fn hivb() -> (ProteinSubstMatrix, ProteinFrequencies) {
