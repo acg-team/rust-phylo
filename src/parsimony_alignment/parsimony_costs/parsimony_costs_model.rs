@@ -33,9 +33,18 @@ impl DNAParsCosts {
         zero_diag: bool,
         rounded: bool,
     ) -> Result<Self> {
-        info!("Setting up the parsimony scoring from the {} substitution model.", model_name);
-        info!("The scoring matrix diagonals will {}be set to zero.", if zero_diag {""} else {"not "});
-        info!("The scoring matrix entries will {}be rounded to the closest integer value.", if rounded {""} else {"not "});
+        info!(
+            "Setting up the parsimony scoring from the {} substitution model.",
+            model_name
+        );
+        info!(
+            "The scoring matrix diagonals will {}be set to zero.",
+            if zero_diag { "" } else { "not " }
+        );
+        info!(
+            "The scoring matrix entries will {}be rounded to the closest integer value.",
+            if rounded { "" } else { "not " }
+        );
         let model = DNASubstModel::new(model_name, model_params)?;
         let costs = generate_costs(
             model,
@@ -46,7 +55,10 @@ impl DNAParsCosts {
             zero_diag,
             rounded,
         );
-        info!("Created scoring matrices from the {} substitution model for {:?} branch lengths.", model_name, times);
+        info!(
+            "Created scoring matrices from the {} substitution model for {:?} branch lengths.",
+            model_name, times
+        );
         Ok(DNAParsCosts {
             times: sort_times(times),
             costs,
@@ -63,7 +75,10 @@ impl ProteinParsCosts {
         zero_diag: bool,
         rounded: bool,
     ) -> Result<Self> {
-        info!("Setting up the parsimony scoring from the {} substitution model.", model_name);
+        info!(
+            "Setting up the parsimony scoring from the {} substitution model.",
+            model_name
+        );
         let model = ProteinSubstModel::new(model_name)?;
         let costs = generate_costs(
             model,
@@ -74,7 +89,10 @@ impl ProteinParsCosts {
             zero_diag,
             rounded,
         );
-        info!("Created scoring matrices from the {} substitution model for {:?} branch lengths.", model_name, times);
+        info!(
+            "Created scoring matrices from the {} substitution model for {:?} branch lengths.",
+            model_name, times
+        );
         Ok(ProteinParsCosts {
             times: sort_times(times),
             costs,
@@ -121,12 +139,14 @@ fn sort_times(times: &[f64]) -> Vec<f64> {
 
 impl<const N: usize> ParsimonyCostsWModel<N> {
     fn find_closest_branch_length(&self, target: f64) -> f64 {
-        *self
+        match self
             .times
-            .iter()
-            .filter(|&number| *number <= target)
-            .last()
-            .unwrap_or(&self.times[0])
+            .windows(2)
+            .filter(|&window| target - window[0] > window[1] - target)
+            .last() {
+                Some(window) => window[1],
+                None => self.times[0],
+            }
     }
 }
 
@@ -246,31 +266,31 @@ mod parsimony_costs_model_test {
     }
 
     #[test]
-    fn protein_scoring_nearest() {
+    fn protein_branch_scoring_nearest() {
         let gap_open = 2.0;
         let gap_ext = 0.1;
         let avg_01 = 5.7675;
         let avg_05 = 4.2825;
         let times = [0.1, 0.5];
         let model = ProteinParsCosts::new("wag", gap_open, gap_ext, &times, false, true).unwrap();
-        let branch_scores_01 = model.get_branch_costs(0.1);
-        assert_eq!(branch_scores_01.avg_cost(), avg_01);
-        assert_eq!(branch_scores_01.gap_ext_cost(), avg_01 * gap_ext);
-        assert_eq!(branch_scores_01.gap_open_cost(), avg_01 * gap_open);
-        let branch_scores_02 = model.get_branch_costs(0.2);
-        assert_eq!(branch_scores_01.avg_cost(), branch_scores_02.avg_cost());
-        assert_eq!(
-            branch_scores_01.gap_ext_cost(),
-            branch_scores_02.gap_ext_cost()
-        );
-        assert_eq!(
-            branch_scores_01.gap_open_cost(),
-            branch_scores_02.gap_open_cost()
-        );
-        let branch_scores_05 = model.get_branch_costs(0.5);
-        assert_eq!(branch_scores_05.avg_cost(), avg_05);
-        let branch_scores_100 = model.get_branch_costs(100.0);
-        assert_eq!(branch_scores_100.avg_cost(), avg_05);
+        let scores_01 = model.get_branch_costs(0.1);
+        assert_eq!(scores_01.avg_cost(), avg_01);
+        assert_eq!(scores_01.gap_ext_cost(), avg_01 * gap_ext);
+        assert_eq!(scores_01.gap_open_cost(), avg_01 * gap_open);
+        let scores_02 = model.get_branch_costs(0.2);
+        assert_eq!(scores_01.avg_cost(), scores_02.avg_cost());
+        assert_eq!(scores_01.gap_ext_cost(), scores_02.gap_ext_cost());
+        assert_eq!(scores_01.gap_open_cost(), scores_02.gap_open_cost());
+        let scores_005 = model.get_branch_costs(0.05);
+        assert_eq!(scores_005.avg_cost(), avg_01);
+        let scores_015 = model.get_branch_costs(0.15);
+        assert_eq!(scores_015.avg_cost(), avg_01);
+        let scores_045 = model.get_branch_costs(0.45);
+        assert_eq!(scores_045.avg_cost(), avg_05);
+        let scores_05 = model.get_branch_costs(0.5);
+        assert_eq!(scores_05.avg_cost(), avg_05);
+        let scores_100 = model.get_branch_costs(100.0);
+        assert_eq!(scores_100.avg_cost(), avg_05);
     }
 
     #[test]
@@ -317,7 +337,7 @@ mod parsimony_costs_model_test {
     }
 
     #[test]
-    fn dna_scoring() {
+    fn dna_branch_scoring_nearest() {
         let gap_open = 3.0;
         let gap_ext = 0.75;
         let avg_01 = 2.25;
@@ -325,11 +345,13 @@ mod parsimony_costs_model_test {
         let times = [0.1, 0.7];
         let model =
             DNAParsCosts::new("jc69", &Vec::new(), gap_open, gap_ext, &times, false, true).unwrap();
-        let branch_scores_01 = model.get_branch_costs(0.1);
-        assert_eq!(branch_scores_01.avg_cost(), avg_01);
-        assert_eq!(branch_scores_01.gap_ext_cost(), avg_01 * gap_ext);
-        assert_eq!(branch_scores_01.gap_open_cost(), avg_01 * gap_open);
-        let branch_scores_07 = model.get_branch_costs(0.8);
-        assert_eq!(branch_scores_07.avg_cost(), avg_07);
+        let scores_01 = model.get_branch_costs(0.1);
+        assert_eq!(scores_01.avg_cost(), avg_01);
+        assert_eq!(scores_01.gap_ext_cost(), avg_01 * gap_ext);
+        assert_eq!(scores_01.gap_open_cost(), avg_01 * gap_open);
+        let scores_08 = model.get_branch_costs(0.8);
+        assert_eq!(scores_08.avg_cost(), avg_07);
+        let scores_05 = model.get_branch_costs(0.5);
+        assert_eq!(scores_05.avg_cost(), avg_07);
     }
 }

@@ -30,7 +30,7 @@ pub(super) struct Cli {
 
 #[derive(Subcommand)]
 pub(super) enum Commands {
-    /// Aligns the given sequences with the IndelMAP algorithm
+    /// Aligns the given sequences with the IndelMaP algorithm
     IndelMAP {
         /// Gap opening penalty
         #[arg(short = 'o', long, default_value_t = 2.5)]
@@ -39,5 +39,9 @@ pub(super) enum Commands {
         /// Gap extension penalty
         #[arg(short = 'e', long, default_value_t = 0.5)]
         ge: f64,
+
+        /// Number of percentile categories to use for branch length approximation
+        #[arg(short, long, default_value_t = 4)]
+        categories: u32,
     },
 }

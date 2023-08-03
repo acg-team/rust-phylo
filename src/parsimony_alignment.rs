@@ -56,7 +56,7 @@ pub(crate) fn pars_align_on_tree(scoring: &Box<&dyn ParsimonyCosts>, info: &Phyl
     pars_align_on_tree_(scoring, &info.tree, &info.sequences, &get_sequence_type(&info.sequences))
 }
 
-
+// #[todo(remove this)]
 fn pars_align_on_tree_(
     scoring: &Box<&dyn ParsimonyCosts>,
     tree: &tree::Tree,

@@ -16,6 +16,7 @@ use log::{error, info};
 use pretty_env_logger::env_logger::Builder;
 use std::path::PathBuf;
 use std::result::Result::Ok;
+use tree::get_percentiles;
 
 mod alignment;
 mod cli;
@@ -41,13 +42,14 @@ fn indel_map_align_dna(
     model_params: Vec<f64>,
     go: f64,
     ge: f64,
+    categories: u32,
 ) -> Result<(Vec<Alignment>, Vec<f64>)> {
     let scoring = DNAParsCosts::new(
         &model_name,
         &model_params,
         go,
         ge,
-        &[0.1, 0.3, 0.5, 0.7],
+        &get_percentiles(&info.tree.get_all_branch_lengths(), categories),
         false,
         false,
     )?;
@@ -60,8 +62,16 @@ fn indel_map_align_protein(
     _: Vec<f64>,
     go: f64,
     ge: f64,
+    categories: u32,
 ) -> Result<(Vec<Alignment>, Vec<f64>)> {
-    let scoring = ProteinParsCosts::new(&model_name, go, ge, &[0.1, 0.3, 0.5, 0.7], false, false)?;
+    let scoring = ProteinParsCosts::new(
+        &model_name,
+        go,
+        ge,
+        &get_percentiles(&info.tree.get_all_branch_lengths(), categories),
+        false,
+        false,
+    )?;
     Ok(pars_align_on_tree(&Box::new(&scoring), info))
 }
 
@@ -79,15 +89,29 @@ fn main() -> Result<()> {
         Ok(info) => {
             match cli.command {
                 Some(command) => match command {
-                    cli::Commands::IndelMAP { go, ge } => {
+                    cli::Commands::IndelMAP { go, ge, categories } => {
                         let (alignment, scores) = match get_sequence_type(&info.sequences) {
                             crate::sequences::SequenceType::DNA => {
                                 info!("Working on DNA data -- please ensure that data type is inferred correctly.");
-                                indel_map_align_dna(&info, cli.model, cli.model_params, go, ge)?
+                                indel_map_align_dna(
+                                    &info,
+                                    cli.model,
+                                    cli.model_params,
+                                    go,
+                                    ge,
+                                    categories,
+                                )?
                             }
                             crate::sequences::SequenceType::Protein => {
                                 info!("Working on protein data -- please ensure that data type is inferred correctly.");
-                                indel_map_align_protein(&info, cli.model, cli.model_params, go, ge)?
+                                indel_map_align_protein(
+                                    &info,
+                                    cli.model,
+                                    cli.model_params,
+                                    go,
+                                    ge,
+                                    categories,
+                                )?
                             }
                         };
                         info!("Final alignment scores are: \n{:?}", scores);
