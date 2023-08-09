@@ -92,6 +92,17 @@ pub(crate) fn pars_align_on_tree(
                 internal_info[idx] = info;
                 alignments[idx] = alignment;
                 scores[idx] = score;
+
+                info!(
+                    "Alignment complete with score {} at internal node {}{}.",
+                    score,
+                    idx,
+                    if tree.internals[idx].id.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" with id {}", tree.internals[idx].id)
+                    }
+                );
             }
             Leaf(idx) => {
                 let pars_sets = get_parsimony_sets(&sequences[idx], sequence_type);
@@ -99,6 +110,10 @@ pub(crate) fn pars_align_on_tree(
                     .into_iter()
                     .map(ParsimonySiteInfo::new_leaf)
                     .collect();
+                info!(
+                    "Processed leaf node {} with id {}.",
+                    idx, tree.leaves[idx].id
+                );
             }
         }
     }
@@ -261,7 +276,7 @@ mod parsimony_alignment_tests {
         assert_eq!(alignment.map_x.len(), 4);
         assert_eq!(alignment.map_y.len(), 4);
         assert_eq!(alignment.map_x, align!(0 1 2 3));
-        assert_eq!(alignment.map_y, align!(0 - - 1));
+        assert_eq!(alignment.map_y, align!(0 - -1));
     }
 
     #[test]
