@@ -1,9 +1,7 @@
-use crate::{
-    parsimony_alignment::sequence_idx,
-    phylo_info::PhyloInfo,
-    tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf},
-};
+use crate::parsimony_alignment::sequence_idx;
 use bio::io::fasta::Record;
+use phylo::phylo_info::PhyloInfo;
+use phylo::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf};
 
 pub(crate) type Mapping = Vec<Option<usize>>;
 

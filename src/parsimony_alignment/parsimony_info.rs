@@ -1,8 +1,7 @@
+use super::parsimony_sets::make_parsimony_set;
+use super::parsimony_sets::ParsimonySet;
 use std::fmt;
 use std::fmt::Debug;
-
-use crate::parsimony_alignment::parsimony_sets::make_parsimony_set;
-use crate::parsimony_alignment::parsimony_sets::ParsimonySet;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum SiteFlag {

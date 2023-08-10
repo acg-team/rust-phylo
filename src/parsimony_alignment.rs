@@ -1,25 +1,19 @@
+use self::parsimony_costs::{BranchParsimonyCosts, ParsimonyCosts};
+use self::parsimony_info::ParsimonySiteInfo;
+use self::parsimony_matrices::ParsimonyAlignmentMatrices;
+use self::parsimony_sets::get_parsimony_sets;
+use crate::alignment::Alignment;
+use bio::io::fasta::Record;
+use log::info;
+use phylo::phylo_info::PhyloInfo;
+use phylo::sequences::get_sequence_type;
+use phylo::tree::{NodeIdx::Internal as Int, NodeIdx::Leaf};
+use rand::prelude::*;
+
 pub(crate) mod parsimony_costs;
 pub(crate) mod parsimony_info;
 pub(crate) mod parsimony_matrices;
 pub(crate) mod parsimony_sets;
-
-use bio::io::fasta::Record;
-use log::info;
-use rand::prelude::*;
-
-use crate::{
-    parsimony_alignment::parsimony_sets::get_parsimony_sets,
-    phylo_info::PhyloInfo,
-    sequences::get_sequence_type,
-    tree::{NodeIdx::Internal as Int, NodeIdx::Leaf},
-};
-
-use crate::alignment::Alignment;
-use parsimony_costs::ParsimonyCosts;
-use parsimony_info::ParsimonySiteInfo;
-use parsimony_matrices::ParsimonyAlignmentMatrices;
-
-use parsimony_costs::BranchParsimonyCosts;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum Direction {
@@ -138,9 +132,10 @@ mod parsimony_alignment_tests {
         pars_align_on_tree, pars_align_w_rng, parsimony_info::ParsimonySiteInfo,
         parsimony_sets::get_parsimony_sets,
     };
-    use crate::phylo_info::PhyloInfo;
-    use crate::sequences::SequenceType;
-    use crate::tree::{NodeIdx::Internal as I, NodeIdx::Leaf as L, Tree};
+    use phylo::phylo_info::PhyloInfo;
+    use phylo::sequences::SequenceType;
+    use phylo::tree::NodeIdx;
+    use phylo::tree::{NodeIdx::Internal as I, NodeIdx::Leaf as L, Tree};
 
     use bio::io::fasta::Record;
 
@@ -186,7 +181,7 @@ mod parsimony_alignment_tests {
     #[test]
     pub(crate) fn alignment_compile_root() {
         let (info, alignment) = setup_test_tree();
-        let msa = compile_alignment_representation(&info, &alignment, None);
+        let msa = compile_alignment_representation(&info, &alignment, None::<NodeIdx>);
         assert_eq!(msa[0].seq(), "AAAAA".as_bytes());
         assert_eq!(msa[1].seq(), "---A-".as_bytes());
         assert_eq!(msa[2].seq(), "AA---".as_bytes());

@@ -1,19 +1,16 @@
-use crate::{
-    assert_float_relative_slice_eq,
-    parsimony_alignment::{
-        parsimony_costs::{
-            parsimony_costs_model::DNAParsCosts, parsimony_costs_simple::ParsimonyCostsSimple,
-            ParsimonyCosts,
-        },
-        parsimony_info::{
-            ParsimonySiteInfo as PSI,
-            SiteFlag::{GapExt, GapFixed, GapOpen, NoGap},
-        },
-        parsimony_matrices::ParsimonyAlignmentMatrices as PAM,
-        Direction::{GapInX, GapInY, Matc},
-    },
+use crate::assert_float_relative_slice_eq;
+use crate::parsimony_alignment::parsimony_costs::{
+    parsimony_costs_model::DNAParsCosts, parsimony_costs_simple::ParsimonyCostsSimple,
+    ParsimonyCosts,
 };
-
+use crate::parsimony_alignment::parsimony_info::{
+    ParsimonySiteInfo as PSI,
+    SiteFlag::{GapExt, GapFixed, GapOpen, NoGap},
+};
+use crate::parsimony_alignment::parsimony_matrices::{
+    Direction::{GapInX, GapInY, Matc},
+    ParsimonyAlignmentMatrices as PAM,
+};
 use approx::assert_relative_eq;
 use std::f64::INFINITY as INF;
 

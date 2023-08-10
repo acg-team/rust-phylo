@@ -1,17 +1,13 @@
-use std::collections::HashMap;
-
-use crate::{
-    cmp_f64, f64_h,
-    substitution_models::{
-        dna_models, protein_models, DNASubstModel, ProteinSubstModel, SubstitutionModel,
-    },
-    Result,
-};
+use super::{BranchParsimonyCosts, ParsimonyCosts};
+use crate::{cmp_f64, f64_h, Result};
 use log::info;
 use nalgebra::{Const, DimMin, SMatrix};
 use ordered_float::OrderedFloat;
+use phylo::substitution_models::{
+    dna_models, protein_models, DNASubstModel, ProteinSubstModel, SubstitutionModel,
+};
+use std::collections::HashMap;
 
-use super::{BranchParsimonyCosts, ParsimonyCosts};
 type CostMatrix<const N: usize> = SMatrix<f64, N, N>;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -143,10 +139,11 @@ impl<const N: usize> ParsimonyCostsWModel<N> {
             .times
             .windows(2)
             .filter(|&window| target - window[0] > window[1] - target)
-            .last() {
-                Some(window) => window[1],
-                None => self.times[0],
-            }
+            .last()
+        {
+            Some(window) => window[1],
+            None => self.times[0],
+        }
     }
 }
 
@@ -188,16 +185,15 @@ impl<const N: usize> BranchParsimonyCosts for BranchCostsWModel<N> {
 
 #[cfg(test)]
 mod parsimony_costs_model_test {
+    use super::generate_costs;
     use crate::{
         f64_h,
         parsimony_alignment::parsimony_costs::{
             parsimony_costs_model::{DNAParsCosts, ProteinParsCosts},
             ParsimonyCosts,
         },
-        substitution_models::{protein_models, DNASubstModel, ProteinSubstModel},
     };
-
-    use super::generate_costs;
+    use phylo::substitution_models::{protein_models, DNASubstModel, ProteinSubstModel};
 
     #[test]
     fn protein_branch_scoring() {

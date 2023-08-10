@@ -1,5 +1,5 @@
-use crate::sequences::{charify, SequenceType, AMINOACIDS_STR, NUCLEOTIDES_STR};
 use bio::io::fasta;
+use phylo::sequences::{charify, SequenceType, AMINOACIDS_STR, NUCLEOTIDES_STR};
 use std::collections::HashSet;
 
 pub(crate) type ParsimonySet = HashSet<u8>;
@@ -79,14 +79,11 @@ pub(crate) fn gap_set() -> ParsimonySet {
 
 #[cfg(test)]
 mod parsimony_sets_tests {
-    use bio::io::fasta::Record;
-
-    use crate::{
-        parsimony_alignment::parsimony_sets::{
-            gap_set, get_dna_set, get_parsimony_sets, get_protein_set,
-        },
-        sequences::SequenceType,
+    use crate::parsimony_alignment::parsimony_sets::{
+        gap_set, get_dna_set, get_parsimony_sets, get_protein_set,
     };
+    use bio::io::fasta::Record;
+    use phylo::sequences::SequenceType;
 
     #[test]
     fn dna_sets() {

@@ -1,31 +1,25 @@
-#[macro_use]
-extern crate assert_float_eq;
-
 use crate::alignment::Alignment;
 use crate::cli::Cli;
 use crate::parsimony_alignment::pars_align_on_tree;
 use crate::parsimony_alignment::parsimony_costs::parsimony_costs_model::DNAParsCosts;
 use crate::parsimony_alignment::parsimony_costs::parsimony_costs_model::ProteinParsCosts;
-use crate::phylo_info::setup_phylogenetic_info;
-use crate::phylo_info::PhyloInfo;
-use crate::sequences::get_sequence_type;
 use anyhow::Error;
 use clap::Parser;
 use log::LevelFilter;
 use log::{error, info};
+use phylo::io;
+use phylo::phylo_info::{setup_phylogenetic_info, PhyloInfo};
+use phylo::sequences::get_sequence_type;
+use phylo::sequences::SequenceType;
+use phylo::tree::get_percentiles;
+use phylo::tree::NodeIdx;
 use pretty_env_logger::env_logger::Builder;
 use std::path::PathBuf;
 use std::result::Result::Ok;
-use tree::get_percentiles;
 
 mod alignment;
 mod cli;
-mod io;
 mod parsimony_alignment;
-mod phylo_info;
-mod sequences;
-mod substitution_models;
-mod tree;
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -108,7 +102,7 @@ fn main() -> Result<()> {
                 Some(command) => match command {
                     cli::Commands::IndelMAP { go, ge, categories } => {
                         let (alignment, scores) = match get_sequence_type(&info.sequences) {
-                            crate::sequences::SequenceType::DNA => {
+                            SequenceType::DNA => {
                                 info!("Working on DNA data -- please ensure that data type is inferred correctly.");
                                 indel_map_align_dna(
                                     &info,
@@ -119,7 +113,7 @@ fn main() -> Result<()> {
                                     categories,
                                 )?
                             }
-                            crate::sequences::SequenceType::Protein => {
+                            SequenceType::Protein => {
                                 info!("Working on protein data -- please ensure that data type is inferred correctly.");
                                 indel_map_align_protein(
                                     &info,
@@ -144,7 +138,11 @@ fn main() -> Result<()> {
                             }
                         };
                         io::write_sequences_to_file(
-                            &alignment::compile_alignment_representation(&info, &alignment, None),
+                            &alignment::compile_alignment_representation(
+                                &info,
+                                &alignment,
+                                None::<NodeIdx>,
+                            ),
                             out_msa_path,
                         )?;
                         info!("IndelMAP alignment done, quitting.");

@@ -1,15 +1,14 @@
-use crate::alignment::{Alignment, Mapping};
-use crate::cmp_f64;
-use crate::parsimony_alignment::{
-    parsimony_info::ParsimonySiteInfo as SiteInfo,
-    Direction::{self, GapInX, GapInY, Matc},
-};
-use std::f64::INFINITY as INF;
-use std::{fmt, iter::zip};
-
 use super::parsimony_costs::BranchParsimonyCosts as BranchCosts;
 use super::parsimony_info::SiteFlag::{self, GapExt, GapFixed, GapOpen, NoGap};
 use super::parsimony_sets::{gap_set, ParsimonySet};
+use super::{
+    parsimony_info::ParsimonySiteInfo as SiteInfo,
+    Direction::{self, GapInX, GapInY, Matc},
+};
+use crate::alignment::{Alignment, Mapping};
+use crate::cmp_f64;
+use std::f64::INFINITY as INF;
+use std::{fmt, iter::zip};
 
 pub(super) struct ScoreMatrices {
     pub(super) m: Vec<Vec<f64>>,
