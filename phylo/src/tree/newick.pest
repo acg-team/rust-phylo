@@ -1,0 +1,13 @@
+newick        =  { SOI ~ tree* ~ EOI }
+tree          =  { node ~ ";" } 
+node          = _{ (leaf | internal)}
+leaf          =  { label ~ (branch_length)? }
+internal      =  { "(" ~ node ~ "," ~ node ~ ")" ~ label? ~ branch_length? }
+label         =  { safe_chars+ }
+safe_chars    = _{ !(":" | "," | ";" | "(" | ")" | "[" | "]" | WHITESPACE) ~ ANY }
+branch_length =  { ":" ~ float }
+float         =  { sign? ~ digit+ ~ ("." ~ digit+)? }
+sign          =  { "+" | "-" }
+digit         = _{ ASCII_DIGIT }
+comment       = _{ "[" ~ (!"]" ~ ANY)* ~ "]" }
+WHITESPACE    = _{ " " | "\t" | NEWLINE }
