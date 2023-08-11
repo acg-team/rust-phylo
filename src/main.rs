@@ -1,30 +1,24 @@
-use crate::alignment::Alignment;
 use crate::cli::Cli;
-use crate::parsimony_alignment::pars_align_on_tree;
-use crate::parsimony_alignment::parsimony_costs::parsimony_costs_model::DNAParsCosts;
-use crate::parsimony_alignment::parsimony_costs::parsimony_costs_model::ProteinParsCosts;
 use anyhow::Error;
 use clap::Parser;
 use log::LevelFilter;
 use log::{error, info};
+use parsimony::parsimony_alignment::pars_align_on_tree;
+use parsimony::parsimony_alignment::parsimony_costs::parsimony_costs_model::{
+    DNAParsCosts, ProteinParsCosts,
+};
+use phylo::alignment::{self, Alignment};
 use phylo::io;
 use phylo::phylo_info::{setup_phylogenetic_info, PhyloInfo};
-use phylo::sequences::get_sequence_type;
-use phylo::sequences::SequenceType;
-use phylo::tree::get_percentiles;
-use phylo::tree::NodeIdx;
+use phylo::sequences::{get_sequence_type, SequenceType};
+use phylo::tree::{get_percentiles, NodeIdx};
 use pretty_env_logger::env_logger::Builder;
 use std::path::PathBuf;
 use std::result::Result::Ok;
 
-mod alignment;
 mod cli;
-mod parsimony_alignment;
 
 type Result<T> = std::result::Result<T, Error>;
-
-#[allow(non_camel_case_types)]
-type f64_h = ordered_float::OrderedFloat<f64>;
 
 fn cmp_f64() -> impl Fn(&f64, &f64) -> std::cmp::Ordering {
     |a, b| a.partial_cmp(b).unwrap()

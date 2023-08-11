@@ -2,8 +2,8 @@
 name = "jati"
 version = "0.1.0"
 edition = "2021"
-author = "Jūlija Pečerska <julija.pecerska@zhaw.ch>"
-about = "Joint Alignment and Tree Inference (but just IndelMAP_MSA for now)"
+authors = ["Jūlija Pečerska <julija.pecerska@zhaw.ch>"]
+description = "Joint Alignment and Tree Inference (but just IndelMAP_MSA for now)"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -24,4 +24,5 @@ pretty_env_logger = "0.5.0"
 assert_matches = "1.5.0"
 chrono = "0.4.26"
 stats-cli = "3.0.1"
-phylo = {git = "https://github.com/acg-team/rust-phylo", tag = "initial" }
+phylo = { git = "https://github.com/acg-team/rust-phylo", tag = "initial" }
+parsimony = { git = "https://github.com/acg-team/rust-IndelMaP", tag = "initial" }

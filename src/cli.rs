@@ -22,7 +22,7 @@ pub(super) struct Cli {
 
     /// Sequence evolution model parameters, e.g. alpha and beta for k80 and 
     /// f_t f_c f_a f_g r_tc r_ta r_tg r_ca r_cg r_ag for GTR (in this specific order)
-    #[arg(short = 'p', long, value_name = "MODEL_PARAMS")]
+    #[arg(short = 'p', long, value_name = "MODEL_PARAMS", num_args = 0..)]
     pub(super) model_params: Vec<f64>,
 
     #[command(subcommand)]
