@@ -27,19 +27,6 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
-    - name: Cache dependencies
-      uses: actions/cache@v2
-      env:
-        cache-name: cache-dependencies
-      with:
-        path: |
-          ~/.cargo/.crates.toml
-          ~/.cargo/.crates2.json
-          ~/.cargo/bin
-          ~/.cargo/registry/index
-          ~/.cargo/registry/cache
-          target
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
     - name: Generate test result and coverage report
       run: |
           cargo install cargo2junit grcov;
@@ -54,5 +41,5 @@ jobs:
           files: results.xml
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v3
-      env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      with:
+          files: lcov.info
