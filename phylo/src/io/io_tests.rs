@@ -1,6 +1,9 @@
-use crate::io::read_sequences_from_file;
+use crate::io::{read_sequences_from_file, write_sequences_to_file};
+use bio::io::fasta;
 use rstest::*;
+use std::io::{Read, Write};
 use std::path::PathBuf;
+use tempfile::tempdir;
 
 #[test]
 fn reading_correct_fasta() {
@@ -30,4 +33,36 @@ fn reading_incorrect_fasta(#[case] input: &str) {
 #[test]
 fn reading_nonexistent_fasta() {
     assert!(read_sequences_from_file(PathBuf::from("./data/sequences_nonexistent.fasta")).is_err());
+}
+
+#[test]
+fn test_write_sequences_to_file() {
+    let sequences = vec![
+        fasta::Record::with_attrs("seq1", None, b"ATGC"),
+        fasta::Record::with_attrs("seq2", None, b"CGTA"),
+    ];
+    let temp_dir = tempdir().unwrap();
+    let output_path = temp_dir.path().join("output.fasta");
+    write_sequences_to_file(&sequences, output_path.clone()).unwrap();
+    let mut file_content = String::new();
+    std::fs::File::open(output_path)
+        .unwrap()
+        .read_to_string(&mut file_content)
+        .unwrap();
+    let expected_output = ">seq1\nATGC\n>seq2\nCGTA\n";
+    assert_eq!(file_content, expected_output);
+}
+
+#[test]
+fn test_write_sequences_to_file_bad_path() {
+    let sequences = vec![
+        fasta::Record::with_attrs("seq1", None, b"ATGC"),
+        fasta::Record::with_attrs("seq2", None, b"CGTA"),
+    ];
+    let temp_dir = tempdir().unwrap();
+    let output_path = temp_dir
+        .path()
+        .join("nonexistent_folder")
+        .join("output.fasta");
+    assert!(write_sequences_to_file(&sequences, output_path.clone()).is_err());
 }
