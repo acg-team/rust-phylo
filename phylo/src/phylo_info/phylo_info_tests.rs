@@ -74,6 +74,17 @@ fn setup_info_malformed_tree_file() {
         .contains("Malformed newick string"));
 }
 
+#[test]
+fn setup_info_multiple_trees() {
+    let res_info = setup_phylogenetic_info(
+        PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
+        PathBuf::from("./data/tree_multiple.newick"),
+    )
+    .unwrap();
+    assert_eq!(res_info.tree.leaves.len(), 4);
+    assert_eq!(res_info.sequences.len(), 4);
+}
+
 fn downcast_error<T: Display + Debug + Send + Sync + 'static>(
     result: &Result<PhyloInfo, anyhow::Error>,
 ) -> &T {

@@ -19,10 +19,7 @@ impl PhyloInfo {
     }
 }
 
-pub fn setup_phylogenetic_info(
-    sequence_file: PathBuf,
-    tree_file: PathBuf,
-) -> Result<PhyloInfo> {
+pub fn setup_phylogenetic_info(sequence_file: PathBuf, tree_file: PathBuf) -> Result<PhyloInfo> {
     info!(
         "Reading unaligned sequences from file {}",
         sequence_file.display()
@@ -52,7 +49,7 @@ pub fn setup_phylogenetic_info(
         warn!("More than one tree in the tree file, only the first tree will be processed.");
     }
 
-    let tree = trees.pop().unwrap();
+    let tree = trees.remove(0);
     let tip_ids: HashSet<String> = HashSet::from_iter(tree.get_leaf_ids());
     info!("Checking that tree tip and sequence IDs match");
     if (&tip_ids | &sequence_ids) != (&tip_ids & &sequence_ids) {
