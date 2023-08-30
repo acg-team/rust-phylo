@@ -8,7 +8,7 @@ type ProteinFrequencyArray = [f64; 20];
 type ProteinFrequencyVector = FreqVector<20>;
 
 pub fn aminoacid_index() -> [i32; 255] {
-    let mut index = [-1 as i32; 255];
+    let mut index = [-1_i32; 255];
     for (i, char) in charify(AMINOACIDS_STR).into_iter().enumerate() {
         index[char as usize] = i as i32;
         index[char.to_ascii_lowercase() as usize] = i as i32;

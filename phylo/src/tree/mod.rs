@@ -16,9 +16,9 @@ pub enum NodeIdx {
     Leaf(usize),
 }
 
-impl Into<usize> for NodeIdx {
-    fn into(self) -> usize {
-        match self {
+impl From<NodeIdx> for usize {
+    fn from(node_idx: NodeIdx) -> usize {
+        match node_idx {
             Int(idx) => idx,
             Leaf(idx) => idx,
         }
@@ -46,7 +46,7 @@ impl Node {
             parent,
             children: Vec::new(),
             blen,
-            id: id,
+            id,
         }
     }
 
@@ -60,9 +60,9 @@ impl Node {
         Self {
             idx: Int(idx),
             parent,
-            children: children.clone(),
+            children,
             blen,
-            id: id,
+            id,
         }
     }
 
@@ -124,14 +124,14 @@ impl Tree {
     }
 
     pub fn create_postorder(&mut self) {
-        if self.postorder.len() == 0 {
+        if self.postorder.is_empty() {
             let mut order = Vec::<NodeIdx>::with_capacity(self.leaves.len() + self.internals.len());
             let mut stack = Vec::<NodeIdx>::with_capacity(self.internals.len());
             let mut cur_root = self.root;
-            stack.push(cur_root.clone());
+            stack.push(cur_root);
             while !stack.is_empty() {
                 cur_root = stack.pop().unwrap();
-                order.push(cur_root.clone());
+                order.push(cur_root);
                 if let Int(idx) = cur_root {
                     stack.push(self.internals[idx].children[0]);
                     stack.push(self.internals[idx].children[1]);
@@ -143,7 +143,7 @@ impl Tree {
     }
 
     pub fn create_preorder(&mut self) {
-        if self.preorder.len() == 0 {
+        if self.preorder.is_empty() {
             self.preorder = self.preorder_subroot(self.root);
         }
     }
@@ -182,7 +182,7 @@ impl Tree {
 }
 
 pub fn get_percentiles(lengths: &[f64], categories: u32) -> Vec<f64> {
-    let lengths: Percentiles<f64> = lengths.into_iter().collect();
+    let lengths: Percentiles<f64> = lengths.iter().collect();
     let percentiles: Vec<f64> = (1..(categories + 1))
         .map(|cat| 1.0 / ((categories + 1) as f64) * (cat as f64))
         .collect();
@@ -264,11 +264,10 @@ fn compute_distance_matrix(sequences: &Vec<fasta::Record>) -> nj_matrices::NJMat
             distances[(j, i)] = corrected_dist;
         }
     }
-    let nj_distances = nj_matrices::NJMat {
+    nj_matrices::NJMat {
         idx: (0..nseqs).map(NodeIdx::Leaf).collect(),
         distances,
-    };
-    nj_distances
+    }
 }
 
 #[cfg(test)]

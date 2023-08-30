@@ -8,7 +8,7 @@ type DNASubstMatrix = SubstMatrix<4>;
 type DNAFreqVector = FreqVector<4>;
 
 pub fn nucleotide_index() -> [i32; 255] {
-    let mut index = [-1 as i32; 255];
+    let mut index = [-1_i32; 255];
     for (i, char) in charify(NUCLEOTIDES_STR).into_iter().enumerate() {
         index[char as usize] = i as i32;
         index[char.to_ascii_lowercase() as usize] = i as i32;
@@ -17,7 +17,7 @@ pub fn nucleotide_index() -> [i32; 255] {
 }
 
 pub fn jc69(model_params: &[f64]) -> Result<(DNASubstMatrix, DNAFreqVector)> {
-    if model_params.len() > 0 {
+    if model_params.is_empty() {
         warn!("Too many values provided for JC69 (>0).");
         warn!("Provided values will be ignored.");
     }

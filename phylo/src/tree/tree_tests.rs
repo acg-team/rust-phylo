@@ -357,6 +357,6 @@ fn check_getting_branch_length_percentiles() {
     let perc_lengths = get_percentiles(&repeat(1.0).take(7).collect::<Vec<f64>>(), 2);
     assert_eq!(perc_lengths, vec![1.0, 1.0]);
 
-    let perc_lengths = get_percentiles(&vec![1.0, 3.0, 3.0, 4.0, 5.0, 6.0, 6.0, 7.0, 8.0, 8.0], 3);
+    let perc_lengths = get_percentiles(&[1.0, 3.0, 3.0, 4.0, 5.0, 6.0, 6.0, 7.0, 8.0, 8.0], 3);
     assert_eq!(perc_lengths, vec![3.25, 5.5, 6.75]);
 }

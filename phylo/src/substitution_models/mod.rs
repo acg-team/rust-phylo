@@ -63,7 +63,7 @@ where
     Const<N>: DimMin<Const<N>, Output = Const<N>>,
 {
     pub fn get_p(&self, time: f64) -> SubstMatrix<N> {
-        SubstMatrix::from((self.q * time).exp())
+        (self.q * time).exp()
     }
 
     pub fn get_rate(&self, i: u8, j: u8) -> f64 {
@@ -80,7 +80,7 @@ where
     pub fn generate_ps(&self, times: &[f64]) -> HashMap<OrderedFloat<f64>, SubstMatrix<N>> {
         HashMap::<f64_h, SubstMatrix<N>>::from_iter(
             times
-                .into_iter()
+                .iter()
                 .map(|&time| (f64_h::from(time), self.get_p(time))),
         )
     }
@@ -101,7 +101,7 @@ where
 
     pub fn normalise(&mut self) {
         let factor = -(self.pi.transpose() * self.q.diagonal())[(0, 0)];
-        self.q = self.q / factor;
+        self.q /= factor;
     }
 
     pub fn get_scoring_matrix(&self, time: f64, rounded: bool) -> (SubstMatrix<N>, f64) {

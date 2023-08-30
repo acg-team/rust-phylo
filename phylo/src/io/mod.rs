@@ -5,15 +5,11 @@ use bio::{alphabets, io::fasta};
 use log::info;
 use std::{error::Error, fmt, fs, path::PathBuf};
 
+#[derive(Debug)]
 pub(crate) struct DataError {
     pub(crate) message: String,
 }
 impl fmt::Display for DataError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-impl fmt::Debug for DataError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.message)
     }
@@ -25,7 +21,7 @@ pub fn read_sequences_from_file(path: PathBuf) -> Result<Vec<fasta::Record>> {
     let reader = fasta::Reader::from_file(path)?;
     let mut sequences = Vec::new();
     let mut alphabet = alphabets::protein::iupac_alphabet();
-    alphabet.insert('-' as u8);
+    alphabet.insert(b'-');
     for result in reader.records() {
         let rec = result?;
         if let Err(e) = rec.check() {

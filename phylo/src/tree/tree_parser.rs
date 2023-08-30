@@ -14,7 +14,7 @@ use std::result::Result as stdResult;
 pub struct NewickParser;
 
 #[derive(Debug)]
-pub(crate) struct ParsingError(pub(crate) PestError<Rule>);
+pub(crate) struct ParsingError(pub(crate) Box<PestError<Rule>>);
 
 impl fmt::Display for ParsingError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -28,7 +28,7 @@ pub(crate) fn from_newick_string(newick_string: &str) -> Result<Vec<Tree>> {
     let mut trees = Vec::new();
     let newick_tree_res = NewickParser::parse(Rule::newick, newick_string);
     if newick_tree_res.is_err() {
-        bail!(ParsingError(newick_tree_res.err().unwrap()));
+        bail!(ParsingError(Box::new(newick_tree_res.err().unwrap())));
     }
     let newick_tree_rule = newick_tree_res.unwrap().next().unwrap();
     match newick_tree_rule.as_rule() {
@@ -37,7 +37,7 @@ pub(crate) fn from_newick_string(newick_string: &str) -> Result<Vec<Tree>> {
                 let tmp = tree_rule.into_inner().next();
                 if let Some(rule) = tmp {
                     let mut tree = Tree::new_empty();
-                    let res = tree.from_tree_rule(rule);
+                    let res = tree.parse_tree_rule(rule);
                     if res.is_err() {
                         bail!(ParsingError(res.err().unwrap()));
                     }
@@ -62,13 +62,13 @@ impl Tree {
         }
     }
 
-    fn from_tree_rule(&mut self, tree_rule: Pair<Rule>) -> stdResult<(), PestError<Rule>> {
+    fn parse_tree_rule(&mut self, tree_rule: Pair<Rule>) -> stdResult<(), Box<PestError<Rule>>> {
         let mut leaf_idx = 0;
         let mut internal_idx = 0;
         let mut parent_stack = Vec::<usize>::new();
         match tree_rule.as_rule() {
             Rule::internal => {
-                self.from_internal_rule(
+                self.parse_internal_rule(
                     &mut leaf_idx,
                     &mut internal_idx,
                     &mut parent_stack,
@@ -76,7 +76,7 @@ impl Tree {
                 )?;
             }
             Rule::leaf => {
-                self.from_leaf_rule(&mut leaf_idx, tree_rule)?;
+                self.parse_leaf_rule(&leaf_idx, tree_rule)?;
                 self.root = Leaf(0);
             }
             _ => unreachable!(),
@@ -86,13 +86,13 @@ impl Tree {
         Ok(())
     }
 
-    fn from_internal_rule(
+    fn parse_internal_rule(
         &mut self,
         leaf_idx: &mut usize,
         node_idx: &mut usize,
         stack: &mut Vec<usize>,
         internal_rule: Pair<Rule>,
-    ) -> stdResult<(), PestError<Rule>> {
+    ) -> stdResult<(), Box<PestError<Rule>>> {
         let mut id = String::from("");
         let mut blen = 0.0;
         let mut children: Vec<NodeIdx> = Vec::new();
@@ -101,15 +101,15 @@ impl Tree {
         *node_idx += 1;
         for rule in internal_rule.into_inner() {
             match rule.as_rule() {
-                Rule::label => id = Tree::from_label_rule(rule),
-                Rule::branch_length => blen = Tree::from_branch_length_rule(rule),
+                Rule::label => id = Tree::parse_label_rule(rule),
+                Rule::branch_length => blen = Tree::parse_branch_length_rule(rule),
                 Rule::internal => {
                     children.push(Int(*node_idx));
-                    self.from_internal_rule(leaf_idx, node_idx, stack, rule)?;
+                    self.parse_internal_rule(leaf_idx, node_idx, stack, rule)?;
                 }
                 Rule::leaf => {
                     children.push(Leaf(*leaf_idx));
-                    self.from_leaf_rule(leaf_idx, rule)?;
+                    self.parse_leaf_rule(leaf_idx, rule)?;
                     *leaf_idx += 1;
                 }
                 _ => unreachable!(),
@@ -128,17 +128,17 @@ impl Tree {
         Ok(())
     }
 
-    fn from_leaf_rule(
+    fn parse_leaf_rule(
         &mut self,
         node_idx: &usize,
         inner_rule: Pair<Rule>,
-    ) -> stdResult<(), PestError<Rule>> {
+    ) -> stdResult<(), Box<PestError<Rule>>> {
         let mut id = String::from("");
         let mut blen = 0.0;
         for rule in inner_rule.into_inner() {
             match rule.as_rule() {
-                Rule::label => id = Tree::from_label_rule(rule),
-                Rule::branch_length => blen = Tree::from_branch_length_rule(rule),
+                Rule::label => id = Tree::parse_label_rule(rule),
+                Rule::branch_length => blen = Tree::parse_branch_length_rule(rule),
                 _ => unreachable!(),
             }
         }
@@ -146,7 +146,7 @@ impl Tree {
         Ok(())
     }
 
-    fn from_branch_length_rule(rule: Pair<Rule>) -> f64 {
+    fn parse_branch_length_rule(rule: Pair<Rule>) -> f64 {
         rule.into_inner()
             .next()
             .unwrap()
@@ -155,7 +155,7 @@ impl Tree {
             .unwrap_or_default()
     }
 
-    fn from_label_rule(rule: Pair<Rule>) -> String {
+    fn parse_label_rule(rule: Pair<Rule>) -> String {
         rule.as_str().to_string()
     }
 }

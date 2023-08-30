@@ -1,7 +1,7 @@
 use bio::alphabets::Alphabet;
 use bio::io::fasta;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum SequenceType {
     DNA,
     Protein,

@@ -101,7 +101,7 @@ pub fn compile_alignment_representation(
             }
         }
     }
-    msa.sort_by(|a, b| sequence_idx(sequences, a).cmp(&sequence_idx(sequences, b)));
+    msa.sort_by_key(|record| sequence_idx(sequences, record));
     msa
 }
 

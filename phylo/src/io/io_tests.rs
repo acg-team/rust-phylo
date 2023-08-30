@@ -1,7 +1,7 @@
 use crate::io::{read_sequences_from_file, write_sequences_to_file};
 use bio::io::fasta;
 use rstest::*;
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::PathBuf;
 use tempfile::tempdir;
 
@@ -64,5 +64,5 @@ fn test_write_sequences_to_file_bad_path() {
         .path()
         .join("nonexistent_folder")
         .join("output.fasta");
-    assert!(write_sequences_to_file(&sequences, output_path.clone()).is_err());
+    assert!(write_sequences_to_file(&sequences, output_path).is_err());
 }

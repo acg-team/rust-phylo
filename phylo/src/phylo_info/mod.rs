@@ -58,7 +58,7 @@ pub fn setup_phylogenetic_info(
     if (&tip_ids | &sequence_ids) != (&tip_ids & &sequence_ids) {
         let discrepancy: HashSet<_> = tip_ids.symmetric_difference(&sequence_ids).collect();
         bail!(DataError {
-            message: String::from(format!("Mismatched IDs found: {:?}", discrepancy))
+            message: format!("Mismatched IDs found: {:?}", discrepancy)
         });
     }
 

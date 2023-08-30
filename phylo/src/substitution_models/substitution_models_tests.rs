@@ -20,7 +20,7 @@ fn dna_model_correct() {
     let jc692 = DNASubstModel::new("JC69", &Vec::new()).unwrap();
     assert_eq!(jc69, jc692);
     let k80 = DNASubstModel::new("k80", &Vec::new()).unwrap();
-    let k802 = DNASubstModel::new("k80", &vec![2.0, 1.0]).unwrap();
+    let k802 = DNASubstModel::new("k80", &[2.0, 1.0]).unwrap();
     assert_eq!(k80, k802);
     let gtr = DNASubstModel::new(
         "gtr",
