@@ -14,21 +14,6 @@ impl Alignment {
     pub fn new(x: Mapping, y: Mapping) -> Alignment {
         Alignment { map_x: x, map_y: y }
     }
-
-    pub fn empty() -> Alignment {
-        Alignment {
-            map_x: vec![],
-            map_y: vec![],
-        }
-    }
-
-    pub fn map_x(&self) -> Mapping {
-        self.map_x.clone()
-    }
-
-    pub fn map_y(&self) -> Mapping {
-        self.map_y.clone()
-    }
 }
 
 pub(crate) fn sequence_idx(sequences: &[Record], search: &Record) -> usize {
@@ -107,4 +92,3 @@ pub fn compile_alignment_representation(
 
 #[cfg(test)]
 mod alignment_tests;
-

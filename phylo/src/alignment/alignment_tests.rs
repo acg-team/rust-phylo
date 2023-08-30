@@ -67,3 +67,22 @@ fn alignment_compile_internal2() {
     assert_eq!(msa[0].seq(), "-A-".as_bytes());
     assert_eq!(msa[1].seq(), "AAA".as_bytes());
 }
+
+#[test]
+fn alignment_compile_leaf() {
+    let (info, alignment) = setup_test_tree();
+    let msa = compile_alignment_representation(&info, &alignment, Some(L(0)));
+    assert_eq!(msa.len(), 1);
+    assert_eq!(msa[0].seq(), "AAAAA".as_bytes());
+    assert_eq!(msa[0].id(), "A0");
+
+    let msa = compile_alignment_representation(&info, &alignment, Some(L(1)));
+    assert_eq!(msa.len(), 1);
+    assert_eq!(msa[0].seq(), "A".as_bytes());
+    assert_eq!(msa[0].id(), "B1");
+
+    let msa = compile_alignment_representation(&info, &alignment, Some(L(4)));
+    assert_eq!(msa.len(), 1);
+    assert_eq!(msa[0].seq(), "AAA".as_bytes());
+    assert_eq!(msa[0].id(), "E4")
+}
