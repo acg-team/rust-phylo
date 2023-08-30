@@ -77,14 +77,6 @@ where
         )]
     }
 
-    pub fn generate_ps(&self, times: &[f64]) -> HashMap<OrderedFloat<f64>, SubstMatrix<N>> {
-        HashMap::<f64_h, SubstMatrix<N>>::from_iter(
-            times
-                .iter()
-                .map(|&time| (f64_h::from(time), self.get_p(time))),
-        )
-    }
-
     pub fn generate_scorings(
         &self,
         times: &[f64],

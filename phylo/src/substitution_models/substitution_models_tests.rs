@@ -17,11 +17,14 @@ fn check_pi_convergence<const N: usize>(substmat: SubstMatrix<N>, pi: &[f64], ep
 #[test]
 fn dna_model_correct() {
     let jc69 = DNASubstModel::new("jc69", &Vec::new()).unwrap();
-    let jc692 = DNASubstModel::new("JC69", &Vec::new()).unwrap();
+    let jc692 = DNASubstModel::new("JC69", &[2.0, 1.0]).unwrap();
     assert_eq!(jc69, jc692);
     let k80 = DNASubstModel::new("k80", &Vec::new()).unwrap();
     let k802 = DNASubstModel::new("k80", &[2.0, 1.0]).unwrap();
+    let k803 = DNASubstModel::new("k80", &[2.0, 1.0, 3.0, 6.0]).unwrap();
     assert_eq!(k80, k802);
+    assert_eq!(k80, k803);
+    assert_eq!(k802, k803);
     let gtr = DNASubstModel::new(
         "gtr",
         &repeat(0.25)
@@ -130,92 +133,94 @@ fn protein_normalisation(#[case] input: &str, #[case] epsilon: f64) {
     );
 }
 
+const TRUE_MATRIX: [[f64; 20]; 20] = [
+    [
+        0.0, 6.0, 6.0, 5.0, 6.0, 6.0, 5.0, 4.0, 7.0, 7.0, 6.0, 5.0, 6.0, 7.0, 5.0, 4.0, 4.0, 9.0,
+        7.0, 4.0,
+    ],
+    [
+        5.0, 0.0, 6.0, 7.0, 7.0, 5.0, 6.0, 5.0, 5.0, 7.0, 5.0, 3.0, 7.0, 8.0, 6.0, 5.0, 6.0, 6.0,
+        7.0, 6.0,
+    ],
+    [
+        5.0, 6.0, 0.0, 4.0, 8.0, 5.0, 5.0, 5.0, 5.0, 6.0, 7.0, 4.0, 8.0, 8.0, 7.0, 4.0, 4.0, 9.0,
+        6.0, 6.0,
+    ],
+    [
+        5.0, 7.0, 4.0, 0.0, 9.0, 6.0, 3.0, 5.0, 6.0, 8.0, 7.0, 6.0, 8.0, 8.0, 6.0, 5.0, 6.0, 9.0,
+        7.0, 7.0,
+    ],
+    [
+        5.0, 6.0, 7.0, 8.0, 0.0, 8.0, 8.0, 6.0, 7.0, 7.0, 6.0, 7.0, 7.0, 6.0, 7.0, 5.0, 6.0, 7.0,
+        6.0, 5.0,
+    ],
+    [
+        5.0, 4.0, 5.0, 6.0, 8.0, 0.0, 4.0, 6.0, 5.0, 7.0, 5.0, 4.0, 6.0, 8.0, 5.0, 5.0, 5.0, 8.0,
+        7.0, 6.0,
+    ],
+    [
+        4.0, 6.0, 6.0, 3.0, 9.0, 4.0, 0.0, 5.0, 6.0, 7.0, 7.0, 4.0, 7.0, 8.0, 6.0, 5.0, 5.0, 8.0,
+        7.0, 5.0,
+    ],
+    [
+        4.0, 6.0, 5.0, 5.0, 7.0, 7.0, 6.0, 0.0, 7.0, 8.0, 7.0, 6.0, 8.0, 8.0, 7.0, 5.0, 6.0, 8.0,
+        8.0, 7.0,
+    ],
+    [
+        6.0, 5.0, 4.0, 5.0, 8.0, 4.0, 6.0, 6.0, 0.0, 7.0, 5.0, 5.0, 7.0, 6.0, 6.0, 5.0, 6.0, 8.0,
+        4.0, 7.0,
+    ],
+    [
+        6.0, 7.0, 6.0, 8.0, 8.0, 8.0, 7.0, 8.0, 8.0, 0.0, 4.0, 6.0, 5.0, 5.0, 8.0, 6.0, 5.0, 8.0,
+        6.0, 3.0,
+    ],
+    [
+        6.0, 6.0, 7.0, 8.0, 7.0, 6.0, 7.0, 7.0, 7.0, 4.0, 0.0, 6.0, 5.0, 5.0, 6.0, 6.0, 6.0, 7.0,
+        6.0, 4.0,
+    ],
+    [
+        5.0, 4.0, 4.0, 6.0, 9.0, 4.0, 4.0, 6.0, 6.0, 6.0, 6.0, 0.0, 6.0, 8.0, 6.0, 5.0, 5.0, 8.0,
+        8.0, 6.0,
+    ],
+    [
+        5.0, 6.0, 7.0, 7.0, 7.0, 5.0, 6.0, 6.0, 7.0, 4.0, 3.0, 5.0, 0.0, 5.0, 7.0, 6.0, 5.0, 7.0,
+        6.0, 4.0,
+    ],
+    [
+        6.0, 8.0, 8.0, 8.0, 7.0, 8.0, 8.0, 8.0, 6.0, 5.0, 4.0, 7.0, 6.0, 0.0, 7.0, 6.0, 7.0, 6.0,
+        4.0, 5.0,
+    ],
+    [
+        4.0, 6.0, 7.0, 6.0, 8.0, 6.0, 6.0, 6.0, 6.0, 7.0, 6.0, 6.0, 8.0, 7.0, 0.0, 5.0, 5.0, 8.0,
+        7.0, 6.0,
+    ],
+    [
+        4.0, 5.0, 4.0, 5.0, 6.0, 6.0, 5.0, 5.0, 6.0, 6.0, 6.0, 5.0, 7.0, 6.0, 5.0, 0.0, 4.0, 7.0,
+        6.0, 6.0,
+    ],
+    [
+        4.0, 6.0, 5.0, 6.0, 7.0, 6.0, 5.0, 6.0, 7.0, 5.0, 6.0, 5.0, 6.0, 7.0, 6.0, 4.0, 0.0, 9.0,
+        7.0, 5.0,
+    ],
+    [
+        7.0, 5.0, 8.0, 7.0, 7.0, 7.0, 7.0, 6.0, 7.0, 7.0, 5.0, 7.0, 7.0, 5.0, 7.0, 6.0, 7.0, 0.0,
+        5.0, 6.0,
+    ],
+    [
+        6.0, 6.0, 5.0, 6.0, 7.0, 7.0, 7.0, 7.0, 5.0, 6.0, 6.0, 7.0, 7.0, 4.0, 7.0, 5.0, 6.0, 6.0,
+        0.0, 6.0,
+    ],
+    [
+        4.0, 7.0, 7.0, 7.0, 6.0, 7.0, 6.0, 6.0, 8.0, 3.0, 4.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 8.0,
+        7.0, 0.0,
+    ],
+];
+
 #[test]
 fn protein_scoring_matrices() {
     let mut model = ProteinSubstModel::new("wag").unwrap();
     model.normalise();
-    let true_matrix_01 = SubstMatrix::from([
-        [
-            0.0, 6.0, 6.0, 5.0, 6.0, 6.0, 5.0, 4.0, 7.0, 7.0, 6.0, 5.0, 6.0, 7.0, 5.0, 4.0, 4.0,
-            9.0, 7.0, 4.0,
-        ],
-        [
-            5.0, 0.0, 6.0, 7.0, 7.0, 5.0, 6.0, 5.0, 5.0, 7.0, 5.0, 3.0, 7.0, 8.0, 6.0, 5.0, 6.0,
-            6.0, 7.0, 6.0,
-        ],
-        [
-            5.0, 6.0, 0.0, 4.0, 8.0, 5.0, 5.0, 5.0, 5.0, 6.0, 7.0, 4.0, 8.0, 8.0, 7.0, 4.0, 4.0,
-            9.0, 6.0, 6.0,
-        ],
-        [
-            5.0, 7.0, 4.0, 0.0, 9.0, 6.0, 3.0, 5.0, 6.0, 8.0, 7.0, 6.0, 8.0, 8.0, 6.0, 5.0, 6.0,
-            9.0, 7.0, 7.0,
-        ],
-        [
-            5.0, 6.0, 7.0, 8.0, 0.0, 8.0, 8.0, 6.0, 7.0, 7.0, 6.0, 7.0, 7.0, 6.0, 7.0, 5.0, 6.0,
-            7.0, 6.0, 5.0,
-        ],
-        [
-            5.0, 4.0, 5.0, 6.0, 8.0, 0.0, 4.0, 6.0, 5.0, 7.0, 5.0, 4.0, 6.0, 8.0, 5.0, 5.0, 5.0,
-            8.0, 7.0, 6.0,
-        ],
-        [
-            4.0, 6.0, 6.0, 3.0, 9.0, 4.0, 0.0, 5.0, 6.0, 7.0, 7.0, 4.0, 7.0, 8.0, 6.0, 5.0, 5.0,
-            8.0, 7.0, 5.0,
-        ],
-        [
-            4.0, 6.0, 5.0, 5.0, 7.0, 7.0, 6.0, 0.0, 7.0, 8.0, 7.0, 6.0, 8.0, 8.0, 7.0, 5.0, 6.0,
-            8.0, 8.0, 7.0,
-        ],
-        [
-            6.0, 5.0, 4.0, 5.0, 8.0, 4.0, 6.0, 6.0, 0.0, 7.0, 5.0, 5.0, 7.0, 6.0, 6.0, 5.0, 6.0,
-            8.0, 4.0, 7.0,
-        ],
-        [
-            6.0, 7.0, 6.0, 8.0, 8.0, 8.0, 7.0, 8.0, 8.0, 0.0, 4.0, 6.0, 5.0, 5.0, 8.0, 6.0, 5.0,
-            8.0, 6.0, 3.0,
-        ],
-        [
-            6.0, 6.0, 7.0, 8.0, 7.0, 6.0, 7.0, 7.0, 7.0, 4.0, 0.0, 6.0, 5.0, 5.0, 6.0, 6.0, 6.0,
-            7.0, 6.0, 4.0,
-        ],
-        [
-            5.0, 4.0, 4.0, 6.0, 9.0, 4.0, 4.0, 6.0, 6.0, 6.0, 6.0, 0.0, 6.0, 8.0, 6.0, 5.0, 5.0,
-            8.0, 8.0, 6.0,
-        ],
-        [
-            5.0, 6.0, 7.0, 7.0, 7.0, 5.0, 6.0, 6.0, 7.0, 4.0, 3.0, 5.0, 0.0, 5.0, 7.0, 6.0, 5.0,
-            7.0, 6.0, 4.0,
-        ],
-        [
-            6.0, 8.0, 8.0, 8.0, 7.0, 8.0, 8.0, 8.0, 6.0, 5.0, 4.0, 7.0, 6.0, 0.0, 7.0, 6.0, 7.0,
-            6.0, 4.0, 5.0,
-        ],
-        [
-            4.0, 6.0, 7.0, 6.0, 8.0, 6.0, 6.0, 6.0, 6.0, 7.0, 6.0, 6.0, 8.0, 7.0, 0.0, 5.0, 5.0,
-            8.0, 7.0, 6.0,
-        ],
-        [
-            4.0, 5.0, 4.0, 5.0, 6.0, 6.0, 5.0, 5.0, 6.0, 6.0, 6.0, 5.0, 7.0, 6.0, 5.0, 0.0, 4.0,
-            7.0, 6.0, 6.0,
-        ],
-        [
-            4.0, 6.0, 5.0, 6.0, 7.0, 6.0, 5.0, 6.0, 7.0, 5.0, 6.0, 5.0, 6.0, 7.0, 6.0, 4.0, 0.0,
-            9.0, 7.0, 5.0,
-        ],
-        [
-            7.0, 5.0, 8.0, 7.0, 7.0, 7.0, 7.0, 6.0, 7.0, 7.0, 5.0, 7.0, 7.0, 5.0, 7.0, 6.0, 7.0,
-            0.0, 5.0, 6.0,
-        ],
-        [
-            6.0, 6.0, 5.0, 6.0, 7.0, 7.0, 7.0, 7.0, 5.0, 6.0, 6.0, 7.0, 7.0, 4.0, 7.0, 5.0, 6.0,
-            6.0, 0.0, 6.0,
-        ],
-        [
-            4.0, 7.0, 7.0, 7.0, 6.0, 7.0, 6.0, 6.0, 8.0, 3.0, 4.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0,
-            8.0, 7.0, 0.0,
-        ],
-    ]);
+    let true_matrix_01 = SubstMatrix::from(TRUE_MATRIX);
     let (mat, avg) = model.get_scoring_matrix(0.1, true);
     assert_eq!(mat.to_string(), true_matrix_01.to_string());
     assert_relative_eq!(avg, 5.7675);
@@ -225,4 +230,57 @@ fn protein_scoring_matrices() {
     assert_relative_eq!(avg, 4.2825);
     let (_, avg) = model.get_scoring_matrix(0.7, true);
     assert_relative_eq!(avg, 4.0075);
+}
+
+#[test]
+fn generate_protein_scorings() {
+    let mut model = ProteinSubstModel::new("wag").unwrap();
+    model.normalise();
+    let scorings = model.generate_scorings(&[0.1, 0.3, 0.5, 0.7], false, true);
+    let (mat_01, avg_01) = scorings.get(&ordered_float::OrderedFloat(0.1)).unwrap();
+    assert_float_relative_slice_eq(
+        mat_01.as_slice(),
+        &TRUE_MATRIX.iter().flatten().cloned().collect::<Vec<f64>>(),
+        0.0001,
+    );
+    assert_relative_eq!(*avg_01, 5.7675);
+    let (_, avg_03) = scorings.get(&ordered_float::OrderedFloat(0.3)).unwrap();
+    assert_relative_eq!(*avg_03, 4.7475);
+    let (_, avg_05) = scorings.get(&ordered_float::OrderedFloat(0.5)).unwrap();
+    assert_relative_eq!(*avg_05, 4.2825);
+    let (_, avg_07) = scorings.get(&ordered_float::OrderedFloat(0.7)).unwrap();
+    assert_relative_eq!(*avg_07, 4.0075);
+}
+
+#[test]
+fn matrix_entry_rounding() {
+    let model = DNASubstModel::new("K80", &[1.0, 2.0]).unwrap();
+    let (mat_round, avg_round) = model.get_scoring_matrix_corrected(0.1, true, true);
+    let (mat, avg) = model.get_scoring_matrix_corrected(0.1, true, false);
+    assert_ne!(avg_round, avg);
+    assert_ne!(mat_round, mat);
+    for &element in mat_round.as_slice() {
+        assert_eq!(element.round(), element);
+    }
+    let model = ProteinSubstModel::new("HIVB").unwrap();
+    let (mat_round, avg_round) = model.get_scoring_matrix_corrected(0.1, true, true);
+    let (mat, avg) = model.get_scoring_matrix_corrected(0.1, true, false);
+    assert_ne!(avg_round, avg);
+    assert_ne!(mat_round, mat);
+    for &element in mat_round.as_slice() {
+        assert_eq!(element.round(), element);
+    }
+}
+
+#[test]
+fn matrix_zero_diagonals() {
+    let model = ProteinSubstModel::new("HIVB").unwrap();
+    let (mat_zeros, avg_zeros) = model.get_scoring_matrix_corrected(0.5, true, true);
+    let (mat, avg) = model.get_scoring_matrix_corrected(0.5, false, true);
+    assert_ne!(avg_zeros, avg);
+    assert!(avg_zeros < avg);
+    assert_ne!(mat_zeros, mat);
+    for &element in mat_zeros.diagonal().iter() {
+        assert_eq!(element, 0.0);
+    }
 }
