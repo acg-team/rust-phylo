@@ -5,9 +5,14 @@ use bio::{alphabets, io::fasta};
 use log::info;
 use std::{error::Error, fmt, fs, path::PathBuf};
 
-#[derive(Debug)]
 pub(crate) struct DataError {
     pub(crate) message: String,
+}
+impl fmt::Debug for DataError {
+    #[no_coverage]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
 }
 impl fmt::Display for DataError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
