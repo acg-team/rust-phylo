@@ -18,11 +18,12 @@ fn setup_test_tree() -> (PhyloInfo, Vec<Alignment>) {
         Record::with_attrs("D3", None, b"A"),
         Record::with_attrs("E4", None, b"AAA"),
     ];
-    let mut tree = Tree::new(5, 3);
+    let mut tree = Tree::new(&sequences);
     tree.add_parent(0, L(0), L(1), 1.0, 1.0);
     tree.add_parent(1, L(3), L(4), 1.0, 1.0);
     tree.add_parent(2, L(2), I(1), 1.0, 1.0);
     tree.add_parent(3, I(0), I(2), 1.0, 1.0);
+    tree.complete = true;
     tree.create_postorder();
     tree.create_preorder();
     let info = PhyloInfo::new(tree, sequences);

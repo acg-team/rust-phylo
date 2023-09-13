@@ -59,6 +59,7 @@ impl Tree {
             internals: Vec::new(),
             postorder: Vec::new(),
             preorder: Vec::new(),
+            complete: false,
         }
     }
 
@@ -81,6 +82,7 @@ impl Tree {
             }
             _ => unreachable!(),
         }
+        self.complete = true;
         self.create_postorder();
         self.create_preorder();
         Ok(())

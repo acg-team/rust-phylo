@@ -6,16 +6,25 @@ use super::{
 };
 use crate::cmp_f64;
 use approx::relative_eq;
+use bio::io::fasta::Record;
 use nalgebra::dmatrix;
 use pest::error::ErrorVariant;
 use std::iter::repeat;
 
 fn setup_test_tree() -> Tree {
-    let mut tree = Tree::new(5, 3);
+    let sequences = vec![
+        Record::with_attrs("A0", None, b"AAAAA"),
+        Record::with_attrs("B1", None, b"A"),
+        Record::with_attrs("C2", None, b"AA"),
+        Record::with_attrs("D3", None, b"A"),
+        Record::with_attrs("E4", None, b"AAA"),
+    ];
+    let mut tree = Tree::new(&sequences);
     tree.add_parent(0, L(0), L(1), 1.0, 1.0);
     tree.add_parent(1, L(3), L(4), 1.0, 1.0);
     tree.add_parent(2, L(2), I(1), 1.0, 1.0);
     tree.add_parent(3, I(0), I(2), 1.0, 1.0);
+    tree.complete = true;
     tree.create_postorder();
     tree.create_preorder();
     tree
@@ -63,12 +72,18 @@ fn nj_correct_web_example() {
                 5.0, 7.0, 0.0, 9.0;
                 10.0, 12.0, 9.0, 0.0],
     };
-    let nj_tree = build_nj_tree_w_rng_from_matrix(nj_distances, |_| 0).unwrap();
+    let sequences = vec![
+        Record::with_attrs("A0", None, b""),
+        Record::with_attrs("B1", None, b""),
+        Record::with_attrs("C2", None, b""),
+        Record::with_attrs("D3", None, b""),
+    ];
+    let nj_tree = build_nj_tree_w_rng_from_matrix(nj_distances, &sequences, |_| 0).unwrap();
     let leaves = vec![
-        Node::new_leaf(0, Some(I(0)), 1.0, "".to_string()),
-        Node::new_leaf(1, Some(I(0)), 3.0, "".to_string()),
-        Node::new_leaf(2, Some(I(1)), 2.0, "".to_string()),
-        Node::new_leaf(3, Some(I(1)), 7.0, "".to_string()),
+        Node::new_leaf(0, Some(I(0)), 1.0, "A0".to_string()),
+        Node::new_leaf(1, Some(I(0)), 3.0, "B1".to_string()),
+        Node::new_leaf(2, Some(I(1)), 2.0, "C2".to_string()),
+        Node::new_leaf(3, Some(I(1)), 7.0, "D3".to_string()),
     ];
     let internals = vec![
         Node::new_internal(0, Some(I(2)), vec![L(0), L(1)], 1.0, "".to_string()),
@@ -92,13 +107,20 @@ fn nj_correct() {
                 9.0, 10.0, 8.0, 0.0, 3.0;
                 8.0, 9.0, 7.0, 3.0, 0.0],
     };
-    let nj_tree = build_nj_tree_w_rng_from_matrix(nj_distances, |l| 3 % l).unwrap();
+    let sequences = vec![
+        Record::with_attrs("A0", None, b""),
+        Record::with_attrs("B1", None, b""),
+        Record::with_attrs("C2", None, b""),
+        Record::with_attrs("D3", None, b""),
+        Record::with_attrs("E4", None, b""),
+    ];
+    let nj_tree = build_nj_tree_w_rng_from_matrix(nj_distances, &sequences, |l| 3 % l).unwrap();
     let leaves = vec![
-        Node::new_leaf(0, Some(I(0)), 2.0, "".to_string()),
-        Node::new_leaf(1, Some(I(0)), 3.0, "".to_string()),
-        Node::new_leaf(2, Some(I(1)), 4.0, "".to_string()),
-        Node::new_leaf(3, Some(I(2)), 2.0, "".to_string()),
-        Node::new_leaf(4, Some(I(2)), 1.0, "".to_string()),
+        Node::new_leaf(0, Some(I(0)), 2.0, "A0".to_string()),
+        Node::new_leaf(1, Some(I(0)), 3.0, "B1".to_string()),
+        Node::new_leaf(2, Some(I(1)), 4.0, "C2".to_string()),
+        Node::new_leaf(3, Some(I(2)), 2.0, "D3".to_string()),
+        Node::new_leaf(4, Some(I(2)), 1.0, "E4".to_string()),
     ];
     let internals = vec![
         Node::new_internal(0, Some(I(1)), vec![L(1), L(0)], 3.0, "".to_string()),
@@ -128,7 +150,13 @@ fn protein_nj_correct() {
                 0.0, 0.0, 0.0, 0.2;
                 0.2, 0.2, 0.2, 0.0],
     };
-    let tree = build_nj_tree_from_matrix(nj_distances).unwrap();
+    let sequences = vec![
+        Record::with_attrs("A0", None, b""),
+        Record::with_attrs("B1", None, b""),
+        Record::with_attrs("C2", None, b""),
+        Record::with_attrs("D3", None, b""),
+    ];
+    let tree = build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
     assert_eq!(tree.internals.len(), 3);
     assert_eq!(tree.postorder.len(), 7);
     assert!(is_unique(&tree.postorder));

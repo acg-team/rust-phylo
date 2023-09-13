@@ -1,6 +1,7 @@
 use crate::tree::nj_matrices::{Mat, NJMat};
 use crate::Result;
-use bio::{alignment::distance::levenshtein, io::fasta};
+use bio::alignment::distance::levenshtein;
+use bio::io::fasta::Record;
 use inc_stats::Percentiles;
 use log::info;
 use nalgebra::{max, DMatrix};
@@ -36,10 +37,6 @@ pub struct Node {
 }
 
 impl Node {
-    fn new_empty_leaf(node_idx: usize) -> Self {
-        Self::new_leaf(node_idx, None, 0.0, "".to_string())
-    }
-
     fn new_leaf(idx: usize, parent: Option<NodeIdx>, blen: f64, id: String) -> Self {
         Self {
             idx: Leaf(idx),
@@ -84,16 +81,22 @@ pub struct Tree {
     pub internals: Vec<Node>,
     pub postorder: Vec<NodeIdx>,
     pub preorder: Vec<NodeIdx>,
+    pub complete: bool,
 }
 
 impl Tree {
-    pub fn new(n: usize, root: usize) -> Self {
+    pub fn new(sequences: &Vec<Record>) -> Self {
+        let n = sequences.len();
         Self {
-            root: Int(root),
+            root: Int(n - 2),
             postorder: Vec::new(),
             preorder: Vec::new(),
-            leaves: (0..n).map(Node::new_empty_leaf).collect(),
+            leaves: (0..n)
+                .zip(sequences.iter().map(|seq| seq.id().to_string()).into_iter())
+                .map(|(idx, id)| Node::new_leaf(idx, None, 0.0, id))
+                .collect(),
             internals: Vec::with_capacity(n - 1),
+            complete: false,
         }
     }
 
@@ -124,6 +127,7 @@ impl Tree {
     }
 
     pub fn create_postorder(&mut self) {
+        assert!(self.complete);
         if self.postorder.is_empty() {
             let mut order = Vec::<NodeIdx>::with_capacity(self.leaves.len() + self.internals.len());
             let mut stack = Vec::<NodeIdx>::with_capacity(self.internals.len());
@@ -143,12 +147,14 @@ impl Tree {
     }
 
     pub fn create_preorder(&mut self) {
+        assert!(self.complete);
         if self.preorder.is_empty() {
             self.preorder = self.preorder_subroot(self.root);
         }
     }
 
     pub fn preorder_subroot(&self, subroot_idx: NodeIdx) -> Vec<NodeIdx> {
+        assert!(self.complete);
         let mut order = Vec::<NodeIdx>::with_capacity(self.leaves.len() + self.internals.len());
         let mut stack = Vec::<NodeIdx>::with_capacity(self.internals.len());
         let mut cur_root = subroot_idx;
@@ -166,10 +172,12 @@ impl Tree {
     }
 
     pub fn get_leaf_ids(&self) -> Vec<String> {
+        assert!(self.complete);
         self.leaves.iter().map(|node| node.id.clone()).collect()
     }
 
     pub fn get_all_branch_lengths(&self) -> Vec<f64> {
+        assert!(self.complete);
         let lengths = self
             .leaves
             .iter()
@@ -216,40 +224,41 @@ fn rng_len(l: usize) -> usize {
     random::<usize>() % l
 }
 
-fn build_nj_tree_w_rng_from_matrix(mut nj_data: NJMat, rng: fn(usize) -> usize) -> Result<Tree> {
+fn build_nj_tree_w_rng_from_matrix(
+    mut nj_data: NJMat,
+    sequences: &Vec<Record>,
+    rng: fn(usize) -> usize,
+) -> Result<Tree> {
     let n = nj_data.distances.ncols();
     let root_idx = n - 2;
-    let mut tree = Tree::new(n, root_idx);
-
+    let mut tree = Tree::new(sequences);
     for cur_idx in 0..=root_idx {
         let q = nj_data.compute_nj_q();
         let (i, j) = argmin_wo_diagonal(q, rng);
         let idx_new = cur_idx;
-
         let (blen_i, blen_j) = nj_data.branch_lengths(i, j, cur_idx == root_idx);
-
         tree.add_parent(idx_new, nj_data.idx[i], nj_data.idx[j], blen_i, blen_j);
-
         nj_data = nj_data
             .add_merge_node(idx_new)
             .recompute_new_node_distances(i, j)
             .remove_merged_nodes(i, j);
     }
+    tree.complete = true;
     tree.create_postorder();
     tree.create_preorder();
     Ok(tree)
 }
 
-fn build_nj_tree_from_matrix(nj_data: NJMat) -> Result<Tree> {
-    build_nj_tree_w_rng_from_matrix(nj_data, rng_len)
+fn build_nj_tree_from_matrix(nj_data: NJMat, sequences: &Vec<Record>) -> Result<Tree> {
+    build_nj_tree_w_rng_from_matrix(nj_data, sequences, rng_len)
 }
 
-pub fn build_nj_tree(sequences: &Vec<fasta::Record>) -> Result<Tree> {
+pub fn build_nj_tree(sequences: &Vec<Record>) -> Result<Tree> {
     let nj_data = compute_distance_matrix(sequences);
-    build_nj_tree_from_matrix(nj_data)
+    build_nj_tree_from_matrix(nj_data, sequences)
 }
 
-fn compute_distance_matrix(sequences: &Vec<fasta::Record>) -> nj_matrices::NJMat {
+fn compute_distance_matrix(sequences: &Vec<Record>) -> nj_matrices::NJMat {
     let nseqs = sequences.len();
     let mut distances = DMatrix::zeros(nseqs, nseqs);
     for i in 0..nseqs {
