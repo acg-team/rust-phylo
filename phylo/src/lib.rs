@@ -1,5 +1,3 @@
-#![feature(no_coverage)]
-
 use anyhow::Error;
 
 pub mod alignment;

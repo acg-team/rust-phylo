@@ -9,7 +9,6 @@ pub(crate) struct DataError {
     pub(crate) message: String,
 }
 impl fmt::Debug for DataError {
-    #[no_coverage]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.message)
     }
