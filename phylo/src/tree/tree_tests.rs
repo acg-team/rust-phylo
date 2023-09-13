@@ -1,3 +1,4 @@
+use super::compute_distance_matrix;
 use super::nj_matrices::NJMat;
 use super::tree_parser::{self, from_newick_string, ParsingError, Rule};
 use super::{
@@ -387,4 +388,40 @@ fn check_getting_branch_length_percentiles() {
 
     let perc_lengths = get_percentiles(&[1.0, 3.0, 3.0, 4.0, 5.0, 6.0, 6.0, 7.0, 8.0, 8.0], 3);
     assert_eq!(perc_lengths, vec![3.25, 5.5, 6.75]);
+}
+
+#[test]
+fn compute_distance_matrix_close() {
+    let sequences = vec![
+        Record::with_attrs("A0", None, b"C"),
+        Record::with_attrs("B1", None, b"A"),
+        Record::with_attrs("C2", None, b"AA"),
+        Record::with_attrs("D3", None, b"A"),
+        Record::with_attrs("E4", None, b"CC"),
+    ];
+    let mat = compute_distance_matrix(&sequences);
+    let true_mat = dmatrix![
+        0.0, 26.728641210756745, 26.728641210756745, 26.728641210756745, 0.8239592165010822;
+        26.728641210756745, 0.0, 0.8239592165010822, 0.0, 26.728641210756745;
+        26.728641210756745, 0.8239592165010822, 0.0, 0.8239592165010822, 26.728641210756745;
+        26.728641210756745, 0.0, 0.8239592165010822, 0.0, 26.728641210756745;
+        0.8239592165010822, 26.728641210756745, 26.728641210756745, 26.728641210756745, 0.0];
+    assert_eq!(mat.distances, true_mat);
+}
+
+#[test]
+fn compute_distance_matrix_far() {
+    let sequences = vec![
+        Record::with_attrs("A0", None, b"AAAAAAAAAAAAAAAAAAAA"),
+        Record::with_attrs("B1", None, b"AAAAAAAAAAAAAAAAAAAA"),
+        Record::with_attrs("C2", None, b"AAAAAAAAAAAAAAAAAAAAAAAAA"),
+        Record::with_attrs("D3", None, b"CAAAAAAAAAAAAAAAAAAA"),
+    ];
+    let mat = compute_distance_matrix(&sequences);
+    let true_mat = dmatrix![
+        0.0, 0.0, 0.2326161962278796, 0.051744653615213576;
+        0.0, 0.0, 0.2326161962278796, 0.051744653615213576;
+        0.2326161962278796, 0.2326161962278796, 0.0, 0.28924686060898847;
+        0.051744653615213576, 0.051744653615213576, 0.28924686060898847, 0.0];
+    assert_eq!(mat.distances, true_mat);
 }
