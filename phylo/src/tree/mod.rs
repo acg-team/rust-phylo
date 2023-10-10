@@ -11,6 +11,8 @@ use crate::{Result, Rounding};
 use nj_matrices::{Mat, NJMat};
 use NodeIdx::{Internal as Int, Leaf};
 
+use self::nj_matrices::{Mat, NJMat};
+
 mod nj_matrices;
 pub(crate) mod tree_parser;
 
