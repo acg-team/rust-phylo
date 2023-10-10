@@ -2,12 +2,14 @@ use std::collections::HashMap;
 use std::ops::Mul;
 
 use anyhow::bail;
-use nalgebra::{Const, DimMin, SMatrix, SVector};
+use bio::io::fasta::Record;
+use nalgebra::{Const, DMatrix, DVector, DimMin};
 use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
+use crate::sequences::NUCLEOTIDES_STR;
 use crate::tree::NodeIdx;
 use crate::{f64_h, Result, Rounding};
 
