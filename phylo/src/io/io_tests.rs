@@ -13,7 +13,7 @@ fn reading_correct_fasta() {
         assert_eq!(seq.seq().len(), 5);
     }
 
-    let corr_lengths = vec![1, 2, 2, 4];
+    let corr_lengths = [1, 2, 2, 4];
     let sequences =
         read_sequences_from_file(PathBuf::from("./data/sequences_DNA2_unaligned.fasta")).unwrap();
     assert_eq!(sequences.len(), 4);

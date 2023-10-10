@@ -1,4 +1,3 @@
-use crate::tree::nj_matrices::{Mat, NJMat};
 use crate::Result;
 use bio::alignment::distance::levenshtein;
 use bio::io::fasta::Record;
@@ -7,6 +6,8 @@ use log::info;
 use nalgebra::{max, DMatrix};
 use rand::random;
 use NodeIdx::{Internal as Int, Leaf};
+
+use self::nj_matrices::{Mat, NJMat};
 
 mod nj_matrices;
 pub(crate) mod tree_parser;
@@ -92,7 +93,7 @@ impl Tree {
             postorder: Vec::new(),
             preorder: Vec::new(),
             leaves: (0..n)
-                .zip(sequences.iter().map(|seq| seq.id().to_string()).into_iter())
+                .zip(sequences.iter().map(|seq| seq.id().to_string()))
                 .map(|(idx, id)| Node::new_leaf(idx, None, 0.0, id))
                 .collect(),
             internals: Vec::with_capacity(n - 1),
