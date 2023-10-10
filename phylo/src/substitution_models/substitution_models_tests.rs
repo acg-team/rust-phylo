@@ -4,6 +4,7 @@ use approx::assert_relative_eq;
 use nalgebra::vector;
 use rstest::*;
 use std::iter::repeat;
+use std::ops::Mul;
 
 fn check_pi_convergence<const N: usize>(substmat: SubstMatrix<N>, pi: &[f64], epsilon: f64) {
     assert_eq!(N, pi.len());
@@ -15,17 +16,25 @@ fn check_pi_convergence<const N: usize>(substmat: SubstMatrix<N>, pi: &[f64], ep
 }
 
 #[test]
-fn dna_model_correct() {
+fn dna_jc69_correct() {
     let jc69 = DNASubstModel::new("jc69", &Vec::new()).unwrap();
     let jc692 = DNASubstModel::new("JC69", &[2.0, 1.0]).unwrap();
     assert_eq!(jc69, jc692);
+}
+
+#[test]
+fn dna_k80_correct() {
     let k80 = DNASubstModel::new("k80", &Vec::new()).unwrap();
     let k802 = DNASubstModel::new("k80", &[2.0, 1.0]).unwrap();
     let k803 = DNASubstModel::new("k80", &[2.0, 1.0, 3.0, 6.0]).unwrap();
     assert_eq!(k80, k802);
     assert_eq!(k80, k803);
     assert_eq!(k802, k803);
-    let gtr = DNASubstModel::new(
+}
+
+#[test]
+fn dna_gtr_correct() {
+    let mut gtr = DNASubstModel::new(
         "gtr",
         &repeat(0.25)
             .take(4)
@@ -33,10 +42,10 @@ fn dna_model_correct() {
             .collect::<Vec<f64>>(),
     )
     .unwrap();
+    gtr.normalise();
     assert_eq!(gtr.pi, vector![0.25, 0.25, 0.25, 0.25]);
     assert_eq!(gtr.q[(0, 0)], -1.0);
-
-    let gtr2 = DNASubstModel::new(
+    let mut gtr2 = DNASubstModel::new(
         "gtr",
         &repeat(0.25)
             .take(4)
@@ -44,7 +53,30 @@ fn dna_model_correct() {
             .collect::<Vec<f64>>(),
     )
     .unwrap();
+    gtr2.normalise();
     assert_float_relative_slice_eq(gtr.q.as_slice(), gtr2.q.as_slice(), 0.00001);
+}
+
+#[test]
+fn dna_tn93_correct() {
+    let tn93 = DNASubstModel::new(
+        "tn93",
+        &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
+    )
+    .unwrap();
+    let expected = [
+        [-0.15594579, 0.15524379, 0.0004455, 0.0002565],
+        [0.13136013, -0.13206213, 0.0004455, 0.0002565],
+        [0.000297, 0.000351, -0.056516265, 0.055868265],
+        [0.000297, 0.000351, 0.097034355, -0.097682355],
+    ];
+    for (i, expected) in expected.iter().enumerate() {
+        assert_float_relative_slice_eq(
+            &tn93.q.row(i).iter().copied().collect::<Vec<_>>(),
+            expected,
+            0.0000001,
+        )
+    }
 }
 
 #[test]
@@ -69,7 +101,27 @@ fn dna_p_matrix() {
 fn dna_normalisation() {
     let mut jc69 = DNASubstModel::new("jc69", &Vec::new()).unwrap();
     jc69.normalise();
-    assert_eq!((jc69.q.sum() - jc69.q.diagonal().sum()) / 4.0, 1.0);
+    assert_eq!((jc69.q.diagonal().transpose().mul(jc69.pi))[(0, 0)], -1.0);
+    let mut k80 = DNASubstModel::new("k80", &[3.0, 1.5]).unwrap();
+    k80.normalise();
+    assert_eq!((k80.q.diagonal().transpose().mul(k80.pi))[(0, 0)], -1.0);
+    let mut gtr = DNASubstModel::new(
+        "gtr",
+        &[0.22, 0.26, 0.33, 0.19]
+            .into_iter()
+            .chain(repeat(0.7).take(6))
+            .collect::<Vec<f64>>(),
+    )
+    .unwrap();
+    gtr.normalise();
+    assert_eq!((gtr.q.diagonal().transpose().mul(gtr.pi))[(0, 0)], -1.0);
+    let mut tn93 = DNASubstModel::new(
+        "tn93",
+        &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
+    )
+    .unwrap();
+    tn93.normalise();
+    assert_relative_eq!((tn93.q.diagonal().transpose().mul(tn93.pi))[(0, 0)], -1.0);
 }
 
 #[test]

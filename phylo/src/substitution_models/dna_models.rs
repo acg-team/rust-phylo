@@ -22,7 +22,7 @@ pub fn jc69(model_params: &[f64]) -> Result<(DNASubstMatrix, DNAFreqVector)> {
         warn!("Provided values will be ignored.");
     }
     Ok((
-        DNASubstMatrix::from(JC69_ARR),
+        DNASubstMatrix::from(JC69_ARR).transpose(),
         DNAFreqVector::from(JC69_PI_ARR),
     ))
 }
@@ -66,9 +66,49 @@ pub fn k80(model_params: &[f64]) -> Result<(DNASubstMatrix, DNAFreqVector)> {
                 alpha / (alpha + 2.0 * beta),
                 -1.0,
             ],
-        ]),
+        ])
+        .transpose(),
         DNAFreqVector::from(JC69_PI_ARR),
     ))
+}
+
+pub fn tn93(model_params: &[f64]) -> Result<(DNASubstMatrix, DNAFreqVector)> {
+    if model_params.len() != 7 {
+        bail!(
+            "{} parameters for the tn93 model, expected 7, got {}",
+            if model_params.len() < 10 {
+                "Not enough"
+            } else {
+                "Too many"
+            },
+            model_params.len()
+        );
+    }
+    let f_t = model_params[0];
+    let f_c = model_params[1];
+    let f_a = model_params[2];
+    let f_g = model_params[3];
+    let a1 = model_params[4];
+    let a2 = model_params[5];
+    let b = model_params[6];
+    info!(
+        "Setting up tn93 with alpha1 = {}, alpha2 = {}, beta = {}",
+        a1, a2, b
+    );
+    if (f_t + f_c + f_a + f_g) != 1.0 {
+        bail!("The equilibrium frequencies provided do not sum up to 1.");
+    }
+    let mut q = DNASubstMatrix::from([
+        [0.0, a1 * f_c, b * f_a, b * f_g],
+        [a1 * f_t, 0.0, b * f_a, b * f_g],
+        [b * f_t, b * f_c, 0.0, a2 * f_g],
+        [b * f_t, b * f_c, a2 * f_a, 0.0],
+    ]);
+    q.transpose_mut();
+    for i in 0..4 {
+        q[(i, i)] = -q.row(i).sum();
+    }
+    Ok((q, DNAFreqVector::from([f_t, f_c, f_a, f_g])))
 }
 
 pub(crate) fn gtr(model_params: &[f64]) -> Result<(DNASubstMatrix, DNAFreqVector)> {
@@ -96,35 +136,17 @@ pub(crate) fn gtr(model_params: &[f64]) -> Result<(DNASubstMatrix, DNAFreqVector
     if (f_t + f_c + f_a + f_g) != 1.0 {
         bail!("The equilibrium frequencies provided do not sum up to 1.");
     }
-    Ok((
-        DNASubstMatrix::from([
-            [
-                -(r_tc * f_c + r_ta * f_a + r_tg * f_g),
-                r_tc * f_c,
-                r_ta * f_a,
-                r_tg * f_g,
-            ],
-            [
-                r_tc * f_t,
-                -(r_tc * f_t + r_ca * f_a + r_cg * f_g),
-                r_ca * f_a,
-                r_cg * f_g,
-            ],
-            [
-                r_ta * f_t,
-                r_ca * f_c,
-                -(r_ta * f_t + r_ca * f_c + r_ag * f_g),
-                r_ag * f_g,
-            ],
-            [
-                r_tg * f_t,
-                r_cg * f_c,
-                r_ag * f_a,
-                -(r_tg * f_t + r_cg * f_c + r_ag * f_a),
-            ],
-        ]),
-        DNAFreqVector::from([f_t, f_c, f_a, f_g]),
-    ))
+    let mut q = DNASubstMatrix::from([
+        [0.0, r_tc * f_c, r_ta * f_a, r_tg * f_g],
+        [r_tc * f_t, 0.0, r_ca * f_a, r_cg * f_g],
+        [r_ta * f_t, r_ca * f_c, 0.0, r_ag * f_g],
+        [r_tg * f_t, r_cg * f_c, r_ag * f_a, 0.0],
+    ]);
+    q.transpose_mut();
+    for i in 0..4 {
+        q[(i, i)] = -q.row(i).sum();
+    }
+    Ok((q, DNAFreqVector::from([f_t, f_c, f_a, f_g])))
 }
 
 const JC69_ARR: [[f64; 4]; 4] = [
