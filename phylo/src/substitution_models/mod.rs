@@ -2,12 +2,14 @@ use std::collections::HashMap;
 use std::ops::Mul;
 
 use anyhow::bail;
-use nalgebra::{Const, DimMin, SMatrix, SVector};
+use bio::io::fasta::Record;
+use nalgebra::{Const, DMatrix, DVector, DimMin};
 use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
+use crate::sequences::NUCLEOTIDES_STR;
 use crate::tree::NodeIdx;
 use crate::{f64_h, Result, Rounding};
 
@@ -26,6 +28,67 @@ pub struct SubstitutionModel<const N: usize> {
 
 pub type DNASubstModel = SubstitutionModel<4>;
 pub type ProteinSubstModel = SubstitutionModel<20>;
+
+pub trait EvolutionaryModelNodeInfo<const N: usize> {
+    fn get_leaf_info(sequence: Record, branch_length: f64, model: &SubstitutionModel<N>) -> Self;
+    fn get_internal_info(
+        childx: &Self,
+        childy: &Self,
+        branch_length: f64,
+        model: &SubstitutionModel<N>,
+    ) -> Self;
+}
+
+pub struct DNAModelNodeInfo {
+    pub partial_likelihoods: DMatrix<f64>,
+    pub partial_likelihoods_valid: bool,
+    pub substitution_matrix: SubstMatrix,
+}
+
+impl DNAModelNodeInfo {
+    fn new(sites: usize, branch_length: f64, model: &DNASubstModel) -> Self {
+        Self {
+            partial_likelihoods: DMatrix::zeros(4, sites),
+            partial_likelihoods_valid: false,
+            substitution_matrix: model.get_p(branch_length),
+        }
+    }
+}
+
+impl EvolutionaryModelNodeInfo<4> for DNAModelNodeInfo {
+    fn get_leaf_info(record: Record, branch_length: f64, model: &DNASubstModel) -> Self {
+        let sites = record.seq().len();
+        let mut info = Self::new(sites, branch_length, model);
+        let char_probabilities = DMatrix::from_fn(4, sites, |i, j| match record.seq()[j] {
+            b'-' => model.pi[i],
+            _ => {
+                if NUCLEOTIDES_STR.find(record.seq()[j] as char).unwrap() == i {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
+        });
+        char_probabilities.mul_to(&info.substitution_matrix, &mut info.partial_likelihoods);
+        info.partial_likelihoods_valid = true;
+        info
+    }
+
+    fn get_internal_info(
+        childx: &Self,
+        childy: &Self,
+        branch_length: f64,
+        model: &DNASubstModel,
+    ) -> Self {
+        let char_probabilities = childx
+            .partial_likelihoods
+            .component_mul(&childy.partial_likelihoods);
+        let mut info = Self::new(char_probabilities.ncols(), branch_length, model);
+        char_probabilities.mul_to(&info.substitution_matrix, &mut info.partial_likelihoods);
+        info.partial_likelihoods_valid = true;
+        info
+    }
+}
 
 impl DNASubstModel {
     pub fn new(model_name: &str, model_params: &[f64]) -> Result<Self> {
@@ -84,7 +147,7 @@ where
         &self,
         times: &[f64],
         zero_diag: bool,
-        rounded: bool,
+        rounding: &Rounding,
     ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)> {
         HashMap::<f64_h, (SubstMatrix, f64)>::from_iter(times.iter().map(|&time| {
             (
