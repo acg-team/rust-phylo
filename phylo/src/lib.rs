@@ -2,6 +2,7 @@ use anyhow::Error;
 
 pub mod alignment;
 pub mod io;
+pub mod likelihood;
 pub mod phylo_info;
 pub mod sequences;
 pub mod substitution_models;

@@ -1,24 +1,87 @@
+use crate::sequences::NUCLEOTIDES_STR;
 use crate::{f64_h, Result};
 use anyhow::anyhow;
-use nalgebra::{Const, DimMin, SMatrix, SVector};
+use bio::io::fasta::Record;
+use nalgebra::{Const, DMatrix, DimMin, SMatrix, SVector};
 use ordered_float::OrderedFloat;
 use std::collections::HashMap;
 
 pub mod dna_models;
 pub mod protein_models;
 
-type SubstMatrix<const N: usize> = SMatrix<f64, N, N>;
-type FreqVector<const N: usize> = SVector<f64, N>;
+pub type SubstMatrix<const N: usize> = SMatrix<f64, N, N>;
+pub type FreqVector<const N: usize> = SVector<f64, N>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SubstitutionModel<const N: usize> {
     index: [i32; 255],
-    q: SubstMatrix<N>,
-    pi: FreqVector<N>,
+    pub q: SubstMatrix<N>,
+    pub pi: FreqVector<N>,
 }
 
 pub type DNASubstModel = SubstitutionModel<4>;
 pub type ProteinSubstModel = SubstitutionModel<20>;
+
+pub trait EvolutionaryModelNodeInfo<const N: usize> {
+    fn get_leaf_info(sequence: Record, branch_length: f64, model: &SubstitutionModel<N>) -> Self;
+    fn get_internal_info(
+        childx: &Self,
+        childy: &Self,
+        branch_length: f64,
+        model: &SubstitutionModel<N>,
+    ) -> Self;
+}
+
+pub struct DNAModelNodeInfo {
+    pub partial_likelihoods: DMatrix<f64>,
+    pub partial_likelihoods_valid: bool,
+    pub substitution_matrix: SubstMatrix<4>,
+}
+
+impl DNAModelNodeInfo {
+    fn new(sites: usize, branch_length: f64, model: &DNASubstModel) -> Self {
+        Self {
+            partial_likelihoods: DMatrix::zeros(4, sites),
+            partial_likelihoods_valid: false,
+            substitution_matrix: model.get_p(branch_length),
+        }
+    }
+}
+
+impl EvolutionaryModelNodeInfo<4> for DNAModelNodeInfo {
+    fn get_leaf_info(record: Record, branch_length: f64, model: &DNASubstModel) -> Self {
+        let sites = record.seq().len();
+        let mut info = Self::new(sites, branch_length, model);
+        let char_probabilities = DMatrix::from_fn(4, sites, |i, j| match record.seq()[j] {
+            b'-' => model.pi[i],
+            _ => {
+                if NUCLEOTIDES_STR.find(record.seq()[j] as char).unwrap() == i {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
+        });
+        char_probabilities.mul_to(&info.substitution_matrix, &mut info.partial_likelihoods);
+        info.partial_likelihoods_valid = true;
+        info
+    }
+
+    fn get_internal_info(
+        childx: &Self,
+        childy: &Self,
+        branch_length: f64,
+        model: &DNASubstModel,
+    ) -> Self {
+        let char_probabilities = childx
+            .partial_likelihoods
+            .component_mul(&childy.partial_likelihoods);
+        let mut info = Self::new(char_probabilities.ncols(), branch_length, model);
+        char_probabilities.mul_to(&info.substitution_matrix, &mut info.partial_likelihoods);
+        info.partial_likelihoods_valid = true;
+        info
+    }
+}
 
 impl DNASubstModel {
     pub fn new(model_name: &str, model_params: &[f64]) -> Result<Self> {
@@ -27,15 +90,15 @@ impl DNASubstModel {
         match model_name.to_uppercase().as_str() {
             "JC69" => (q, pi) = dna_models::jc69(model_params)?,
             "K80" => (q, pi) = dna_models::k80(model_params)?,
+            "TN93" => (q, pi) = dna_models::tn93(model_params)?,
             "GTR" => (q, pi) = dna_models::gtr(model_params)?,
             _ => return Err(anyhow!("Unknown DNA model requested.")),
         }
-        let mut model = DNASubstModel {
+        let model = DNASubstModel {
             index: dna_models::nucleotide_index(),
             q,
             pi,
         };
-        model.normalise();
         Ok(model)
     }
 }
