@@ -14,6 +14,13 @@ impl Alignment {
     pub fn new(x: Mapping, y: Mapping) -> Alignment {
         Alignment { map_x: x, map_y: y }
     }
+
+    pub fn empty() -> Alignment {
+        Alignment {
+            map_x: vec![],
+            map_y: vec![],
+        }
+    }
 }
 
 pub(crate) fn sequence_idx(sequences: &[Record], search: &Record) -> usize {
