@@ -20,8 +20,45 @@ pub type FreqVector = DVector<f64>;
 #[derive(Clone, Debug, PartialEq)]
 pub struct SubstitutionModel<const N: usize> {
     index: [i32; 255],
-    pub q: SubstMatrix,
-    pub pi: FreqVector,
+    q: SubstMatrix,
+    pi: FreqVector,
+}
+
+pub type DNASubstModel = SubstitutionModel<4>;
+pub type ProteinSubstModel = SubstitutionModel<20>;
+
+impl DNASubstModel {
+    pub fn new(model_name: &str, model_params: &[f64]) -> Result<Self> {
+        let (q, pi) = match model_name.to_uppercase().as_str() {
+            "JC69" => dna_models::jc69(model_params)?,
+            "K80" => dna_models::k80(model_params)?,
+            "TN93" => dna_models::tn93(model_params)?,
+            "GTR" => dna_models::gtr(model_params)?,
+            _ => bail!("Unknown DNA model requested."),
+        };
+        let mut model = DNASubstModel {
+            index: dna_models::nucleotide_index(),
+            q,
+            pi,
+        };
+        Ok(model)
+    }
+}
+
+impl ProteinSubstModel {
+    pub fn new(model_name: &str) -> Result<Self> {
+        let (q, pi) = match model_name.to_uppercase().as_str() {
+            "WAG" => protein_models::wag()?,
+            "BLOSUM" => protein_models::blosum()?,
+            "HIVB" => protein_models::hivb()?,
+            _ => bail!("Unknown protein model requested."),
+        };
+        Ok(ProteinSubstModel {
+            index: protein_models::aminoacid_index(),
+            q,
+            pi,
+        })
+    }
 }
 
 impl<const N: usize> SubstitutionModel<N>
