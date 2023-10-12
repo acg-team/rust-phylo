@@ -26,9 +26,11 @@ pub fn assert_float_relative_slice_eq(actual: &[f64], expected: &[f64], epsilon:
     );
     for (i, (&act, &exp)) in actual.iter().zip(expected.iter()).enumerate() {
         assert!(
-            relative_eq!(exp, act, epsilon = epsilon),
-            "Entries at position {} do not match",
+            relative_eq!(act, exp, epsilon = epsilon),
+            "Entries at position {} do not match, actual: {}, expected: {}",
             i,
+            act,
+            exp,
         );
     }
 }

@@ -27,6 +27,7 @@ impl DNASubstModel {
         match model_name.to_uppercase().as_str() {
             "JC69" => (q, pi) = dna_models::jc69(model_params)?,
             "K80" => (q, pi) = dna_models::k80(model_params)?,
+            "TN93" => (q, pi) = dna_models::tn93(model_params)?,
             "GTR" => (q, pi) = dna_models::gtr(model_params)?,
             _ => return Err(anyhow!("Unknown DNA model requested.")),
         }
@@ -35,7 +36,6 @@ impl DNASubstModel {
             q,
             pi,
         };
-        model.normalise();
         Ok(model)
     }
 }
