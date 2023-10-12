@@ -131,19 +131,19 @@ fn protein_model_correct() {
     assert_eq!(wag, wag2);
     wag.get_rate(b'A', b'L');
     wag.get_rate(b'H', b'K');
-    assert_relative_eq!(wag.pi.sum(), 1.0, epsilon = 0.0001);
+    assert_relative_eq!(wag.pi.sum(), 1.0, epsilon = 1e-4);
     let blos = ProteinSubstModel::new("Blosum").unwrap();
     let blos2 = ProteinSubstModel::new("bLoSuM").unwrap();
     assert_eq!(blos, blos2);
     blos.get_rate(b'R', b'N');
     blos.get_rate(b'M', b'K');
-    assert_relative_eq!(blos.pi.sum(), 1.0, epsilon = 0.001);
+    assert_relative_eq!(blos.pi.sum(), 1.0, epsilon = 1e-3);
     let hivb = ProteinSubstModel::new("hivB").unwrap();
     let hivb2 = ProteinSubstModel::new("HIVb").unwrap();
     assert_eq!(hivb, hivb2);
     hivb.get_rate(b'L', b'P');
     hivb.get_rate(b'C', b'Q');
-    assert_relative_eq!(hivb.pi.sum(), 1.0, epsilon = 0.0001);
+    assert_relative_eq!(hivb.pi.sum(), 1.0, epsilon = 1e-3);
 }
 
 #[test]
@@ -163,24 +163,25 @@ fn protein_model_incorrect() {
 #[rstest]
 #[case::wag("wag", 1e-3)]
 #[case::blosum("blosum", 1e-3)]
+#[case::hivb("hivb", 1e-3)]
 fn protein_p_matrix(#[case] input: &str, #[case] epsilon: f64) {
     let model = ProteinSubstModel::new(input).unwrap();
-    let p_inf = model.get_p(20000.0);
+    let p_inf = model.get_p(10000000.0);
     assert_eq!(p_inf.nrows(), 20);
     assert_eq!(p_inf.ncols(), 20);
     check_pi_convergence(p_inf, model.pi.as_slice(), epsilon);
 }
 
 #[rstest]
-#[case::wag("wag", 0.1)]
-#[case::blosum("blosum", 0.01)]
+#[case::wag("wag", 1e-10)]
+#[case::blosum("blosum", 1e-10)]
+#[case::hivb("hivb", 1e-10)]
 fn protein_normalisation(#[case] input: &str, #[case] epsilon: f64) {
-    // This uses a crazy epsilon, but the matrices are off by a bit, need fixing.
     let mut model = ProteinSubstModel::new(input).unwrap();
     model.normalise();
     assert_relative_eq!(
-        (model.q.sum() - model.q.diagonal().sum()) / 20.0,
-        1.0,
+        (model.q.diagonal().transpose().mul(model.pi))[(0, 0)],
+        -1.0,
         epsilon = epsilon
     );
 }
