@@ -92,7 +92,7 @@ impl Tree {
             postorder: Vec::new(),
             preorder: Vec::new(),
             leaves: (0..n)
-                .zip(sequences.iter().map(|seq| seq.id().to_string()).into_iter())
+                .zip(sequences.iter().map(|seq| seq.id().to_string()))
                 .map(|(idx, id)| Node::new_leaf(idx, None, 0.0, id))
                 .collect(),
             internals: Vec::with_capacity(n - 1),

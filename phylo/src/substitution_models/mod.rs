@@ -31,7 +31,7 @@ impl DNASubstModel {
             "GTR" => (q, pi) = dna_models::gtr(model_params)?,
             _ => return Err(anyhow!("Unknown DNA model requested.")),
         }
-        let mut model = DNASubstModel {
+        let model = DNASubstModel {
             index: dna_models::nucleotide_index(),
             q,
             pi,
