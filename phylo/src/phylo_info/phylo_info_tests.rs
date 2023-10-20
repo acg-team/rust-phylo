@@ -90,3 +90,19 @@ fn downcast_error<T: Display + Debug + Send + Sync + 'static>(
 ) -> &T {
     (result.as_ref().unwrap_err()).downcast_ref::<T>().unwrap()
 }
+
+#[test]
+fn info_check_sequence_order() {
+    let info = setup_phylogenetic_info(
+        PathBuf::from("./data/real_examples/HIV_subset.fas"),
+        PathBuf::from("./data/real_examples/HIV_subset.nwk"),
+    )
+    .unwrap();
+    for i in 0..info.sequences.len() {
+        assert_eq!(
+            info.sequences[i].id(),
+            info.tree.leaves[i].id,
+            "Sequences and tree leaves are not in the same order"
+        );
+    }
+}

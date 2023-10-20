@@ -4,7 +4,7 @@ use crate::Result;
 use anyhow::bail;
 use bio::io::fasta::Record;
 use log::{info, warn};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 #[derive(Debug)]
@@ -24,7 +24,7 @@ pub fn setup_phylogenetic_info(sequence_file: PathBuf, tree_file: PathBuf) -> Re
         "Reading unaligned sequences from file {}",
         sequence_file.display()
     );
-    let sequences = io::read_sequences_from_file(sequence_file)?;
+    let mut sequences = io::read_sequences_from_file(sequence_file)?;
     info!("{} sequence(s) read successfully", sequences.len());
     if sequences.is_empty() {
         bail!(DataError {
@@ -58,7 +58,18 @@ pub fn setup_phylogenetic_info(sequence_file: PathBuf, tree_file: PathBuf) -> Re
             message: format!("Mismatched IDs found: {:?}", discrepancy)
         });
     }
-
+    let id_index: HashMap<&str, usize> = tree
+        .leaves
+        .iter()
+        .enumerate()
+        .map(|(index, leaf)| (leaf.id.as_str(), index))
+        .collect();
+    sequences.sort_by_key(|record| {
+        id_index
+            .get(record.id())
+            .cloned()
+            .unwrap_or(std::usize::MAX)
+    });
     Ok(PhyloInfo { sequences, tree })
 }
 
