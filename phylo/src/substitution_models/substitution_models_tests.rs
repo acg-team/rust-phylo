@@ -567,7 +567,7 @@ fn matrix_entry_rounding() {
     }
     let model = ProteinSubstModel::new("HIVB", &[], false).unwrap();
     let (mat_round, avg_round) = model.get_scoring_matrix_corrected(0.1, true, &R::zero());
-    let (mat, avg) = model.get_scoring_matrix_corrected(0.1, true, &R::none());
+    let (mat, avg) = model.get_scoring_matrix_corrected(0.1, true, &R::zero());
     assert_ne!(avg_round, avg);
     assert_ne!(mat_round, mat);
     for &element in mat_round.as_slice() {
