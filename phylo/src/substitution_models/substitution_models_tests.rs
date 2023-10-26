@@ -1,5 +1,7 @@
 use crate::assert_float_relative_slice_eq;
-use crate::substitution_models::{DNASubstModel, ProteinSubstModel, SubstMatrix};
+use crate::substitution_models::{
+    dna_models::DNASubstModel, protein_models::ProteinSubstModel, SubstMatrix,
+};
 use approx::assert_relative_eq;
 use nalgebra::vector;
 use rstest::*;

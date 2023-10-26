@@ -1,11 +1,33 @@
+use super::SubstitutionModel;
 use crate::sequences::{charify, AMINOACIDS_STR};
 use crate::substitution_models::{FreqVector, SubstMatrix};
 use crate::Result;
+use anyhow::anyhow;
 
 type ProteinSubstArray = [[f64; 20]; 20];
 type ProteinSubstMatrix = SubstMatrix<20>;
 type ProteinFrequencyArray = [f64; 20];
 type ProteinFrequencyVector = FreqVector<20>;
+
+pub type ProteinSubstModel = SubstitutionModel<20>;
+
+impl ProteinSubstModel {
+    pub fn new(model_name: &str) -> Result<Self> {
+        let q: SubstMatrix<20>;
+        let pi: FreqVector<20>;
+        match model_name.to_uppercase().as_str() {
+            "WAG" => (q, pi) = wag()?,
+            "BLOSUM" => (q, pi) = blosum()?,
+            "HIVB" => (q, pi) = hivb()?,
+            _ => return Err(anyhow!("Unknown protein model requested.")),
+        }
+        Ok(ProteinSubstModel {
+            index: aminoacid_index(),
+            q,
+            pi,
+        })
+    }
+}
 
 pub fn aminoacid_index() -> [i32; 255] {
     let mut index = [-1_i32; 255];

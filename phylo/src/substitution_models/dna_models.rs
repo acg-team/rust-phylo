@@ -1,11 +1,36 @@
 use crate::sequences::{charify, NUCLEOTIDES_STR};
 use crate::substitution_models::{FreqVector, SubstMatrix};
 use crate::Result;
+use anyhow::anyhow;
 use anyhow::bail;
 use log::{info, warn};
 
+use super::SubstitutionModel;
+
 type DNASubstMatrix = SubstMatrix<4>;
 type DNAFreqVector = FreqVector<4>;
+
+pub type DNASubstModel = SubstitutionModel<4>;
+
+impl DNASubstModel {
+    pub fn new(model_name: &str, model_params: &[f64]) -> Result<Self> {
+        let q: SubstMatrix<4>;
+        let pi: FreqVector<4>;
+        match model_name.to_uppercase().as_str() {
+            "JC69" => (q, pi) = jc69(model_params)?,
+            "K80" => (q, pi) = k80(model_params)?,
+            "TN93" => (q, pi) = tn93(model_params)?,
+            "GTR" => (q, pi) = gtr(model_params)?,
+            _ => return Err(anyhow!("Unknown DNA model requested.")),
+        }
+        let model = DNASubstModel {
+            index: nucleotide_index(),
+            q,
+            pi,
+        };
+        Ok(model)
+    }
+}
 
 pub fn nucleotide_index() -> [i32; 255] {
     let mut index = [-1_i32; 255];
