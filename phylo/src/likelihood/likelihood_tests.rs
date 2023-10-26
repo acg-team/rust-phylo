@@ -1,4 +1,4 @@
-use crate::likelihood::setup_dna_likelihood;
+use crate::likelihood::{setup_dna_likelihood, LikelihoodCostFunction};
 use crate::phylo_info::PhyloInfo;
 use crate::tree::{NodeIdx::Leaf as L, Tree};
 use approx::assert_relative_eq;
