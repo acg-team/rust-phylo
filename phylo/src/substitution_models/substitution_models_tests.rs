@@ -3,13 +3,12 @@ use crate::substitution_models::{
     protein_models::{
         ProteinSubstArray, ProteinSubstModel, BLOSUM_PI_ARR, HIVB_PI_ARR, WAG_PI_ARR,
     },
-    EvolutionaryModel, SubstMatrix,
+    EvolutionaryModel, FreqVector, SubstMatrix,
 };
-use crate::{assert_float_relative_slice_eq, Rounding};
+use crate::{assert_float_relative_slice_eq, Rounding as R};
 use approx::assert_relative_eq;
-use nalgebra::vector;
+use nalgebra::dvector;
 use rstest::*;
-
 use std::collections::HashMap;
 use std::iter::repeat;
 use std::ops::Mul;
@@ -362,7 +361,7 @@ fn matrix_entry_rounding() {
     }
     let model = ProteinSubstModel::new("HIVB", &[]).unwrap();
     let (mat_round, avg_round) = model.get_scoring_matrix_corrected(0.1, true, &R::zero());
-    let (mat, avg) = model.get_scoring_matrix_corrected(0.1, true, false);
+    let (mat, avg) = model.get_scoring_matrix_corrected(0.1, true, &R::zero());
     assert_ne!(avg_round, avg);
     assert_ne!(mat_round, mat);
     for &element in mat_round.as_slice() {
@@ -372,9 +371,9 @@ fn matrix_entry_rounding() {
 
 #[test]
 fn matrix_zero_diagonals() {
-    let model = ProteinSubstModel::new("HIVB" & []).unwrap();
+    let model = ProteinSubstModel::new("HIVB", &[]).unwrap();
     let (mat_zeros, avg_zeros) = model.get_scoring_matrix_corrected(0.5, true, &R::zero());
-    let (mat, avg) = model.get_scoring_matrix_corrected(0.5, false, true);
+    let (mat, avg) = model.get_scoring_matrix_corrected(0.5, false, &R::zero());
     assert_ne!(avg_zeros, avg);
     assert!(avg_zeros < avg);
     assert_ne!(mat_zeros, mat);

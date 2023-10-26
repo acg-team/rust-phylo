@@ -1,7 +1,7 @@
 use super::{EvolutionaryModel, SubstitutionModel};
 use crate::sequences::{charify, AMINOACIDS_STR};
 use crate::substitution_models::{FreqVector, SubstMatrix};
-use crate::Result;
+use crate::{Result, Rounding};
 use anyhow::bail;
 use log::warn;
 use ordered_float::OrderedFloat;
