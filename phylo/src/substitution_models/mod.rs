@@ -1,9 +1,9 @@
-use std::collections::HashMap;
-use std::ops::Mul;
-
-use anyhow::bail;
+use crate::sequences::NUCLEOTIDES_STR;
+use crate::Rounding;
+use crate::{f64_h, Result};
+use anyhow::anyhow;
 use bio::io::fasta::Record;
-use nalgebra::{Const, DMatrix, DVector, DimMin};
+use nalgebra::{Const, DMatrix, DimMin, SMatrix, SVector};
 use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
