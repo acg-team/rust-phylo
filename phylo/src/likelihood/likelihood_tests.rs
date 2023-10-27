@@ -195,3 +195,91 @@ fn protein_example_likelihood() {
         epsilon = 1e-3
     );
 }
+
+#[cfg(test)]
+fn setup_simple_reversibility() -> Vec<PhyloInfo> {
+    use crate::tree::tree_parser;
+    let mut res = Vec::<PhyloInfo>::new();
+    let sequences = vec![
+        Record::with_attrs("A", None, b"CTATATATAC"),
+        Record::with_attrs("B", None, b"ATATATATAA"),
+        Record::with_attrs("C", None, b"TTATATATAT"),
+    ];
+    res.push(PhyloInfo {
+        tree: tree_parser::from_newick_string("((A:2.0,B:2.0):1.0,C:2.0):0.0;")
+            .unwrap()
+            .pop()
+            .unwrap(),
+        sequences: sequences.clone(),
+    });
+    res.push(PhyloInfo {
+        tree: tree_parser::from_newick_string("(A:1.0,(B:2.0,C:3.0):1.0):0.0;")
+            .unwrap()
+            .pop()
+            .unwrap(),
+        sequences: sequences.clone(),
+    });
+    res
+}
+
+#[test]
+fn simple_likelihood_reversibility() {
+    let info = setup_simple_reversibility();
+    let mut likelihood1 = setup_dna_likelihood(
+        &info[0],
+        "tn93".to_string(),
+        &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
+        false,
+    )
+    .unwrap();
+    let mut likelihood2 = setup_dna_likelihood(
+        &info[1],
+        "tn93".to_string(),
+        &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
+        false,
+    )
+    .unwrap();
+    assert_relative_eq!(
+        likelihood1.compute_log_likelihood(),
+        likelihood2.compute_log_likelihood()
+    );
+}
+
+#[test]
+fn huelsenbeck_example_reversibility_likelihood() {
+    // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
+    let info1 = setup_phylogenetic_info(
+        PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
+        PathBuf::from("./data/Huelsenbeck_example.newick"),
+    )
+    .unwrap();
+    let info2 = setup_phylogenetic_info(
+        PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
+        PathBuf::from("./data/Huelsenbeck_example_reroot.newick"),
+    )
+    .unwrap();
+    let mut gtr_likelihood1 = setup_dna_likelihood(
+        &info1,
+        "gtr".to_string(),
+        &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0],
+        true,
+    )
+    .unwrap();
+    let mut gtr_likelihood2 = setup_dna_likelihood(
+        &info2,
+        "gtr".to_string(),
+        &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0],
+        true,
+    )
+    .unwrap();
+    assert_relative_eq!(
+        gtr_likelihood1.compute_log_likelihood(),
+        gtr_likelihood2.compute_log_likelihood(),
+    );
+    let mut k80_likelihood1 = setup_dna_likelihood(&info1, "k80".to_string(), &[], true).unwrap();
+    let mut k80_likelihood2 = setup_dna_likelihood(&info2, "k80".to_string(), &[], true).unwrap();
+    assert_relative_eq!(
+        k80_likelihood1.compute_log_likelihood(),
+        k80_likelihood2.compute_log_likelihood(),
+    );
+}

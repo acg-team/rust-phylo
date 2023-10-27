@@ -33,11 +33,11 @@ fn setup_dna_likelihood<'a>(
     })
 }
 
-fn setup_protein_likelihood<'a>(
-    info: &'a PhyloInfo,
+fn setup_protein_likelihood(
+    info: &PhyloInfo,
     model_name: String,
     normalise: bool,
-) -> Result<SubstitutionLikelihoodCost<'a, 20>> {
+) -> Result<SubstitutionLikelihoodCost<20>> {
     let mut model = ProteinSubstModel::new(&model_name, &[])?;
     if normalise {
         model.normalise();
