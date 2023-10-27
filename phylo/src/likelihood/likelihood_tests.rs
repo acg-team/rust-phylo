@@ -1,4 +1,4 @@
-use crate::likelihood::{setup_dna_likelihood, LikelihoodCostFunction};
+use crate::likelihood::{setup_dna_likelihood, setup_protein_likelihood, LikelihoodCostFunction};
 use crate::phylo_info::{setup_phylogenetic_info, PhyloInfo};
 use crate::tree::{NodeIdx::Leaf as L, Tree};
 use approx::assert_relative_eq;
@@ -160,6 +160,38 @@ fn dna_huelsenbeck_example_likelihood() {
     assert_relative_eq!(
         likelihood.compute_log_likelihood(),
         -216.234734,
+        epsilon = 1e-3
+    );
+}
+
+#[test]
+fn protein_example_likelihood() {
+    let info = setup_phylogenetic_info(
+        PathBuf::from("./data/phyml_protein_nogap_example.fasta"),
+        PathBuf::from("./data/phyml_protein_nogap_example.newick"),
+    )
+    .unwrap();
+    // PhyML likelihood under WAG is -4505.73681
+    let mut wag_likelihood = setup_protein_likelihood(&info, "wag".to_string(), true).unwrap();
+    assert_relative_eq!(
+        wag_likelihood.compute_log_likelihood(),
+        -4511.886841309196,
+        epsilon = 1e-3
+    );
+
+    // PhyML likelihood under HIVB is -4407.98923
+    let mut hivb_likelihood = setup_protein_likelihood(&info, "hivb".to_string(), true).unwrap();
+    assert_relative_eq!(
+        hivb_likelihood.compute_log_likelihood(),
+        -4575.313436534962,
+        epsilon = 1e-3
+    );
+
+    // PhyML likelihood under BLOSUM62 is -4587.71053
+    let mut blos_likelihood = setup_protein_likelihood(&info, "blosum".to_string(), true).unwrap();
+    assert_relative_eq!(
+        blos_likelihood.compute_log_likelihood(),
+        -4591.890174578042,
         epsilon = 1e-3
     );
 }

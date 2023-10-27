@@ -1,8 +1,8 @@
 use crate::{
     phylo_info::PhyloInfo,
     substitution_models::{
-        dna_models::DNASubstModel, EvolutionaryModel, SubstitutionLikelihoodCost,
-        SubstitutionModelInfo,
+        dna_models::DNASubstModel, protein_models::ProteinSubstModel, EvolutionaryModel,
+        SubstitutionLikelihoodCost, SubstitutionModelInfo,
     },
     Result,
 };
@@ -26,6 +26,23 @@ fn setup_dna_likelihood<'a>(
         model.normalise();
     }
     let temp_values = SubstitutionModelInfo::<4>::new(info, &model);
+    Ok(SubstitutionLikelihoodCost {
+        info,
+        model,
+        temp_values,
+    })
+}
+
+fn setup_protein_likelihood<'a>(
+    info: &'a PhyloInfo,
+    model_name: String,
+    normalise: bool,
+) -> Result<SubstitutionLikelihoodCost<'a, 20>> {
+    let mut model = ProteinSubstModel::new(&model_name, &[])?;
+    if normalise {
+        model.normalise();
+    }
+    let temp_values = SubstitutionModelInfo::<20>::new(info, &model);
     Ok(SubstitutionLikelihoodCost {
         info,
         model,
