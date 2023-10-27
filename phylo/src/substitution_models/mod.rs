@@ -70,6 +70,14 @@ where
         &self.pi
     }
 
+<<<<<<< HEAD
+    fn get_stationary_distribution(&self) -> &FreqVector {
+=======
+    fn get_stationary_distribution(&self) -> &FreqVector<N> {
+>>>>>>> b6ff6c5 (EvolitionaryModel trait impl for DNA substitution)
+        &self.pi
+    }
+
     fn get_scoring_matrix_corrected(
         &self,
         time: f64,
@@ -235,29 +243,23 @@ pub(crate) struct SubstitutionModelInfo<const N: usize> {
     leaf_sequence_info: Vec<DMatrix<f64>>,
 }
 
-// TODO: Convert SubstitutionModel to a trait EvolutionaryModel, and implement it for DNASubstModel, ProteinSubstModel, and PIP
 // implies that the sequences are aligned
 impl<const N: usize> EvolutionaryModelInfo<N> for SubstitutionModelInfo<N> {
-    fn new(info: &PhyloInfo, model: &SubstitutionModel<N>) -> Self {
+    fn new(info: &PhyloInfo, model: &dyn EvolutionaryModel<N>) -> Self {
         let leaf_count = info.tree.leaves.len();
         let internal_count = info.tree.internals.len();
         let msa_length = info.sequences[0].seq().len();
-        // set up basic char probabilities for the leaves
         let leaf_sequence_info = info
             .sequences
             .iter()
             .map(|rec| {
-                // This is incorrect (ignoress ambig chars) and only works for DNA
-                DMatrix::from_fn(4, msa_length, |i, j| match rec.seq()[j] {
-                    b'-' => model.pi[i],
-                    _ => {
-                        if NUCLEOTIDES_STR.find(rec.seq()[j] as char).unwrap() == i {
-                            1.0
-                        } else {
-                            0.0
-                        }
-                    }
-                })
+                DMatrix::from_columns(
+                    rec.seq()
+                        .iter()
+                        .map(|&c| model.get_char_probability(c))
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                )
             })
             .collect::<Vec<_>>();
         SubstitutionModelInfo {
@@ -288,7 +290,7 @@ where
                 }
                 NodeIdx::Leaf(idx) => {
                     if !self.temp_values.leaf_info_valid[*idx] {
-                        self.set_child_values(idx);
+                        self.set_leaf_values(idx);
                     }
                 }
             };
@@ -298,9 +300,9 @@ where
             NodeIdx::Leaf(idx) => &self.temp_values.leaf_info[idx],
         };
         let likelihood = self.model.pi.transpose().mul(root_info);
-        assert_eq!(likelihood.ncols(), 1);
+        assert_eq!(likelihood.ncols(), self.info.sequences[0].seq().len());
         assert_eq!(likelihood.nrows(), 1);
-        likelihood[(0, 0)].ln()
+        likelihood.map(|x| x.ln()).sum()
     }
 }
 
@@ -323,7 +325,7 @@ where
         self.temp_values.internal_info_valid[*idx] = true;
     }
 
-    fn set_child_values(&mut self, idx: &usize) {
+    fn set_leaf_values(&mut self, idx: &usize) {
         if !self.temp_values.leaf_models_valid[*idx] {
             self.temp_values.leaf_models[*idx] = self.model.get_p(self.info.tree.leaves[*idx].blen);
             self.temp_values.leaf_models_valid[*idx] = true;
