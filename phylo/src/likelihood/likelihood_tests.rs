@@ -1,8 +1,9 @@
 use crate::likelihood::{setup_dna_likelihood, LikelihoodCostFunction};
-use crate::phylo_info::PhyloInfo;
+use crate::phylo_info::{setup_phylogenetic_info, PhyloInfo};
 use crate::tree::{NodeIdx::Leaf as L, Tree};
 use approx::assert_relative_eq;
 use bio::io::fasta::Record;
+use std::path::PathBuf;
 
 #[cfg(test)]
 fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
@@ -96,5 +97,69 @@ fn dna_mol_evo_example_likelihood() {
         likelihood.compute_log_likelihood(),
         -7.581408,
         epsilon = 1e-6
+    );
+}
+
+#[test]
+fn dna_ambig_example_likelihood() {
+    let info_w_x = setup_phylogenetic_info(
+        PathBuf::from("./data/ambiguous_example.fasta"),
+        PathBuf::from("./data/ambiguous_example.newick"),
+    )
+    .unwrap();
+    let mut likelihood_w_x = setup_dna_likelihood(
+        &info_w_x,
+        "tn93".to_string(),
+        &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
+        false,
+    )
+    .unwrap();
+    assert_relative_eq!(
+        likelihood_w_x.compute_log_likelihood(),
+        -90.1367231323,
+        epsilon = 1e-6
+    );
+    let info_w_n = setup_phylogenetic_info(
+        PathBuf::from("./data/ambiguous_example_N.fasta"),
+        PathBuf::from("./data/ambiguous_example.newick"),
+    )
+    .unwrap();
+    let mut likelihood_w_n = setup_dna_likelihood(
+        &info_w_n,
+        "tn93".to_string(),
+        &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
+        false,
+    )
+    .unwrap();
+    assert_relative_eq!(
+        likelihood_w_n.compute_log_likelihood(),
+        -90.1367231323,
+        epsilon = 1e-6
+    );
+    assert_relative_eq!(
+        likelihood_w_x.compute_log_likelihood(),
+        likelihood_w_n.compute_log_likelihood()
+    );
+}
+
+#[test]
+fn dna_huelsenbeck_example_likelihood() {
+    // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
+    let info = setup_phylogenetic_info(
+        PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
+        PathBuf::from("./data/Huelsenbeck_example.newick"),
+    )
+    .unwrap();
+    let mut likelihood = setup_dna_likelihood(
+        &info,
+        "gtr".to_string(),
+        &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0],
+        true,
+    )
+    .unwrap();
+    assert_relative_eq!(
+        likelihood.compute_log_likelihood(),
+        -216.234734,
+        epsilon = 1e-3
     );
 }
