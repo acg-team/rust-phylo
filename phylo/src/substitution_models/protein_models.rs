@@ -1,8 +1,12 @@
-use super::SubstitutionModel;
+use super::{EvolutionaryModel, SubstitutionModel};
 use crate::sequences::{charify, AMINOACIDS_STR};
 use crate::substitution_models::{FreqVector, SubstMatrix};
 use crate::Result;
-use anyhow::anyhow;
+use anyhow::bail;
+use log::warn;
+use nalgebra::DVector;
+use ordered_float::OrderedFloat;
+use std::collections::HashMap;
 
 type ProteinSubstArray = [[f64; 20]; 20];
 type ProteinSubstMatrix = SubstMatrix<20>;
@@ -11,21 +15,94 @@ type ProteinFrequencyVector = FreqVector<20>;
 
 pub type ProteinSubstModel = SubstitutionModel<20>;
 
-impl ProteinSubstModel {
-    pub fn new(model_name: &str) -> Result<Self> {
+impl EvolutionaryModel<20> for ProteinSubstModel {
+    fn new(model_name: &str, _: &[f64]) -> Result<Self>
+    where
+        Self: std::marker::Sized,
+    {
         let q: SubstMatrix<20>;
         let pi: FreqVector<20>;
         match model_name.to_uppercase().as_str() {
             "WAG" => (q, pi) = wag()?,
             "BLOSUM" => (q, pi) = blosum()?,
             "HIVB" => (q, pi) = hivb()?,
-            _ => return Err(anyhow!("Unknown protein model requested.")),
+            _ => bail!("Unknown protein model requested."),
         }
         Ok(ProteinSubstModel {
             index: aminoacid_index(),
             q,
             pi,
         })
+    }
+
+    fn get_p(&self, time: f64) -> SubstMatrix<20> {
+        self.get_p(time)
+    }
+
+    fn get_rate(&self, i: u8, j: u8) -> f64 {
+        self.get_rate(i, j)
+    }
+
+    fn generate_scorings(
+        &self,
+        times: &[f64],
+        zero_diag: bool,
+        rounded: bool,
+    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix<20>, f64)> {
+        self.generate_scorings(times, zero_diag, rounded)
+    }
+
+    fn normalise(&mut self) {
+        self.normalise()
+    }
+
+    fn get_scoring_matrix(&self, time: f64, rounded: bool) -> (SubstMatrix<20>, f64) {
+        self.get_scoring_matrix(time, rounded)
+    }
+
+    fn get_stationary_distribution(&self) -> &FreqVector<20> {
+        self.get_stationary_distribution()
+    }
+
+    fn get_char_probability(&self, char: u8) -> DVector<f64> {
+        let mut vec = DVector::<f64>::zeros(20);
+        if AMINOACIDS_STR.contains(char as char) {
+            vec[self.index[char as usize] as usize] = 1.0;
+        } else {
+            vec = DVector::from_column_slice(self.get_stationary_distribution().as_slice());
+            match char {
+                b'B' => {
+                    vec[self.index[b'D' as usize] as usize] = self
+                        .get_stationary_distribution()
+                        .as_slice()[self.index[b'D' as usize] as usize];
+                    vec[self.index[b'N' as usize] as usize] = self
+                        .get_stationary_distribution()
+                        .as_slice()[self.index[b'N' as usize] as usize];
+                }
+                b'Z' => {
+                    vec[self.index[b'E' as usize] as usize] = self
+                        .get_stationary_distribution()
+                        .as_slice()[self.index[b'E' as usize] as usize];
+                    vec[self.index[b'Q' as usize] as usize] = self
+                        .get_stationary_distribution()
+                        .as_slice()[self.index[b'Q' as usize] as usize];
+                }
+                b'J' => {
+                    vec[self.index[b'I' as usize] as usize] = self
+                        .get_stationary_distribution()
+                        .as_slice()[self.index[b'I' as usize] as usize];
+                    vec[self.index[b'L' as usize] as usize] = self
+                        .get_stationary_distribution()
+                        .as_slice()[self.index[b'L' as usize] as usize];
+                }
+                b'X' => {
+                    vec = DVector::from_column_slice(self.get_stationary_distribution().as_slice())
+                }
+                _ => warn!("Unknown character {} encountered.", char),
+            };
+        }
+        vec.scale_mut(1.0 / vec.sum());
+        vec
     }
 }
 
@@ -496,7 +573,7 @@ const WAG_ARR: ProteinSubstArray = [
     ],
 ];
 
-const WAG_PI_ARR: ProteinFrequencyArray = [
+pub(crate) const WAG_PI_ARR: ProteinFrequencyArray = [
     0.0866279, 0.0439720, 0.0390894, 0.0570451, 0.0193078, 0.0367281, 0.0580589, 0.0832518,
     0.0244313, 0.0484660, 0.0862090, 0.0620286, 0.0195027, 0.0384319, 0.0457631, 0.0695179,
     0.0610127, 0.0143859, 0.0352742, 0.0708956,
@@ -585,7 +662,7 @@ const BLOSUM_ARR: ProteinSubstArray = [
     ],
 ];
 
-const BLOSUM_PI_ARR: ProteinFrequencyArray = [
+pub(crate) const BLOSUM_PI_ARR: ProteinFrequencyArray = [
     0.0756, 0.0538, 0.0377, 0.0447, 0.0285, 0.0339, 0.0535, 0.078, 0.03, 0.0599, 0.0958, 0.052,
     0.0219, 0.045, 0.042, 0.0682, 0.0564, 0.0157, 0.036, 0.0715,
 ];
@@ -1033,7 +1110,7 @@ const HIVB_ARR: ProteinSubstArray = [
     ],
 ];
 
-const HIVB_PI_ARR: ProteinFrequencyArray = [
+pub(crate) const HIVB_PI_ARR: ProteinFrequencyArray = [
     0.060490222,
     0.020075899,
     0.042109048,

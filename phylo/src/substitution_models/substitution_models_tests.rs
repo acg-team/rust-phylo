@@ -1,6 +1,9 @@
 use crate::assert_float_relative_slice_eq;
 use crate::substitution_models::{
-    dna_models::DNASubstModel, protein_models::ProteinSubstModel, EvolutionaryModel, SubstMatrix,
+    dna_models::DNASubstModel,
+    protein_models::ProteinSubstModel,
+    protein_models::{BLOSUM_PI_ARR, HIVB_PI_ARR, WAG_PI_ARR},
+    EvolutionaryModel, SubstMatrix,
 };
 use approx::assert_relative_eq;
 use nalgebra::vector;
@@ -165,22 +168,62 @@ fn dna_char_probabilities() {
     }
 }
 
+#[rstest]
+#[case::wag("wag", &WAG_PI_ARR, 1e-8)]
+#[case::blosum("blosum", &BLOSUM_PI_ARR, 1e-5)]
+#[case::hivb("hivb", &HIVB_PI_ARR, 1e-8)]
+fn protein_char_probabilities(#[case] input: &str, #[case] pi_array: &[f64], #[case] epsilon: f64) {
+    let mut model = ProteinSubstModel::new(input, &[]).unwrap();
+    model.normalise();
+    let expected = HashMap::from([
+        (
+            b"A",
+            repeat(1.0)
+                .take(1)
+                .chain(repeat(0.0).take(19))
+                .collect::<Vec<f64>>(),
+        ),
+        (
+            b"R",
+            repeat(0.0)
+                .take(1)
+                .chain(repeat(1.0).take(1))
+                .chain(repeat(0.0).take(18))
+                .collect::<Vec<f64>>(),
+        ),
+        (
+            b"W",
+            repeat(0.0)
+                .take(17)
+                .chain(repeat(1.0).take(1))
+                .chain(repeat(0.0).take(2))
+                .collect::<Vec<f64>>(),
+        ),
+        (b"X", pi_array.to_vec()),
+    ]);
+    for (&&char, value) in expected.iter() {
+        let actual = model.get_char_probability(char[0]);
+        assert_relative_eq!(actual.sum(), 1.0, epsilon = epsilon);
+        assert_float_relative_slice_eq(actual.as_slice(), value, epsilon);
+    }
+}
+
 #[test]
 fn protein_model_correct() {
-    let wag = ProteinSubstModel::new("WAG").unwrap();
-    let wag2 = ProteinSubstModel::new("wag").unwrap();
+    let wag = ProteinSubstModel::new("WAG", &[]).unwrap();
+    let wag2 = ProteinSubstModel::new("wag", &[]).unwrap();
     assert_eq!(wag, wag2);
     wag.get_rate(b'A', b'L');
     wag.get_rate(b'H', b'K');
     assert_relative_eq!(wag.pi.sum(), 1.0, epsilon = 1e-4);
-    let blos = ProteinSubstModel::new("Blosum").unwrap();
-    let blos2 = ProteinSubstModel::new("bLoSuM").unwrap();
+    let blos = ProteinSubstModel::new("Blosum", &[]).unwrap();
+    let blos2 = ProteinSubstModel::new("bLoSuM", &[]).unwrap();
     assert_eq!(blos, blos2);
     blos.get_rate(b'R', b'N');
     blos.get_rate(b'M', b'K');
     assert_relative_eq!(blos.pi.sum(), 1.0, epsilon = 1e-3);
-    let hivb = ProteinSubstModel::new("hivB").unwrap();
-    let hivb2 = ProteinSubstModel::new("HIVb").unwrap();
+    let hivb = ProteinSubstModel::new("hivB", &[]).unwrap();
+    let hivb2 = ProteinSubstModel::new("HIVb", &[]).unwrap();
     assert_eq!(hivb, hivb2);
     hivb.get_rate(b'L', b'P');
     hivb.get_rate(b'C', b'Q');
@@ -190,15 +233,15 @@ fn protein_model_correct() {
 #[test]
 #[should_panic]
 fn protein_model_incorrect_access() {
-    let wag = ProteinSubstModel::new("WAG").unwrap();
+    let wag = ProteinSubstModel::new("WAG", &[]).unwrap();
     wag.get_rate(b'H', b'J');
 }
 
 #[test]
 fn protein_model_incorrect() {
-    assert!(ProteinSubstModel::new("jc69").is_err());
-    assert!(ProteinSubstModel::new("waq").is_err());
-    assert!(ProteinSubstModel::new("HIV").is_err());
+    assert!(ProteinSubstModel::new("jc69", &[]).is_err());
+    assert!(ProteinSubstModel::new("waq", &[]).is_err());
+    assert!(ProteinSubstModel::new("HIV", &[]).is_err());
 }
 
 #[rstest]
@@ -206,7 +249,7 @@ fn protein_model_incorrect() {
 #[case::blosum("blosum", 1e-3)]
 #[case::hivb("hivb", 1e-3)]
 fn protein_p_matrix(#[case] input: &str, #[case] epsilon: f64) {
-    let model = ProteinSubstModel::new(input).unwrap();
+    let model = ProteinSubstModel::new(input, &[]).unwrap();
     let p_inf = model.get_p(10000000.0);
     assert_eq!(p_inf.nrows(), 20);
     assert_eq!(p_inf.ncols(), 20);
@@ -218,7 +261,7 @@ fn protein_p_matrix(#[case] input: &str, #[case] epsilon: f64) {
 #[case::blosum("blosum", 1e-10)]
 #[case::hivb("hivb", 1e-10)]
 fn protein_normalisation(#[case] input: &str, #[case] epsilon: f64) {
-    let mut model = ProteinSubstModel::new(input).unwrap();
+    let mut model = ProteinSubstModel::new(input, &[]).unwrap();
     model.normalise();
     assert_relative_eq!(
         (model.q.diagonal().transpose().mul(model.pi))[(0, 0)],
@@ -312,7 +355,7 @@ const TRUE_MATRIX: [[f64; 20]; 20] = [
 
 #[test]
 fn protein_scoring_matrices() {
-    let mut model = ProteinSubstModel::new("wag").unwrap();
+    let mut model = ProteinSubstModel::new("wag", &[]).unwrap();
     model.normalise();
     let true_matrix_01 = SubstMatrix::from(TRUE_MATRIX);
     let (mat, avg) = model.get_scoring_matrix(0.1, true);
@@ -328,7 +371,7 @@ fn protein_scoring_matrices() {
 
 #[test]
 fn generate_protein_scorings() {
-    let mut model = ProteinSubstModel::new("wag").unwrap();
+    let mut model = ProteinSubstModel::new("wag", &[]).unwrap();
     model.normalise();
     let scorings = model.generate_scorings(&[0.1, 0.3, 0.5, 0.7], false, true);
     let (mat_01, avg_01) = scorings.get(&ordered_float::OrderedFloat(0.1)).unwrap();
@@ -356,7 +399,7 @@ fn matrix_entry_rounding() {
     for &element in mat_round.as_slice() {
         assert_eq!(element.round(), element);
     }
-    let model = ProteinSubstModel::new("HIVB").unwrap();
+    let model = ProteinSubstModel::new("HIVB", &[]).unwrap();
     let (mat_round, avg_round) = model.get_scoring_matrix_corrected(0.1, true, true);
     let (mat, avg) = model.get_scoring_matrix_corrected(0.1, true, false);
     assert_ne!(avg_round, avg);
@@ -368,7 +411,7 @@ fn matrix_entry_rounding() {
 
 #[test]
 fn matrix_zero_diagonals() {
-    let model = ProteinSubstModel::new("HIVB").unwrap();
+    let model = ProteinSubstModel::new("HIVB", &[]).unwrap();
     let (mat_zeros, avg_zeros) = model.get_scoring_matrix_corrected(0.5, true, true);
     let (mat, avg) = model.get_scoring_matrix_corrected(0.5, false, true);
     assert_ne!(avg_zeros, avg);
