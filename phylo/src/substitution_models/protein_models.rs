@@ -109,6 +109,76 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
         vec.scale_mut(1.0 / vec.sum());
         vec
     }
+
+    fn get_p(&self, time: f64) -> SubstMatrix<20> {
+        self.get_p(time)
+    }
+
+    fn get_rate(&self, i: u8, j: u8) -> f64 {
+        self.get_rate(i, j)
+    }
+
+    fn generate_scorings(
+        &self,
+        times: &[f64],
+        zero_diag: bool,
+        rounded: bool,
+    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix<20>, f64)> {
+        self.generate_scorings(times, zero_diag, rounded)
+    }
+
+    fn normalise(&mut self) {
+        self.normalise()
+    }
+
+    fn get_scoring_matrix(&self, time: f64, rounded: bool) -> (SubstMatrix<20>, f64) {
+        self.get_scoring_matrix(time, rounded)
+    }
+
+    fn get_stationary_distribution(&self) -> &FreqVector<20> {
+        self.get_stationary_distribution()
+    }
+
+    fn get_char_probability(&self, char: u8) -> DVector<f64> {
+        let mut vec = DVector::<f64>::zeros(20);
+        if AMINOACIDS_STR.contains(char as char) {
+            vec[self.index[char as usize] as usize] = 1.0;
+        } else {
+            vec = DVector::from_column_slice(self.get_stationary_distribution().as_slice());
+            match char {
+                b'B' => {
+                    vec[self.index[b'D' as usize] as usize] = self
+                        .get_stationary_distribution()
+                        .as_slice()[self.index[b'D' as usize] as usize];
+                    vec[self.index[b'N' as usize] as usize] = self
+                        .get_stationary_distribution()
+                        .as_slice()[self.index[b'N' as usize] as usize];
+                }
+                b'Z' => {
+                    vec[self.index[b'E' as usize] as usize] = self
+                        .get_stationary_distribution()
+                        .as_slice()[self.index[b'E' as usize] as usize];
+                    vec[self.index[b'Q' as usize] as usize] = self
+                        .get_stationary_distribution()
+                        .as_slice()[self.index[b'Q' as usize] as usize];
+                }
+                b'J' => {
+                    vec[self.index[b'I' as usize] as usize] = self
+                        .get_stationary_distribution()
+                        .as_slice()[self.index[b'I' as usize] as usize];
+                    vec[self.index[b'L' as usize] as usize] = self
+                        .get_stationary_distribution()
+                        .as_slice()[self.index[b'L' as usize] as usize];
+                }
+                b'X' => {
+                    vec = DVector::from_column_slice(self.get_stationary_distribution().as_slice())
+                }
+                _ => warn!("Unknown character {} encountered.", char),
+            };
+        }
+        vec.scale_mut(1.0 / vec.sum());
+        vec
+    }
 }
 
 pub fn aminoacid_index() -> [i32; 255] {
