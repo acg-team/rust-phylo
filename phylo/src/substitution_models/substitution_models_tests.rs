@@ -224,6 +224,46 @@ fn protein_char_probabilities(#[case] input: &str, #[case] pi_array: &[f64], #[c
     }
 }
 
+#[rstest]
+#[case::wag("wag", &WAG_PI_ARR, 1e-8)]
+#[case::blosum("blosum", &BLOSUM_PI_ARR, 1e-5)]
+#[case::hivb("hivb", &HIVB_PI_ARR, 1e-8)]
+fn protein_char_probabilities(#[case] input: &str, #[case] pi_array: &[f64], #[case] epsilon: f64) {
+    let mut model = ProteinSubstModel::new(input, &[]).unwrap();
+    model.normalise();
+    let expected = HashMap::from([
+        (
+            b"A",
+            repeat(1.0)
+                .take(1)
+                .chain(repeat(0.0).take(19))
+                .collect::<Vec<f64>>(),
+        ),
+        (
+            b"R",
+            repeat(0.0)
+                .take(1)
+                .chain(repeat(1.0).take(1))
+                .chain(repeat(0.0).take(18))
+                .collect::<Vec<f64>>(),
+        ),
+        (
+            b"W",
+            repeat(0.0)
+                .take(17)
+                .chain(repeat(1.0).take(1))
+                .chain(repeat(0.0).take(2))
+                .collect::<Vec<f64>>(),
+        ),
+        (b"X", pi_array.to_vec()),
+    ]);
+    for (&&char, value) in expected.iter() {
+        let actual = model.get_char_probability(char[0]);
+        assert_relative_eq!(actual.sum(), 1.0, epsilon = epsilon);
+        assert_float_relative_slice_eq(actual.as_slice(), value, epsilon);
+    }
+}
+
 #[test]
 fn protein_model_correct() {
     let wag = ProteinSubstModel::new("WAG", &[]).unwrap();
