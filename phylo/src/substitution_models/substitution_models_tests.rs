@@ -1,10 +1,11 @@
 use crate::assert_float_relative_slice_eq;
 use crate::substitution_models::{
-    dna_models::DNASubstModel, protein_models::ProteinSubstModel, SubstMatrix,
+    dna_models::DNASubstModel, protein_models::ProteinSubstModel, EvolutionaryModel, SubstMatrix,
 };
 use approx::assert_relative_eq;
 use nalgebra::vector;
 use rstest::*;
+use std::collections::HashMap;
 use std::iter::repeat;
 use std::ops::Mul;
 
@@ -124,6 +125,44 @@ fn dna_normalisation() {
     .unwrap();
     tn93.normalise();
     assert_relative_eq!((tn93.q.diagonal().transpose().mul(tn93.pi))[(0, 0)], -1.0);
+}
+
+#[test]
+fn dna_char_probabilities() {
+    let mut gtr = DNASubstModel::new(
+        "gtr",
+        &[0.21, 0.30, 0.34, 0.15]
+            .into_iter()
+            .chain(repeat(0.7).take(6))
+            .collect::<Vec<f64>>(),
+    )
+    .unwrap();
+    gtr.normalise();
+    let expected = HashMap::from([
+        (b"T", [1.0, 0.0, 0.0, 0.0]),
+        (b"C", [0.0, 1.0, 0.0, 0.0]),
+        (b"A", [0.0, 0.0, 1.0, 0.0]),
+        (b"G", [0.0, 0.0, 0.0, 1.0]),
+        (b"X", [0.21, 0.30, 0.34, 0.15]),
+        (b"N", [0.21, 0.30, 0.34, 0.15]),
+        (b"Z", [0.21, 0.30, 0.34, 0.15]),
+        (b"P", [0.21, 0.30, 0.34, 0.15]),
+        (b"V", [0.0, 0.37974684, 0.43037975, 0.18987342]),
+        (b"D", [0.3, 0.0, 0.48571429, 0.21428571]),
+        (b"B", [0.31818182, 0.45454545, 0.0, 0.22727273]),
+        (b"H", [0.24705882, 0.35294118, 0.4, 0.0]),
+        (b"M", [0.0, 0.46875, 0.53125, 0.0]),
+        (b"R", [0.0, 0.0, 0.69387755, 0.30612245]),
+        (b"W", [0.38181818, 0.0, 0.61818182, 0.0]),
+        (b"S", [0.0, 0.66666667, 0.0, 0.33333333]),
+        (b"Y", [0.41176471, 0.58823529, 0.0, 0.0]),
+        (b"K", [0.58333333, 0.0, 0.0, 0.41666667]),
+    ]);
+    for (&&char, value) in expected.iter() {
+        let actual = gtr.get_char_probability(char[0]);
+        assert_relative_eq!(actual.sum(), 1.0);
+        assert_float_relative_slice_eq(actual.as_slice(), value, 1e-4);
+    }
 }
 
 #[test]
