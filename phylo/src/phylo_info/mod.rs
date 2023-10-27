@@ -13,12 +13,6 @@ pub struct PhyloInfo {
     pub tree: Tree,
 }
 
-impl PhyloInfo {
-    pub fn new(tree: Tree, sequences: Vec<Record>) -> Self {
-        PhyloInfo { sequences, tree }
-    }
-}
-
 pub fn setup_phylogenetic_info(sequence_file: PathBuf, tree_file: PathBuf) -> Result<PhyloInfo> {
     info!(
         "Reading unaligned sequences from file {}",
