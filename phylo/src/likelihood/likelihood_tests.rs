@@ -21,14 +21,14 @@ fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
 #[test]
 fn dna_simple_likelihood() {
     let info = setup_simple_phylo_info(1.0, 1.0);
-    let mut likelihood = setup_dna_likelihood(&info, "JC69".to_string(), vec![], false).unwrap();
+    let mut likelihood = setup_dna_likelihood(&info, "JC69".to_string(), &[], false).unwrap();
     assert_relative_eq!(
         likelihood.compute_log_likelihood(),
         -2.5832498829317445,
         epsilon = 1e-6
     );
     let info = setup_simple_phylo_info(1.0, 2.0);
-    let mut likelihood = setup_dna_likelihood(&info, "JC69".to_string(), vec![], false).unwrap();
+    let mut likelihood = setup_dna_likelihood(&info, "JC69".to_string(), &[], false).unwrap();
     assert_relative_eq!(
         likelihood.compute_log_likelihood(),
         -2.719098272533848,
@@ -59,7 +59,7 @@ fn dna_cb_example_likelihood() {
     let mut likelihood = setup_dna_likelihood(
         &info,
         "tn93".to_string(),
-        vec![0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
+        &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
         false,
     )
     .unwrap();
@@ -91,7 +91,7 @@ fn setup_mol_evo_example_phylo_info() -> PhyloInfo {
 #[test]
 fn dna_mol_evo_example_likelihood() {
     let info = setup_mol_evo_example_phylo_info();
-    let mut likelihood = setup_dna_likelihood(&info, "k80".to_string(), vec![], true).unwrap();
+    let mut likelihood = setup_dna_likelihood(&info, "k80".to_string(), &[], true).unwrap();
     assert_relative_eq!(
         likelihood.compute_log_likelihood(),
         -7.581408,
