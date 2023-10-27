@@ -1,7 +1,7 @@
 use crate::{
     phylo_info::PhyloInfo,
     substitution_models::{
-        dna_models::DNASubstModel, SubstitutionLikelihoodCost, SubstitutionModel,
+        dna_models::DNASubstModel, EvolutionaryModel, SubstitutionLikelihoodCost,
         SubstitutionModelInfo,
     },
     Result,
@@ -12,16 +12,16 @@ pub trait LikelihoodCostFunction<const N: usize> {
 }
 
 pub trait EvolutionaryModelInfo<const N: usize> {
-    fn new(info: &PhyloInfo, model: &SubstitutionModel<N>) -> Self;
+    fn new(info: &PhyloInfo, model: &dyn EvolutionaryModel<N>) -> Self;
 }
 
-fn setup_dna_likelihood(
-    info: &PhyloInfo,
+fn setup_dna_likelihood<'a>(
+    info: &'a PhyloInfo,
     model_name: String,
-    model_params: Vec<f64>,
+    model_params: &[f64],
     normalise: bool,
-) -> Result<SubstitutionLikelihoodCost<4>> {
-    let mut model = DNASubstModel::new(&model_name, &model_params)?;
+) -> Result<SubstitutionLikelihoodCost<'a, 4>> {
+    let mut model = DNASubstModel::new(&model_name, model_params)?;
     if normalise {
         model.normalise();
     }

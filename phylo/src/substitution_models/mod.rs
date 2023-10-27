@@ -2,10 +2,10 @@ use crate::{
     f64_h,
     likelihood::{EvolutionaryModelInfo, LikelihoodCostFunction},
     phylo_info::PhyloInfo,
-    sequences::NUCLEOTIDES_STR,
     tree::NodeIdx,
+    Result,
 };
-use nalgebra::{Const, DMatrix, DimMin, SMatrix, SVector};
+use nalgebra::{Const, DMatrix, DVector, DimMin, SMatrix, SVector};
 use ordered_float::OrderedFloat;
 use std::collections::HashMap;
 use std::ops::Mul;
@@ -23,15 +23,33 @@ pub struct SubstitutionModel<const N: usize> {
     pub pi: FreqVector<N>,
 }
 
+pub trait EvolutionaryModel<const N: usize> {
+    fn new(model_name: &str, model_params: &[f64]) -> Result<Self>
+    where
+        Self: std::marker::Sized;
+    fn get_p(&self, time: f64) -> SubstMatrix<N>;
+    fn get_rate(&self, i: u8, j: u8) -> f64;
+    fn generate_scorings(
+        &self,
+        times: &[f64],
+        zero_diag: bool,
+        rounded: bool,
+    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix<N>, f64)>;
+    fn normalise(&mut self);
+    fn get_scoring_matrix(&self, time: f64, rounded: bool) -> (SubstMatrix<N>, f64);
+    fn get_stationary_distribution(&self) -> &FreqVector<N>;
+    fn get_char_probability(&self, char: u8) -> DVector<f64>;
+}
+
 impl<const N: usize> SubstitutionModel<N>
 where
     Const<N>: DimMin<Const<N>, Output = Const<N>>,
 {
-    pub fn get_p(&self, time: f64) -> SubstMatrix<N> {
+    fn get_p(&self, time: f64) -> SubstMatrix<N> {
         (self.q * time).exp()
     }
 
-    pub fn get_rate(&self, i: u8, j: u8) -> f64 {
+    fn get_rate(&self, i: u8, j: u8) -> f64 {
         assert!(
             self.index[i as usize] >= 0 && self.index[j as usize] >= 0,
             "Invalid rate requested."
@@ -42,7 +60,7 @@ where
         )]
     }
 
-    pub fn generate_scorings(
+    fn generate_scorings(
         &self,
         times: &[f64],
         zero_diag: bool,
@@ -56,13 +74,17 @@ where
         }))
     }
 
-    pub fn normalise(&mut self) {
+    fn normalise(&mut self) {
         let factor = -(self.pi.transpose() * self.q.diagonal())[(0, 0)];
         self.q /= factor;
     }
 
-    pub fn get_scoring_matrix(&self, time: f64, rounded: bool) -> (SubstMatrix<N>, f64) {
+    fn get_scoring_matrix(&self, time: f64, rounded: bool) -> (SubstMatrix<N>, f64) {
         self.get_scoring_matrix_corrected(time, false, rounded)
+    }
+
+    fn get_stationary_distribution(&self) -> &FreqVector<N> {
+        &self.pi
     }
 
     fn get_scoring_matrix_corrected(
@@ -103,29 +125,23 @@ pub(crate) struct SubstitutionModelInfo<const N: usize> {
     leaf_sequence_info: Vec<DMatrix<f64>>,
 }
 
-// TODO: Convert SubstitutionModel to a trait EvolutionaryModel, and implement it for DNASubstModel, ProteinSubstModel, and PIP
 // implies that the sequences are aligned
 impl<const N: usize> EvolutionaryModelInfo<N> for SubstitutionModelInfo<N> {
-    fn new(info: &PhyloInfo, model: &SubstitutionModel<N>) -> Self {
+    fn new(info: &PhyloInfo, model: &dyn EvolutionaryModel<N>) -> Self {
         let leaf_count = info.tree.leaves.len();
         let internal_count = info.tree.internals.len();
         let msa_length = info.sequences[0].seq().len();
-        // set up basic char probabilities for the leaves
         let leaf_sequence_info = info
             .sequences
             .iter()
             .map(|rec| {
-                // This is incorrect (ignoress ambig chars) and only works for DNA
-                DMatrix::from_fn(4, msa_length, |i, j| match rec.seq()[j] {
-                    b'-' => model.pi[i],
-                    _ => {
-                        if NUCLEOTIDES_STR.find(rec.seq()[j] as char).unwrap() == i {
-                            1.0
-                        } else {
-                            0.0
-                        }
-                    }
-                })
+                DMatrix::from_columns(
+                    rec.seq()
+                        .iter()
+                        .map(|&c| model.get_char_probability(c))
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                )
             })
             .collect::<Vec<_>>();
         SubstitutionModelInfo {
@@ -156,7 +172,7 @@ where
                 }
                 NodeIdx::Leaf(idx) => {
                     if !self.temp_values.leaf_info_valid[*idx] {
-                        self.set_child_values(idx);
+                        self.set_leaf_values(idx);
                     }
                 }
             };
@@ -166,9 +182,9 @@ where
             NodeIdx::Leaf(idx) => &self.temp_values.leaf_info[idx],
         };
         let likelihood = self.model.pi.transpose().mul(root_info);
-        assert_eq!(likelihood.ncols(), 1);
+        assert_eq!(likelihood.ncols(), self.info.sequences[0].seq().len());
         assert_eq!(likelihood.nrows(), 1);
-        likelihood[(0, 0)].ln()
+        likelihood.map(|x| x.ln()).sum()
     }
 }
 
@@ -191,7 +207,7 @@ where
         self.temp_values.internal_info_valid[*idx] = true;
     }
 
-    fn set_child_values(&mut self, idx: &usize) {
+    fn set_leaf_values(&mut self, idx: &usize) {
         if !self.temp_values.leaf_models_valid[*idx] {
             self.temp_values.leaf_models[*idx] = self.model.get_p(self.info.tree.leaves[*idx].blen);
             self.temp_values.leaf_models_valid[*idx] = true;

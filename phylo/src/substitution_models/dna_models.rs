@@ -1,19 +1,23 @@
+use super::{EvolutionaryModel, SubstitutionModel};
 use crate::sequences::{charify, NUCLEOTIDES_STR};
 use crate::substitution_models::{FreqVector, SubstMatrix};
 use crate::Result;
-use anyhow::anyhow;
 use anyhow::bail;
 use log::{info, warn};
-
-use super::SubstitutionModel;
+use nalgebra::DVector;
+use ordered_float::OrderedFloat;
+use std::collections::HashMap;
 
 type DNASubstMatrix = SubstMatrix<4>;
 type DNAFreqVector = FreqVector<4>;
 
 pub type DNASubstModel = SubstitutionModel<4>;
 
-impl DNASubstModel {
-    pub fn new(model_name: &str, model_params: &[f64]) -> Result<Self> {
+impl EvolutionaryModel<4> for DNASubstModel {
+    fn new(model_name: &str, model_params: &[f64]) -> Result<Self>
+    where
+        Self: std::marker::Sized,
+    {
         let q: SubstMatrix<4>;
         let pi: FreqVector<4>;
         match model_name.to_uppercase().as_str() {
@@ -21,7 +25,7 @@ impl DNASubstModel {
             "K80" => (q, pi) = k80(model_params)?,
             "TN93" => (q, pi) = tn93(model_params)?,
             "GTR" => (q, pi) = gtr(model_params)?,
-            _ => return Err(anyhow!("Unknown DNA model requested.")),
+            _ => bail!("Unknown DNA model requested."),
         }
         let model = DNASubstModel {
             index: nucleotide_index(),
@@ -29,6 +33,78 @@ impl DNASubstModel {
             pi,
         };
         Ok(model)
+    }
+
+    fn get_p(&self, time: f64) -> SubstMatrix<4> {
+        self.get_p(time)
+    }
+
+    fn get_rate(&self, i: u8, j: u8) -> f64 {
+        self.get_rate(i, j)
+    }
+
+    fn generate_scorings(
+        &self,
+        times: &[f64],
+        zero_diag: bool,
+        rounded: bool,
+    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix<4>, f64)> {
+        self.generate_scorings(times, zero_diag, rounded)
+    }
+
+    fn normalise(&mut self) {
+        self.normalise()
+    }
+
+    fn get_scoring_matrix(&self, time: f64, rounded: bool) -> (SubstMatrix<4>, f64) {
+        self.get_scoring_matrix(time, rounded)
+    }
+
+    fn get_stationary_distribution(&self) -> &FreqVector<4> {
+        self.get_stationary_distribution()
+    }
+
+    fn get_char_probability(&self, char: u8) -> DVector<f64> {
+        let mut vec = DVector::<f64>::zeros(4);
+        if NUCLEOTIDES_STR.contains(char as char) {
+            vec[self.index[char as usize] as usize] = 1.0;
+        } else {
+            vec = DVector::from_column_slice(self.get_stationary_distribution().as_slice());
+            match char {
+                b'-' => {}
+                b'V' => vec[self.index[b'T' as usize] as usize] = 0.0,
+                b'D' => vec[self.index[b'C' as usize] as usize] = 0.0,
+                b'B' => vec[self.index[b'A' as usize] as usize] = 0.0,
+                b'H' => vec[self.index[b'G' as usize] as usize] = 0.0,
+                b'M' => {
+                    vec[self.index[b'T' as usize] as usize] = 0.0;
+                    vec[self.index[b'G' as usize] as usize] = 0.0
+                }
+                b'R' => {
+                    vec[self.index[b'T' as usize] as usize] = 0.0;
+                    vec[self.index[b'C' as usize] as usize] = 0.0
+                }
+                b'W' => {
+                    vec[self.index[b'G' as usize] as usize] = 0.0;
+                    vec[self.index[b'C' as usize] as usize] = 0.0
+                }
+                b'S' => {
+                    vec[self.index[b'T' as usize] as usize] = 0.0;
+                    vec[self.index[b'A' as usize] as usize] = 0.0
+                }
+                b'Y' => {
+                    vec[self.index[b'A' as usize] as usize] = 0.0;
+                    vec[self.index[b'G' as usize] as usize] = 0.0
+                }
+                b'K' => {
+                    vec[self.index[b'C' as usize] as usize] = 0.0;
+                    vec[self.index[b'A' as usize] as usize] = 0.0
+                }
+                _ => warn!("Unknown character {} encountered.", char),
+            };
+        }
+        vec.scale_mut(1.0 / vec.sum());
+        vec
     }
 }
 
