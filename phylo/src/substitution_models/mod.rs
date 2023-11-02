@@ -1,3 +1,4 @@
+use crate::Rounding;
 use crate::{f64_h, Result};
 use anyhow::anyhow;
 use nalgebra::{Const, DimMin, SMatrix, SVector};
@@ -81,12 +82,12 @@ where
         &self,
         times: &[f64],
         zero_diag: bool,
-        rounded: bool,
+        rounding: &Rounding,
     ) -> HashMap<OrderedFloat<f64>, (SubstMatrix<N>, f64)> {
         HashMap::<f64_h, (SubstMatrix<N>, f64)>::from_iter(times.iter().map(|&time| {
             (
                 f64_h::from(time),
-                self.get_scoring_matrix_corrected(time, zero_diag, rounded),
+                self.get_scoring_matrix_corrected(time, zero_diag, rounding),
             )
         }))
     }
@@ -96,26 +97,28 @@ where
         self.q /= factor;
     }
 
-    pub fn get_scoring_matrix(&self, time: f64, rounded: bool) -> (SubstMatrix<N>, f64) {
-        self.get_scoring_matrix_corrected(time, false, rounded)
+    pub fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix<N>, f64) {
+        self.get_scoring_matrix_corrected(time, false, rounding)
     }
 
     fn get_scoring_matrix_corrected(
         &self,
         time: f64,
         zero_diag: bool,
-        rounded: bool,
+        rounding: &Rounding,
     ) -> (SubstMatrix<N>, f64) {
         let p = self.get_p(time);
-        let mapping = if rounded {
-            |x: f64| (-x.ln().round())
-        } else {
-            |x: f64| -x.ln()
-        };
-        let mut scores = p.map(mapping);
+        let mut scores = p.map(|x| -x.ln());
+        if rounding.round {
+            scores = scores.map(|x| {
+                (x * 10.0_f64.powf(rounding.digits as f64)).round()
+                    / 10.0_f64.powf(rounding.digits as f64)
+            });
+        }
         if zero_diag {
             scores.fill_diagonal(0.0);
         }
+
         (scores, scores.mean())
     }
 }

@@ -1,5 +1,6 @@
 use crate::tree::nj_matrices::{Mat, NJMat};
 use crate::Result;
+use crate::Rounding;
 use bio::alignment::distance::levenshtein;
 use bio::io::fasta::Record;
 use inc_stats::Percentiles;
@@ -190,17 +191,32 @@ impl Tree {
 }
 
 pub fn get_percentiles(lengths: &[f64], categories: u32) -> Vec<f64> {
+    get_percentiles_rounded(lengths, categories, &Rounding::none())
+}
+
+pub fn get_percentiles_rounded(lengths: &[f64], categories: u32, rounding: &Rounding) -> Vec<f64> {
     let lengths: Percentiles<f64> = lengths.iter().collect();
     let percentiles: Vec<f64> = (1..(categories + 1))
         .map(|cat| 1.0 / ((categories + 1) as f64) * (cat as f64))
         .collect();
-    lengths.percentiles(percentiles).unwrap().unwrap()
+    let values = lengths.percentiles(percentiles).unwrap().unwrap();
+    if rounding.round {
+        values
+            .iter()
+            .map(|len| {
+                (len * (10.0_f64.powf(rounding.digits as f64))).round()
+                    / (10.0_f64.powf(rounding.digits as f64))
+            })
+            .collect()
+    } else {
+        values
+    }
 }
 
 #[allow(dead_code)]
 fn argmin_wo_diagonal(q: Mat, rng: fn(usize) -> usize) -> (usize, usize) {
-    assert!(!q.is_empty(), "The input matrix must not be empty.");
-    assert!(
+    debug_assert!(!q.is_empty(), "The input matrix must not be empty.");
+    debug_assert!(
         q.ncols() > 1 && q.nrows() > 1,
         "The input matrix should have more than 1 element."
     );

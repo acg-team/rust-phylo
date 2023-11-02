@@ -5,7 +5,8 @@ use super::{
     build_nj_tree_from_matrix, build_nj_tree_w_rng_from_matrix, get_percentiles, Node, NodeIdx,
     NodeIdx::Internal as I, NodeIdx::Leaf as L, Tree,
 };
-use crate::cmp_f64;
+use crate::tree::get_percentiles_rounded;
+use crate::{cmp_f64, Rounding};
 use approx::relative_eq;
 use bio::io::fasta::Record;
 use nalgebra::dmatrix;
@@ -378,14 +379,11 @@ fn check_getting_branch_lengths() {
 
 #[test]
 fn check_getting_branch_length_percentiles() {
-    let perc_lengths = get_percentiles(&[3.5, 1.2, 3.7, 3.6, 1.1, 2.5, 2.4], 4);
-    assert_eq!(
-        perc_lengths,
-        vec![1.4400000000000002, 2.44, 3.1000000000000005, 3.58]
-    );
+    let perc_lengths =
+        get_percentiles_rounded(&[3.5, 1.2, 3.7, 3.6, 1.1, 2.5, 2.4], 4, &Rounding::four());
+    assert_eq!(perc_lengths, vec![1.44, 2.44, 3.1, 3.58]);
     let perc_lengths = get_percentiles(&repeat(1.0).take(7).collect::<Vec<f64>>(), 2);
     assert_eq!(perc_lengths, vec![1.0, 1.0]);
-
     let perc_lengths = get_percentiles(&[1.0, 3.0, 3.0, 4.0, 5.0, 6.0, 6.0, 7.0, 8.0, 8.0], 3);
     assert_eq!(perc_lengths, vec![3.25, 5.5, 6.75]);
 }
