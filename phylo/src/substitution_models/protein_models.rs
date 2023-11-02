@@ -17,18 +17,24 @@ pub fn aminoacid_index() -> [i32; 255] {
 }
 
 pub fn wag() -> Result<(ProteinSubstMatrix, ProteinFrequencyVector)> {
-    Ok((SubstMatrix::from(WAG_ARR), FreqVector::from(WAG_PI_ARR)))
+    Ok((
+        SubstMatrix::from(WAG_ARR).transpose(),
+        FreqVector::from(WAG_PI_ARR),
+    ))
 }
 
 pub fn blosum() -> Result<(ProteinSubstMatrix, ProteinFrequencyVector)> {
     Ok((
-        SubstMatrix::from(BLOSUM_ARR),
+        SubstMatrix::from(BLOSUM_ARR).transpose(),
         FreqVector::from(BLOSUM_PI_ARR),
     ))
 }
 
 pub fn hivb() -> Result<(ProteinSubstMatrix, ProteinFrequencyVector)> {
-    Ok((SubstMatrix::from(HIVB_ARR), FreqVector::from(HIVB_PI_ARR)))
+    Ok((
+        SubstMatrix::from(HIVB_ARR).transpose(),
+        FreqVector::from(HIVB_PI_ARR),
+    ))
 }
 
 const WAG_ARR: ProteinSubstArray = [
