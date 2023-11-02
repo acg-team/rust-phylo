@@ -7,6 +7,7 @@ use inc_stats::Percentiles;
 use log::info;
 use nalgebra::{max, DMatrix};
 use rand::random;
+use std::fmt::Display;
 use NodeIdx::{Internal as Int, Leaf};
 
 mod nj_matrices;
@@ -16,6 +17,15 @@ pub(crate) mod tree_parser;
 pub enum NodeIdx {
     Internal(usize),
     Leaf(usize),
+}
+
+impl Display for NodeIdx {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Int(idx) => write!(f, "internal node {}", idx),
+            Leaf(idx) => write!(f, "leaf node {}", idx),
+        }
+    }
 }
 
 impl From<NodeIdx> for usize {
@@ -69,7 +79,7 @@ impl Node {
     }
 
     fn add_parent(&mut self, parent_idx: NodeIdx, blen: f64) {
-        assert!(matches!(parent_idx, Int(_)));
+        debug_assert!(matches!(parent_idx, Int(_)));
         self.parent = Some(parent_idx);
         self.blen = blen;
     }
@@ -101,6 +111,18 @@ impl Tree {
         }
     }
 
+    pub fn get_node_id_string(&self, node_idx: &NodeIdx) -> String {
+        let id = match node_idx {
+            Int(idx) => &self.internals[*idx].id,
+            Leaf(idx) => &self.leaves[*idx].id,
+        };
+        if id.is_empty() {
+            String::new()
+        } else {
+            format!(" with id {}", id)
+        }
+    }
+
     pub fn add_parent(
         &mut self,
         parent_idx: usize,
@@ -128,7 +150,7 @@ impl Tree {
     }
 
     pub fn create_postorder(&mut self) {
-        assert!(self.complete);
+        debug_assert!(self.complete);
         if self.postorder.is_empty() {
             let mut order = Vec::<NodeIdx>::with_capacity(self.leaves.len() + self.internals.len());
             let mut stack = Vec::<NodeIdx>::with_capacity(self.internals.len());
@@ -148,14 +170,14 @@ impl Tree {
     }
 
     pub fn create_preorder(&mut self) {
-        assert!(self.complete);
+        debug_assert!(self.complete);
         if self.preorder.is_empty() {
             self.preorder = self.preorder_subroot(self.root);
         }
     }
 
     pub fn preorder_subroot(&self, subroot_idx: NodeIdx) -> Vec<NodeIdx> {
-        assert!(self.complete);
+        debug_assert!(self.complete);
         let mut order = Vec::<NodeIdx>::with_capacity(self.leaves.len() + self.internals.len());
         let mut stack = Vec::<NodeIdx>::with_capacity(self.internals.len());
         let mut cur_root = subroot_idx;
@@ -173,12 +195,12 @@ impl Tree {
     }
 
     pub fn get_leaf_ids(&self) -> Vec<String> {
-        assert!(self.complete);
+        debug_assert!(self.complete);
         self.leaves.iter().map(|node| node.id.clone()).collect()
     }
 
     pub fn get_all_branch_lengths(&self) -> Vec<f64> {
-        assert!(self.complete);
+        debug_assert!(self.complete);
         let lengths = self
             .leaves
             .iter()
