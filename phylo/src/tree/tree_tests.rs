@@ -5,11 +5,13 @@ use super::{
     build_nj_tree_from_matrix, build_nj_tree_w_rng_from_matrix, get_percentiles, Node, NodeIdx,
     NodeIdx::Internal as I, NodeIdx::Leaf as L, Tree,
 };
-use crate::cmp_f64;
+use crate::tree::{argmin_wo_diagonal, get_percentiles_rounded};
+use crate::{cmp_f64, Rounding};
 use approx::relative_eq;
 use bio::io::fasta::Record;
-use nalgebra::dmatrix;
+use nalgebra::{dmatrix, DMatrix};
 use pest::error::ErrorVariant;
+use rand::Rng;
 use std::iter::repeat;
 
 fn setup_test_tree() -> Tree {
@@ -378,14 +380,11 @@ fn check_getting_branch_lengths() {
 
 #[test]
 fn check_getting_branch_length_percentiles() {
-    let perc_lengths = get_percentiles(&[3.5, 1.2, 3.7, 3.6, 1.1, 2.5, 2.4], 4);
-    assert_eq!(
-        perc_lengths,
-        vec![1.4400000000000002, 2.44, 3.1000000000000005, 3.58]
-    );
+    let perc_lengths =
+        get_percentiles_rounded(&[3.5, 1.2, 3.7, 3.6, 1.1, 2.5, 2.4], 4, &Rounding::four());
+    assert_eq!(perc_lengths, vec![1.44, 2.44, 3.1, 3.58]);
     let perc_lengths = get_percentiles(&repeat(1.0).take(7).collect::<Vec<f64>>(), 2);
     assert_eq!(perc_lengths, vec![1.0, 1.0]);
-
     let perc_lengths = get_percentiles(&[1.0, 3.0, 3.0, 4.0, 5.0, 6.0, 6.0, 7.0, 8.0, 8.0], 3);
     assert_eq!(perc_lengths, vec![3.25, 5.5, 6.75]);
 }
@@ -424,4 +423,53 @@ fn compute_distance_matrix_far() {
         0.2326161962278796, 0.2326161962278796, 0.0, 0.28924686060898847;
         0.051744653615213576, 0.051744653615213576, 0.28924686060898847, 0.0];
     assert_eq!(mat.distances, true_mat);
+}
+
+#[test]
+fn test_node_idx_from_usize() {
+    let r1 = rand::thread_rng().gen_range(1..100);
+    assert_eq!(usize::from(NodeIdx::Leaf(r1)), r1);
+    let r2 = rand::thread_rng().gen_range(1..100);
+    assert_eq!(usize::from(NodeIdx::Internal(r2)), r2);
+}
+
+#[test]
+fn test_get_node_id_string() {
+    let tree = tree_parser::from_newick_string(
+        "((ant:17,(bat:31, cow:22)batcow:7)antbatcow:10,(elk:33,fox:12)elkfox:40)root:0;",
+    )
+    .unwrap()
+    .pop()
+    .unwrap();
+    let internal_ids =
+        ["root", "antbatcow", "batcow", "elkfox"].map(|s| format!("{}{}", " with id ", s));
+    let leaf_ids = ["ant", "bat", "cow", "elk", "fox"].map(|s| format!("{}{}", " with id ", s));
+    for idx in 0..tree.internals.len() {
+        assert!(internal_ids.contains(&tree.get_node_id_string(&I(idx))));
+    }
+    for idx in 0..tree.leaves.len() {
+        assert!(leaf_ids.contains(&tree.get_node_id_string(&L(idx))));
+    }
+    let tree =
+        tree_parser::from_newick_string("((ant:17,(bat:31, cow:22):7):10,(elk:33,fox:12):40):0;")
+            .unwrap()
+            .pop()
+            .unwrap();
+    for idx in 0..tree.internals.len() {
+        assert!(tree.get_node_id_string(&I(idx)).is_empty());
+    }
+}
+
+#[test]
+fn test_node_idx_display() {
+    let r1 = rand::thread_rng().gen_range(1..100);
+    assert_eq!(format!("{}", L(r1)), format!("leaf node {}", r1));
+    let r2 = rand::thread_rng().gen_range(1..100);
+    assert_eq!(format!("{}", I(r2)), format!("internal node {}", r2));
+}
+
+#[test]
+#[should_panic]
+fn test_argmin_fail() {
+    argmin_wo_diagonal(DMatrix::<f64>::from_vec(1, 1, vec![0.0]), |_| 0);
 }

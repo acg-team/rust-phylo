@@ -2,14 +2,14 @@ use std::collections::HashMap;
 use std::ops::Mul;
 
 use anyhow::bail;
-use nalgebra::{Const, DMatrix, DVector, DimMin};
+use nalgebra::{Const, DimMin, SMatrix, SVector};
 use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::tree::NodeIdx;
-use crate::{f64_h, Result};
+use crate::{f64_h, Result, Rounding};
 
 pub mod dna_models;
 pub mod protein_models;
@@ -46,7 +46,7 @@ impl DNASubstModel {
 }
 
 impl ProteinSubstModel {
-    pub fn new(model_name: &str) -> Result<Self> {
+    pub fn new(model_name: &str, model_params: &[f64]) -> Result<Self> {
         let (q, pi) = match model_name.to_uppercase().as_str() {
             "WAG" => protein_models::wag()?,
             "BLOSUM" => protein_models::blosum()?,
@@ -89,7 +89,7 @@ where
         HashMap::<f64_h, (SubstMatrix, f64)>::from_iter(times.iter().map(|&time| {
             (
                 f64_h::from(time),
-                self.get_scoring_matrix_corrected(time, zero_diag, rounded),
+                self.get_scoring_matrix_corrected(time, zero_diag, rounding),
             )
         }))
     }
@@ -99,8 +99,8 @@ where
         self.q /= factor;
     }
 
-    fn get_scoring_matrix(&self, time: f64, rounded: bool) -> (SubstMatrix, f64) {
-        self.get_scoring_matrix_corrected(time, false, rounded)
+    fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
+        self.get_scoring_matrix_corrected(time, false, rounding)
     }
 
     fn get_stationary_distribution(&self) -> &FreqVector {
@@ -111,15 +111,16 @@ where
         &self,
         time: f64,
         zero_diag: bool,
-        rounded: bool,
+        rounding: &Rounding,
     ) -> (SubstMatrix, f64) {
         let p = self.get_p(time);
-        let mapping = if rounded {
-            |x: f64| (-x.ln().round())
-        } else {
-            |x: f64| -x.ln()
-        };
-        let mut scores = p.map(mapping);
+        let mut scores = p.map(|x| -x.ln());
+        if rounding.round {
+            scores = scores.map(|x| {
+                (x * 10.0_f64.powf(rounding.digits as f64)).round()
+                    / 10.0_f64.powf(rounding.digits as f64)
+            });
+        }
         if zero_diag {
             scores.fill_diagonal(0.0);
         }

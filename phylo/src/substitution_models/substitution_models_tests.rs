@@ -1,13 +1,3 @@
-use rstest::*;
-
-use std::collections::HashMap;
-use std::iter::repeat;
-use std::ops::Mul;
-
-use approx::assert_relative_eq;
-use nalgebra::dvector;
-
-use crate::assert_float_relative_slice_eq;
 use crate::substitution_models::{
     dna_models::DNASubstModel,
     protein_models::{
@@ -15,8 +5,14 @@ use crate::substitution_models::{
     },
     EvolutionaryModel, SubstMatrix,
 };
+use crate::{assert_float_relative_slice_eq, Rounding};
+use approx::assert_relative_eq;
+use nalgebra::vector;
+use rstest::*;
 
-use super::FreqVector;
+use std::collections::HashMap;
+use std::iter::repeat;
+use std::ops::Mul;
 
 fn check_pi_convergence(substmat: SubstMatrix, pi: &[f64], epsilon: f64) {
     assert_eq!(substmat.row(0).len(), pi.len());
@@ -322,16 +318,16 @@ fn protein_scoring_matrices() {
     let mut model = ProteinSubstModel::new("wag", &[]).unwrap();
     model.normalise();
     let true_matrix_01 = SubstMatrix::from_row_slice(20, 20, &TRUE_MATRIX);
-    let (mat, avg) = model.get_scoring_matrix(0.1, true);
+    let (mat, avg) = model.get_scoring_matrix(0.1, &R::zero());
     for (row, true_row) in mat.row_iter().zip(true_matrix_01.row_iter()) {
         assert_eq!(row, true_row);
     }
     assert_relative_eq!(avg, 5.7675);
-    let (_, avg) = model.get_scoring_matrix(0.3, true);
+    let (_, avg) = model.get_scoring_matrix(0.3, &R::zero());
     assert_relative_eq!(avg, 4.7475);
-    let (_, avg) = model.get_scoring_matrix(0.5, true);
+    let (_, avg) = model.get_scoring_matrix(0.5, &R::zero());
     assert_relative_eq!(avg, 4.2825);
-    let (_, avg) = model.get_scoring_matrix(0.7, true);
+    let (_, avg) = model.get_scoring_matrix(0.7, &R::zero());
     assert_relative_eq!(avg, 4.0075);
 }
 
@@ -357,15 +353,15 @@ fn generate_protein_scorings() {
 #[test]
 fn matrix_entry_rounding() {
     let model = DNASubstModel::new("K80", &[1.0, 2.0]).unwrap();
-    let (mat_round, avg_round) = model.get_scoring_matrix_corrected(0.1, true, true);
-    let (mat, avg) = model.get_scoring_matrix_corrected(0.1, true, false);
+    let (mat_round, avg_round) = model.get_scoring_matrix_corrected(0.1, true, &R::zero());
+    let (mat, avg) = model.get_scoring_matrix_corrected(0.1, true, &R::none());
     assert_ne!(avg_round, avg);
     assert_ne!(mat_round, mat);
     for &element in mat_round.as_slice() {
         assert_eq!(element.round(), element);
     }
     let model = ProteinSubstModel::new("HIVB", &[]).unwrap();
-    let (mat_round, avg_round) = model.get_scoring_matrix_corrected(0.1, true, true);
+    let (mat_round, avg_round) = model.get_scoring_matrix_corrected(0.1, true, &R::zero());
     let (mat, avg) = model.get_scoring_matrix_corrected(0.1, true, false);
     assert_ne!(avg_round, avg);
     assert_ne!(mat_round, mat);
@@ -376,8 +372,8 @@ fn matrix_entry_rounding() {
 
 #[test]
 fn matrix_zero_diagonals() {
-    let model = ProteinSubstModel::new("HIVB", &[]).unwrap();
-    let (mat_zeros, avg_zeros) = model.get_scoring_matrix_corrected(0.5, true, true);
+    let model = ProteinSubstModel::new("HIVB" & []).unwrap();
+    let (mat_zeros, avg_zeros) = model.get_scoring_matrix_corrected(0.5, true, &R::zero());
     let (mat, avg) = model.get_scoring_matrix_corrected(0.5, false, true);
     assert_ne!(avg_zeros, avg);
     assert!(avg_zeros < avg);
