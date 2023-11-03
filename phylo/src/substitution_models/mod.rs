@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::ops::Mul;
 
 use anyhow::bail;
-use nalgebra::{Const, DMatrix, DVector, DimMin};
+use nalgebra::{Const, DimMin, SMatrix, SVector};
 use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
