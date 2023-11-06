@@ -11,7 +11,9 @@ pub trait LikelihoodCostFunction<const N: usize> {
 }
 
 pub trait EvolutionaryModelInfo<const N: usize> {
-    fn new(info: &PhyloInfo, model: &dyn EvolutionaryModel<N>) -> Self;
+    fn new(info: &PhyloInfo, model: &dyn EvolutionaryModel<N>) -> Result<Self>
+    where
+        Self: std::marker::Sized;
 }
 
 fn setup_dna_likelihood<'a>(
@@ -24,7 +26,7 @@ fn setup_dna_likelihood<'a>(
     if normalise {
         model.normalise();
     }
-    let temp_values = SubstitutionModelInfo::<4>::new(info, &model);
+    let temp_values = SubstitutionModelInfo::<4>::new(info, &model)?;
     Ok(SubstitutionLikelihoodCost {
         info,
         model,
@@ -41,7 +43,7 @@ fn setup_protein_likelihood(
     if normalise {
         model.normalise();
     }
-    let temp_values = SubstitutionModelInfo::<20>::new(info, &model);
+    let temp_values = SubstitutionModelInfo::<20>::new(info, &model)?;
     Ok(SubstitutionLikelihoodCost {
         info,
         model,

@@ -1,14 +1,15 @@
 use std::collections::HashMap;
 use std::ops::Mul;
 
+use anyhow::bail;
 use nalgebra::{Const, DMatrix, DimMin, SMatrix, SVector};
 use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::EvolutionaryModel;
-use crate::f64_h;
 use crate::likelihood::{EvolutionaryModelInfo, LikelihoodCostFunction};
 use crate::phylo_info::PhyloInfo;
 use crate::tree::NodeIdx;
+use crate::{f64_h, Result};
 
 pub mod dna_models;
 pub mod protein_models;
@@ -107,10 +108,11 @@ pub(crate) struct SubstitutionModelInfo<const N: usize> {
     leaf_sequence_info: Vec<DMatrix<f64>>,
 }
 
-// implies that the sequences are aligned
 impl<const N: usize> EvolutionaryModelInfo<N> for SubstitutionModelInfo<N> {
-    fn new(info: &PhyloInfo, model: &dyn EvolutionaryModel<N>) -> Self {
-        debug_assert!(info.msa.is_some());
+    fn new(info: &PhyloInfo, model: &dyn EvolutionaryModel<N>) -> Result<Self> {
+        if info.msa.is_none() {
+            bail!("An MSA is required to set up the likelihood coputation.");
+        }
         let leaf_count = info.tree.leaves.len();
         let internal_count = info.tree.internals.len();
         let msa = info.msa.as_ref().unwrap();
@@ -127,7 +129,7 @@ impl<const N: usize> EvolutionaryModelInfo<N> for SubstitutionModelInfo<N> {
                 )
             })
             .collect::<Vec<_>>();
-        SubstitutionModelInfo {
+        Ok(SubstitutionModelInfo {
             internal_info: vec![DMatrix::<f64>::zeros(N, msa_length); internal_count],
             internal_info_valid: vec![false; internal_count],
             internal_models: vec![SubstMatrix::zeros(); internal_count],
@@ -137,7 +139,7 @@ impl<const N: usize> EvolutionaryModelInfo<N> for SubstitutionModelInfo<N> {
             leaf_models: vec![SubstMatrix::zeros(); leaf_count],
             leaf_models_valid: vec![false; leaf_count],
             leaf_sequence_info,
-        }
+        })
     }
 }
 
