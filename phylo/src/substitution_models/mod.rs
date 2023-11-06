@@ -110,11 +110,12 @@ pub(crate) struct SubstitutionModelInfo<const N: usize> {
 // implies that the sequences are aligned
 impl<const N: usize> EvolutionaryModelInfo<N> for SubstitutionModelInfo<N> {
     fn new(info: &PhyloInfo, model: &dyn EvolutionaryModel<N>) -> Self {
+        debug_assert!(info.msa.is_some());
         let leaf_count = info.tree.leaves.len();
         let internal_count = info.tree.internals.len();
-        let msa_length = info.sequences[0].seq().len();
-        let leaf_sequence_info = info
-            .sequences
+        let msa = info.msa.as_ref().unwrap();
+        let msa_length = msa[0].seq().len();
+        let leaf_sequence_info = msa
             .iter()
             .map(|rec| {
                 DMatrix::from_columns(
@@ -164,8 +165,11 @@ where
             NodeIdx::Leaf(idx) => &self.temp_values.leaf_info[idx],
         };
         let likelihood = self.model.pi.transpose().mul(root_info);
-        assert_eq!(likelihood.ncols(), self.info.sequences[0].seq().len());
-        assert_eq!(likelihood.nrows(), 1);
+        debug_assert_eq!(
+            likelihood.ncols(),
+            self.info.msa.as_ref().unwrap()[0].seq().len()
+        );
+        debug_assert_eq!(likelihood.nrows(), 1);
         likelihood.map(|x| x.ln()).sum()
     }
 }

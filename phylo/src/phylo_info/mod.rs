@@ -10,6 +10,7 @@ use std::path::PathBuf;
 #[derive(Debug)]
 pub struct PhyloInfo {
     pub sequences: Vec<Record>,
+    pub msa: Option<Vec<Record>>,
     pub tree: Tree,
 }
 
@@ -64,7 +65,26 @@ pub fn setup_phylogenetic_info(sequence_file: PathBuf, tree_file: PathBuf) -> Re
             .cloned()
             .unwrap_or(std::usize::MAX)
     });
-    Ok(PhyloInfo { sequences, tree })
+    let msa = if aligned_sequences(&sequences) {
+        Some(sequences.clone())
+    } else {
+        None
+    };
+
+    Ok(PhyloInfo {
+        sequences,
+        tree,
+        msa,
+    })
+}
+
+fn aligned_sequences(sequences: &[Record]) -> bool {
+    let sequence_length = sequences[0].seq().len();
+    sequences
+        .iter()
+        .filter(|rec| rec.seq().len() != sequence_length)
+        .count()
+        == 0
 }
 
 #[cfg(test)]

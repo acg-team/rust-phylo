@@ -16,7 +16,11 @@ fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
     tree.complete = true;
     tree.create_postorder();
     tree.create_preorder();
-    PhyloInfo { tree, sequences }
+    PhyloInfo {
+        tree,
+        sequences: sequences.clone(),
+        msa: Some(sequences.clone()),
+    }
 }
 
 #[test]
@@ -51,7 +55,11 @@ fn setup_cb_example_phylo_info() -> PhyloInfo {
         .unwrap()
         .pop()
         .unwrap();
-    PhyloInfo { tree, sequences }
+    PhyloInfo {
+        tree,
+        sequences: sequences.clone(),
+        msa: Some(sequences.clone()),
+    }
 }
 
 #[test]
@@ -86,7 +94,11 @@ fn setup_mol_evo_example_phylo_info() -> PhyloInfo {
         .unwrap()
         .pop()
         .unwrap();
-    PhyloInfo { tree, sequences }
+    PhyloInfo {
+        tree,
+        sequences: sequences.clone(),
+        msa: Some(sequences.clone()),
+    }
 }
 
 #[test]
@@ -211,6 +223,7 @@ fn setup_simple_reversibility() -> Vec<PhyloInfo> {
             .pop()
             .unwrap(),
         sequences: sequences.clone(),
+        msa: Some(sequences.clone()),
     });
     res.push(PhyloInfo {
         tree: tree_parser::from_newick_string("(A:1.0,(B:2.0,C:3.0):1.0):0.0;")
@@ -218,6 +231,7 @@ fn setup_simple_reversibility() -> Vec<PhyloInfo> {
             .pop()
             .unwrap(),
         sequences: sequences.clone(),
+        msa: Some(sequences.clone()),
     });
     res
 }
