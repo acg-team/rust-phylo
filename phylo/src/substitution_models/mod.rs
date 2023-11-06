@@ -70,11 +70,7 @@ where
         &self.pi
     }
 
-<<<<<<< HEAD
     fn get_stationary_distribution(&self) -> &FreqVector {
-=======
-    fn get_stationary_distribution(&self) -> &FreqVector<N> {
->>>>>>> b6ff6c5 (EvolitionaryModel trait impl for DNA substitution)
         &self.pi
     }
 
