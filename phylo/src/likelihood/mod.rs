@@ -1,11 +1,10 @@
-use crate::{
-    phylo_info::PhyloInfo,
-    substitution_models::{
-        dna_models::DNASubstModel, protein_models::ProteinSubstModel, EvolutionaryModel,
-        SubstitutionLikelihoodCost, SubstitutionModelInfo,
-    },
-    Result,
+use crate::evolutionary_models::EvolutionaryModel;
+use crate::phylo_info::PhyloInfo;
+use crate::substitution_models::{
+    dna_models::DNASubstModel, protein_models::ProteinSubstModel, SubstitutionLikelihoodCost,
+    SubstitutionModelInfo,
 };
+use crate::Result;
 
 pub trait LikelihoodCostFunction<const N: usize> {
     fn compute_log_likelihood(&mut self) -> f64;

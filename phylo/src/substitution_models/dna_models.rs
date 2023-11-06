@@ -1,12 +1,14 @@
-use super::{EvolutionaryModel, SubstitutionModel};
-use crate::sequences::{charify, NUCLEOTIDES_STR};
-use crate::substitution_models::{FreqVector, SubstMatrix};
-use crate::Result;
+use std::collections::HashMap;
+
 use anyhow::bail;
 use log::{info, warn};
 use nalgebra::DVector;
 use ordered_float::OrderedFloat;
-use std::collections::HashMap;
+
+use crate::evolutionary_models::EvolutionaryModel;
+use crate::sequences::{charify, NUCLEOTIDES_STR};
+use crate::substitution_models::{FreqVector, SubstMatrix, SubstitutionModel};
+use crate::Result;
 
 type DNASubstMatrix = SubstMatrix<4>;
 type DNAFreqVector = FreqVector<4>;

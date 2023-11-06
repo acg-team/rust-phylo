@@ -1,6 +1,7 @@
 use anyhow::Error;
 
 pub mod alignment;
+pub mod evolutionary_models;
 pub mod io;
 pub mod likelihood;
 pub mod phylo_info;
