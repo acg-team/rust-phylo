@@ -110,7 +110,7 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
         vec
     }
 
-    fn get_p(&self, time: f64) -> SubstMatrix<20> {
+    fn get_p(&self, time: f64) -> SubstMatrix {
         self.get_p(time)
     }
 
@@ -123,7 +123,7 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
         times: &[f64],
         zero_diag: bool,
         rounded: bool,
-    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix<20>, f64)> {
+    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)> {
         self.generate_scorings(times, zero_diag, rounded)
     }
 
@@ -131,20 +131,20 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
         self.normalise()
     }
 
-    fn get_scoring_matrix(&self, time: f64, rounded: bool) -> (SubstMatrix<20>, f64) {
+    fn get_scoring_matrix(&self, time: f64, rounded: bool) -> (SubstMatrix, f64) {
         self.get_scoring_matrix(time, rounded)
     }
 
-    fn get_stationary_distribution(&self) -> &FreqVector<20> {
+    fn get_stationary_distribution(&self) -> &FreqVector {
         self.get_stationary_distribution()
     }
 
-    fn get_char_probability(&self, char: u8) -> DVector<f64> {
-        let mut vec = DVector::<f64>::zeros(20);
+    fn get_char_probability(&self, char: u8) -> FreqVector {
+        let mut vec = FreqVector::zeros(20);
         if AMINOACIDS_STR.contains(char as char) {
             vec[self.index[char as usize] as usize] = 1.0;
         } else {
-            vec = DVector::from_column_slice(self.get_stationary_distribution().as_slice());
+            vec = FreqVector::from_column_slice(self.get_stationary_distribution().as_slice());
             match char {
                 b'B' => {
                     vec[self.index[b'D' as usize] as usize] = self
@@ -171,7 +171,8 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
                         .as_slice()[self.index[b'L' as usize] as usize];
                 }
                 b'X' => {
-                    vec = DVector::from_column_slice(self.get_stationary_distribution().as_slice())
+                    vec =
+                        FreqVector::from_column_slice(self.get_stationary_distribution().as_slice())
                 }
                 _ => warn!("Unknown character {} encountered.", char),
             };

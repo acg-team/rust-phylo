@@ -70,10 +70,6 @@ where
         &self.pi
     }
 
-    fn get_stationary_distribution(&self) -> &FreqVector {
-        &self.pi
-    }
-
     fn get_scoring_matrix_corrected(
         &self,
         time: f64,
