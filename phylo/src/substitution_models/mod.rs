@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::ops::Mul;
 
 use anyhow::bail;
-use bio::io::fasta::Record;
 use nalgebra::{Const, DMatrix, DVector, DimMin};
 use ordered_float::OrderedFloat;
 
