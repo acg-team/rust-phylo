@@ -173,56 +173,11 @@ fn dna_char_probabilities() {
         (b"K", dvector![0.58333333, 0.0, 0.0, 0.41666667]),
     ]);
     for (&char, value) in expected.iter() {
-    for (&char, value) in expected.iter() {
-        let actual = gtr.get_char_probability(char[0]);
-        assert_relative_eq!(actual.sum(), 1.0);
-        assert_relative_eq!(actual, value, epsilon = 1e-4);
-    }
-}
-
-#[rstest]
-#[case::wag("wag", &WAG_PI_ARR, 1e-8)]
-#[case::blosum("blosum", &BLOSUM_PI_ARR, 1e-5)]
-#[case::hivb("hivb", &HIVB_PI_ARR, 1e-8)]
-fn protein_char_probabilities(#[case] input: &str, #[case] pi_array: &[f64], #[case] epsilon: f64) {
-    let mut model = ProteinSubstModel::new(input, &[]).unwrap();
-    model.normalise();
-    let expected = HashMap::from([
-        (
-            b"A",
-            FreqVector::from_column_slice(
-                &repeat(1.0)
-                    .take(1)
-                    .chain(repeat(0.0).take(19))
-                    .collect::<Vec<f64>>(),
-            ),
-        ),
-        (
-            b"R",
-            FreqVector::from_column_slice(
-                &repeat(0.0)
-                    .take(1)
-                    .chain(repeat(1.0).take(1))
-                    .chain(repeat(0.0).take(18))
-                    .collect::<Vec<f64>>(),
-            ),
-        ),
-        (
-            b"W",
-            FreqVector::from_column_slice(
-                &repeat(0.0)
-                    .take(17)
-                    .chain(repeat(1.0).take(1))
-                    .chain(repeat(0.0).take(2))
-                    .collect::<Vec<f64>>(),
-            ),
-        ),
-        (b"X", FreqVector::from_column_slice(pi_array)),
-    ]);
-    for (&char, expected_probs) in expected.into_iter() {
-        let actual = model.get_char_probability(char[0]);
-        assert_relative_eq!(actual.sum(), 1.0, epsilon = epsilon);
-        assert_relative_eq!(actual, expected_probs, epsilon = epsilon);
+        for (&char, value) in expected.iter() {
+            let actual = gtr.get_char_probability(char[0]);
+            assert_relative_eq!(actual.sum(), 1.0);
+            assert_relative_eq!(actual, value, epsilon = 1e-4);
+        }
     }
 }
 
@@ -382,7 +337,7 @@ fn protein_scoring_matrices() {
 fn generate_protein_scorings() {
     let mut model = ProteinSubstModel::new("wag", &[]).unwrap();
     model.normalise();
-    let scorings = model.generate_scorings(&[0.1, 0.3, 0.5, 0.7], false, true);
+    let scorings = model.generate_scorings(&[0.1, 0.3, 0.5, 0.7], false, &R::zero());
     let true_matrix_01 = SubstMatrix::from_row_slice(20, 20, &TRUE_MATRIX);
     let (mat_01, avg_01) = scorings.get(&ordered_float::OrderedFloat(0.1)).unwrap();
     for (row, true_row) in mat_01.row_iter().zip(true_matrix_01.row_iter()) {
@@ -409,7 +364,7 @@ fn matrix_entry_rounding() {
     }
     let model = ProteinSubstModel::new("HIVB", &[]).unwrap();
     let (mat_round, avg_round) = model.get_scoring_matrix_corrected(0.1, true, &R::zero());
-    let (mat, avg) = model.get_scoring_matrix_corrected(0.1, true, &R::zero());
+    let (mat, avg) = model.get_scoring_matrix_corrected(0.1, true, &R::none());
     assert_ne!(avg_round, avg);
     assert_ne!(mat_round, mat);
     for &element in mat_round.as_slice() {

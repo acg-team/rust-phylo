@@ -1,8 +1,6 @@
-use crate::sequences::NUCLEOTIDES_STR;
 use crate::Rounding;
 use crate::{f64_h, Result};
 use anyhow::bail;
-use bio::io::fasta::Record;
 use nalgebra::{Const, DMatrix, DVector, DimMin};
 use ordered_float::OrderedFloat;
 use std::collections::HashMap;

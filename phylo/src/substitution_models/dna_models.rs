@@ -7,7 +7,7 @@ use ordered_float::OrderedFloat;
 use crate::evolutionary_models::EvolutionaryModel;
 use crate::sequences::{charify, NUCLEOTIDES_STR};
 use crate::substitution_models::{FreqVector, SubstMatrix, SubstitutionModel};
-use crate::Result;
+use crate::{Result, Rounding};
 
 pub type DNASubstModel = SubstitutionModel<4>;
 
@@ -43,17 +43,17 @@ impl EvolutionaryModel<4> for DNASubstModel {
         &self,
         times: &[f64],
         zero_diag: bool,
-        rounded: bool,
+        rounding: &Rounding,
     ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)> {
-        self.generate_scorings(times, zero_diag, rounded)
+        self.generate_scorings(times, zero_diag, rounding)
     }
 
     fn normalise(&mut self) {
         self.normalise()
     }
 
-    fn get_scoring_matrix(&self, time: f64, rounded: bool) -> (SubstMatrix, f64) {
-        self.get_scoring_matrix(time, rounded)
+    fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
+        self.get_scoring_matrix(time, rounding)
     }
 
     fn get_stationary_distribution(&self) -> &FreqVector {
