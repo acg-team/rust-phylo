@@ -1,3 +1,5 @@
+use rstest::*;
+
 use crate::substitution_models::{
     dna_models::DNASubstModel,
     protein_models::{
@@ -8,7 +10,6 @@ use crate::substitution_models::{
 use crate::{assert_float_relative_slice_eq, Rounding as R};
 use approx::assert_relative_eq;
 use nalgebra::dvector;
-use rstest::*;
 use std::collections::HashMap;
 use std::iter::repeat;
 use std::ops::Mul;
@@ -172,6 +173,7 @@ fn dna_char_probabilities() {
         (b"K", dvector![0.58333333, 0.0, 0.0, 0.41666667]),
     ]);
     for (&char, value) in expected.iter() {
+    for (&char, value) in expected.iter() {
         let actual = gtr.get_char_probability(char[0]);
         assert_relative_eq!(actual.sum(), 1.0);
         assert_relative_eq!(actual, value, epsilon = 1e-4);
@@ -234,33 +236,39 @@ fn protein_char_probabilities(#[case] input: &str, #[case] pi_array: &[f64], #[c
     let expected = HashMap::from([
         (
             b"A",
-            repeat(1.0)
-                .take(1)
-                .chain(repeat(0.0).take(19))
-                .collect::<Vec<f64>>(),
+            FreqVector::from_column_slice(
+                &repeat(1.0)
+                    .take(1)
+                    .chain(repeat(0.0).take(19))
+                    .collect::<Vec<f64>>(),
+            ),
         ),
         (
             b"R",
-            repeat(0.0)
-                .take(1)
-                .chain(repeat(1.0).take(1))
-                .chain(repeat(0.0).take(18))
-                .collect::<Vec<f64>>(),
+            FreqVector::from_column_slice(
+                &repeat(0.0)
+                    .take(1)
+                    .chain(repeat(1.0).take(1))
+                    .chain(repeat(0.0).take(18))
+                    .collect::<Vec<f64>>(),
+            ),
         ),
         (
             b"W",
-            repeat(0.0)
-                .take(17)
-                .chain(repeat(1.0).take(1))
-                .chain(repeat(0.0).take(2))
-                .collect::<Vec<f64>>(),
+            FreqVector::from_column_slice(
+                &repeat(0.0)
+                    .take(17)
+                    .chain(repeat(1.0).take(1))
+                    .chain(repeat(0.0).take(2))
+                    .collect::<Vec<f64>>(),
+            ),
         ),
-        (b"X", pi_array.to_vec()),
+        (b"X", FreqVector::from_column_slice(pi_array)),
     ]);
-    for (&&char, value) in expected.iter() {
+    for (&char, expected_probs) in expected.into_iter() {
         let actual = model.get_char_probability(char[0]);
         assert_relative_eq!(actual.sum(), 1.0, epsilon = epsilon);
-        assert_float_relative_slice_eq(actual.as_slice(), value, epsilon);
+        assert_relative_eq!(actual, expected_probs, epsilon = epsilon);
     }
 }
 
