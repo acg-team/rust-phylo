@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use std::ops::Mul;
 
 use anyhow::bail;
-use nalgebra::{Const, DMatrix, DimMin, SMatrix, SVector};
+use nalgebra::{Const, DMatrix, DVector, DimMin};
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::EvolutionaryModel;
-use crate::likelihood::{EvolutionaryModelInfo, LikelihoodCostFunction};
+use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
+use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::tree::NodeIdx;
 use crate::{f64_h, Result};
@@ -14,22 +14,22 @@ use crate::{f64_h, Result};
 pub mod dna_models;
 pub mod protein_models;
 
-pub type SubstMatrix<const N: usize> = SMatrix<f64, N, N>;
-pub type FreqVector<const N: usize> = SVector<f64, N>;
+pub type SubstMatrix = DMatrix<f64>;
+pub type FreqVector = DVector<f64>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SubstitutionModel<const N: usize> {
     index: [i32; 255],
-    pub q: SubstMatrix<N>,
-    pub pi: FreqVector<N>,
+    pub q: SubstMatrix,
+    pub pi: FreqVector,
 }
 
 impl<const N: usize> SubstitutionModel<N>
 where
     Const<N>: DimMin<Const<N>, Output = Const<N>>,
 {
-    fn get_p(&self, time: f64) -> SubstMatrix<N> {
-        (self.q * time).exp()
+    fn get_p(&self, time: f64) -> SubstMatrix {
+        (self.q.clone() * time).exp()
     }
 
     fn get_rate(&self, i: u8, j: u8) -> f64 {
@@ -48,8 +48,8 @@ where
         times: &[f64],
         zero_diag: bool,
         rounded: bool,
-    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix<N>, f64)> {
-        HashMap::<f64_h, (SubstMatrix<N>, f64)>::from_iter(times.iter().map(|&time| {
+    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)> {
+        HashMap::<f64_h, (SubstMatrix, f64)>::from_iter(times.iter().map(|&time| {
             (
                 f64_h::from(time),
                 self.get_scoring_matrix_corrected(time, zero_diag, rounded),
@@ -62,11 +62,11 @@ where
         self.q /= factor;
     }
 
-    fn get_scoring_matrix(&self, time: f64, rounded: bool) -> (SubstMatrix<N>, f64) {
+    fn get_scoring_matrix(&self, time: f64, rounded: bool) -> (SubstMatrix, f64) {
         self.get_scoring_matrix_corrected(time, false, rounded)
     }
 
-    fn get_stationary_distribution(&self) -> &FreqVector<N> {
+    fn get_stationary_distribution(&self) -> &FreqVector {
         &self.pi
     }
 
@@ -75,7 +75,7 @@ where
         time: f64,
         zero_diag: bool,
         rounded: bool,
-    ) -> (SubstMatrix<N>, f64) {
+    ) -> (SubstMatrix, f64) {
         let p = self.get_p(time);
         let mapping = if rounded {
             |x: f64| (-x.ln().round())
@@ -86,7 +86,8 @@ where
         if zero_diag {
             scores.fill_diagonal(0.0);
         }
-        (scores, scores.mean())
+        let mean = scores.mean();
+        (scores, mean)
     }
 }
 
@@ -99,11 +100,11 @@ pub(crate) struct SubstitutionLikelihoodCost<'a, const N: usize> {
 pub(crate) struct SubstitutionModelInfo<const N: usize> {
     internal_info: Vec<DMatrix<f64>>,
     internal_info_valid: Vec<bool>,
-    internal_models: Vec<SubstMatrix<N>>,
+    internal_models: Vec<SubstMatrix>,
     internal_models_valid: Vec<bool>,
     leaf_info: Vec<DMatrix<f64>>,
     leaf_info_valid: Vec<bool>,
-    leaf_models: Vec<SubstMatrix<N>>,
+    leaf_models: Vec<SubstMatrix>,
     leaf_models_valid: Vec<bool>,
     leaf_sequence_info: Vec<DMatrix<f64>>,
 }
@@ -132,11 +133,11 @@ impl<const N: usize> EvolutionaryModelInfo<N> for SubstitutionModelInfo<N> {
         Ok(SubstitutionModelInfo {
             internal_info: vec![DMatrix::<f64>::zeros(N, msa_length); internal_count],
             internal_info_valid: vec![false; internal_count],
-            internal_models: vec![SubstMatrix::zeros(); internal_count],
+            internal_models: vec![SubstMatrix::zeros(N, N); internal_count],
             internal_models_valid: vec![false; internal_count],
             leaf_info: vec![DMatrix::<f64>::zeros(N, msa_length); leaf_count],
             leaf_info_valid: vec![false; leaf_count],
-            leaf_models: vec![SubstMatrix::zeros(); leaf_count],
+            leaf_models: vec![SubstMatrix::zeros(N, N); leaf_count],
             leaf_models_valid: vec![false; leaf_count],
             leaf_sequence_info,
         })

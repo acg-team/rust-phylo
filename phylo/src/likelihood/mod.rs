@@ -1,4 +1,4 @@
-use crate::evolutionary_models::EvolutionaryModel;
+use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{
     dna_models::DNASubstModel, protein_models::ProteinSubstModel, SubstitutionLikelihoodCost,
@@ -8,12 +8,6 @@ use crate::Result;
 
 pub trait LikelihoodCostFunction<const N: usize> {
     fn compute_log_likelihood(&mut self) -> f64;
-}
-
-pub trait EvolutionaryModelInfo<const N: usize> {
-    fn new(info: &PhyloInfo, model: &dyn EvolutionaryModel<N>) -> Result<Self>
-    where
-        Self: std::marker::Sized;
 }
 
 fn setup_dna_likelihood<'a>(
