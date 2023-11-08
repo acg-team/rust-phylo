@@ -1,5 +1,3 @@
-use crate::Rounding;
-use crate::{f64_h, Result};
 use anyhow::bail;
 use nalgebra::{Const, DMatrix, DVector, DimMin};
 use ordered_float::OrderedFloat;
@@ -10,6 +8,7 @@ use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::tree::NodeIdx;
+use crate::{f64_h, Result, Rounding};
 
 pub mod dna_models;
 pub mod protein_models;
@@ -218,4 +217,4 @@ where
 }
 
 #[cfg(test)]
-mod substitution_models_tests;
+pub(crate) mod substitution_models_tests;

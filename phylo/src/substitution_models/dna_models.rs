@@ -20,6 +20,7 @@ impl EvolutionaryModel<4> for DNASubstModel {
             "JC69" => jc69(model_params)?,
             "K80" => k80(model_params)?,
             "TN93" => tn93(model_params)?,
+            "HKY" => hky(model_params)?,
             "GTR" => gtr(model_params)?,
             _ => bail!("Unknown DNA model requested."),
         };
@@ -166,6 +167,33 @@ pub fn k80(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
     ))
 }
 
+pub fn hky(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
+    if model_params.len() != 5 {
+        bail!(
+            "{} parameters for the hky model, expected 5, got {}",
+            if model_params.len() < 10 {
+                "Not enough"
+            } else {
+                "Too many"
+            },
+            model_params.len()
+        );
+    }
+    let f_t = model_params[0];
+    let f_c = model_params[1];
+    let f_a = model_params[2];
+    let f_g = model_params[3];
+    let a1 = model_params[4];
+    let a2 = model_params[4];
+    let b = 1.0;
+    info!("Setting up hky with alpha = {}", a1);
+    if (f_t + f_c + f_a + f_g) != 1.0 {
+        bail!("The equilibrium frequencies provided do not sum up to 1.");
+    }
+    let q = tn93_matrix(f_t, f_c, f_a, f_g, a1, a2, b);
+    Ok((q, FreqVector::from_column_slice(&[f_t, f_c, f_a, f_g])))
+}
+
 pub fn tn93(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
     if model_params.len() != 7 {
         bail!(
@@ -192,6 +220,11 @@ pub fn tn93(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
     if (f_t + f_c + f_a + f_g) != 1.0 {
         bail!("The equilibrium frequencies provided do not sum up to 1.");
     }
+    let q = tn93_matrix(f_t, f_c, f_a, f_g, a1, a2, b);
+    Ok((q, FreqVector::from_column_slice(&[f_t, f_c, f_a, f_g])))
+}
+
+fn tn93_matrix(f_t: f64, f_c: f64, f_a: f64, f_g: f64, a1: f64, a2: f64, b: f64) -> SubstMatrix {
     let mut q = SubstMatrix::from_row_slice(
         4,
         4,
@@ -217,7 +250,7 @@ pub fn tn93(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
     for i in 0..4 {
         q[(i, i)] = -q.row(i).sum();
     }
-    Ok((q, FreqVector::from_column_slice(&[f_t, f_c, f_a, f_g])))
+    q
 }
 
 pub(crate) fn gtr(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {

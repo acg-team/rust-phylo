@@ -14,12 +14,43 @@ use std::collections::HashMap;
 use std::iter::repeat;
 use std::ops::Mul;
 
+#[cfg(test)]
 fn check_pi_convergence(substmat: SubstMatrix, pi: &[f64], epsilon: f64) {
     assert_eq!(substmat.row(0).len(), pi.len());
     for row in substmat.row_iter() {
         assert_relative_eq!(row.sum(), 1.0, epsilon = epsilon);
         assert_float_relative_slice_eq(&row.iter().cloned().collect::<Vec<f64>>(), pi, epsilon);
     }
+}
+
+#[cfg(test)]
+pub(crate) fn gtr_char_probs() -> (Vec<f64>, HashMap<u8, FreqVector>) {
+    (
+        [0.21, 0.30, 0.34, 0.15]
+            .into_iter()
+            .chain(repeat(0.7).take(6))
+            .collect::<Vec<f64>>(),
+        HashMap::from([
+            (b'T', dvector![1.0, 0.0, 0.0, 0.0]),
+            (b'C', dvector![0.0, 1.0, 0.0, 0.0]),
+            (b'A', dvector![0.0, 0.0, 1.0, 0.0]),
+            (b'G', dvector![0.0, 0.0, 0.0, 1.0]),
+            (b'X', dvector![0.21, 0.30, 0.34, 0.15]),
+            (b'N', dvector![0.21, 0.30, 0.34, 0.15]),
+            (b'Z', dvector![0.21, 0.30, 0.34, 0.15]),
+            (b'P', dvector![0.21, 0.30, 0.34, 0.15]),
+            (b'V', dvector![0.0, 0.37974684, 0.43037975, 0.18987342]),
+            (b'D', dvector![0.3, 0.0, 0.48571429, 0.21428571]),
+            (b'B', dvector![0.31818182, 0.45454545, 0.0, 0.22727273]),
+            (b'H', dvector![0.24705882, 0.35294118, 0.4, 0.0]),
+            (b'M', dvector![0.0, 0.46875, 0.53125, 0.0]),
+            (b'R', dvector![0.0, 0.0, 0.69387755, 0.30612245]),
+            (b'W', dvector![0.38181818, 0.0, 0.61818182, 0.0]),
+            (b'S', dvector![0.0, 0.66666667, 0.0, 0.33333333]),
+            (b'Y', dvector![0.41176471, 0.58823529, 0.0, 0.0]),
+            (b'K', dvector![0.58333333, 0.0, 0.0, 0.41666667]),
+        ]),
+    )
 }
 
 #[test]
@@ -37,6 +68,16 @@ fn dna_k80_correct() {
     assert_eq!(k80, k802);
     assert_eq!(k80, k803);
     assert_eq!(k802, k803);
+}
+
+#[test]
+fn dna_hky_correct() {
+    let hky = DNASubstModel::new("hky", &[2.0, 1.0, 3.0, 6.0]);
+    assert!(hky.is_err());
+    let hky = DNASubstModel::new("hky", &[2.0, 1.0, 3.0, 6.0, 0.5]);
+    assert!(hky.is_err());
+    let hky_res = DNASubstModel::new("hky", &[0.22, 0.26, 0.33, 0.19, 0.5]);
+    assert!(hky_res.is_ok());
 }
 
 #[test]
@@ -143,41 +184,13 @@ fn dna_normalisation() {
 
 #[test]
 fn dna_char_probabilities() {
-    let mut gtr = DNASubstModel::new(
-        "gtr",
-        &[0.21, 0.30, 0.34, 0.15]
-            .into_iter()
-            .chain(repeat(0.7).take(6))
-            .collect::<Vec<f64>>(),
-    )
-    .unwrap();
+    let (params, char_probs) = gtr_char_probs();
+    let mut gtr = DNASubstModel::new("gtr", &params).unwrap();
     gtr.normalise();
-    let expected = HashMap::from([
-        (b"T", dvector![1.0, 0.0, 0.0, 0.0]),
-        (b"C", dvector![0.0, 1.0, 0.0, 0.0]),
-        (b"A", dvector![0.0, 0.0, 1.0, 0.0]),
-        (b"G", dvector![0.0, 0.0, 0.0, 1.0]),
-        (b"X", dvector![0.21, 0.30, 0.34, 0.15]),
-        (b"N", dvector![0.21, 0.30, 0.34, 0.15]),
-        (b"Z", dvector![0.21, 0.30, 0.34, 0.15]),
-        (b"P", dvector![0.21, 0.30, 0.34, 0.15]),
-        (b"V", dvector![0.0, 0.37974684, 0.43037975, 0.18987342]),
-        (b"D", dvector![0.3, 0.0, 0.48571429, 0.21428571]),
-        (b"B", dvector![0.31818182, 0.45454545, 0.0, 0.22727273]),
-        (b"H", dvector![0.24705882, 0.35294118, 0.4, 0.0]),
-        (b"M", dvector![0.0, 0.46875, 0.53125, 0.0]),
-        (b"R", dvector![0.0, 0.0, 0.69387755, 0.30612245]),
-        (b"W", dvector![0.38181818, 0.0, 0.61818182, 0.0]),
-        (b"S", dvector![0.0, 0.66666667, 0.0, 0.33333333]),
-        (b"Y", dvector![0.41176471, 0.58823529, 0.0, 0.0]),
-        (b"K", dvector![0.58333333, 0.0, 0.0, 0.41666667]),
-    ]);
-    for (&char, value) in expected.iter() {
-        for (&char, value) in expected.iter() {
-            let actual = gtr.get_char_probability(char[0]);
-            assert_relative_eq!(actual.sum(), 1.0);
-            assert_relative_eq!(actual, value, epsilon = 1e-4);
-        }
+    for (&char, expected) in char_probs.iter() {
+        let actual = gtr.get_char_probability(char);
+        assert_relative_eq!(actual.sum(), 1.0);
+        assert_relative_eq!(actual, expected, epsilon = 1e-4);
     }
 }
 
@@ -254,6 +267,14 @@ fn protein_model_correct() {
 fn protein_model_incorrect_access() {
     let wag = ProteinSubstModel::new("WAG", &[]).unwrap();
     wag.get_rate(b'H', b'J');
+    wag.get_rate(b'-', b'L');
+}
+
+#[test]
+#[should_panic]
+fn protein_model_gap() {
+    let wag = ProteinSubstModel::new("WAG", &[]).unwrap();
+    wag.get_rate(b'-', b'L');
 }
 
 #[test]
