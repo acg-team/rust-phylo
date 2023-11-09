@@ -1,9 +1,13 @@
+use rstest::*;
+
+use std::path::PathBuf;
+
+use approx::assert_relative_eq;
+use bio::io::fasta::Record;
+
 use crate::likelihood::{setup_dna_likelihood, setup_protein_likelihood, LikelihoodCostFunction};
 use crate::phylo_info::{setup_phylogenetic_info, PhyloInfo};
 use crate::tree::{NodeIdx::Leaf as L, Tree};
-use approx::assert_relative_eq;
-use bio::io::fasta::Record;
-use std::path::PathBuf;
 
 #[cfg(test)]
 fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
@@ -26,14 +30,14 @@ fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
 #[test]
 fn dna_simple_likelihood() {
     let info = setup_simple_phylo_info(1.0, 1.0);
-    let mut likelihood = setup_dna_likelihood(&info, "JC69".to_string(), &[], false).unwrap();
+    let mut likelihood = setup_dna_likelihood(&info, "JC69", &[], false).unwrap();
     assert_relative_eq!(
         likelihood.compute_log_likelihood(),
         -2.5832498829317445,
         epsilon = 1e-6
     );
     let info = setup_simple_phylo_info(1.0, 2.0);
-    let mut likelihood = setup_dna_likelihood(&info, "JC69".to_string(), &[], false).unwrap();
+    let mut likelihood = setup_dna_likelihood(&info, "JC69", &[], false).unwrap();
     assert_relative_eq!(
         likelihood.compute_log_likelihood(),
         -2.719098272533848,
@@ -67,7 +71,7 @@ fn dna_cb_example_likelihood() {
     let info = setup_cb_example_phylo_info();
     let mut likelihood = setup_dna_likelihood(
         &info,
-        "tn93".to_string(),
+        "tn93",
         &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
         false,
     )
@@ -104,7 +108,7 @@ fn setup_mol_evo_example_phylo_info() -> PhyloInfo {
 #[test]
 fn dna_mol_evo_example_likelihood() {
     let info = setup_mol_evo_example_phylo_info();
-    let mut likelihood = setup_dna_likelihood(&info, "k80".to_string(), &[], true).unwrap();
+    let mut likelihood = setup_dna_likelihood(&info, "k80", &[], true).unwrap();
     assert_relative_eq!(
         likelihood.compute_log_likelihood(),
         -7.581408,
@@ -121,7 +125,7 @@ fn dna_ambig_example_likelihood() {
     .unwrap();
     let mut likelihood_w_x = setup_dna_likelihood(
         &info_w_x,
-        "tn93".to_string(),
+        "tn93",
         &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
         false,
     )
@@ -138,7 +142,7 @@ fn dna_ambig_example_likelihood() {
     .unwrap();
     let mut likelihood_w_n = setup_dna_likelihood(
         &info_w_n,
-        "tn93".to_string(),
+        "tn93",
         &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
         false,
     )
@@ -164,7 +168,7 @@ fn dna_huelsenbeck_example_likelihood() {
     .unwrap();
     let mut likelihood = setup_dna_likelihood(
         &info,
-        "gtr".to_string(),
+        "gtr",
         &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0],
         true,
     )
@@ -176,35 +180,27 @@ fn dna_huelsenbeck_example_likelihood() {
     );
 }
 
-#[test]
-fn protein_example_likelihood() {
+#[rstest]
+#[case::wag("wag", &[], -4505.736814460457, 1e-4)]
+#[case::hivb("hivb", &[], -4407.989226397638, 1e-5)]
+#[case::blosum("blosum", &[], -4576.40850634098, 1e-5)] // PhyML likelihood under BLOSUM62 is -4587.71053
+fn protein_example_likelihood(
+    #[case] model_name: &str,
+    #[case] model_params: &[f64],
+    #[case] expected_llik: f64,
+    #[case] epsilon: f64,
+) {
     let info = setup_phylogenetic_info(
         PathBuf::from("./data/phyml_protein_nogap_example.fasta"),
         PathBuf::from("./data/phyml_protein_nogap_example.newick"),
     )
     .unwrap();
-    let mut wag_likelihood = setup_protein_likelihood(&info, "wag".to_string(), true).unwrap();
+    let mut likelihood = setup_protein_likelihood(&info, model_name, model_params, true).unwrap();
     assert_relative_eq!(
-        wag_likelihood.compute_log_likelihood(),
-        -4505.73681,
-        epsilon = 1e-3
+        likelihood.compute_log_likelihood(),
+        expected_llik,
+        epsilon = epsilon
     );
-
-    // PhyML likelihood under HIVB is -4407.98923
-    // let mut hivb_likelihood = setup_protein_likelihood(&info, "hivb".to_string(), true).unwrap();
-    // assert_relative_eq!(
-    //     hivb_likelihood.compute_log_likelihood(),
-    //     -4575.313436534962,
-    //     epsilon = 1e-3
-    // );
-
-    // PhyML likelihood under BLOSUM62 is -4587.71053
-    // let mut blos_likelihood = setup_protein_likelihood(&info, "blosum".to_string(), true).unwrap();
-    // assert_relative_eq!(
-    //     blos_likelihood.compute_log_likelihood(),
-    //     -4591.890174578042,
-    //     epsilon = 1e-3
-    // );
 }
 
 #[cfg(test)]
@@ -235,31 +231,54 @@ fn setup_simple_reversibility() -> Vec<PhyloInfo> {
     res
 }
 
-#[test]
-fn simple_likelihood_reversibility() {
+#[rstest]
+#[case::jc69("jc69", &[])]
+#[case::k80("k80", &[])]
+#[case::hky("hky", &[0.22, 0.26, 0.33, 0.19, 0.5])]
+#[case::tn93("tn93", &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
+#[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
+fn simple_dna_likelihood_reversibility(#[case] model_name: &str, #[case] model_params: &[f64]) {
     let info = setup_simple_reversibility();
-    let mut likelihood1 = setup_dna_likelihood(
-        &info[0],
-        "tn93".to_string(),
-        &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
-        false,
-    )
-    .unwrap();
-    let mut likelihood2 = setup_dna_likelihood(
-        &info[1],
-        "tn93".to_string(),
-        &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
-        false,
-    )
-    .unwrap();
+    let mut likelihood1 = setup_dna_likelihood(&info[0], model_name, model_params, false).unwrap();
+    let mut likelihood2 = setup_dna_likelihood(&info[1], model_name, model_params, false).unwrap();
     assert_relative_eq!(
         likelihood1.compute_log_likelihood(),
-        likelihood2.compute_log_likelihood()
+        likelihood2.compute_log_likelihood(),
+        epsilon = 1e-10,
     );
 }
 
-#[test]
-fn huelsenbeck_example_reversibility_likelihood() {
+#[rstest]
+#[case::wag("wag", &[], 1e-8)]
+#[case::hivb("hivb", &[], 1e-8)]
+#[case::blosum("blosum", &[], 1e-3)]
+fn simple_protein_likelihood_reversibility(
+    #[case] model_name: &str,
+    #[case] model_params: &[f64],
+    #[case] epsilon: f64,
+) {
+    let info = setup_simple_reversibility();
+    let mut likelihood1 =
+        setup_protein_likelihood(&info[0], model_name, model_params, true).unwrap();
+    let mut likelihood2 =
+        setup_protein_likelihood(&info[1], model_name, model_params, true).unwrap();
+    assert_relative_eq!(
+        likelihood1.compute_log_likelihood(),
+        likelihood2.compute_log_likelihood(),
+        epsilon = epsilon,
+    );
+}
+
+#[rstest]
+#[case::jc69("jc69", &[])]
+#[case::k80("k80", &[])]
+#[case::hky("hky", &[0.22, 0.26, 0.33, 0.19, 0.5])]
+#[case::tn93("tn93", &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
+#[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
+fn huelsenbeck_example_dna_reversibility_likelihood(
+    #[case] model_name: &str,
+    #[case] model_params: &[f64],
+) {
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
     let info1 = setup_phylogenetic_info(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
@@ -271,28 +290,12 @@ fn huelsenbeck_example_reversibility_likelihood() {
         PathBuf::from("./data/Huelsenbeck_example_reroot.newick"),
     )
     .unwrap();
-    let mut gtr_likelihood1 = setup_dna_likelihood(
-        &info1,
-        "gtr".to_string(),
-        &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0],
-        true,
-    )
-    .unwrap();
-    let mut gtr_likelihood2 = setup_dna_likelihood(
-        &info2,
-        "gtr".to_string(),
-        &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0],
-        true,
-    )
-    .unwrap();
+    let mut likelihood = setup_dna_likelihood(&info1, model_name, model_params, true).unwrap();
+    let mut reroot_likelihood =
+        setup_dna_likelihood(&info2, model_name, model_params, true).unwrap();
     assert_relative_eq!(
-        gtr_likelihood1.compute_log_likelihood(),
-        gtr_likelihood2.compute_log_likelihood(),
-    );
-    let mut k80_likelihood1 = setup_dna_likelihood(&info1, "k80".to_string(), &[], true).unwrap();
-    let mut k80_likelihood2 = setup_dna_likelihood(&info2, "k80".to_string(), &[], true).unwrap();
-    assert_relative_eq!(
-        k80_likelihood1.compute_log_likelihood(),
-        k80_likelihood2.compute_log_likelihood(),
+        likelihood.compute_log_likelihood(),
+        reroot_likelihood.compute_log_likelihood(),
+        epsilon = 1e-10,
     );
 }
