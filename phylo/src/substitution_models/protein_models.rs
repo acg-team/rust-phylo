@@ -1,11 +1,13 @@
-use super::{EvolutionaryModel, SubstitutionModel};
-use crate::sequences::{charify, AMINOACIDS_STR};
-use crate::substitution_models::{FreqVector, SubstMatrix};
-use crate::{Result, Rounding};
+use std::collections::HashMap;
+
 use anyhow::bail;
 use log::warn;
 use ordered_float::OrderedFloat;
-use std::collections::HashMap;
+
+use crate::evolutionary_models::EvolutionaryModel;
+use crate::sequences::{charify, AMINOACIDS_STR};
+use crate::substitution_models::{FreqVector, SubstMatrix, SubstitutionModel};
+use crate::{Result, Rounding};
 
 pub(crate) type ProteinSubstArray = [f64; 400];
 pub(crate) type ProteinFrequencyArray = [f64; 20];
@@ -64,7 +66,6 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
         if AMINOACIDS_STR.contains(char as char) {
             vec[self.index[char as usize] as usize] = 1.0;
         } else {
-            vec = FreqVector::from_column_slice(self.get_stationary_distribution().as_slice());
             match char {
                 b'B' => {
                     vec[self.index[b'D' as usize] as usize] = self

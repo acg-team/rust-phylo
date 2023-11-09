@@ -1,8 +1,9 @@
+use std::collections::HashMap;
+use std::ops::Mul;
+
 use anyhow::bail;
 use nalgebra::{Const, DMatrix, DVector, DimMin};
 use ordered_float::OrderedFloat;
-use std::collections::HashMap;
-use std::ops::Mul;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
@@ -31,7 +32,7 @@ where
         (self.q.clone() * time).exp()
     }
 
-    fn get_rate(&self, i: u8, j: u8) -> f64 {
+    pub(crate) fn get_rate(&self, i: u8, j: u8) -> f64 {
         assert!(
             self.index[i as usize] >= 0 && self.index[j as usize] >= 0,
             "Invalid rate requested."

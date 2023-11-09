@@ -1,18 +1,21 @@
 use rstest::*;
 
+use std::collections::HashMap;
+use std::iter::repeat;
+use std::ops::Mul;
+
+use approx::assert_relative_eq;
+use nalgebra::dvector;
+
+use crate::evolutionary_models::EvolutionaryModel;
 use crate::substitution_models::{
     dna_models::DNASubstModel,
     protein_models::{
         ProteinSubstArray, ProteinSubstModel, BLOSUM_PI_ARR, HIVB_PI_ARR, WAG_PI_ARR,
     },
-    EvolutionaryModel, FreqVector, SubstMatrix,
+    FreqVector, SubstMatrix,
 };
 use crate::{assert_float_relative_slice_eq, Rounding as R};
-use approx::assert_relative_eq;
-use nalgebra::dvector;
-use std::collections::HashMap;
-use std::iter::repeat;
-use std::ops::Mul;
 
 #[cfg(test)]
 fn check_pi_convergence(substmat: SubstMatrix, pi: &[f64], epsilon: f64) {
@@ -24,7 +27,7 @@ fn check_pi_convergence(substmat: SubstMatrix, pi: &[f64], epsilon: f64) {
 }
 
 #[cfg(test)]
-pub(crate) fn gtr_char_probs() -> (Vec<f64>, HashMap<u8, FreqVector>) {
+pub(crate) fn gtr_char_probs_data() -> (Vec<f64>, HashMap<u8, FreqVector>) {
     (
         [0.21, 0.30, 0.34, 0.15]
             .into_iter()
@@ -51,6 +54,37 @@ pub(crate) fn gtr_char_probs() -> (Vec<f64>, HashMap<u8, FreqVector>) {
             (b'K', dvector![0.58333333, 0.0, 0.0, 0.41666667]),
         ]),
     )
+}
+
+#[cfg(test)]
+pub(crate) fn protein_char_probs_data(pi: &[f64]) -> HashMap<u8, FreqVector> {
+    HashMap::from([
+        (b'A', compile_aa_probability(&['A'], pi)),
+        (b'R', compile_aa_probability(&['R'], pi)),
+        (b'W', compile_aa_probability(&['W'], pi)),
+        (b'B', compile_aa_probability(&['D', 'N'], pi)),
+        (b'Z', compile_aa_probability(&['E', 'Q'], pi)),
+        (b'J', compile_aa_probability(&['I', 'L'], pi)),
+        (b'X', FreqVector::from_column_slice(pi)),
+    ])
+}
+
+#[cfg(test)]
+fn compile_aa_probability(chars: &[char], pi: &[f64]) -> FreqVector {
+    use crate::sequences::AMINOACIDS_STR;
+    let mut char_probs = FreqVector::from_column_slice(&[0.0; 20]);
+    if chars.len() == 1 {
+        let position = AMINOACIDS_STR.find(chars[0]).unwrap();
+        char_probs[position] = 1.0;
+        char_probs
+    } else {
+        for c in chars {
+            let position = AMINOACIDS_STR.find(*c).unwrap();
+            char_probs[position] = pi[position];
+        }
+        char_probs.scale_mut(1.0 / char_probs.sum());
+        char_probs
+    }
 }
 
 #[test]
@@ -184,7 +218,7 @@ fn dna_normalisation() {
 
 #[test]
 fn dna_char_probabilities() {
-    let (params, char_probs) = gtr_char_probs();
+    let (params, char_probs) = gtr_char_probs_data();
     let mut gtr = DNASubstModel::new("gtr", &params).unwrap();
     gtr.normalise();
     for (&char, expected) in char_probs.iter() {
@@ -201,40 +235,9 @@ fn dna_char_probabilities() {
 fn protein_char_probabilities(#[case] input: &str, #[case] pi_array: &[f64], #[case] epsilon: f64) {
     let mut model = ProteinSubstModel::new(input, &[]).unwrap();
     model.normalise();
-    let expected = HashMap::from([
-        (
-            b"A",
-            FreqVector::from_column_slice(
-                &repeat(1.0)
-                    .take(1)
-                    .chain(repeat(0.0).take(19))
-                    .collect::<Vec<f64>>(),
-            ),
-        ),
-        (
-            b"R",
-            FreqVector::from_column_slice(
-                &repeat(0.0)
-                    .take(1)
-                    .chain(repeat(1.0).take(1))
-                    .chain(repeat(0.0).take(18))
-                    .collect::<Vec<f64>>(),
-            ),
-        ),
-        (
-            b"W",
-            FreqVector::from_column_slice(
-                &repeat(0.0)
-                    .take(17)
-                    .chain(repeat(1.0).take(1))
-                    .chain(repeat(0.0).take(2))
-                    .collect::<Vec<f64>>(),
-            ),
-        ),
-        (b"X", FreqVector::from_column_slice(pi_array)),
-    ]);
-    for (&char, expected_probs) in expected.into_iter() {
-        let actual = model.get_char_probability(char[0]);
+    let expected = protein_char_probs_data(pi_array);
+    for (char, expected_probs) in expected.into_iter() {
+        let actual = model.get_char_probability(char);
         assert_relative_eq!(actual.sum(), 1.0, epsilon = epsilon);
         assert_relative_eq!(actual, expected_probs, epsilon = epsilon);
     }
