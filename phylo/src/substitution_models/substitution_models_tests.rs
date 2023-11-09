@@ -287,8 +287,7 @@ fn protein_model_incorrect() {
 #[rstest]
 #[case::wag("wag", 1e-2)]
 #[case::blosum("blosum", 1e-3)]
-// FIXME: This test fails for HIVB
-// #[case::hivb("hivb", 1e-3)]
+#[case::hivb("hivb", 1e-3)]
 fn protein_p_matrix(#[case] input: &str, #[case] epsilon: f64) {
     let model = ProteinSubstModel::new(input, &[]).unwrap();
     let p_inf = model.get_p(1000000.0);
