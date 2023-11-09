@@ -48,6 +48,23 @@ fn compare_pip_subst_rates<const N: usize>(
     }
 }
 
+#[rstest]
+#[case::wag("wag", &[0.1, 0.4], &WAG_PI_ARR)]
+#[case::blosum("blosum", &[0.8, 0.25], &BLOSUM_PI_ARR)]
+#[case::hivb("hivb", &[1.1, 12.4], &HIVB_PI_ARR)]
+fn protein_pip_correct(
+    #[case] model_name: &str,
+    #[case] model_params: &[f64],
+    #[case] pi_array: &[f64],
+) {
+    let pip_model = PIPModel::<20>::new(model_name, model_params).unwrap();
+    assert_eq!(pip_model.lambda, model_params[0]);
+    assert_eq!(pip_model.mu, model_params[1]);
+    let frequencies = FreqVector::from_column_slice(pi_array).insert_row(20, 0.0);
+    assert_eq!(pip_model.pi, frequencies);
+    let subst_model = ProteinSubstModel::new(model_name, &[]).unwrap();
+    compare_pip_subst_rates(AMINOACIDS_STR, &pip_model, &subst_model);
+}
 
 #[test]
 fn pip_dna_jc69_correct() {
@@ -115,6 +132,16 @@ fn pip_dna_too_few_params(#[case] model_name: &str, #[case] model_params: &[f64]
     assert!(result.is_err());
 }
 
+#[rstest]
+#[case::wag_no_params("wag", &[])]
+#[case::blosum("k80", &[0.2])]
+#[case::hivb("hivb", &[0.22])]
+#[case::wag_one_param("wag", &[0.1])]
+fn pip_protein_too_few_params(#[case] model_name: &str, #[case] model_params: &[f64]) {
+    let result = PIPModel::<20>::new(model_name, model_params);
+    assert!(result.is_err());
+}
+
 #[test]
 fn pip_dna_incorrect_dna_model() {
     let result = PIPModel::<4>::new("jc68", &[0.2, 0.5]);
@@ -145,6 +172,32 @@ fn pip_dna_char_frequencies() {
     assert_relative_eq!(actual, dvector![0.0, 0.0, 0.0, 0.0, 1.0]);
 }
 
+#[rstest]
+#[case::wag("wag", &WAG_PI_ARR, 1e-8)]
+#[case::blosum("blosum", &BLOSUM_PI_ARR, 1e-5)]
+#[case::hivb("hivb", &HIVB_PI_ARR, 1e-8)]
+fn protein_char_probabilities(
+    #[case] model_name: &str,
+    #[case] pi_array: &[f64],
+    #[case] epsilon: f64,
+) {
+    let mut pip = PIPModel::<20>::new(model_name, &[0.4, 0.1]).unwrap();
+    pip.normalise();
+    let expected = protein_char_probs_data(pi_array);
+    for (char, expected_prot) in expected.into_iter() {
+        let expected_pip = expected_prot.clone().insert_row(20, 0.0);
+        let actual = pip.get_char_probability(char);
+        assert_eq!(actual.len(), 21);
+        assert_relative_eq!(actual.sum(), 1.0, epsilon = epsilon);
+        assert_relative_eq!(actual, expected_pip, epsilon = epsilon);
+    }
+    let actual = pip.get_char_probability(b'-');
+    assert_eq!(actual.len(), 21);
+    assert_relative_eq!(actual.sum(), 1.0);
+    assert_relative_eq!(
+        actual,
+        FreqVector::from_column_slice(&[0.0; 20]).insert_row(20, 1.0)
+    );
 }
 
 #[rstest]
