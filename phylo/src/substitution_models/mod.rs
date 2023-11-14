@@ -8,7 +8,6 @@ use ordered_float::OrderedFloat;
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
-use crate::sequences::NUCLEOTIDES_STR;
 use crate::tree::NodeIdx;
 use crate::{f64_h, Result, Rounding};
 
@@ -88,8 +87,8 @@ where
         if zero_diag {
             scores.fill_diagonal(0.0);
         }
-
-        (scores, scores.mean())
+        let mean = scores.mean();
+        (scores, mean)
     }
 }
 
@@ -102,23 +101,25 @@ pub(crate) struct SubstitutionLikelihoodCost<'a, const N: usize> {
 pub(crate) struct SubstitutionModelInfo<const N: usize> {
     internal_info: Vec<DMatrix<f64>>,
     internal_info_valid: Vec<bool>,
-    internal_models: Vec<SubstMatrix<N>>,
+    internal_models: Vec<SubstMatrix>,
     internal_models_valid: Vec<bool>,
     leaf_info: Vec<DMatrix<f64>>,
     leaf_info_valid: Vec<bool>,
-    leaf_models: Vec<SubstMatrix<N>>,
+    leaf_models: Vec<SubstMatrix>,
     leaf_models_valid: Vec<bool>,
     leaf_sequence_info: Vec<DMatrix<f64>>,
 }
 
-// implies that the sequences are aligned
 impl<const N: usize> EvolutionaryModelInfo<N> for SubstitutionModelInfo<N> {
-    fn new(info: &PhyloInfo, model: &dyn EvolutionaryModel<N>) -> Self {
+    fn new(info: &PhyloInfo, model: &dyn EvolutionaryModel<N>) -> Result<Self> {
+        if info.msa.is_none() {
+            bail!("An MSA is required to set up the likelihood computation.");
+        }
         let leaf_count = info.tree.leaves.len();
         let internal_count = info.tree.internals.len();
-        let msa_length = info.sequences[0].seq().len();
-        let leaf_sequence_info = info
-            .sequences
+        let msa = info.msa.as_ref().unwrap();
+        let msa_length = msa[0].seq().len();
+        let leaf_sequence_info = msa
             .iter()
             .map(|rec| {
                 DMatrix::from_columns(
@@ -130,17 +131,17 @@ impl<const N: usize> EvolutionaryModelInfo<N> for SubstitutionModelInfo<N> {
                 )
             })
             .collect::<Vec<_>>();
-        SubstitutionModelInfo {
+        Ok(SubstitutionModelInfo {
             internal_info: vec![DMatrix::<f64>::zeros(N, msa_length); internal_count],
             internal_info_valid: vec![false; internal_count],
-            internal_models: vec![SubstMatrix::zeros(); internal_count],
+            internal_models: vec![SubstMatrix::zeros(N, N); internal_count],
             internal_models_valid: vec![false; internal_count],
             leaf_info: vec![DMatrix::<f64>::zeros(N, msa_length); leaf_count],
             leaf_info_valid: vec![false; leaf_count],
-            leaf_models: vec![SubstMatrix::zeros(); leaf_count],
+            leaf_models: vec![SubstMatrix::zeros(N, N); leaf_count],
             leaf_models_valid: vec![false; leaf_count],
             leaf_sequence_info,
-        }
+        })
     }
 }
 

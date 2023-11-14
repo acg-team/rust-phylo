@@ -292,20 +292,6 @@ fn dna_char_probabilities() {
 }
 
 #[rstest]
-#[case::jc69("jc69", &[])]
-#[case::k80("k80", &[])]
-#[case::hky("hky", &[0.22, 0.26, 0.33, 0.19, 0.5])]
-#[case::tn93("tn93", &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
-#[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-fn dna_weird_char_probabilities(#[case] input: &str, #[case] params: &[f64]) {
-    let model = DNASubstModel::new(input, params, true).unwrap();
-    assert_eq!(
-        EvolutionaryModel::get_char_probability(&model, b'.'),
-        EvolutionaryModel::get_char_probability(&model, b'X')
-    );
-}
-
-#[rstest]
 #[case::wag("wag", &WAG_PI_ARR, 1e-8)]
 #[case::blosum("blosum", &BLOSUM_PI_ARR, 1e-5)]
 #[case::hivb("hivb", &HIVB_PI_ARR, 1e-8)]
@@ -334,52 +320,6 @@ fn protein_weird_char_probabilities(#[case] input: &str) {
 }
 
 #[rstest]
-#[case::wag("wag", &WAG_PI_ARR, 1e-8)]
-#[case::blosum("blosum", &BLOSUM_PI_ARR, 1e-5)]
-#[case::hivb("hivb", &HIVB_PI_ARR, 1e-8)]
-fn protein_char_probabilities(#[case] input: &str, #[case] pi_array: &[f64], #[case] epsilon: f64) {
-    let mut model = ProteinSubstModel::new(input, &[]).unwrap();
-    model.normalise();
-    let expected = HashMap::from([
-        (
-            b"A",
-            FreqVector::from_column_slice(
-                &repeat(1.0)
-                    .take(1)
-                    .chain(repeat(0.0).take(19))
-                    .collect::<Vec<f64>>(),
-            ),
-        ),
-        (
-            b"R",
-            FreqVector::from_column_slice(
-                &repeat(0.0)
-                    .take(1)
-                    .chain(repeat(1.0).take(1))
-                    .chain(repeat(0.0).take(18))
-                    .collect::<Vec<f64>>(),
-            ),
-        ),
-        (
-            b"W",
-            FreqVector::from_column_slice(
-                &repeat(0.0)
-                    .take(17)
-                    .chain(repeat(1.0).take(1))
-                    .chain(repeat(0.0).take(2))
-                    .collect::<Vec<f64>>(),
-            ),
-        ),
-        (b"X", FreqVector::from_column_slice(pi_array)),
-    ]);
-    for (&&char, value) in expected.iter() {
-        let actual = gtr.get_char_probability(char[0]);
-        assert_relative_eq!(actual.sum(), 1.0);
-        assert_relative_eq!(actual, expected, epsilon = 1e-4);
-    }
-}
-
-#[rstest]
 #[case::jc69("jc69", &[])]
 #[case::k80("k80", &[])]
 #[case::hky("hky", &[0.22, 0.26, 0.33, 0.19, 0.5])]
@@ -387,34 +327,6 @@ fn protein_char_probabilities(#[case] input: &str, #[case] pi_array: &[f64], #[c
 #[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
 fn dna_weird_char_probabilities(#[case] input: &str, #[case] params: &[f64]) {
     let model = DNASubstModel::new(input, params, true).unwrap();
-    assert_eq!(
-        EvolutionaryModel::get_char_probability(&model, b'.'),
-        EvolutionaryModel::get_char_probability(&model, b'X')
-    );
-}
-
-#[rstest]
-#[case::wag("wag", &WAG_PI_ARR, 1e-8)]
-#[case::blosum("blosum", &BLOSUM_PI_ARR, 1e-5)]
-#[case::hivb("hivb", &HIVB_PI_ARR, 1e-8)]
-fn protein_char_probabilities(#[case] input: &str, #[case] pi_array: &[f64], #[case] epsilon: f64) {
-    let mut model = ProteinSubstModel::new(input, &[], false).unwrap();
-    model.normalise();
-    let expected = protein_char_probs_data(pi_array);
-    for (char, expected_probs) in expected.into_iter() {
-        let actual = model.get_char_probability(char);
-        assert_relative_eq!(actual.sum(), 1.0, epsilon = epsilon);
-        assert_relative_eq!(actual, expected_probs, epsilon = epsilon);
-    }
-}
-
-#[rstest]
-#[case::wag("wag")]
-#[case::blosum("blosum")]
-#[case::hivb("hivb")]
-fn protein_weird_char_probabilities(#[case] input: &str) {
-    let mut model = ProteinSubstModel::new(input, &[], false).unwrap();
-    model.normalise();
     assert_eq!(
         EvolutionaryModel::get_char_probability(&model, b'.'),
         EvolutionaryModel::get_char_probability(&model, b'X')
