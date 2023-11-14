@@ -231,6 +231,28 @@ fn dna_tn93_incorrect() {
 }
 
 #[test]
+fn dna_tn93_correct() {
+    let tn93 = DNASubstModel::new(
+        "tn93",
+        &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
+    )
+    .unwrap();
+    let expected = [
+        [-0.15594579, 0.15524379, 0.0004455, 0.0002565],
+        [0.13136013, -0.13206213, 0.0004455, 0.0002565],
+        [0.000297, 0.000351, -0.056516265, 0.055868265],
+        [0.000297, 0.000351, 0.097034355, -0.097682355],
+    ];
+    for (i, expected) in expected.iter().enumerate() {
+        assert_float_relative_slice_eq(
+            &tn93.q.row(i).iter().copied().collect::<Vec<_>>(),
+            expected,
+            0.0000001,
+        )
+    }
+}
+
+#[test]
 fn dna_model_incorrect() {
     assert!(DNASubstModel::new("jc70", &Vec::new(), false).is_err());
     assert!(DNASubstModel::new("wag", &Vec::new(), false).is_err());

@@ -65,6 +65,7 @@ pub fn setup_phylogenetic_info(sequence_file: PathBuf, tree_file: PathBuf) -> Re
             .cloned()
             .unwrap_or(std::usize::MAX)
     });
+
     let msa = if aligned_sequences(&sequences) {
         Some(sequences.clone())
     } else {

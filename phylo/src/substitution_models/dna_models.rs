@@ -284,6 +284,7 @@ pub(crate) fn gtr(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
     if (f_t + f_c + f_a + f_g) != 1.0 {
         bail!("The equilibrium frequencies provided do not sum up to 1.");
     }
+  
     let mut q = SubstMatrix::from_row_slice(
         4,
         4,
