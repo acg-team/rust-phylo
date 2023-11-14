@@ -19,6 +19,7 @@ use crate::substitution_models::{
     FreqVector, SubstMatrix, SubstitutionModel,
 };
 use crate::tree::tree_parser;
+use crate::Rounding as R;
 
 #[cfg(test)]
 fn compare_pip_subst_rates<const N: usize>(
@@ -65,9 +66,62 @@ fn protein_pip_correct(
     assert_eq!(pip_model.lambda, model_params[0]);
     assert_eq!(pip_model.mu, model_params[1]);
     let frequencies = FreqVector::from_column_slice(pi_array).insert_row(20, 0.0);
-    assert_eq!(pip_model.pi, frequencies);
+    assert_eq!(
+        EvolutionaryModel::get_stationary_distribution(&pip_model),
+        &frequencies
+    );
     let subst_model = ProteinSubstModel::new(model_name, &[], false).unwrap();
     compare_pip_subst_rates(AMINOACIDS_STR, &pip_model, &subst_model);
+}
+
+#[rstest]
+#[case::jc69("jc69", &[])]
+#[case::k80("k80", &[])]
+#[case::hky("hky", &[0.22, 0.26, 0.33, 0.19, 0.5])]
+#[case::tn93("tn93", &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
+#[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
+#[should_panic]
+fn pip_dna_generate_scorings_unreachable(#[case] model_name: &str, #[case] model_params: &[f64]) {
+    let pip_model = PIPModel::<4>::new(model_name, model_params, false).unwrap();
+    EvolutionaryModel::generate_scorings(&pip_model, &[0.2, 0.4], false, &R::zero());
+}
+
+#[rstest]
+#[case::jc69("jc69", &[])]
+#[case::k80("k80", &[])]
+#[case::hky("hky", &[0.22, 0.26, 0.33, 0.19, 0.5])]
+#[case::tn93("tn93", &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
+#[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
+#[should_panic]
+fn pip_dna_get_scoring_matrix_unreachable(#[case] model_name: &str, #[case] model_params: &[f64]) {
+    let pip_model = PIPModel::<4>::new(model_name, model_params, false).unwrap();
+    EvolutionaryModel::get_scoring_matrix(&pip_model, 0.2, &R::zero());
+}
+
+#[rstest]
+#[case::wag("wag", &[0.1, 0.4])]
+#[case::blosum("blosum", &[0.8, 0.25])]
+#[case::hivb("hivb", &[1.1, 12.4])]
+#[should_panic]
+fn pip_protein_generate_scorings_unreachable(
+    #[case] model_name: &str,
+    #[case] model_params: &[f64],
+) {
+    let pip_model = PIPModel::<20>::new(model_name, model_params, false).unwrap();
+    EvolutionaryModel::generate_scorings(&pip_model, &[0.2, 0.4], false, &R::zero());
+}
+
+#[rstest]
+#[case::wag("wag", &[0.1, 0.4])]
+#[case::blosum("blosum", &[0.8, 0.25])]
+#[case::hivb("hivb", &[1.1, 12.4])]
+#[should_panic]
+fn pip_protein_get_scoring_matrix_unreachable(
+    #[case] model_name: &str,
+    #[case] model_params: &[f64],
+) {
+    let pip_model = PIPModel::<20>::new(model_name, model_params, false).unwrap();
+    EvolutionaryModel::get_scoring_matrix(&pip_model, 0.2, &R::zero());
 }
 
 #[test]
@@ -75,9 +129,55 @@ fn pip_dna_jc69_correct() {
     let pip_jc69 = PIPModel::<4>::new("jc69", &[0.1, 0.4], false).unwrap();
     assert_eq!(pip_jc69.lambda, 0.1);
     assert_eq!(pip_jc69.mu, 0.4);
-    assert_eq!(pip_jc69.pi, dvector![0.25, 0.25, 0.25, 0.25, 0.0]);
+    assert_eq!(
+        EvolutionaryModel::get_stationary_distribution(&pip_jc69),
+        &dvector![0.25, 0.25, 0.25, 0.25, 0.0]
+    );
     let jc96 = DNASubstModel::new("jc69", &[], false).unwrap();
     compare_pip_subst_rates(NUCLEOTIDES_STR, &pip_jc69, &jc96);
+}
+
+#[test]
+fn pip_dna_jc69_normalised() {
+    let mut pip_jc69 = PIPModel::<4>::new("jc69", &[0.1, 0.4], true).unwrap();
+    pip_jc69.normalise();
+    assert_eq!(pip_jc69.lambda, 0.1);
+    assert_eq!(pip_jc69.mu, 0.4);
+    assert_eq!(
+        EvolutionaryModel::get_stationary_distribution(&pip_jc69),
+        &dvector![0.25, 0.25, 0.25, 0.25, 0.0]
+    );
+    for char in charify(NUCLEOTIDES_STR) {
+        assert_eq!(pip_jc69.get_rate(char, char), -1.0);
+        assert_relative_eq!(
+            pip_jc69.q.row(pip_jc69.index[char as usize] as usize).sum(),
+            0.0,
+        );
+        assert_relative_eq!(pip_jc69.get_rate(char, b'-'), 0.4 / 1.4);
+        assert_relative_eq!(pip_jc69.get_rate(b'-', char), 0.0);
+    }
+}
+
+#[test]
+fn pip_protein_wag_normalised() {
+    let mut pip_wag = PIPModel::<20>::new("wag", &[0.1, 0.4], true).unwrap();
+    pip_wag.normalise();
+    assert_eq!(pip_wag.lambda, 0.1);
+    assert_eq!(pip_wag.mu, 0.4);
+    let stat_dist = DVector::from_column_slice(&WAG_PI_ARR).insert_row(20, 0.0);
+    assert_relative_eq!(
+        EvolutionaryModel::get_stationary_distribution(&pip_wag),
+        &stat_dist
+    );
+    assert_relative_eq!(pip_wag.q.sum(), 0.0, epsilon = 1e-10);
+    for char in charify(NUCLEOTIDES_STR) {
+        assert_relative_eq!(
+            pip_wag.q.row(pip_wag.index[char as usize] as usize).sum(),
+            0.0,
+        );
+        assert_relative_eq!(pip_wag.get_rate(char, b'-'), 0.4 / 1.4, epsilon = 1e-5);
+        assert_relative_eq!(pip_wag.get_rate(b'-', char), 0.0);
+    }
 }
 
 #[test]
@@ -122,7 +222,10 @@ fn pip_dna_tn93_correct() {
         ],
     );
     assert_relative_eq!(pip_tn93.q, expected);
-    assert_relative_eq!(pip_tn93.pi, dvector![0.22, 0.26, 0.33, 0.19, 0.0]);
+    assert_relative_eq!(
+        EvolutionaryModel::get_stationary_distribution(&pip_tn93),
+        &dvector![0.22, 0.26, 0.33, 0.19, 0.0]
+    );
 }
 
 #[rstest]
@@ -188,7 +291,7 @@ fn protein_char_probabilities(
     #[case] epsilon: f64,
 ) {
     let mut pip = PIPModel::<20>::new(model_name, &[0.4, 0.1], false).unwrap();
-    pip.normalise();
+    EvolutionaryModel::normalise(&mut pip);
     let expected = protein_char_probs_data(pi_array);
     for (char, expected_prot) in expected.into_iter() {
         let expected_pip = expected_prot.clone().insert_row(20, 0.0);
@@ -230,10 +333,10 @@ fn pip_rates(#[case] model_name: &str, #[case] model_params: &[f64]) {
 #[case::hky("hky", &[0.22, 0.26, 0.33, 0.19, 0.5])]
 #[case::tn93("tn93", &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
 #[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-fn pip_p_matrix_inf(#[case] model_name: &str, #[case] model_params: &[f64]) {
+fn pip_dna_p_matrix_inf(#[case] model_name: &str, #[case] model_params: &[f64]) {
     let pip_params = vec![0.2, 0.5];
     let pip = PIPModel::<4>::new(model_name, &[&pip_params, model_params].concat(), false).unwrap();
-    let p = pip.get_p(10000000.0);
+    let p = EvolutionaryModel::get_p(&pip, 10000000.0);
     let expected = SubstMatrix::from_row_slice(
         5,
         5,
@@ -242,6 +345,18 @@ fn pip_p_matrix_inf(#[case] model_name: &str, #[case] model_params: &[f64]) {
             0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ],
     );
+    assert_relative_eq!(p, expected, epsilon = 1e-10);
+}
+
+#[rstest]
+#[case::wag("wag", &[1.2, 0.95])]
+#[case::blosum("blosum", &[0.2, 0.5])]
+#[case::hivb("hivb", &[0.1, 0.04])]
+fn pip_protein_p_matrix_inf(#[case] model_name: &str, #[case] model_params: &[f64]) {
+    let pip = PIPModel::<20>::new(model_name, model_params, false).unwrap();
+    let p = EvolutionaryModel::get_p(&pip, 10000000.0);
+    let mut expected = SubstMatrix::zeros(21, 21);
+    expected.fill_column(20, 1.0);
     assert_relative_eq!(p, expected, epsilon = 1e-10);
 }
 
@@ -270,7 +385,11 @@ fn pip_p_example_matrix() {
             0.276, 0.0792, 0.393, 0.115, 0.136, 0.138, 0.217, 0.393, 0.0, 0.0, 0.0, 0.0, 1.0,
         ],
     );
-    assert_relative_eq!(pip_hky.get_p(2.0), expected_p, epsilon = epsilon);
+    assert_relative_eq!(
+        EvolutionaryModel::get_p(&pip_hky, 2.0),
+        expected_p,
+        epsilon = epsilon
+    );
     let expected_p = SubstMatrix::from_row_slice(
         5,
         5,
@@ -279,7 +398,22 @@ fn pip_p_example_matrix() {
             0.48, 0.0625, 0.221, 0.108, 0.128, 0.108, 0.434, 0.221, 0.0, 0.0, 0.0, 0.0, 1.0,
         ],
     );
-    assert_relative_eq!(pip_hky.get_p(1.0), expected_p, epsilon = epsilon);
+    assert_relative_eq!(
+        EvolutionaryModel::get_p(&pip_hky, 1.0),
+        expected_p,
+        epsilon = epsilon
+    );
+}
+
+#[test]
+fn pip_likelihood_no_msa() {
+    let info = setup_phylogenetic_info(
+        PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
+        PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+    )
+    .unwrap();
+    let model_wag = PIPModel::<4>::new("jc69", &[0.5, 0.25], false).unwrap();
+    assert!(PIPModelInfo::<4>::new(&info, &model_wag).is_err());
 }
 
 #[cfg(test)]
