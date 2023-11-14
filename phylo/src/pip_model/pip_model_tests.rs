@@ -716,3 +716,51 @@ fn pip_likelihood_huelsenbeck_example_model_comp() {
         cost_2.compute_log_likelihood(),
     );
 }
+
+#[test]
+fn pip_likelihood_huelsenbeck_example_reroot() {
+    let info_1 = setup_phylogenetic_info(
+        PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
+        PathBuf::from("./data/Huelsenbeck_example.newick"),
+    )
+    .unwrap();
+    let model_gtr_1 = PIPModel::<4>::new(
+        "gtr",
+        &[
+            0.5, 0.25, 0.22, 0.26, 0.33, 0.19, 1.25453, 1.07461, 1.0, 1.14689, 1.53244, 1.47031,
+        ],
+        false,
+    )
+    .unwrap();
+    let temp_values_1 = PIPModelInfo::<4>::new(&info_1, &model_gtr_1).unwrap();
+    let mut cost_1 = PIPLikelihoodCost {
+        info: &info_1,
+        model: model_gtr_1,
+        tmp: temp_values_1,
+    };
+
+    let info_2 = setup_phylogenetic_info(
+        PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
+        PathBuf::from("./data/Huelsenbeck_example_reroot.newick"),
+    )
+    .unwrap();
+    let model_gtr_2 = PIPModel::<4>::new(
+        "gtr",
+        &[
+            0.5, 0.25, 0.22, 0.26, 0.33, 0.19, 1.25453, 1.07461, 1.0, 1.14689, 1.53244, 1.47031,
+        ],
+        false,
+    )
+    .unwrap();
+
+    let temp_values_2 = PIPModelInfo::<4>::new(&info_2, &model_gtr_2).unwrap();
+    let mut cost_2 = PIPLikelihoodCost {
+        info: &info_2,
+        model: model_gtr_2,
+        tmp: temp_values_2,
+    };
+    assert_relative_eq!(
+        cost_1.compute_log_likelihood(),
+        cost_2.compute_log_likelihood(),
+    );
+}
