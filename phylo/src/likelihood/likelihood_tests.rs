@@ -192,7 +192,7 @@ fn protein_example_likelihood(
 ) {
     let info = setup_phylogenetic_info(
         PathBuf::from("./data/phyml_protein_nogap_example.fasta"),
-        PathBuf::from("./data/phyml_protein_nogap_example.newick"),
+        PathBuf::from("./data/phyml_protein_example.newick"),
     )
     .unwrap();
     let mut likelihood = setup_protein_likelihood(&info, model_name, model_params, true).unwrap();
