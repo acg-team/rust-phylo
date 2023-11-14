@@ -279,5 +279,440 @@ fn pip_p_example_matrix() {
             0.48, 0.0625, 0.221, 0.108, 0.128, 0.108, 0.434, 0.221, 0.0, 0.0, 0.0, 0.0, 1.0,
         ],
     );
-    assert_relative_eq!(pip_hky.get_p(1.0), expected_p, epsilon = 1e-3);
+    assert_relative_eq!(pip_hky.get_p(1.0), expected_p, epsilon = epsilon);
+}
+
+#[cfg(test)]
+fn setup_example_phylo_info() -> PhyloInfo {
+    let sequences = vec![
+        Record::with_attrs("A", None, b"-A--"),
+        Record::with_attrs("B", None, b"CA--"),
+        Record::with_attrs("C", None, b"-A-G"),
+        Record::with_attrs("D", None, b"-CAA"),
+    ];
+    let newick = "((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;".to_string();
+    let tree = tree_parser::from_newick_string(&newick)
+        .unwrap()
+        .pop()
+        .unwrap();
+    PhyloInfo {
+        tree,
+        sequences: sequences.clone(),
+        msa: Some(sequences.clone()),
+    }
+}
+
+#[test]
+fn pip_hky_likelihood_example_leaf_values() {
+    let model =
+        PIPModel::<4>::new("hky", &[0.5, 0.25, 0.22, 0.26, 0.33, 0.19, 0.5], false).unwrap();
+    let info = setup_example_phylo_info();
+    let temp_values = PIPModelInfo::<4>::new(&info, &model).unwrap();
+    let mut cost = PIPLikelihoodCost {
+        info: &info,
+        model,
+        tmp: temp_values,
+    };
+    let iota = 0.133;
+    let beta = 0.787;
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("A").into());
+    assert_values(
+        &cost,
+        cost.info.tree.get_idx_by_id("A").into(),
+        iota,
+        beta,
+        &[[0.0, 1.0, 0.0, 0.0], [0.0; 4], [0.0; 4]].concat(),
+        &[0.0, 0.33, 0.0, 0.0],
+        &[0.0, 0.33 * iota * beta, 0.0, 0.0],
+    );
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("B").into());
+    assert_values(
+        &cost,
+        cost.info.tree.get_idx_by_id("B").into(),
+        iota,
+        beta,
+        &[[1.0, 1.0, 0.0, 0.0], [0.0; 4], [0.0; 4]].concat(),
+        &[0.26, 0.33, 0.0, 0.0],
+        &[0.26 * iota * beta, 0.33 * iota * beta, 0.0, 0.0],
+    );
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("C").into());
+    let iota = 0.067;
+    let beta = 0.885;
+    assert_values(
+        &cost,
+        cost.info.tree.get_idx_by_id("C").into(),
+        iota,
+        beta,
+        &[[0.0, 1.0, 0.0, 1.0], [0.0; 4], [0.0; 4]].concat(),
+        &[0.0, 0.33, 0.0, 0.19],
+        &[0.0, 0.33 * iota * beta, 0.0, 0.19 * iota * beta],
+    );
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("D").into());
+    assert_values(
+        &cost,
+        cost.info.tree.get_idx_by_id("D").into(),
+        iota,
+        beta,
+        &[[0.0, 1.0, 1.0, 1.0], [0.0; 4], [0.0; 4]].concat(),
+        &[0.0, 0.26, 0.33, 0.33],
+        &[
+            0.0,
+            0.26 * iota * beta,
+            0.33 * iota * beta,
+            0.33 * iota * beta,
+        ],
+    );
+}
+
+#[test]
+fn pip_hky_likelihood_example_internals() {
+    let model =
+        PIPModel::<4>::new("hky", &[0.5, 0.25, 0.22, 0.26, 0.33, 0.19, 0.5], false).unwrap();
+    let info = setup_example_phylo_info();
+    let temp_values = PIPModelInfo::<4>::new(&info, &model).unwrap();
+    let mut cost = PIPLikelihoodCost {
+        info: &info,
+        model,
+        tmp: temp_values,
+    };
+    for i in 0..4 {
+        cost.set_leaf_values(i);
+    }
+    let iota = 0.133;
+    let beta = 0.787;
+    let idx = usize::from(cost.info.tree.get_idx_by_id("E"));
+    cost.set_internal_values(idx);
+    assert_values(
+        &cost,
+        idx + 4,
+        iota,
+        beta,
+        &[1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+        &[0.0619, 0.0431, 0.154, 0.154],
+        &[
+            0.0619 * iota * beta + 0.26 * iota * beta,
+            0.0431 * iota * beta,
+            0.0,
+            0.0,
+        ],
+    );
+    let idx = usize::from(cost.info.tree.get_idx_by_id("F"));
+    cost.set_internal_values(idx);
+    let iota_f = 0.2;
+    let beta_f = 0.704;
+    let iota_d = 0.067;
+    let beta_d = 0.885;
+    assert_values(
+        &cost,
+        idx + 4,
+        iota_f,
+        beta_f,
+        &[0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        &[0.0488, 0.0449, 0.0567, 0.0261],
+        &[
+            0.0,
+            0.0449 * iota_f * beta_f,
+            0.0567 * iota_f * beta_f + 0.33 * iota_d * beta_d,
+            0.0261 * iota_f * beta_f,
+        ],
+    );
+
+    let iota = 0.267;
+    let beta = 1.0;
+    let iota_e = 0.133;
+    let beta_e = 0.787;
+    let idx = usize::from(cost.info.tree.get_idx_by_id("R"));
+    cost.set_root_values(idx);
+    assert_values(
+        &cost,
+        idx + 4,
+        iota,
+        beta,
+        &[1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0],
+        &[0.0207, 0.000557, 0.013, 0.00598],
+        &[
+            0.0207 * iota * beta + 0.0619 * iota_e * beta_e + 0.26 * iota_e * beta_e,
+            0.000557 * iota * beta,
+            0.013 * iota * beta + 0.0567 * iota_f * beta_f + 0.33 * iota_d * beta_d,
+            0.00598 * iota * beta + 0.0261 * iota_f * beta_f,
+        ],
+    );
+}
+
+#[cfg(test)]
+fn assert_values<const N: usize>(
+    cost: &PIPLikelihoodCost<N>,
+    node_id: usize,
+    exp_ins: f64,
+    exp_surv: f64,
+    exp_anc: &[f64],
+    exp_f: &[f64],
+    exp_p: &[f64],
+) {
+    let e = 1e-3;
+    assert_relative_eq!(cost.tmp.ins_probs[node_id], exp_ins, epsilon = e);
+    assert_relative_eq!(cost.tmp.surv_probs[node_id], exp_surv, epsilon = e);
+    assert_relative_eq!(
+        cost.tmp.f[node_id],
+        DVector::<f64>::from_column_slice(exp_f),
+        epsilon = e
+    );
+    assert_eq!(cost.tmp.anc[node_id].nrows(), exp_f.len());
+    assert_eq!(cost.tmp.anc[node_id].ncols(), 3);
+    assert_relative_eq!(
+        cost.tmp.anc[node_id].as_slice(),
+        DMatrix::<f64>::from_column_slice(exp_anc.len(), 1, exp_anc).as_slice(),
+    );
+    assert_relative_eq!(
+        cost.tmp.p[node_id],
+        DVector::<f64>::from_column_slice(exp_p),
+        epsilon = e
+    );
+}
+
+#[test]
+fn pip_hky_likelihood_example_c0() {
+    let model =
+        PIPModel::<4>::new("hky", &[0.5, 0.25, 0.22, 0.26, 0.33, 0.19, 0.5], false).unwrap();
+    let info = setup_example_phylo_info();
+    let temp_values = PIPModelInfo::<4>::new(&info, &model).unwrap();
+    let mut cost = PIPLikelihoodCost {
+        info: &info,
+        model,
+        tmp: temp_values,
+    };
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("A").into());
+    assert_c0_values(
+        &cost,
+        cost.info.tree.get_idx_by_id("A").into(),
+        &[0.0, 0.0, 0.0, 0.0, 1.0],
+        0.0,
+        0.028329,
+    );
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("B").into());
+    assert_c0_values(
+        &cost,
+        cost.info.tree.get_idx_by_id("B").into(),
+        &[0.0, 0.0, 0.0, 0.0, 1.0],
+        0.0,
+        0.028329,
+    );
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("C").into());
+    assert_c0_values(
+        &cost,
+        cost.info.tree.get_idx_by_id("C").into(),
+        &[0.0, 0.0, 0.0, 0.0, 1.0],
+        0.0,
+        0.007705,
+    );
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("D").into());
+    assert_c0_values(
+        &cost,
+        cost.info.tree.get_idx_by_id("D").into(),
+        &[0.0, 0.0, 0.0, 0.0, 1.0],
+        0.0,
+        0.007705,
+    );
+    let idx = usize::from(cost.info.tree.get_idx_by_id("E"));
+    cost.set_internal_values(idx);
+    assert_c0_values(
+        &cost,
+        idx + 4,
+        &[0.154, 0.154, 0.154, 0.154, 1.0],
+        0.154,
+        0.044448334 + 0.028329 * 2.0,
+    );
+    let idx = usize::from(cost.info.tree.get_idx_by_id("F"));
+    cost.set_internal_values(idx);
+    assert_c0_values(
+        &cost,
+        idx + 4,
+        &[0.0488, 0.0488, 0.0488, 0.0488, 1.0],
+        0.0488,
+        0.06607104 + 0.007705 * 2.0,
+    );
+    let idx = usize::from(cost.info.tree.get_idx_by_id("R"));
+    cost.set_root_values(idx);
+    assert_c0_values(
+        &cost,
+        idx + 4,
+        &[0.268, 0.268, 0.268, 0.268, 1.0],
+        0.268,
+        0.071556 + 0.044448334 + 0.028329 * 2.0 + 0.06607104 + 0.007705 * 2.0,
+    )
+}
+
+#[cfg(test)]
+fn assert_c0_values<const N: usize>(
+    cost: &PIPLikelihoodCost<N>,
+    node_id: usize,
+    exp_ftilde: &[f64],
+    exp_f: f64,
+    exp_p: f64,
+) {
+    let e = 1e-3;
+    assert_relative_eq!(
+        cost.tmp.c0_ftilde[node_id],
+        DMatrix::<f64>::from_column_slice(N + 1, 1, exp_ftilde),
+        epsilon = e
+    );
+    assert_relative_eq!(cost.tmp.c0_f[node_id], exp_f, epsilon = e);
+    assert_relative_eq!(cost.tmp.c0_p[node_id], exp_p, epsilon = e);
+}
+
+#[test]
+fn pip_hky_likelihood_example_final() {
+    let model =
+        PIPModel::<4>::new("hky", &[0.5, 0.25, 0.22, 0.26, 0.33, 0.19, 0.5], false).unwrap();
+    let info = setup_example_phylo_info();
+    let temp_values = PIPModelInfo::<4>::new(&info, &model).unwrap();
+    let mut cost = PIPLikelihoodCost {
+        info: &info,
+        model,
+        tmp: temp_values,
+    };
+    for i in 0..4 {
+        cost.set_leaf_values(i);
+    }
+    cost.set_internal_values(1);
+    cost.set_internal_values(2);
+    cost.set_root_values(0);
+    assert_relative_eq!(
+        cost.tmp.p[4],
+        DVector::from_column_slice(&[0.0392204949, 0.000148719, 0.03102171, 0.00527154]),
+        epsilon = 1e-3
+    );
+    assert_relative_eq!(cost.tmp.c0_p[4], 0.254143374, epsilon = 1e-3);
+    assert_relative_eq!(
+        cost.compute_log_likelihood(),
+        -20.769363665853653 - 0.709020450847471,
+        epsilon = 1e-3
+    );
+    assert_relative_eq!(
+        cost.compute_log_likelihood(),
+        -21.476307347643274, // value from the python script
+        epsilon = 1e-2
+    );
+}
+
+#[cfg(test)]
+fn setup_example_phylo_info_2() -> PhyloInfo {
+    let sequences = vec![
+        Record::with_attrs("A", None, b"--A--"),
+        Record::with_attrs("B", None, b"-CA--"),
+        Record::with_attrs("C", None, b"--A-G"),
+        Record::with_attrs("D", None, b"T-CAA"),
+    ];
+    let newick = "((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;".to_string();
+    let tree = tree_parser::from_newick_string(&newick)
+        .unwrap()
+        .pop()
+        .unwrap();
+    PhyloInfo {
+        tree,
+        sequences: sequences.clone(),
+        msa: Some(sequences.clone()),
+    }
+}
+
+#[test]
+fn pip_hky_likelihood_example_2() {
+    let model =
+        PIPModel::<4>::new("hky", &[0.5, 0.25, 0.22, 0.26, 0.33, 0.19, 0.5], false).unwrap();
+    let info = setup_example_phylo_info_2();
+    let temp_values = PIPModelInfo::<4>::new(&info, &model).unwrap();
+    let mut cost = PIPLikelihoodCost {
+        info: &info,
+        model,
+        tmp: temp_values,
+    };
+    assert_relative_eq!(
+        cost.compute_log_likelihood(),
+        -24.9549393298,
+        epsilon = 1e-2
+    );
+}
+
+#[test]
+fn pip_likelihood_huelsenbeck_example() {
+    let info = setup_phylogenetic_info(
+        PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
+        PathBuf::from("./data/Huelsenbeck_example.newick"),
+    )
+    .unwrap();
+    let model =
+        PIPModel::<4>::new("hky", &[0.5, 0.25, 0.22, 0.26, 0.33, 0.19, 0.5], false).unwrap();
+    let temp_values = PIPModelInfo::<4>::new(&info, &model).unwrap();
+    let mut cost = PIPLikelihoodCost {
+        info: &info,
+        model,
+        tmp: temp_values,
+    };
+    assert_relative_eq!(
+        cost.compute_log_likelihood(),
+        -377.04579323450395,
+        epsilon = 1e-4
+    );
+
+    let model =
+        PIPModel::<4>::new("hky", &[1.2, 0.45, 0.25, 0.25, 0.25, 0.25, 1.0], false).unwrap();
+    let temp_values = PIPModelInfo::<4>::new(&info, &model).unwrap();
+    let mut cost = PIPLikelihoodCost {
+        info: &info,
+        model,
+        tmp: temp_values,
+    };
+    assert_relative_eq!(
+        cost.compute_log_likelihood(),
+        -362.93914579664727, // value from the python script
+        epsilon = 1e-1
+    );
+
+    let model = PIPModel::<4>::new(
+        "gtr",
+        &[
+            0.5, 0.25, 0.22, 0.26, 0.33, 0.19, 1.25453, 1.07461, 1.0, 1.14689, 1.53244, 1.47031,
+        ],
+        false,
+    )
+    .unwrap();
+    let temp_values = PIPModelInfo::<4>::new(&info, &model).unwrap();
+    let mut cost = PIPLikelihoodCost {
+        info: &info,
+        model,
+        tmp: temp_values,
+    };
+    assert_relative_eq!(
+        cost.compute_log_likelihood(),
+        -359.38117790814533,
+        epsilon = 1e-4
+    );
+}
+
+#[test]
+fn pip_likelihood_huelsenbeck_example_model_comp() {
+    let info = setup_phylogenetic_info(
+        PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
+        PathBuf::from("./data/Huelsenbeck_example.newick"),
+    )
+    .unwrap();
+    let model_hky_as_jc69 =
+        PIPModel::<4>::new("hky", &[1.1, 0.55, 0.25, 0.25, 0.25, 0.25, 1.0], true).unwrap();
+    let temp_values_1 = PIPModelInfo::<4>::new(&info, &model_hky_as_jc69).unwrap();
+    let mut cost_1 = PIPLikelihoodCost {
+        info: &info,
+        model: model_hky_as_jc69,
+        tmp: temp_values_1,
+    };
+    let model_jc69 = PIPModel::<4>::new("jc69", &[1.1, 0.55], true).unwrap();
+    let temp_values_2 = PIPModelInfo::<4>::new(&info, &model_jc69).unwrap();
+    let mut cost_2 = PIPLikelihoodCost {
+        info: &info,
+        model: model_jc69,
+        tmp: temp_values_2,
+    };
+    assert_relative_eq!(
+        cost_1.compute_log_likelihood(),
+        cost_2.compute_log_likelihood(),
+    );
 }
