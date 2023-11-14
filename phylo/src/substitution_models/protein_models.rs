@@ -15,7 +15,7 @@ pub(crate) type ProteinFrequencyArray = [f64; 20];
 pub type ProteinSubstModel = SubstitutionModel<20>;
 
 impl EvolutionaryModel<20> for ProteinSubstModel {
-    fn new(model_name: &str, _: &[f64], _: bool) -> Result<Self>
+    fn new(model_name: &str, _: &[f64], normalise: bool) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
@@ -25,11 +25,15 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
             "HIVB" => hivb()?,
             _ => bail!("Unknown protein model requested."),
         };
-        Ok(ProteinSubstModel {
+        let mut model = ProteinSubstModel {
             index: aminoacid_index(),
             q,
             pi,
-        })
+        };
+        if normalise {
+            model.normalise();
+        }
+        Ok(model)
     }
 
     fn get_p(&self, time: f64) -> SubstMatrix {
