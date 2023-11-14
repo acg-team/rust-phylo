@@ -15,7 +15,7 @@ pub(crate) type ProteinFrequencyArray = [f64; 20];
 pub type ProteinSubstModel = SubstitutionModel<20>;
 
 impl EvolutionaryModel<20> for ProteinSubstModel {
-    fn new(model_name: &str, _: &[f64]) -> Result<Self>
+    fn new(model_name: &str, _: &[f64], _: bool) -> Result<Self>
     where
         Self: std::marker::Sized,
     {

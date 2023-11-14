@@ -16,7 +16,7 @@ fn setup_dna_likelihood<'a>(
     model_params: &[f64],
     normalise: bool,
 ) -> Result<SubstitutionLikelihoodCost<'a, 4>> {
-    let mut model = DNASubstModel::new(model_name, model_params)?;
+    let mut model = DNASubstModel::new(model_name, model_params, normalise)?;
     if normalise {
         model.normalise();
     }
@@ -34,7 +34,7 @@ fn setup_protein_likelihood<'a>(
     model_params: &[f64],
     normalise: bool,
 ) -> Result<SubstitutionLikelihoodCost<'a, 20>> {
-    let mut model = ProteinSubstModel::new(model_name, model_params)?;
+    let mut model = ProteinSubstModel::new(model_name, model_params, normalise)?;
     if normalise {
         model.normalise();
     }

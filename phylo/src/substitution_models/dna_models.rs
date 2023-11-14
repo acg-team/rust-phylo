@@ -12,7 +12,7 @@ use crate::{Result, Rounding};
 pub type DNASubstModel = SubstitutionModel<4>;
 
 impl EvolutionaryModel<4> for DNASubstModel {
-    fn new(model_name: &str, model_params: &[f64]) -> Result<Self>
+    fn new(model_name: &str, model_params: &[f64], normalise: bool) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
@@ -24,11 +24,14 @@ impl EvolutionaryModel<4> for DNASubstModel {
             "GTR" => gtr(model_params)?,
             _ => bail!("Unknown DNA model requested."),
         };
-        let model = DNASubstModel {
+        let mut model = DNASubstModel {
             index: nucleotide_index(),
             q,
             pi,
         };
+        if normalise {
+            model.normalise();
+        }
         Ok(model)
     }
 

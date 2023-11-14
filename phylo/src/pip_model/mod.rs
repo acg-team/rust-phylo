@@ -1,14 +1,19 @@
 use std::collections::HashMap;
+use std::ops::Mul;
+use std::vec;
 
 use anyhow::bail;
-use nalgebra::{Const, DimMin};
+use nalgebra::{Const, DMatrix, DVector, DimMin};
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::EvolutionaryModel;
+use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
+use crate::likelihood::LikelihoodCostFunction;
+use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::nucleotide_index;
 use crate::substitution_models::protein_models::{aminoacid_index, ProteinSubstModel};
 use crate::substitution_models::FreqVector;
 use crate::substitution_models::{dna_models::DNASubstModel, SubstMatrix, SubstitutionModel};
+use crate::tree::NodeIdx::{self, Internal as Int, Leaf};
 use crate::{Result, Rounding};
 
 #[derive(Clone, Debug)]
@@ -86,12 +91,12 @@ where
 
 // TODO: Make sure Q matrix makes sense like this ALL the time.
 impl EvolutionaryModel<4> for PIPModel<4> {
-    fn new(model_name: &str, model_params: &[f64]) -> Result<Self>
+    fn new(model_name: &str, model_params: &[f64], normalise: bool) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
         let (lambda, mu) = PIPModel::<4>::check_pip_params(model_params)?;
-        let subst_model = DNASubstModel::new(model_name, &model_params[2..])?;
+        let subst_model = DNASubstModel::new(model_name, &model_params[2..], normalise)?;
         let index = nucleotide_index();
         Ok(PIPModel::make_pip(index, subst_model, mu, lambda))
     }
@@ -139,12 +144,12 @@ impl EvolutionaryModel<4> for PIPModel<4> {
 }
 
 impl EvolutionaryModel<20> for PIPModel<20> {
-    fn new(model_name: &str, model_params: &[f64]) -> Result<Self>
+    fn new(model_name: &str, model_params: &[f64], normalise: bool) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
         let (lambda, mu) = PIPModel::<20>::check_pip_params(model_params)?;
-        let subst_model = ProteinSubstModel::new(model_name, &model_params[2..])?;
+        let subst_model = ProteinSubstModel::new(model_name, &model_params[2..], normalise)?;
         let index = aminoacid_index();
         Ok(PIPModel::make_pip(index, subst_model, mu, lambda))
     }

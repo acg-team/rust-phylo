@@ -12,8 +12,9 @@ impl<const N: usize> std::fmt::Debug for dyn EvolutionaryModel<N> {
     }
 }
 
+// TODO: change pi to a row vector
 pub trait EvolutionaryModel<const N: usize> {
-    fn new(model_name: &str, model_params: &[f64]) -> Result<Self>
+    fn new(model_name: &str, model_params: &[f64], normalise: bool) -> Result<Self>
     where
         Self: std::marker::Sized;
     fn normalise(&mut self);
