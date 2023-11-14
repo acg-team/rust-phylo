@@ -1,15 +1,15 @@
-use crate::Result;
-use crate::Rounding;
+use std::fmt::Display;
+
 use bio::alignment::distance::levenshtein;
 use bio::io::fasta::Record;
 use inc_stats::Percentiles;
 use log::info;
 use nalgebra::{max, DMatrix};
 use rand::random;
-use std::fmt::Display;
-use NodeIdx::{Internal as Int, Leaf};
 
-use self::nj_matrices::{Mat, NJMat};
+use crate::{Result, Rounding};
+use nj_matrices::{Mat, NJMat};
+use NodeIdx::{Internal as Int, Leaf};
 
 mod nj_matrices;
 pub(crate) mod tree_parser;
@@ -210,6 +210,19 @@ impl Tree {
             .collect();
         info!("Branch lengths are: {:?}", lengths);
         lengths
+    }
+
+    pub fn get_idx_by_id(&self, id: &str) -> NodeIdx {
+        debug_assert!(self.complete);
+        let idx = self.leaves.iter().position(|node| node.id == id);
+        if let Some(idx) = idx {
+            return NodeIdx::Leaf(idx);
+        }
+        let idx = self.internals.iter().position(|node| node.id == id);
+        if let Some(idx) = idx {
+            return NodeIdx::Internal(idx);
+        }
+        panic!("No node with id {} found in the tree", id);
     }
 }
 
