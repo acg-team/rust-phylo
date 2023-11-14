@@ -203,7 +203,6 @@ pub(crate) struct PIPLikelihoodCost<'a, const N: usize> {
     pub(crate) tmp: PIPModelInfo<N>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct PIPModelInfo<const N: usize> {
     tree_length: f64,

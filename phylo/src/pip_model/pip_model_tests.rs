@@ -140,7 +140,7 @@ fn pip_dna_jc69_correct() {
 #[test]
 fn pip_dna_jc69_normalised() {
     let mut pip_jc69 = PIPModel::<4>::new("jc69", &[0.1, 0.4], true).unwrap();
-    pip_jc69.normalise();
+    EvolutionaryModel::normalise(&mut pip_jc69);
     assert_eq!(pip_jc69.lambda, 0.1);
     assert_eq!(pip_jc69.mu, 0.4);
     assert_eq!(
@@ -148,20 +148,23 @@ fn pip_dna_jc69_normalised() {
         &dvector![0.25, 0.25, 0.25, 0.25, 0.0]
     );
     for char in charify(NUCLEOTIDES_STR) {
-        assert_eq!(pip_jc69.get_rate(char, char), -1.0);
+        assert_eq!(EvolutionaryModel::get_rate(&pip_jc69, char, char), -1.0);
         assert_relative_eq!(
             pip_jc69.q.row(pip_jc69.index[char as usize] as usize).sum(),
             0.0,
         );
-        assert_relative_eq!(pip_jc69.get_rate(char, b'-'), 0.4 / 1.4);
-        assert_relative_eq!(pip_jc69.get_rate(b'-', char), 0.0);
+        assert_relative_eq!(
+            EvolutionaryModel::get_rate(&pip_jc69, char, b'-'),
+            0.4 / 1.4
+        );
+        assert_relative_eq!(EvolutionaryModel::get_rate(&pip_jc69, b'-', char), 0.0);
     }
 }
 
 #[test]
 fn pip_protein_wag_normalised() {
     let mut pip_wag = PIPModel::<20>::new("wag", &[0.1, 0.4], true).unwrap();
-    pip_wag.normalise();
+    EvolutionaryModel::normalise(&mut pip_wag);
     assert_eq!(pip_wag.lambda, 0.1);
     assert_eq!(pip_wag.mu, 0.4);
     let stat_dist = DVector::from_column_slice(&WAG_PI_ARR).insert_row(20, 0.0);
@@ -175,8 +178,12 @@ fn pip_protein_wag_normalised() {
             pip_wag.q.row(pip_wag.index[char as usize] as usize).sum(),
             0.0,
         );
-        assert_relative_eq!(pip_wag.get_rate(char, b'-'), 0.4 / 1.4, epsilon = 1e-5);
-        assert_relative_eq!(pip_wag.get_rate(b'-', char), 0.0);
+        assert_relative_eq!(
+            EvolutionaryModel::get_rate(&pip_wag, char, b'-'),
+            0.4 / 1.4,
+            epsilon = 1e-5
+        );
+        assert_relative_eq!(EvolutionaryModel::get_rate(&pip_wag, b'-', char), 0.0);
     }
 }
 
