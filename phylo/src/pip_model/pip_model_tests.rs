@@ -764,3 +764,20 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
         cost_2.compute_log_likelihood(),
     );
 }
+
+#[test]
+fn pip_likelihood_protein_example() {
+    let info = setup_phylogenetic_info(
+        PathBuf::from("./data/phyml_protein_example.fasta"),
+        PathBuf::from("./data/phyml_protein_example.newick"),
+    )
+    .unwrap();
+    let model_wag = PIPModel::<20>::new("wag", &[0.5, 0.25], false).unwrap();
+    let temp_values = PIPModelInfo::<20>::new(&info, &model_wag).unwrap();
+    let mut cost = PIPLikelihoodCost {
+        info: &info,
+        model: model_wag,
+        tmp: temp_values,
+    };
+    assert!(cost.compute_log_likelihood() <= 0.0);
+}
