@@ -296,12 +296,8 @@ where
         let root_idx = self.get_node_id(&self.info.tree.root);
         let msa_length = self.tmp.ftilde[0].ncols();
         let nu = self.model.lambda * (self.tmp.tree_length + 1.0 / self.model.mu);
-
-        let ln_phi = nu.powi(msa_length as i32).ln() + (self.tmp.c0_p[root_idx] - 1.0) * nu
+        let ln_phi = nu.ln() * msa_length as f64 + (self.tmp.c0_p[root_idx] - 1.0) * nu
             - (log_factorial(msa_length));
-        // let ln_phi = (nu.powi(msa_length as i32) * ((self.tmp.c0_p[root_idx] - 1.0) * nu).exp()
-        //     / msa_length.factorial() as f64)
-        //     .ln();
         self.tmp.p[root_idx].map(|x| x.ln()).sum() + ln_phi
     }
 }
@@ -455,6 +451,9 @@ where
     }
 
     fn survival_probability(mu: f64, b: f64) -> f64 {
+        if b == 0.0 {
+            return 1.0;
+        }
         (1.0 - (-mu * b).exp()) / (mu * b)
     }
 }
