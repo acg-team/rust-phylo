@@ -71,7 +71,6 @@ impl EvolutionaryModel<4> for DNASubstModel {
         } else {
             vec = FreqVector::from_column_slice(self.get_stationary_distribution().as_slice());
             match char {
-                b'-' => {}
                 b'V' => vec[self.index[b'T' as usize] as usize] = 0.0,
                 b'D' => vec[self.index[b'C' as usize] as usize] = 0.0,
                 b'B' => vec[self.index[b'A' as usize] as usize] = 0.0,
@@ -100,7 +99,11 @@ impl EvolutionaryModel<4> for DNASubstModel {
                     vec[self.index[b'C' as usize] as usize] = 0.0;
                     vec[self.index[b'A' as usize] as usize] = 0.0
                 }
-                _ => warn!("Unknown character {} encountered.", char),
+                _ => {
+                    warn!("Unknown character {} encountered, treating it as X.", char);
+                    vec =
+                        FreqVector::from_column_slice(self.get_stationary_distribution().as_slice())
+                }
             };
         }
         vec.scale_mut(1.0 / vec.sum());
