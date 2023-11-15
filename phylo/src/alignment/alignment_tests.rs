@@ -26,7 +26,11 @@ fn setup_test_tree() -> (PhyloInfo, Vec<Alignment>) {
     tree.complete = true;
     tree.create_postorder();
     tree.create_preorder();
-    let info = PhyloInfo::new(tree, sequences);
+    let info = PhyloInfo {
+        tree,
+        sequences,
+        msa: None::<Vec<Record>>,
+    };
     // ((0:1.0, 1:1.0)5:1.0,(2:1.0,(3:1.0, 4:1.0)6:1.0)7:1.0)8:1.0;
     let alignment = vec![
         Alignment::new(align!(0 1 2 3 4), align!(- - - 0 -)),

@@ -1,8 +1,11 @@
-use super::{setup_phylogenetic_info, PhyloInfo};
-use crate::io::DataError;
-use crate::tree::tree_parser::ParsingError;
-use assert_matches::assert_matches;
 use std::{fmt::Debug, fmt::Display, path::PathBuf};
+
+use assert_matches::assert_matches;
+use bio::io::fasta::Record;
+
+use super::{setup_phylogenetic_info, PhyloInfo};
+use crate::tree::tree_parser::ParsingError;
+use crate::{io::DataError, phylo_info::aligned_sequences};
 
 #[test]
 fn setup_info_correct() {
@@ -105,4 +108,45 @@ fn info_check_sequence_order() {
             "Sequences and tree leaves are not in the same order"
         );
     }
+}
+
+#[test]
+fn setup_unaligned_empty_msa() {
+    let info = setup_phylogenetic_info(
+        PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
+        PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+    )
+    .unwrap();
+    assert!(info.msa.is_none())
+}
+
+#[test]
+fn setup_aligned_msa() {
+    let info = setup_phylogenetic_info(
+        PathBuf::from("./data/sequences_DNA1.fasta"),
+        PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+    )
+    .unwrap();
+    assert!(info.msa.is_some());
+    assert_eq!(info.msa.as_ref().unwrap(), info.sequences.as_slice());
+}
+
+#[test]
+fn test_aligned_check() {
+    let sequences = vec![
+        Record::with_attrs("A0", None, b"AAAAA"),
+        Record::with_attrs("B1", None, b"A"),
+        Record::with_attrs("C2", None, b"AA"),
+        Record::with_attrs("D3", None, b"A"),
+        Record::with_attrs("E4", None, b"AAA"),
+    ];
+    assert!(!aligned_sequences(&sequences));
+    let sequences = vec![
+        Record::with_attrs("A0", None, b"AAAAA"),
+        Record::with_attrs("B1", None, b"A----"),
+        Record::with_attrs("C2", None, b"AABCD"),
+        Record::with_attrs("D3", None, b"AAAAA"),
+        Record::with_attrs("E4", None, b"AAATT"),
+    ];
+    assert!(aligned_sequences(&sequences));
 }

@@ -1,73 +1,38 @@
-use crate::Rounding;
-use crate::{f64_h, Result};
-use anyhow::anyhow;
-use nalgebra::{Const, DimMin, SMatrix, SVector};
-use ordered_float::OrderedFloat;
 use std::collections::HashMap;
+use std::ops::Mul;
+
+use anyhow::bail;
+use nalgebra::{Const, DMatrix, DVector, DimMin};
+use ordered_float::OrderedFloat;
+
+use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
+use crate::likelihood::LikelihoodCostFunction;
+use crate::phylo_info::PhyloInfo;
+use crate::tree::NodeIdx;
+use crate::{f64_h, Result, Rounding};
 
 pub mod dna_models;
 pub mod protein_models;
 
-type SubstMatrix<const N: usize> = SMatrix<f64, N, N>;
-type FreqVector<const N: usize> = SVector<f64, N>;
+pub type SubstMatrix = DMatrix<f64>;
+pub type FreqVector = DVector<f64>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SubstitutionModel<const N: usize> {
     index: [i32; 255],
-    q: SubstMatrix<N>,
-    pi: FreqVector<N>,
-}
-
-pub type DNASubstModel = SubstitutionModel<4>;
-pub type ProteinSubstModel = SubstitutionModel<20>;
-
-impl DNASubstModel {
-    pub fn new(model_name: &str, model_params: &[f64]) -> Result<Self> {
-        let q: SubstMatrix<4>;
-        let pi: FreqVector<4>;
-        match model_name.to_uppercase().as_str() {
-            "JC69" => (q, pi) = dna_models::jc69(model_params)?,
-            "K80" => (q, pi) = dna_models::k80(model_params)?,
-            "TN93" => (q, pi) = dna_models::tn93(model_params)?,
-            "GTR" => (q, pi) = dna_models::gtr(model_params)?,
-            _ => return Err(anyhow!("Unknown DNA model requested.")),
-        }
-        let model = DNASubstModel {
-            index: dna_models::nucleotide_index(),
-            q,
-            pi,
-        };
-        Ok(model)
-    }
-}
-
-impl ProteinSubstModel {
-    pub fn new(model_name: &str) -> Result<Self> {
-        let q: SubstMatrix<20>;
-        let pi: FreqVector<20>;
-        match model_name.to_uppercase().as_str() {
-            "WAG" => (q, pi) = protein_models::wag()?,
-            "BLOSUM" => (q, pi) = protein_models::blosum()?,
-            "HIVB" => (q, pi) = protein_models::hivb()?,
-            _ => return Err(anyhow!("Unknown protein model requested.")),
-        }
-        Ok(ProteinSubstModel {
-            index: protein_models::aminoacid_index(),
-            q,
-            pi,
-        })
-    }
+    pub q: SubstMatrix,
+    pub pi: FreqVector,
 }
 
 impl<const N: usize> SubstitutionModel<N>
 where
     Const<N>: DimMin<Const<N>, Output = Const<N>>,
 {
-    pub fn get_p(&self, time: f64) -> SubstMatrix<N> {
-        (self.q * time).exp()
+    fn get_p(&self, time: f64) -> SubstMatrix {
+        (self.q.clone() * time).exp()
     }
 
-    pub fn get_rate(&self, i: u8, j: u8) -> f64 {
+    pub(crate) fn get_rate(&self, i: u8, j: u8) -> f64 {
         assert!(
             self.index[i as usize] >= 0 && self.index[j as usize] >= 0,
             "Invalid rate requested."
@@ -78,13 +43,13 @@ where
         )]
     }
 
-    pub fn generate_scorings(
+    fn generate_scorings(
         &self,
         times: &[f64],
         zero_diag: bool,
         rounding: &Rounding,
-    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix<N>, f64)> {
-        HashMap::<f64_h, (SubstMatrix<N>, f64)>::from_iter(times.iter().map(|&time| {
+    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)> {
+        HashMap::<f64_h, (SubstMatrix, f64)>::from_iter(times.iter().map(|&time| {
             (
                 f64_h::from(time),
                 self.get_scoring_matrix_corrected(time, zero_diag, rounding),
@@ -92,13 +57,17 @@ where
         }))
     }
 
-    pub fn normalise(&mut self) {
+    fn normalise(&mut self) {
         let factor = -(self.pi.transpose() * self.q.diagonal())[(0, 0)];
         self.q /= factor;
     }
 
-    pub fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix<N>, f64) {
+    fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
         self.get_scoring_matrix_corrected(time, false, rounding)
+    }
+
+    fn get_stationary_distribution(&self) -> &FreqVector {
+        &self.pi
     }
 
     fn get_scoring_matrix_corrected(
@@ -106,7 +75,7 @@ where
         time: f64,
         zero_diag: bool,
         rounding: &Rounding,
-    ) -> (SubstMatrix<N>, f64) {
+    ) -> (SubstMatrix, f64) {
         let p = self.get_p(time);
         let mut scores = p.map(|x| -x.ln());
         if rounding.round {
@@ -118,10 +87,132 @@ where
         if zero_diag {
             scores.fill_diagonal(0.0);
         }
+        let mean = scores.mean();
+        (scores, mean)
+    }
+}
 
-        (scores, scores.mean())
+pub(crate) struct SubstitutionLikelihoodCost<'a, const N: usize> {
+    pub(crate) info: &'a PhyloInfo,
+    pub(crate) model: SubstitutionModel<N>,
+    pub(crate) temp_values: SubstitutionModelInfo<N>,
+}
+
+pub(crate) struct SubstitutionModelInfo<const N: usize> {
+    internal_info: Vec<DMatrix<f64>>,
+    internal_info_valid: Vec<bool>,
+    internal_models: Vec<SubstMatrix>,
+    internal_models_valid: Vec<bool>,
+    leaf_info: Vec<DMatrix<f64>>,
+    leaf_info_valid: Vec<bool>,
+    leaf_models: Vec<SubstMatrix>,
+    leaf_models_valid: Vec<bool>,
+    leaf_sequence_info: Vec<DMatrix<f64>>,
+}
+
+impl<const N: usize> EvolutionaryModelInfo<N> for SubstitutionModelInfo<N> {
+    fn new(info: &PhyloInfo, model: &dyn EvolutionaryModel<N>) -> Result<Self> {
+        if info.msa.is_none() {
+            bail!("An MSA is required to set up the likelihood computation.");
+        }
+        let leaf_count = info.tree.leaves.len();
+        let internal_count = info.tree.internals.len();
+        let msa = info.msa.as_ref().unwrap();
+        let msa_length = msa[0].seq().len();
+        let leaf_sequence_info = msa
+            .iter()
+            .map(|rec| {
+                DMatrix::from_columns(
+                    rec.seq()
+                        .iter()
+                        .map(|&c| model.get_char_probability(c))
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                )
+            })
+            .collect::<Vec<_>>();
+        Ok(SubstitutionModelInfo {
+            internal_info: vec![DMatrix::<f64>::zeros(N, msa_length); internal_count],
+            internal_info_valid: vec![false; internal_count],
+            internal_models: vec![SubstMatrix::zeros(N, N); internal_count],
+            internal_models_valid: vec![false; internal_count],
+            leaf_info: vec![DMatrix::<f64>::zeros(N, msa_length); leaf_count],
+            leaf_info_valid: vec![false; leaf_count],
+            leaf_models: vec![SubstMatrix::zeros(N, N); leaf_count],
+            leaf_models_valid: vec![false; leaf_count],
+            leaf_sequence_info,
+        })
+    }
+}
+
+impl<const N: usize> LikelihoodCostFunction<N> for SubstitutionLikelihoodCost<'_, N>
+where
+    Const<N>: DimMin<Const<N>, Output = Const<N>>,
+{
+    fn compute_log_likelihood(&mut self) -> f64 {
+        for node_idx in &self.info.tree.postorder {
+            match node_idx {
+                NodeIdx::Internal(idx) => {
+                    if !self.temp_values.internal_info_valid[*idx] {
+                        self.set_internal_values(idx);
+                    }
+                }
+                NodeIdx::Leaf(idx) => {
+                    if !self.temp_values.leaf_info_valid[*idx] {
+                        self.set_leaf_values(idx);
+                    }
+                }
+            };
+        }
+        let root_info = match self.info.tree.root {
+            NodeIdx::Internal(idx) => &self.temp_values.internal_info[idx],
+            NodeIdx::Leaf(idx) => &self.temp_values.leaf_info[idx],
+        };
+        let likelihood = self.model.pi.transpose().mul(root_info);
+        assert_eq!(likelihood.ncols(), self.info.sequences[0].seq().len());
+        assert_eq!(likelihood.nrows(), 1);
+        likelihood.map(|x| x.ln()).sum()
+    }
+}
+
+impl<'a, const N: usize> SubstitutionLikelihoodCost<'a, N>
+where
+    Const<N>: DimMin<Const<N>, Output = Const<N>>,
+{
+    fn set_internal_values(&mut self, idx: &usize) {
+        let node = &self.info.tree.internals[*idx];
+        if !self.temp_values.internal_models_valid[*idx] {
+            self.temp_values.internal_models[*idx] = self.model.get_p(node.blen);
+            self.temp_values.internal_models_valid[*idx] = true;
+        }
+        let childx_info = self.child_info(&node.children[0]);
+        let childy_info = self.child_info(&node.children[1]);
+        self.temp_values.internal_models[*idx].mul_to(
+            &(childx_info.component_mul(childy_info)),
+            &mut self.temp_values.internal_info[*idx],
+        );
+        self.temp_values.internal_info_valid[*idx] = true;
+    }
+
+    fn set_leaf_values(&mut self, idx: &usize) {
+        if !self.temp_values.leaf_models_valid[*idx] {
+            self.temp_values.leaf_models[*idx] = self.model.get_p(self.info.tree.leaves[*idx].blen);
+            self.temp_values.leaf_models_valid[*idx] = true;
+        }
+        self.temp_values.leaf_models[*idx].mul_to(
+            &self.temp_values.leaf_sequence_info[*idx],
+            &mut self.temp_values.leaf_info[*idx],
+        );
+        self.temp_values.leaf_info_valid[*idx] = true;
+    }
+
+    fn child_info(&self, child: &NodeIdx) -> &DMatrix<f64> {
+        match child {
+            NodeIdx::Internal(idx) => &self.temp_values.internal_info[*idx],
+            NodeIdx::Leaf(idx) => &self.temp_values.leaf_info[*idx],
+        }
     }
 }
 
 #[cfg(test)]
-mod substitution_models_tests;
+pub(crate) mod substitution_models_tests;

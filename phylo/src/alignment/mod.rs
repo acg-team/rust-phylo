@@ -30,6 +30,7 @@ pub(crate) fn sequence_idx(sequences: &[Record], search: &Record) -> usize {
         .unwrap()
 }
 
+// TODO: ensure that the alignment is valid
 pub fn compile_alignment_representation(
     info: &PhyloInfo,
     alignment: &[Alignment],

@@ -1,8 +1,11 @@
 use anyhow::Error;
 
 pub mod alignment;
+pub mod evolutionary_models;
 pub mod io;
+pub mod likelihood;
 pub mod phylo_info;
+pub mod pip_model;
 pub mod sequences;
 pub mod substitution_models;
 pub mod tree;
