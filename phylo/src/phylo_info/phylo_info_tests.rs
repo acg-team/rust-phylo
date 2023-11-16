@@ -5,7 +5,7 @@ use bio::io::fasta::Record;
 
 use super::{phyloinfo_from_files, PhyloInfo};
 use crate::io::DataError;
-use crate::phylo_info::get_msa_if_aligned;
+use crate::phylo_info::{get_msa_if_aligned, phyloinfo_from_sequences_newick};
 use crate::tree::tree_parser::ParsingError;
 
 #[test]
@@ -150,4 +150,33 @@ fn test_aligned_check() {
         Record::with_attrs("E4", None, b"AAATT"),
     ];
     assert!(get_msa_if_aligned(&sequences).is_some());
+}
+
+#[test]
+fn check_phyloinfo_creation_newick() {
+    let sequences = vec![
+        Record::with_attrs("A", None, b"CTATATATAC"),
+        Record::with_attrs("B", None, b"ATATATATAA"),
+        Record::with_attrs("C", None, b"TTATATATAT"),
+    ];
+    let info = phyloinfo_from_sequences_newick(&sequences, "((A:2.0,B:2.0):1.0,C:2.0):0.0;");
+    assert!(info.is_ok());
+    assert!(info.unwrap().msa.is_some());
+    let sequences = vec![
+        Record::with_attrs("A", None, b"CTATATAAC"),
+        Record::with_attrs("B", None, b"ATATATATAA"),
+        Record::with_attrs("C", None, b"TTATATATAT"),
+    ];
+    let info = phyloinfo_from_sequences_newick(&sequences, "((A:2.0,B:2.0):1.0,C:2.0):0.0;");
+    assert!(info.is_ok());
+    assert!(info.unwrap().msa.is_none());
+    let info = phyloinfo_from_sequences_newick(&[], "((A:2.0,B:2.0):1.0,C:2.0):0.0;");
+    assert!(info.is_err());
+    let sequences = vec![
+        Record::with_attrs("D", None, b"CTATATAAC"),
+        Record::with_attrs("E", None, b"ATATATATAA"),
+        Record::with_attrs("F", None, b"TTATATATAT"),
+    ];
+    let info = phyloinfo_from_sequences_newick(&sequences, "((A:2.0,B:2.0):1.0,C:2.0):0.0;");
+    assert!(info.is_err());
 }
