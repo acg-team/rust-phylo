@@ -12,7 +12,7 @@ use nj_matrices::{Mat, NJMat};
 use NodeIdx::{Internal as Int, Leaf};
 
 mod nj_matrices;
-// pub(crate) mod tree_parser;
+pub(crate) mod tree_parser;
 
 #[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Eq, Ord, Hash)]
 pub enum NodeIdx {
@@ -75,9 +75,9 @@ impl Node {
         }
     }
 
-    // fn new_empty_internal(node_idx: usize) -> Self {
-    //     Self::new_internal(node_idx, None, Vec::new(), 0.0, "".to_string())
-    // }
+    fn new_empty_internal(node_idx: usize) -> Self {
+        Self::new_internal(node_idx, None, Vec::new(), 0.0, "".to_string())
+    }
 
     fn add_parent(&mut self, parent_idx: NodeIdx, blen: f64) {
         debug_assert!(matches!(parent_idx, Int(_)));
