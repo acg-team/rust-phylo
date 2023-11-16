@@ -93,6 +93,13 @@ fn dna_jc69_correct() {
     let jc69 = DNASubstModel::new("jc69", &Vec::new(), false).unwrap();
     let jc692 = DNASubstModel::new("JC69", &[2.0, 1.0], false).unwrap();
     assert_eq!(jc69, jc692);
+    assert_relative_eq!(EvolutionaryModel::get_rate(&jc69, b'A', b'A'), -1.0);
+    assert_relative_eq!(EvolutionaryModel::get_rate(&jc69, b'A', b'C'), 1.0 / 3.0);
+    assert_relative_eq!(EvolutionaryModel::get_rate(&jc69, b'G', b'T'), 1.0 / 3.0);
+    assert_relative_eq!(
+        EvolutionaryModel::get_stationary_distribution(&jc69),
+        &dvector![0.25, 0.25, 0.25, 0.25]
+    );
 }
 
 #[test]
@@ -103,6 +110,13 @@ fn dna_k80_correct() {
     assert_eq!(k80, k802);
     assert_eq!(k80, k803);
     assert_eq!(k802, k803);
+    assert_relative_eq!(EvolutionaryModel::get_rate(&k80, b'A', b'A'), -1.0);
+    assert_relative_eq!(EvolutionaryModel::get_rate(&k80, b'T', b'A'), 1.0 * 0.25);
+    assert_relative_eq!(EvolutionaryModel::get_rate(&k80, b'A', b'G'), 2.0 * 0.25);
+    assert_relative_eq!(
+        EvolutionaryModel::get_stationary_distribution(&k80),
+        &dvector![0.25, 0.25, 0.25, 0.25]
+    );
 }
 
 #[test]
@@ -119,6 +133,10 @@ fn dna_hky_incorrect() {
 fn dna_hky_correct() {
     let hky_res = DNASubstModel::new("hky", &[0.22, 0.26, 0.33, 0.19, 0.5], false);
     assert!(hky_res.is_ok());
+    assert_relative_eq!(
+        EvolutionaryModel::get_stationary_distribution(&hky_res.unwrap()),
+        &dvector![0.22, 0.26, 0.33, 0.19]
+    );
 }
 
 #[test]
@@ -146,6 +164,20 @@ fn dna_gtr_correct() {
     .unwrap();
     gtr2.normalise();
     assert_relative_eq!(gtr.q, gtr2.q);
+    assert!(EvolutionaryModel::get_rate(&gtr, b'T', b'T') < 0.0);
+    assert!(EvolutionaryModel::get_rate(&gtr, b'A', b'A') < 0.0);
+    assert_relative_eq!(
+        EvolutionaryModel::get_rate(&gtr, b'T', b'C'),
+        EvolutionaryModel::get_rate(&gtr, b'C', b'T')
+    );
+    assert_relative_eq!(
+        EvolutionaryModel::get_rate(&gtr, b'A', b'G'),
+        EvolutionaryModel::get_rate(&gtr, b'G', b'A')
+    );
+    assert_relative_eq!(
+        EvolutionaryModel::get_stationary_distribution(&gtr),
+        &dvector![0.25, 0.25, 0.25, 0.25]
+    );
 }
 
 #[test]
@@ -205,6 +237,15 @@ fn dna_tn93_correct() {
         ],
     );
     assert_relative_eq!(tn93.q, expected);
+    assert_relative_eq!(EvolutionaryModel::get_rate(&tn93, b'T', b'T'), -0.15594579);
+    assert_relative_eq!(EvolutionaryModel::get_rate(&tn93, b'T', b'C'), 0.15524379);
+    assert_relative_eq!(EvolutionaryModel::get_rate(&tn93, b'C', b'T'), 0.13136013);
+    assert_relative_eq!(EvolutionaryModel::get_rate(&tn93, b'G', b'T'), 0.000297);
+    assert_relative_eq!(EvolutionaryModel::get_rate(&tn93, b'G', b'A'), 0.097034355);
+    assert_relative_eq!(
+        EvolutionaryModel::get_stationary_distribution(&tn93),
+        &dvector![0.22, 0.26, 0.33, 0.19]
+    );
 }
 
 #[test]
@@ -341,19 +382,31 @@ fn protein_model_correct() {
     assert_eq!(wag, wag2);
     EvolutionaryModel::get_rate(&wag, b'A', b'L');
     EvolutionaryModel::get_rate(&wag, b'H', b'K');
-    assert_relative_eq!(wag.pi.sum(), 1.0, epsilon = 1e-4);
+    assert_relative_eq!(
+        EvolutionaryModel::get_stationary_distribution(&wag).sum(),
+        1.0,
+        epsilon = 1e-4
+    );
     let blos = ProteinSubstModel::new("Blosum", &[], false).unwrap();
     let blos2 = ProteinSubstModel::new("bLoSuM", &[], false).unwrap();
     assert_eq!(blos, blos2);
     EvolutionaryModel::get_rate(&blos, b'R', b'N');
     EvolutionaryModel::get_rate(&blos, b'M', b'K');
-    assert_relative_eq!(blos.pi.sum(), 1.0, epsilon = 1e-3);
+    assert_relative_eq!(
+        EvolutionaryModel::get_stationary_distribution(&blos).sum(),
+        1.0,
+        epsilon = 1e-3
+    );
     let hivb = ProteinSubstModel::new("hivB", &[], false).unwrap();
     let hivb2 = ProteinSubstModel::new("HIVb", &[], false).unwrap();
     assert_eq!(hivb, hivb2);
     EvolutionaryModel::get_rate(&hivb, b'L', b'P');
     EvolutionaryModel::get_rate(&hivb, b'C', b'Q');
-    assert_relative_eq!(hivb.pi.sum(), 1.0, epsilon = 1e-3);
+    assert_relative_eq!(
+        EvolutionaryModel::get_stationary_distribution(&hivb).sum(),
+        1.0,
+        epsilon = 1e-3
+    );
 }
 
 #[test]
