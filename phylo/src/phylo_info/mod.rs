@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct PhyloInfo {
-    pub(crate) sequences: Vec<Record>,
+    pub sequences: Vec<Record>,
     pub msa: Option<Vec<Record>>,
     pub tree: Tree,
 }

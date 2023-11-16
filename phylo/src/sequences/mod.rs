@@ -45,5 +45,5 @@ pub fn get_sequence_type(sequences: &Vec<fasta::Record>) -> SequenceType {
     SequenceType::DNA
 }
 
-// #[cfg(test)]
-// mod sequences_tests;
+#[cfg(test)]
+mod sequences_tests;
