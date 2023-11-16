@@ -3,10 +3,14 @@ use std::{fmt::Debug, fmt::Display, path::PathBuf};
 use assert_matches::assert_matches;
 use bio::io::fasta::Record;
 
-use super::{phyloinfo_from_files, PhyloInfo};
 use crate::io::DataError;
-use crate::phylo_info::{get_msa_if_aligned, phyloinfo_from_sequences_newick};
+use crate::phylo_info::{
+    get_msa_if_aligned, phyloinfo_from_files, phyloinfo_from_sequences_newick,
+    phyloinfo_from_sequences_tree, PhyloInfo,
+};
 use crate::tree::tree_parser::ParsingError;
+use crate::tree::NodeIdx::{Internal as I, Leaf as L};
+use crate::tree::Tree;
 
 #[test]
 fn setup_info_correct() {
@@ -153,7 +157,7 @@ fn test_aligned_check() {
 }
 
 #[test]
-fn check_phyloinfo_creation_newick() {
+fn check_phyloinfo_creation_newick_msa() {
     let sequences = vec![
         Record::with_attrs("A", None, b"CTATATATAC"),
         Record::with_attrs("B", None, b"ATATATATAA"),
@@ -162,6 +166,10 @@ fn check_phyloinfo_creation_newick() {
     let info = phyloinfo_from_sequences_newick(&sequences, "((A:2.0,B:2.0):1.0,C:2.0):0.0;");
     assert!(info.is_ok());
     assert!(info.unwrap().msa.is_some());
+}
+
+#[test]
+fn check_phyloinfo_creation_newick_no_msa() {
     let sequences = vec![
         Record::with_attrs("A", None, b"CTATATAAC"),
         Record::with_attrs("B", None, b"ATATATATAA"),
@@ -170,13 +178,88 @@ fn check_phyloinfo_creation_newick() {
     let info = phyloinfo_from_sequences_newick(&sequences, "((A:2.0,B:2.0):1.0,C:2.0):0.0;");
     assert!(info.is_ok());
     assert!(info.unwrap().msa.is_none());
+}
+
+#[test]
+fn check_phyloinfo_creation_newick_no_seqs() {
     let info = phyloinfo_from_sequences_newick(&[], "((A:2.0,B:2.0):1.0,C:2.0):0.0;");
     assert!(info.is_err());
+}
+
+#[test]
+fn check_phyloinfo_creation_newick_mismatch_ids() {
     let sequences = vec![
         Record::with_attrs("D", None, b"CTATATAAC"),
         Record::with_attrs("E", None, b"ATATATATAA"),
         Record::with_attrs("F", None, b"TTATATATAT"),
     ];
     let info = phyloinfo_from_sequences_newick(&sequences, "((A:2.0,B:2.0):1.0,C:2.0):0.0;");
+    assert!(info.is_err());
+}
+
+#[cfg(test)]
+fn make_test_tree() -> Tree {
+    let sequences = vec![
+        Record::with_attrs("A", None, b""),
+        Record::with_attrs("B", None, b""),
+        Record::with_attrs("C", None, b""),
+        Record::with_attrs("D", None, b""),
+    ];
+    let mut tree = Tree::new(&sequences);
+    tree.add_parent(0, L(0), L(1), 2.0, 2.0);
+    tree.add_parent(1, I(0), L(2), 1.0, 2.0);
+    tree.add_parent(2, I(1), L(3), 1.0, 2.0);
+    tree.complete = true;
+    tree.create_postorder();
+    tree.create_preorder();
+    tree
+}
+
+#[test]
+fn check_phyloinfo_creation_tree_correct_no_msa() {
+    let info = phyloinfo_from_sequences_tree(
+        &vec![
+            Record::with_attrs("A", None, b"AAAAA"),
+            Record::with_attrs("B", None, b"A"),
+            Record::with_attrs("C", None, b"AA"),
+            Record::with_attrs("D", None, b"A"),
+        ],
+        make_test_tree(),
+    );
+    assert!(info.is_ok());
+    assert!(info.unwrap().msa.is_none());
+}
+
+#[test]
+fn check_phyloinfo_creation_tree_correct_msa() {
+    let info = phyloinfo_from_sequences_tree(
+        &vec![
+            Record::with_attrs("A", None, b"AA"),
+            Record::with_attrs("B", None, b"A-"),
+            Record::with_attrs("C", None, b"AA"),
+            Record::with_attrs("D", None, b"A-"),
+        ],
+        make_test_tree(),
+    );
+    assert!(info.is_ok());
+    assert!(info.unwrap().msa.is_some());
+}
+
+#[test]
+fn check_phyloinfo_creation_tree_mismatch_ids() {
+    let info = phyloinfo_from_sequences_tree(
+        &vec![
+            Record::with_attrs("D", None, b"CTATATAAC"),
+            Record::with_attrs("E", None, b"ATATATATAA"),
+            Record::with_attrs("F", None, b"TTATATATAT"),
+        ],
+        make_test_tree(),
+    );
+    assert!(info.is_err());
+}
+
+#[test]
+fn check_phyloinfo_creation_tree_no_seqs() {
+    let info = phyloinfo_from_sequences_tree(&[], make_test_tree());
     assert!(info.is_err());
 }
