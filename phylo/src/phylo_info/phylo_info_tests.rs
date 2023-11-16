@@ -3,13 +3,14 @@ use std::{fmt::Debug, fmt::Display, path::PathBuf};
 use assert_matches::assert_matches;
 use bio::io::fasta::Record;
 
-use super::{setup_phylogenetic_info, PhyloInfo};
+use super::{phyloinfo_from_files, PhyloInfo};
+use crate::io::DataError;
+use crate::phylo_info::get_msa_if_aligned;
 use crate::tree::tree_parser::ParsingError;
-use crate::{io::DataError, phylo_info::aligned_sequences};
 
 #[test]
 fn setup_info_correct() {
-    let res_info = setup_phylogenetic_info(
+    let res_info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
     )
@@ -20,7 +21,7 @@ fn setup_info_correct() {
 
 #[test]
 fn setup_info_mismatched_ids() {
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_1.newick"),
     );
@@ -32,7 +33,7 @@ fn setup_info_mismatched_ids() {
 
 #[test]
 fn setup_info_missing_sequence_file() {
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA_nonexistent.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_1.newick"),
     );
@@ -44,19 +45,19 @@ fn setup_info_missing_sequence_file() {
 
 #[test]
 fn setup_info_empty_sequence_file() {
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_empty.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_1.newick"),
     );
     assert_matches!(
         downcast_error::<DataError>(&info).to_string().as_str(),
-        "No sequences in the file, aborting."
+        "No sequences provided, aborting."
     );
 }
 
 #[test]
 fn setup_info_empty_tree_file() {
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_empty.newick"),
     );
@@ -68,7 +69,7 @@ fn setup_info_empty_tree_file() {
 
 #[test]
 fn setup_info_malformed_tree_file() {
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_malformed.newick"),
     );
@@ -79,7 +80,7 @@ fn setup_info_malformed_tree_file() {
 
 #[test]
 fn setup_info_multiple_trees() {
-    let res_info = setup_phylogenetic_info(
+    let res_info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_multiple.newick"),
     )
@@ -96,7 +97,7 @@ fn downcast_error<T: Display + Debug + Send + Sync + 'static>(
 
 #[test]
 fn info_check_sequence_order() {
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/real_examples/HIV_subset.fas"),
         PathBuf::from("./data/real_examples/HIV_subset.nwk"),
     )
@@ -112,7 +113,7 @@ fn info_check_sequence_order() {
 
 #[test]
 fn setup_unaligned_empty_msa() {
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
     )
@@ -122,7 +123,7 @@ fn setup_unaligned_empty_msa() {
 
 #[test]
 fn setup_aligned_msa() {
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA1.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
     )
@@ -140,7 +141,7 @@ fn test_aligned_check() {
         Record::with_attrs("D3", None, b"A"),
         Record::with_attrs("E4", None, b"AAA"),
     ];
-    assert!(!aligned_sequences(&sequences));
+    assert!(get_msa_if_aligned(&sequences).is_none());
     let sequences = vec![
         Record::with_attrs("A0", None, b"AAAAA"),
         Record::with_attrs("B1", None, b"A----"),
@@ -148,5 +149,5 @@ fn test_aligned_check() {
         Record::with_attrs("D3", None, b"AAAAA"),
         Record::with_attrs("E4", None, b"AAATT"),
     ];
-    assert!(aligned_sequences(&sequences));
+    assert!(get_msa_if_aligned(&sequences).is_some());
 }
