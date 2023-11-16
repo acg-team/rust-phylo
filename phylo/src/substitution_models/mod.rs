@@ -24,6 +24,16 @@ pub struct SubstitutionModel<const N: usize> {
     pub pi: FreqVector,
 }
 
+pub trait ParsimonyModel<const N: usize> {
+    fn generate_scorings(
+        &self,
+        times: &[f64],
+        zero_diag: bool,
+        rounding: &Rounding,
+    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)>;
+    fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64);
+}
+
 impl<const N: usize> SubstitutionModel<N>
 where
     Const<N>: DimMin<Const<N>, Output = Const<N>>,

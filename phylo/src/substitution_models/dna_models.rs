@@ -6,7 +6,7 @@ use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::EvolutionaryModel;
 use crate::sequences::{charify, NUCLEOTIDES_STR};
-use crate::substitution_models::{FreqVector, SubstMatrix, SubstitutionModel};
+use crate::substitution_models::{FreqVector, ParsimonyModel, SubstMatrix, SubstitutionModel};
 use crate::{Result, Rounding};
 
 pub type DNASubstModel = SubstitutionModel<4>;
@@ -43,21 +43,8 @@ impl EvolutionaryModel<4> for DNASubstModel {
         self.get_rate(i, j)
     }
 
-    fn generate_scorings(
-        &self,
-        times: &[f64],
-        zero_diag: bool,
-        rounding: &Rounding,
-    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)> {
-        self.generate_scorings(times, zero_diag, rounding)
-    }
-
     fn normalise(&mut self) {
         self.normalise()
-    }
-
-    fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
-        self.get_scoring_matrix(time, rounding)
     }
 
     fn get_stationary_distribution(&self) -> &FreqVector {
@@ -108,6 +95,21 @@ impl EvolutionaryModel<4> for DNASubstModel {
         }
         vec.scale_mut(1.0 / vec.sum());
         vec
+    }
+}
+
+impl ParsimonyModel<4> for DNASubstModel {
+    fn generate_scorings(
+        &self,
+        times: &[f64],
+        zero_diag: bool,
+        rounding: &Rounding,
+    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)> {
+        self.generate_scorings(times, zero_diag, rounding)
+    }
+
+    fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
+        self.get_scoring_matrix(time, rounding)
     }
 }
 
@@ -284,7 +286,7 @@ pub(crate) fn gtr(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
     if (f_t + f_c + f_a + f_g) != 1.0 {
         bail!("The equilibrium frequencies provided do not sum up to 1.");
     }
-  
+
     let mut q = SubstMatrix::from_row_slice(
         4,
         4,

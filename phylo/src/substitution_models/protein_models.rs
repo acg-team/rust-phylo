@@ -6,7 +6,7 @@ use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::EvolutionaryModel;
 use crate::sequences::{charify, AMINOACIDS_STR};
-use crate::substitution_models::{FreqVector, SubstMatrix, SubstitutionModel};
+use crate::substitution_models::{FreqVector, ParsimonyModel, SubstMatrix, SubstitutionModel};
 use crate::{Result, Rounding};
 
 pub(crate) type ProteinSubstArray = [f64; 400];
@@ -44,21 +44,8 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
         self.get_rate(i, j)
     }
 
-    fn generate_scorings(
-        &self,
-        times: &[f64],
-        zero_diag: bool,
-        rounding: &Rounding,
-    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)> {
-        self.generate_scorings(times, zero_diag, rounding)
-    }
-
     fn normalise(&mut self) {
         self.normalise()
-    }
-
-    fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
-        self.get_scoring_matrix(time, rounding)
     }
 
     fn get_stationary_distribution(&self) -> &FreqVector {
@@ -108,6 +95,21 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
         }
         vec.scale_mut(1.0 / vec.sum());
         vec
+    }
+}
+
+impl ParsimonyModel<20> for ProteinSubstModel {
+    fn generate_scorings(
+        &self,
+        times: &[f64],
+        zero_diag: bool,
+        rounding: &Rounding,
+    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)> {
+        self.generate_scorings(times, zero_diag, rounding)
+    }
+
+    fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
+        self.get_scoring_matrix(time, rounding)
     }
 }
 
