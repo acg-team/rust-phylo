@@ -483,6 +483,28 @@ const TRUE_MATRIX: ProteinSubstArray = [
     0.0,
 ];
 
+#[rstest]
+#[case::jc69("jc69", &[], &[0.1, 0.3, 0.5, 0.7], &R::four())]
+#[case::k80("k80", &[], &[0.01], &R::zero())]
+#[case::hky("hky", &[0.22, 0.26, 0.33, 0.19, 0.5], &[0.1, 0.2, 0.3], &R::none())]
+#[case::tn93("tn93", &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135], &[0.1, 0.3, 0.5, 0.7], &R::zero())]
+#[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0], &[0.2, 0.8], &R::four())]
+fn dna_scoring_matrices(
+    #[case] input: &str,
+    #[case] params: &[f64],
+    #[case] times: &[f64],
+    #[case] rounding: &R,
+) {
+    let mut model = DNASubstModel::new(input, params, false).unwrap();
+    model.normalise();
+    let scorings = ParsimonyModel::generate_scorings(&model, times, false, rounding);
+    for &time in times {
+        let (_, avg_0) = ParsimonyModel::get_scoring_matrix(&model, time, rounding);
+        let (_, avg_1) = scorings.get(&ordered_float::OrderedFloat(time)).unwrap();
+        assert_relative_eq!(avg_0, avg_1);
+    }
+}
+
 #[test]
 fn protein_scoring_matrices() {
     let mut model = ProteinSubstModel::new("wag", &[], false).unwrap();
