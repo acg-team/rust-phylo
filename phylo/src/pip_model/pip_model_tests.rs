@@ -9,7 +9,7 @@ use nalgebra::{Const, DimMin};
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
-use crate::phylo_info::{setup_phylogenetic_info, PhyloInfo};
+use crate::phylo_info::{phyloinfo_from_files, phyloinfo_from_sequences_newick, PhyloInfo};
 use crate::pip_model::{PIPLikelihoodCost, PIPModel, PIPModelInfo};
 use crate::sequences::{charify, AMINOACIDS_STR, NUCLEOTIDES_STR};
 use crate::substitution_models::{
@@ -414,7 +414,7 @@ fn pip_p_example_matrix() {
 
 #[test]
 fn pip_likelihood_no_msa() {
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
     )
@@ -431,16 +431,7 @@ fn setup_example_phylo_info() -> PhyloInfo {
         Record::with_attrs("C", None, b"-A-G"),
         Record::with_attrs("D", None, b"-CAA"),
     ];
-    let newick = "((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;".to_string();
-    let tree = tree_parser::from_newick_string(&newick)
-        .unwrap()
-        .pop()
-        .unwrap();
-    PhyloInfo {
-        tree,
-        sequences: sequences.clone(),
-        msa: Some(sequences.clone()),
-    }
+    phyloinfo_from_sequences_newick(&sequences, "((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;").unwrap()
 }
 
 #[test]
@@ -744,16 +735,7 @@ fn setup_example_phylo_info_2() -> PhyloInfo {
         Record::with_attrs("C", None, b"--A-G"),
         Record::with_attrs("D", None, b"T-CAA"),
     ];
-    let newick = "((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;".to_string();
-    let tree = tree_parser::from_newick_string(&newick)
-        .unwrap()
-        .pop()
-        .unwrap();
-    PhyloInfo {
-        tree,
-        sequences: sequences.clone(),
-        msa: Some(sequences.clone()),
-    }
+    phyloinfo_from_sequences_newick(&sequences, "((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;").unwrap()
 }
 
 #[test]
@@ -776,7 +758,7 @@ fn pip_hky_likelihood_example_2() {
 
 #[test]
 fn pip_likelihood_huelsenbeck_example() {
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
     )
@@ -832,7 +814,7 @@ fn pip_likelihood_huelsenbeck_example() {
 
 #[test]
 fn pip_likelihood_huelsenbeck_example_model_comp() {
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
     )
@@ -860,7 +842,7 @@ fn pip_likelihood_huelsenbeck_example_model_comp() {
 
 #[test]
 fn pip_likelihood_huelsenbeck_example_reroot() {
-    let info_1 = setup_phylogenetic_info(
+    let info_1 = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
     )
@@ -880,7 +862,7 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
         tmp: temp_values_1,
     };
 
-    let info_2 = setup_phylogenetic_info(
+    let info_2 = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example_reroot.newick"),
     )
@@ -908,7 +890,7 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
 
 #[test]
 fn pip_likelihood_protein_example() {
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/phyml_protein_example.fasta"),
         PathBuf::from("./data/phyml_protein_example.newick"),
     )

@@ -6,7 +6,9 @@ use approx::assert_relative_eq;
 use bio::io::fasta::Record;
 
 use crate::likelihood::{setup_dna_likelihood, setup_protein_likelihood, LikelihoodCostFunction};
-use crate::phylo_info::{setup_phylogenetic_info, PhyloInfo};
+use crate::phylo_info::{
+    phyloinfo_from_files, phyloinfo_from_sequences_newick, phyloinfo_from_sequences_tree, PhyloInfo,
+};
 use crate::tree::{NodeIdx::Leaf as L, Tree};
 
 #[cfg(test)]
@@ -20,11 +22,7 @@ fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
     tree.complete = true;
     tree.create_postorder();
     tree.create_preorder();
-    PhyloInfo {
-        tree,
-        sequences: sequences.clone(),
-        msa: Some(sequences.clone()),
-    }
+    phyloinfo_from_sequences_tree(&sequences, tree).unwrap()
 }
 
 #[test]
@@ -59,11 +57,7 @@ fn setup_cb_example_phylo_info() -> PhyloInfo {
         .unwrap()
         .pop()
         .unwrap();
-    PhyloInfo {
-        tree,
-        sequences: sequences.clone(),
-        msa: Some(sequences.clone()),
-    }
+    phyloinfo_from_sequences_tree(&sequences, tree).unwrap()
 }
 
 #[test]
@@ -98,11 +92,7 @@ fn setup_mol_evo_example_phylo_info() -> PhyloInfo {
         .unwrap()
         .pop()
         .unwrap();
-    PhyloInfo {
-        tree,
-        sequences: sequences.clone(),
-        msa: Some(sequences.clone()),
-    }
+    phyloinfo_from_sequences_tree(&sequences, tree).unwrap()
 }
 
 #[test]
@@ -118,7 +108,7 @@ fn dna_mol_evo_example_likelihood() {
 
 #[test]
 fn dna_ambig_example_likelihood() {
-    let info_w_x = setup_phylogenetic_info(
+    let info_w_x = phyloinfo_from_files(
         PathBuf::from("./data/ambiguous_example.fasta"),
         PathBuf::from("./data/ambiguous_example.newick"),
     )
@@ -135,7 +125,7 @@ fn dna_ambig_example_likelihood() {
         -90.1367231323,
         epsilon = 1e-6
     );
-    let info_w_n = setup_phylogenetic_info(
+    let info_w_n = phyloinfo_from_files(
         PathBuf::from("./data/ambiguous_example_N.fasta"),
         PathBuf::from("./data/ambiguous_example.newick"),
     )
@@ -161,7 +151,7 @@ fn dna_ambig_example_likelihood() {
 #[test]
 fn dna_huelsenbeck_example_likelihood() {
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
     )
@@ -190,7 +180,7 @@ fn protein_example_likelihood(
     #[case] expected_llik: f64,
     #[case] epsilon: f64,
 ) {
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/phyml_protein_nogap_example.fasta"),
         PathBuf::from("./data/phyml_protein_example.newick"),
     )
@@ -205,29 +195,18 @@ fn protein_example_likelihood(
 
 #[cfg(test)]
 fn setup_simple_reversibility() -> Vec<PhyloInfo> {
-    use crate::tree::tree_parser;
     let mut res = Vec::<PhyloInfo>::new();
     let sequences = vec![
         Record::with_attrs("A", None, b"CTATATATAC"),
         Record::with_attrs("B", None, b"ATATATATAA"),
         Record::with_attrs("C", None, b"TTATATATAT"),
     ];
-    res.push(PhyloInfo {
-        tree: tree_parser::from_newick_string("((A:2.0,B:2.0):1.0,C:2.0):0.0;")
-            .unwrap()
-            .pop()
-            .unwrap(),
-        sequences: sequences.clone(),
-        msa: Some(sequences.clone()),
-    });
-    res.push(PhyloInfo {
-        tree: tree_parser::from_newick_string("(A:1.0,(B:2.0,C:3.0):1.0):0.0;")
-            .unwrap()
-            .pop()
-            .unwrap(),
-        sequences: sequences.clone(),
-        msa: Some(sequences.clone()),
-    });
+    res.push(
+        phyloinfo_from_sequences_newick(&sequences, "((A:2.0,B:2.0):1.0,C:2.0):0.0;").unwrap(),
+    );
+    res.push(
+        phyloinfo_from_sequences_newick(&sequences, "(A:1.0,(B:2.0,C:3.0):1.0):0.0;").unwrap(),
+    );
     res
 }
 
@@ -280,12 +259,12 @@ fn huelsenbeck_example_dna_reversibility_likelihood(
     #[case] model_params: &[f64],
 ) {
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
-    let info1 = setup_phylogenetic_info(
+    let info1 = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
     )
     .unwrap();
-    let info2 = setup_phylogenetic_info(
+    let info2 = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example_reroot.newick"),
     )
