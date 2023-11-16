@@ -98,7 +98,7 @@ pub struct Tree {
 }
 
 impl Tree {
-    pub fn new(sequences: &Vec<Record>) -> Result<Self> {
+    pub fn new(sequences: &[Record]) -> Result<Self> {
         let n = sequences.len();
         if n == 0 {
             bail!("No sequences provided, aborting.");
@@ -293,7 +293,7 @@ fn rng_len(l: usize) -> usize {
 
 fn build_nj_tree_w_rng_from_matrix(
     mut nj_data: NJMat,
-    sequences: &Vec<Record>,
+    sequences: &[Record],
     rng: fn(usize) -> usize,
 ) -> Result<Tree> {
     let n = nj_data.distances.ncols();
@@ -316,7 +316,7 @@ fn build_nj_tree_w_rng_from_matrix(
     Ok(tree)
 }
 
-fn build_nj_tree_from_matrix(nj_data: NJMat, sequences: &Vec<Record>) -> Result<Tree> {
+fn build_nj_tree_from_matrix(nj_data: NJMat, sequences: &[Record]) -> Result<Tree> {
     build_nj_tree_w_rng_from_matrix(nj_data, sequences, rng_len)
 }
 
