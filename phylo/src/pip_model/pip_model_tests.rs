@@ -18,7 +18,6 @@ use crate::substitution_models::{
     substitution_models_tests::{gtr_char_probs_data, protein_char_probs_data},
     FreqVector, SubstMatrix, SubstitutionModel,
 };
-use crate::tree::tree_parser;
 use crate::Rounding as R;
 
 #[cfg(test)]
