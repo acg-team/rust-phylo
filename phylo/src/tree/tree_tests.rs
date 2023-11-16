@@ -14,6 +14,7 @@ use pest::error::ErrorVariant;
 use rand::Rng;
 use std::iter::repeat;
 
+#[cfg(test)]
 fn setup_test_tree() -> Tree {
     let sequences = vec![
         Record::with_attrs("A0", None, b"AAAAA"),
@@ -53,6 +54,12 @@ fn postorder() {
         tree.postorder,
         [L(0), L(1), I(0), L(2), L(3), L(4), I(1), I(2), I(3)]
     );
+}
+
+#[test]
+fn tree_wo_sequences() {
+    let tree = Tree::new(&[]);
+    assert!(tree.is_err());
 }
 
 impl PartialEq for Node {
