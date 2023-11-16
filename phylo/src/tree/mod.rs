@@ -227,17 +227,17 @@ impl Tree {
         lengths
     }
 
-    pub fn get_idx_by_id(&self, id: &str) -> NodeIdx {
+    pub fn get_idx_by_id(&self, id: &str) -> Result<NodeIdx> {
         debug_assert!(self.complete);
         let idx = self.leaves.iter().position(|node| node.id == id);
         if let Some(idx) = idx {
-            return NodeIdx::Leaf(idx);
+            return Ok(NodeIdx::Leaf(idx));
         }
         let idx = self.internals.iter().position(|node| node.id == id);
         if let Some(idx) = idx {
-            return NodeIdx::Internal(idx);
+            return Ok(NodeIdx::Internal(idx));
         }
-        panic!("No node with id {} found in the tree", id);
+        bail!("No node with id {} found in the tree", id);
     }
 }
 

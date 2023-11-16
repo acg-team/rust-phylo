@@ -395,42 +395,42 @@ fn pip_hky_likelihood_example_leaf_values() {
     };
     let iota = 0.133;
     let beta = 0.787;
-    cost.set_leaf_values(cost.info.tree.get_idx_by_id("A").into());
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("A").unwrap().into());
     assert_values(
         &cost,
-        cost.info.tree.get_idx_by_id("A").into(),
+        cost.info.tree.get_idx_by_id("A").unwrap().into(),
         iota,
         beta,
         &[[0.0, 1.0, 0.0, 0.0], [0.0; 4], [0.0; 4]].concat(),
         &[0.0, 0.33, 0.0, 0.0],
         &[0.0, 0.33 * iota * beta, 0.0, 0.0],
     );
-    cost.set_leaf_values(cost.info.tree.get_idx_by_id("B").into());
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("B").unwrap().into());
     assert_values(
         &cost,
-        cost.info.tree.get_idx_by_id("B").into(),
+        cost.info.tree.get_idx_by_id("B").unwrap().into(),
         iota,
         beta,
         &[[1.0, 1.0, 0.0, 0.0], [0.0; 4], [0.0; 4]].concat(),
         &[0.26, 0.33, 0.0, 0.0],
         &[0.26 * iota * beta, 0.33 * iota * beta, 0.0, 0.0],
     );
-    cost.set_leaf_values(cost.info.tree.get_idx_by_id("C").into());
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("C").unwrap().into());
     let iota = 0.067;
     let beta = 0.885;
     assert_values(
         &cost,
-        cost.info.tree.get_idx_by_id("C").into(),
+        cost.info.tree.get_idx_by_id("C").unwrap().into(),
         iota,
         beta,
         &[[0.0, 1.0, 0.0, 1.0], [0.0; 4], [0.0; 4]].concat(),
         &[0.0, 0.33, 0.0, 0.19],
         &[0.0, 0.33 * iota * beta, 0.0, 0.19 * iota * beta],
     );
-    cost.set_leaf_values(cost.info.tree.get_idx_by_id("D").into());
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("D").unwrap().into());
     assert_values(
         &cost,
-        cost.info.tree.get_idx_by_id("D").into(),
+        cost.info.tree.get_idx_by_id("D").unwrap().into(),
         iota,
         beta,
         &[[0.0, 1.0, 1.0, 1.0], [0.0; 4], [0.0; 4]].concat(),
@@ -460,7 +460,7 @@ fn pip_hky_likelihood_example_internals() {
     }
     let iota = 0.133;
     let beta = 0.787;
-    let idx = usize::from(cost.info.tree.get_idx_by_id("E"));
+    let idx = usize::from(cost.info.tree.get_idx_by_id("E").unwrap());
     cost.set_internal_values(idx);
     assert_values(
         &cost,
@@ -476,7 +476,7 @@ fn pip_hky_likelihood_example_internals() {
             0.0,
         ],
     );
-    let idx = usize::from(cost.info.tree.get_idx_by_id("F"));
+    let idx = usize::from(cost.info.tree.get_idx_by_id("F").unwrap());
     cost.set_internal_values(idx);
     let iota_f = 0.2;
     let beta_f = 0.704;
@@ -501,7 +501,7 @@ fn pip_hky_likelihood_example_internals() {
     let beta = 1.0;
     let iota_e = 0.133;
     let beta_e = 0.787;
-    let idx = usize::from(cost.info.tree.get_idx_by_id("R"));
+    let idx = usize::from(cost.info.tree.get_idx_by_id("R").unwrap());
     cost.set_root_values(idx);
     assert_values(
         &cost,
@@ -561,39 +561,39 @@ fn pip_hky_likelihood_example_c0() {
         model,
         tmp: temp_values,
     };
-    cost.set_leaf_values(cost.info.tree.get_idx_by_id("A").into());
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("A").unwrap().into());
     assert_c0_values(
         &cost,
-        cost.info.tree.get_idx_by_id("A").into(),
+        cost.info.tree.get_idx_by_id("A").unwrap().into(),
         &[0.0, 0.0, 0.0, 0.0, 1.0],
         0.0,
         0.028329,
     );
-    cost.set_leaf_values(cost.info.tree.get_idx_by_id("B").into());
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("B").unwrap().into());
     assert_c0_values(
         &cost,
-        cost.info.tree.get_idx_by_id("B").into(),
+        cost.info.tree.get_idx_by_id("B").unwrap().into(),
         &[0.0, 0.0, 0.0, 0.0, 1.0],
         0.0,
         0.028329,
     );
-    cost.set_leaf_values(cost.info.tree.get_idx_by_id("C").into());
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("C").unwrap().into());
     assert_c0_values(
         &cost,
-        cost.info.tree.get_idx_by_id("C").into(),
+        cost.info.tree.get_idx_by_id("C").unwrap().into(),
         &[0.0, 0.0, 0.0, 0.0, 1.0],
         0.0,
         0.007705,
     );
-    cost.set_leaf_values(cost.info.tree.get_idx_by_id("D").into());
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("D").unwrap().into());
     assert_c0_values(
         &cost,
-        cost.info.tree.get_idx_by_id("D").into(),
+        cost.info.tree.get_idx_by_id("D").unwrap().into(),
         &[0.0, 0.0, 0.0, 0.0, 1.0],
         0.0,
         0.007705,
     );
-    let idx = usize::from(cost.info.tree.get_idx_by_id("E"));
+    let idx = usize::from(cost.info.tree.get_idx_by_id("E").unwrap());
     cost.set_internal_values(idx);
     assert_c0_values(
         &cost,
@@ -602,7 +602,7 @@ fn pip_hky_likelihood_example_c0() {
         0.154,
         0.044448334 + 0.028329 * 2.0,
     );
-    let idx = usize::from(cost.info.tree.get_idx_by_id("F"));
+    let idx = usize::from(cost.info.tree.get_idx_by_id("F").unwrap());
     cost.set_internal_values(idx);
     assert_c0_values(
         &cost,
@@ -611,7 +611,7 @@ fn pip_hky_likelihood_example_c0() {
         0.0488,
         0.06607104 + 0.007705 * 2.0,
     );
-    let idx = usize::from(cost.info.tree.get_idx_by_id("R"));
+    let idx = usize::from(cost.info.tree.get_idx_by_id("R").unwrap());
     cost.set_root_values(idx);
     assert_c0_values(
         &cost,

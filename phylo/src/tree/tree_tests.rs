@@ -35,6 +35,30 @@ fn setup_test_tree() -> Tree {
 }
 
 #[test]
+fn get_idx_by_id() {
+    let tree = from_newick_string(&String::from(
+        "(((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0,D:1.0)G:2.0;",
+    ))
+    .unwrap()
+    .pop()
+    .unwrap();
+    let nodes = [
+        ("A", L(0)),
+        ("B", L(1)),
+        ("C", L(2)),
+        ("D", L(3)),
+        ("E", I(2)),
+        ("F", I(1)),
+        ("G", I(0)),
+    ];
+    for (id, idx) in nodes.iter() {
+        assert!(tree.get_idx_by_id(id).is_ok());
+        assert_eq!(tree.get_idx_by_id(id).unwrap(), *idx);
+    }
+    assert!(tree.get_idx_by_id("H").is_err());
+}
+
+#[test]
 fn subroot_preorder() {
     let tree = setup_test_tree();
     assert_eq!(tree.preorder_subroot(I(0)), [I(0), L(0), L(1)]);
