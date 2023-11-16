@@ -1,10 +1,8 @@
-use std::collections::HashMap;
 use std::ops::Mul;
 use std::vec;
 
 use anyhow::bail;
 use nalgebra::{Const, DMatrix, DVector, DimMin};
-use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
@@ -14,7 +12,7 @@ use crate::substitution_models::protein_models::{aminoacid_index, ProteinSubstMo
 use crate::substitution_models::FreqVector;
 use crate::substitution_models::{dna_models::DNASubstModel, SubstMatrix, SubstitutionModel};
 use crate::tree::NodeIdx::{self, Internal as Int, Leaf};
-use crate::{Result, Rounding};
+use crate::Result;
 
 #[derive(Clone, Debug)]
 pub struct PIPModel<const N: usize> {
@@ -128,19 +126,6 @@ impl EvolutionaryModel<4> for PIPModel<4> {
                 .insert_row(4, 0.0)
         }
     }
-
-    fn generate_scorings(
-        &self,
-        _: &[f64],
-        _: bool,
-        _: &Rounding,
-    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)> {
-        unreachable!("This should not be called.")
-    }
-
-    fn get_scoring_matrix(&self, _: f64, _: &Rounding) -> (SubstMatrix, f64) {
-        unreachable!("This should not be called.")
-    }
 }
 
 impl EvolutionaryModel<20> for PIPModel<20> {
@@ -180,19 +165,6 @@ impl EvolutionaryModel<20> for PIPModel<20> {
                 .get_char_probability(char)
                 .insert_row(20, 0.0)
         }
-    }
-
-    fn generate_scorings(
-        &self,
-        _: &[f64],
-        _: bool,
-        _: &Rounding,
-    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)> {
-        unreachable!("This should not be called.")
-    }
-
-    fn get_scoring_matrix(&self, _: f64, _: &Rounding) -> (SubstMatrix, f64) {
-        unreachable!("This should not be called.")
     }
 }
 

@@ -18,7 +18,6 @@ use crate::substitution_models::{
     substitution_models_tests::{gtr_char_probs_data, protein_char_probs_data},
     FreqVector, SubstMatrix, SubstitutionModel,
 };
-use crate::Rounding as R;
 
 #[cfg(test)]
 fn compare_pip_subst_rates<const N: usize>(
@@ -71,56 +70,6 @@ fn protein_pip_correct(
     );
     let subst_model = ProteinSubstModel::new(model_name, &[], false).unwrap();
     compare_pip_subst_rates(AMINOACIDS_STR, &pip_model, &subst_model);
-}
-
-#[rstest]
-#[case::jc69("jc69", &[])]
-#[case::k80("k80", &[])]
-#[case::hky("hky", &[0.22, 0.26, 0.33, 0.19, 0.5])]
-#[case::tn93("tn93", &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
-#[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-#[should_panic]
-fn pip_dna_generate_scorings_unreachable(#[case] model_name: &str, #[case] model_params: &[f64]) {
-    let pip_model = PIPModel::<4>::new(model_name, model_params, false).unwrap();
-    EvolutionaryModel::generate_scorings(&pip_model, &[0.2, 0.4], false, &R::zero());
-}
-
-#[rstest]
-#[case::jc69("jc69", &[])]
-#[case::k80("k80", &[])]
-#[case::hky("hky", &[0.22, 0.26, 0.33, 0.19, 0.5])]
-#[case::tn93("tn93", &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
-#[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-#[should_panic]
-fn pip_dna_get_scoring_matrix_unreachable(#[case] model_name: &str, #[case] model_params: &[f64]) {
-    let pip_model = PIPModel::<4>::new(model_name, model_params, false).unwrap();
-    EvolutionaryModel::get_scoring_matrix(&pip_model, 0.2, &R::zero());
-}
-
-#[rstest]
-#[case::wag("wag", &[0.1, 0.4])]
-#[case::blosum("blosum", &[0.8, 0.25])]
-#[case::hivb("hivb", &[1.1, 12.4])]
-#[should_panic]
-fn pip_protein_generate_scorings_unreachable(
-    #[case] model_name: &str,
-    #[case] model_params: &[f64],
-) {
-    let pip_model = PIPModel::<20>::new(model_name, model_params, false).unwrap();
-    EvolutionaryModel::generate_scorings(&pip_model, &[0.2, 0.4], false, &R::zero());
-}
-
-#[rstest]
-#[case::wag("wag", &[0.1, 0.4])]
-#[case::blosum("blosum", &[0.8, 0.25])]
-#[case::hivb("hivb", &[1.1, 12.4])]
-#[should_panic]
-fn pip_protein_get_scoring_matrix_unreachable(
-    #[case] model_name: &str,
-    #[case] model_params: &[f64],
-) {
-    let pip_model = PIPModel::<20>::new(model_name, model_params, false).unwrap();
-    EvolutionaryModel::get_scoring_matrix(&pip_model, 0.2, &R::zero());
 }
 
 #[test]

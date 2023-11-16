@@ -8,6 +8,7 @@ use approx::assert_relative_eq;
 use nalgebra::dvector;
 
 use crate::evolutionary_models::EvolutionaryModel;
+use crate::substitution_models::ParsimonyModel;
 use crate::substitution_models::{
     dna_models::DNASubstModel,
     protein_models::{
@@ -434,16 +435,16 @@ fn protein_scoring_matrices() {
     let mut model = ProteinSubstModel::new("wag", &[], false).unwrap();
     model.normalise();
     let true_matrix_01 = SubstMatrix::from_row_slice(20, 20, &TRUE_MATRIX);
-    let (mat, avg) = EvolutionaryModel::get_scoring_matrix(&model, 0.1, &R::zero());
+    let (mat, avg) = ParsimonyModel::get_scoring_matrix(&model, 0.1, &R::zero());
     for (row, true_row) in mat.row_iter().zip(true_matrix_01.row_iter()) {
         assert_eq!(row, true_row);
     }
     assert_relative_eq!(avg, 5.7675);
-    let (_, avg) = EvolutionaryModel::get_scoring_matrix(&model, 0.3, &R::zero());
+    let (_, avg) = ParsimonyModel::get_scoring_matrix(&model, 0.3, &R::zero());
     assert_relative_eq!(avg, 4.7475);
-    let (_, avg) = EvolutionaryModel::get_scoring_matrix(&model, 0.5, &R::zero());
+    let (_, avg) = ParsimonyModel::get_scoring_matrix(&model, 0.5, &R::zero());
     assert_relative_eq!(avg, 4.2825);
-    let (_, avg) = EvolutionaryModel::get_scoring_matrix(&model, 0.7, &R::zero());
+    let (_, avg) = ParsimonyModel::get_scoring_matrix(&model, 0.7, &R::zero());
     assert_relative_eq!(avg, 4.0075);
 }
 
@@ -452,7 +453,7 @@ fn generate_protein_scorings() {
     let mut model = ProteinSubstModel::new("wag", &[], false).unwrap();
     model.normalise();
     let scorings =
-        EvolutionaryModel::generate_scorings(&model, &[0.1, 0.3, 0.5, 0.7], false, &R::zero());
+        ParsimonyModel::generate_scorings(&model, &[0.1, 0.3, 0.5, 0.7], false, &R::zero());
     let true_matrix_01 = SubstMatrix::from_row_slice(20, 20, &TRUE_MATRIX);
     let (mat_01, avg_01) = scorings.get(&ordered_float::OrderedFloat(0.1)).unwrap();
     for (row, true_row) in mat_01.row_iter().zip(true_matrix_01.row_iter()) {
