@@ -179,7 +179,7 @@ pub fn hky(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
     if model_params.len() != 5 {
         bail!(
             "{} parameters for the hky model, expected 5, got {}",
-            if model_params.len() < 10 {
+            if model_params.len() < 5 {
                 "Not enough"
             } else {
                 "Too many"
@@ -206,7 +206,7 @@ pub fn tn93(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
     if model_params.len() != 7 {
         bail!(
             "{} parameters for the tn93 model, expected 7, got {}",
-            if model_params.len() < 10 {
+            if model_params.len() < 7 {
                 "Not enough"
             } else {
                 "Too many"
