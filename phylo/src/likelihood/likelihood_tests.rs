@@ -44,6 +44,45 @@ fn dna_simple_likelihood() {
 }
 
 #[cfg(test)]
+fn setup_simple_phylo_info_no_alignment() -> PhyloInfo {
+    let sequences = vec![
+        Record::with_attrs("A0", None, b"AAAAAA"),
+        Record::with_attrs("B1", None, b"A"),
+    ];
+    let mut tree = Tree::new(&sequences).unwrap();
+    tree.add_parent(0, L(0), L(1), 2.0, 1.4);
+    tree.complete = true;
+    tree.create_postorder();
+    tree.create_preorder();
+    phyloinfo_from_sequences_tree(&sequences, tree).unwrap()
+}
+
+#[test]
+fn dna_likelihood_no_msa() {
+    let info = setup_simple_phylo_info_no_alignment();
+    let likelihood = setup_dna_likelihood(&info, "JC69", &[], false);
+    assert!(likelihood.is_err());
+}
+
+#[cfg(test)]
+fn setup_phylo_info_single_leaf() -> PhyloInfo {
+    let sequences = vec![Record::with_attrs("A0", None, b"AAAAAA")];
+    let mut tree = Tree::new(&sequences).unwrap();
+    tree.complete = true;
+    tree.create_postorder();
+    tree.create_preorder();
+    phyloinfo_from_sequences_tree(&sequences, tree).unwrap()
+}
+
+#[test]
+fn dna_likelihood_one_node() {
+    let info = setup_phylo_info_single_leaf();
+    let likelihood = setup_dna_likelihood(&info, "JC69", &[], false);
+    assert!(likelihood.is_ok());
+    assert!(likelihood.unwrap().compute_log_likelihood() < 0.0);
+}
+
+#[cfg(test)]
 fn setup_cb_example_phylo_info() -> PhyloInfo {
     use crate::tree::tree_parser;
     let sequences = vec![
