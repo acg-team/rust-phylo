@@ -10,7 +10,7 @@ pub trait LikelihoodCostFunction<const N: usize> {
     fn compute_log_likelihood(&mut self) -> f64;
 }
 
-fn setup_dna_likelihood<'a>(
+pub fn setup_dna_likelihood<'a>(
     info: &'a PhyloInfo,
     model_name: &str,
     model_params: &[f64],
@@ -28,7 +28,7 @@ fn setup_dna_likelihood<'a>(
     })
 }
 
-fn setup_protein_likelihood<'a>(
+pub fn setup_protein_likelihood<'a>(
     info: &'a PhyloInfo,
     model_name: &str,
     model_params: &[f64],

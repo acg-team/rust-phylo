@@ -43,7 +43,7 @@ where
         )]
     }
 
-    fn generate_scorings(
+    pub fn generate_scorings(
         &self,
         times: &[f64],
         zero_diag: bool,
@@ -92,9 +92,9 @@ where
     }
 }
 
-pub(crate) struct SubstitutionLikelihoodCost<'a, const N: usize> {
-    pub(crate) info: &'a PhyloInfo,
-    pub(crate) model: SubstitutionModel<N>,
+pub struct SubstitutionLikelihoodCost<'a, const N: usize> {
+    pub info: &'a PhyloInfo,
+    pub model: SubstitutionModel<N>,
     pub(crate) temp_values: SubstitutionModelInfo<N>,
 }
 
@@ -169,8 +169,11 @@ where
             NodeIdx::Leaf(idx) => &self.temp_values.leaf_info[idx],
         };
         let likelihood = self.model.pi.transpose().mul(root_info);
-        assert_eq!(likelihood.ncols(), self.info.sequences[0].seq().len());
-        assert_eq!(likelihood.nrows(), 1);
+        debug_assert_eq!(
+            likelihood.ncols(),
+            self.info.msa.as_ref().unwrap()[0].seq().len()
+        );
+        debug_assert_eq!(likelihood.nrows(), 1);
         likelihood.map(|x| x.ln()).sum()
     }
 }
