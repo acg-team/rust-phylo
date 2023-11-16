@@ -205,7 +205,7 @@ fn make_test_tree() -> Tree {
         Record::with_attrs("C", None, b""),
         Record::with_attrs("D", None, b""),
     ];
-    let mut tree = Tree::new(&sequences);
+    let mut tree = Tree::new(&sequences).unwrap();
     tree.add_parent(0, L(0), L(1), 2.0, 2.0);
     tree.add_parent(1, I(0), L(2), 1.0, 2.0);
     tree.add_parent(2, I(1), L(3), 1.0, 2.0);

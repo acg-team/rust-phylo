@@ -17,7 +17,7 @@ fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
         Record::with_attrs("A0", None, b"A"),
         Record::with_attrs("B1", None, b"A"),
     ];
-    let mut tree = Tree::new(&sequences);
+    let mut tree = Tree::new(&sequences).unwrap();
     tree.add_parent(0, L(0), L(1), blen_i, blen_j);
     tree.complete = true;
     tree.create_postorder();

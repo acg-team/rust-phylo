@@ -22,7 +22,7 @@ fn setup_test_tree() -> Tree {
         Record::with_attrs("D3", None, b"A"),
         Record::with_attrs("E4", None, b"AAA"),
     ];
-    let mut tree = Tree::new(&sequences);
+    let mut tree = Tree::new(&sequences).unwrap();
     tree.add_parent(0, L(0), L(1), 1.0, 1.0);
     tree.add_parent(1, L(3), L(4), 1.0, 1.0);
     tree.add_parent(2, L(2), I(1), 1.0, 1.0);

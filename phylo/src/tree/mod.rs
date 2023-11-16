@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use anyhow::bail;
 use bio::alignment::distance::levenshtein;
 use bio::io::fasta::Record;
 use inc_stats::Percentiles;
@@ -97,18 +98,32 @@ pub struct Tree {
 }
 
 impl Tree {
-    pub fn new(sequences: &Vec<Record>) -> Self {
+    pub fn new(sequences: &Vec<Record>) -> Result<Self> {
         let n = sequences.len();
-        Self {
-            root: Int(n - 2),
-            postorder: Vec::new(),
-            preorder: Vec::new(),
-            leaves: (0..n)
-                .zip(sequences.iter().map(|seq| seq.id().to_string()))
-                .map(|(idx, id)| Node::new_leaf(idx, None, 0.0, id))
-                .collect(),
-            internals: Vec::with_capacity(n - 1),
-            complete: false,
+        if n == 0 {
+            bail!("No sequences provided, aborting.");
+        }
+        if n == 1 {
+            Ok(Self {
+                root: Leaf(0),
+                postorder: vec![Leaf(0)],
+                preorder: vec![Leaf(0)],
+                leaves: vec![Node::new_leaf(0, None, 0.0, sequences[0].id().to_string())],
+                internals: Vec::new(),
+                complete: true,
+            })
+        } else {
+            Ok(Self {
+                root: Int(n - 2),
+                postorder: Vec::new(),
+                preorder: Vec::new(),
+                leaves: (0..n)
+                    .zip(sequences.iter().map(|seq| seq.id().to_string()))
+                    .map(|(idx, id)| Node::new_leaf(idx, None, 0.0, id))
+                    .collect(),
+                internals: Vec::with_capacity(n - 1),
+                complete: false,
+            })
         }
     }
 
@@ -283,7 +298,7 @@ fn build_nj_tree_w_rng_from_matrix(
 ) -> Result<Tree> {
     let n = nj_data.distances.ncols();
     let root_idx = n - 2;
-    let mut tree = Tree::new(sequences);
+    let mut tree = Tree::new(sequences)?;
     for cur_idx in 0..=root_idx {
         let q = nj_data.compute_nj_q();
         let (i, j) = argmin_wo_diagonal(q, rng);
