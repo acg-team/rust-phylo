@@ -14,6 +14,7 @@ use pest::error::ErrorVariant;
 use rand::Rng;
 use std::iter::repeat;
 
+#[cfg(test)]
 fn setup_test_tree() -> Tree {
     let sequences = vec![
         Record::with_attrs("A0", None, b"AAAAA"),
@@ -22,7 +23,7 @@ fn setup_test_tree() -> Tree {
         Record::with_attrs("D3", None, b"A"),
         Record::with_attrs("E4", None, b"AAA"),
     ];
-    let mut tree = Tree::new(&sequences);
+    let mut tree = Tree::new(&sequences).unwrap();
     tree.add_parent(0, L(0), L(1), 1.0, 1.0);
     tree.add_parent(1, L(3), L(4), 1.0, 1.0);
     tree.add_parent(2, L(2), I(1), 1.0, 1.0);
@@ -31,6 +32,30 @@ fn setup_test_tree() -> Tree {
     tree.create_postorder();
     tree.create_preorder();
     tree
+}
+
+#[test]
+fn get_idx_by_id() {
+    let tree = from_newick_string(&String::from(
+        "(((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0,D:1.0)G:2.0;",
+    ))
+    .unwrap()
+    .pop()
+    .unwrap();
+    let nodes = [
+        ("A", L(0)),
+        ("B", L(1)),
+        ("C", L(2)),
+        ("D", L(3)),
+        ("E", I(2)),
+        ("F", I(1)),
+        ("G", I(0)),
+    ];
+    for (id, idx) in nodes.iter() {
+        assert!(tree.get_idx_by_id(id).is_ok());
+        assert_eq!(tree.get_idx_by_id(id).unwrap(), *idx);
+    }
+    assert!(tree.get_idx_by_id("H").is_err());
 }
 
 #[test]
@@ -53,6 +78,12 @@ fn postorder() {
         tree.postorder,
         [L(0), L(1), I(0), L(2), L(3), L(4), I(1), I(2), I(3)]
     );
+}
+
+#[test]
+fn tree_wo_sequences() {
+    let tree = Tree::new(&[]);
+    assert!(tree.is_err());
 }
 
 impl PartialEq for Node {

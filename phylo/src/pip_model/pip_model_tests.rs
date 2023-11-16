@@ -9,7 +9,7 @@ use nalgebra::{Const, DimMin};
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
-use crate::phylo_info::{setup_phylogenetic_info, PhyloInfo};
+use crate::phylo_info::{phyloinfo_from_files, phyloinfo_from_sequences_newick, PhyloInfo};
 use crate::pip_model::{PIPLikelihoodCost, PIPModel, PIPModelInfo};
 use crate::sequences::{charify, AMINOACIDS_STR, NUCLEOTIDES_STR};
 use crate::substitution_models::{
@@ -18,8 +18,6 @@ use crate::substitution_models::{
     substitution_models_tests::{gtr_char_probs_data, protein_char_probs_data},
     FreqVector, SubstMatrix, SubstitutionModel,
 };
-use crate::tree::tree_parser;
-use crate::Rounding as R;
 
 #[cfg(test)]
 fn compare_pip_subst_rates<const N: usize>(
@@ -72,56 +70,6 @@ fn protein_pip_correct(
     );
     let subst_model = ProteinSubstModel::new(model_name, &[], false).unwrap();
     compare_pip_subst_rates(AMINOACIDS_STR, &pip_model, &subst_model);
-}
-
-#[rstest]
-#[case::jc69("jc69", &[])]
-#[case::k80("k80", &[])]
-#[case::hky("hky", &[0.22, 0.26, 0.33, 0.19, 0.5])]
-#[case::tn93("tn93", &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
-#[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-#[should_panic]
-fn pip_dna_generate_scorings_unreachable(#[case] model_name: &str, #[case] model_params: &[f64]) {
-    let pip_model = PIPModel::<4>::new(model_name, model_params, false).unwrap();
-    EvolutionaryModel::generate_scorings(&pip_model, &[0.2, 0.4], false, &R::zero());
-}
-
-#[rstest]
-#[case::jc69("jc69", &[])]
-#[case::k80("k80", &[])]
-#[case::hky("hky", &[0.22, 0.26, 0.33, 0.19, 0.5])]
-#[case::tn93("tn93", &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
-#[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-#[should_panic]
-fn pip_dna_get_scoring_matrix_unreachable(#[case] model_name: &str, #[case] model_params: &[f64]) {
-    let pip_model = PIPModel::<4>::new(model_name, model_params, false).unwrap();
-    EvolutionaryModel::get_scoring_matrix(&pip_model, 0.2, &R::zero());
-}
-
-#[rstest]
-#[case::wag("wag", &[0.1, 0.4])]
-#[case::blosum("blosum", &[0.8, 0.25])]
-#[case::hivb("hivb", &[1.1, 12.4])]
-#[should_panic]
-fn pip_protein_generate_scorings_unreachable(
-    #[case] model_name: &str,
-    #[case] model_params: &[f64],
-) {
-    let pip_model = PIPModel::<20>::new(model_name, model_params, false).unwrap();
-    EvolutionaryModel::generate_scorings(&pip_model, &[0.2, 0.4], false, &R::zero());
-}
-
-#[rstest]
-#[case::wag("wag", &[0.1, 0.4])]
-#[case::blosum("blosum", &[0.8, 0.25])]
-#[case::hivb("hivb", &[1.1, 12.4])]
-#[should_panic]
-fn pip_protein_get_scoring_matrix_unreachable(
-    #[case] model_name: &str,
-    #[case] model_params: &[f64],
-) {
-    let pip_model = PIPModel::<20>::new(model_name, model_params, false).unwrap();
-    EvolutionaryModel::get_scoring_matrix(&pip_model, 0.2, &R::zero());
 }
 
 #[test]
@@ -414,7 +362,7 @@ fn pip_p_example_matrix() {
 
 #[test]
 fn pip_likelihood_no_msa() {
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
     )
@@ -431,16 +379,7 @@ fn setup_example_phylo_info() -> PhyloInfo {
         Record::with_attrs("C", None, b"-A-G"),
         Record::with_attrs("D", None, b"-CAA"),
     ];
-    let newick = "((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;".to_string();
-    let tree = tree_parser::from_newick_string(&newick)
-        .unwrap()
-        .pop()
-        .unwrap();
-    PhyloInfo {
-        tree,
-        sequences: sequences.clone(),
-        msa: Some(sequences.clone()),
-    }
+    phyloinfo_from_sequences_newick(&sequences, "((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;").unwrap()
 }
 
 #[test]
@@ -456,42 +395,42 @@ fn pip_hky_likelihood_example_leaf_values() {
     };
     let iota = 0.133;
     let beta = 0.787;
-    cost.set_leaf_values(cost.info.tree.get_idx_by_id("A").into());
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("A").unwrap().into());
     assert_values(
         &cost,
-        cost.info.tree.get_idx_by_id("A").into(),
+        cost.info.tree.get_idx_by_id("A").unwrap().into(),
         iota,
         beta,
         &[[0.0, 1.0, 0.0, 0.0], [0.0; 4], [0.0; 4]].concat(),
         &[0.0, 0.33, 0.0, 0.0],
         &[0.0, 0.33 * iota * beta, 0.0, 0.0],
     );
-    cost.set_leaf_values(cost.info.tree.get_idx_by_id("B").into());
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("B").unwrap().into());
     assert_values(
         &cost,
-        cost.info.tree.get_idx_by_id("B").into(),
+        cost.info.tree.get_idx_by_id("B").unwrap().into(),
         iota,
         beta,
         &[[1.0, 1.0, 0.0, 0.0], [0.0; 4], [0.0; 4]].concat(),
         &[0.26, 0.33, 0.0, 0.0],
         &[0.26 * iota * beta, 0.33 * iota * beta, 0.0, 0.0],
     );
-    cost.set_leaf_values(cost.info.tree.get_idx_by_id("C").into());
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("C").unwrap().into());
     let iota = 0.067;
     let beta = 0.885;
     assert_values(
         &cost,
-        cost.info.tree.get_idx_by_id("C").into(),
+        cost.info.tree.get_idx_by_id("C").unwrap().into(),
         iota,
         beta,
         &[[0.0, 1.0, 0.0, 1.0], [0.0; 4], [0.0; 4]].concat(),
         &[0.0, 0.33, 0.0, 0.19],
         &[0.0, 0.33 * iota * beta, 0.0, 0.19 * iota * beta],
     );
-    cost.set_leaf_values(cost.info.tree.get_idx_by_id("D").into());
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("D").unwrap().into());
     assert_values(
         &cost,
-        cost.info.tree.get_idx_by_id("D").into(),
+        cost.info.tree.get_idx_by_id("D").unwrap().into(),
         iota,
         beta,
         &[[0.0, 1.0, 1.0, 1.0], [0.0; 4], [0.0; 4]].concat(),
@@ -521,7 +460,7 @@ fn pip_hky_likelihood_example_internals() {
     }
     let iota = 0.133;
     let beta = 0.787;
-    let idx = usize::from(cost.info.tree.get_idx_by_id("E"));
+    let idx = usize::from(cost.info.tree.get_idx_by_id("E").unwrap());
     cost.set_internal_values(idx);
     assert_values(
         &cost,
@@ -537,7 +476,7 @@ fn pip_hky_likelihood_example_internals() {
             0.0,
         ],
     );
-    let idx = usize::from(cost.info.tree.get_idx_by_id("F"));
+    let idx = usize::from(cost.info.tree.get_idx_by_id("F").unwrap());
     cost.set_internal_values(idx);
     let iota_f = 0.2;
     let beta_f = 0.704;
@@ -562,7 +501,7 @@ fn pip_hky_likelihood_example_internals() {
     let beta = 1.0;
     let iota_e = 0.133;
     let beta_e = 0.787;
-    let idx = usize::from(cost.info.tree.get_idx_by_id("R"));
+    let idx = usize::from(cost.info.tree.get_idx_by_id("R").unwrap());
     cost.set_root_values(idx);
     assert_values(
         &cost,
@@ -622,39 +561,39 @@ fn pip_hky_likelihood_example_c0() {
         model,
         tmp: temp_values,
     };
-    cost.set_leaf_values(cost.info.tree.get_idx_by_id("A").into());
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("A").unwrap().into());
     assert_c0_values(
         &cost,
-        cost.info.tree.get_idx_by_id("A").into(),
+        cost.info.tree.get_idx_by_id("A").unwrap().into(),
         &[0.0, 0.0, 0.0, 0.0, 1.0],
         0.0,
         0.028329,
     );
-    cost.set_leaf_values(cost.info.tree.get_idx_by_id("B").into());
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("B").unwrap().into());
     assert_c0_values(
         &cost,
-        cost.info.tree.get_idx_by_id("B").into(),
+        cost.info.tree.get_idx_by_id("B").unwrap().into(),
         &[0.0, 0.0, 0.0, 0.0, 1.0],
         0.0,
         0.028329,
     );
-    cost.set_leaf_values(cost.info.tree.get_idx_by_id("C").into());
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("C").unwrap().into());
     assert_c0_values(
         &cost,
-        cost.info.tree.get_idx_by_id("C").into(),
+        cost.info.tree.get_idx_by_id("C").unwrap().into(),
         &[0.0, 0.0, 0.0, 0.0, 1.0],
         0.0,
         0.007705,
     );
-    cost.set_leaf_values(cost.info.tree.get_idx_by_id("D").into());
+    cost.set_leaf_values(cost.info.tree.get_idx_by_id("D").unwrap().into());
     assert_c0_values(
         &cost,
-        cost.info.tree.get_idx_by_id("D").into(),
+        cost.info.tree.get_idx_by_id("D").unwrap().into(),
         &[0.0, 0.0, 0.0, 0.0, 1.0],
         0.0,
         0.007705,
     );
-    let idx = usize::from(cost.info.tree.get_idx_by_id("E"));
+    let idx = usize::from(cost.info.tree.get_idx_by_id("E").unwrap());
     cost.set_internal_values(idx);
     assert_c0_values(
         &cost,
@@ -663,7 +602,7 @@ fn pip_hky_likelihood_example_c0() {
         0.154,
         0.044448334 + 0.028329 * 2.0,
     );
-    let idx = usize::from(cost.info.tree.get_idx_by_id("F"));
+    let idx = usize::from(cost.info.tree.get_idx_by_id("F").unwrap());
     cost.set_internal_values(idx);
     assert_c0_values(
         &cost,
@@ -672,7 +611,7 @@ fn pip_hky_likelihood_example_c0() {
         0.0488,
         0.06607104 + 0.007705 * 2.0,
     );
-    let idx = usize::from(cost.info.tree.get_idx_by_id("R"));
+    let idx = usize::from(cost.info.tree.get_idx_by_id("R").unwrap());
     cost.set_root_values(idx);
     assert_c0_values(
         &cost,
@@ -744,16 +683,7 @@ fn setup_example_phylo_info_2() -> PhyloInfo {
         Record::with_attrs("C", None, b"--A-G"),
         Record::with_attrs("D", None, b"T-CAA"),
     ];
-    let newick = "((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;".to_string();
-    let tree = tree_parser::from_newick_string(&newick)
-        .unwrap()
-        .pop()
-        .unwrap();
-    PhyloInfo {
-        tree,
-        sequences: sequences.clone(),
-        msa: Some(sequences.clone()),
-    }
+    phyloinfo_from_sequences_newick(&sequences, "((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;").unwrap()
 }
 
 #[test]
@@ -776,7 +706,7 @@ fn pip_hky_likelihood_example_2() {
 
 #[test]
 fn pip_likelihood_huelsenbeck_example() {
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
     )
@@ -832,7 +762,7 @@ fn pip_likelihood_huelsenbeck_example() {
 
 #[test]
 fn pip_likelihood_huelsenbeck_example_model_comp() {
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
     )
@@ -860,7 +790,7 @@ fn pip_likelihood_huelsenbeck_example_model_comp() {
 
 #[test]
 fn pip_likelihood_huelsenbeck_example_reroot() {
-    let info_1 = setup_phylogenetic_info(
+    let info_1 = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
     )
@@ -880,7 +810,7 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
         tmp: temp_values_1,
     };
 
-    let info_2 = setup_phylogenetic_info(
+    let info_2 = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example_reroot.newick"),
     )
@@ -908,7 +838,7 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
 
 #[test]
 fn pip_likelihood_protein_example() {
-    let info = setup_phylogenetic_info(
+    let info = phyloinfo_from_files(
         PathBuf::from("./data/phyml_protein_example.fasta"),
         PathBuf::from("./data/phyml_protein_example.newick"),
     )

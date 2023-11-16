@@ -1,5 +1,5 @@
 use super::{compile_alignment_representation, Alignment};
-use crate::phylo_info::PhyloInfo;
+use crate::phylo_info::{phyloinfo_from_sequences_tree, PhyloInfo};
 use crate::tree::NodeIdx;
 use crate::tree::{NodeIdx::Internal as I, NodeIdx::Leaf as L, Tree};
 use bio::io::fasta::Record;
@@ -18,7 +18,7 @@ fn setup_test_tree() -> (PhyloInfo, Vec<Alignment>) {
         Record::with_attrs("D3", None, b"A"),
         Record::with_attrs("E4", None, b"AAA"),
     ];
-    let mut tree = Tree::new(&sequences);
+    let mut tree = Tree::new(&sequences).unwrap();
     tree.add_parent(0, L(0), L(1), 1.0, 1.0);
     tree.add_parent(1, L(3), L(4), 1.0, 1.0);
     tree.add_parent(2, L(2), I(1), 1.0, 1.0);
@@ -26,11 +26,8 @@ fn setup_test_tree() -> (PhyloInfo, Vec<Alignment>) {
     tree.complete = true;
     tree.create_postorder();
     tree.create_preorder();
-    let info = PhyloInfo {
-        tree,
-        sequences,
-        msa: None::<Vec<Record>>,
-    };
+
+    let info = phyloinfo_from_sequences_tree(&sequences, tree).unwrap();
     // ((0:1.0, 1:1.0)5:1.0,(2:1.0,(3:1.0, 4:1.0)6:1.0)7:1.0)8:1.0;
     let alignment = vec![
         Alignment::new(align!(0 1 2 3 4), align!(- - - 0 -)),
