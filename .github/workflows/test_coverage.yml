@@ -27,7 +27,7 @@ jobs:
           cargo install cargo2junit grcov;
           rustup component add llvm-tools-preview;
           cargo test --manifest-path ./phylo/Cargo.toml -- -Z unstable-options --format json | cargo2junit > results.xml;
-          grcov . -s . --binary-path ./phylo/target/debug/deps -t lcov --branch --ignore "**/lib.rs" --ignore "**/io/mod.rs" --ignore "**/*tests.rs" -o lcov.info;
+          grcov . -s . --binary-path ./phylo/target/debug/deps -t lcov --branch --ignore "**/*tests.rs" -o lcov.info;
     - name: publish test results to github
       uses: EnricoMi/publish-unit-test-result-action@v2
       if: always()
