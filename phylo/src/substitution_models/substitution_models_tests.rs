@@ -105,8 +105,10 @@ fn dna_jc69_correct() {
 #[test]
 fn dna_k80_correct() {
     let k80 = DNASubstModel::new("k80", &Vec::new(), false).unwrap();
+    let k801 = DNASubstModel::new("k80", &[2.0], false).unwrap();
     let k802 = DNASubstModel::new("k80", &[2.0, 1.0], false).unwrap();
     let k803 = DNASubstModel::new("k80", &[2.0, 1.0, 3.0, 6.0], false).unwrap();
+    assert_eq!(k80, k801);
     assert_eq!(k80, k802);
     assert_eq!(k80, k803);
     assert_eq!(k802, k803);

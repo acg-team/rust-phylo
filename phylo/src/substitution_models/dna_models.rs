@@ -134,15 +134,17 @@ pub fn jc69(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
 }
 
 pub fn k80(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
-    let (alpha, beta) = if model_params.len() < 2 {
-        warn!("Too few values provided for K80, required 2 values, alpha and beta.");
+    let (alpha, beta) = if model_params.is_empty() {
+        warn!("Too few values provided for K80, required 1 or 2 values, kappa or alpha and beta.");
         warn!("Falling back to default values.");
         (2.0, 1.0)
+    } else if model_params.len() == 1 {
+        (model_params[0], 1.0)
+    } else if model_params.len() == 2 {
+        (model_params[0], model_params[1])
     } else {
-        if model_params.len() > 2 {
-            warn!("Too many values provided for K80, required 2 values, alpha and beta.");
-            warn!("Will only use the first two values provided.");
-        }
+        warn!("Too many values provided for K80, required 2 values, alpha and beta.");
+        warn!("Will only use the first two values provided.");
         (model_params[0], model_params[1])
     };
     info!("Setting up k80 with alpha = {}, beta = {}", alpha, beta);
