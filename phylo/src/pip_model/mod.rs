@@ -171,8 +171,6 @@ impl EvolutionaryModel<20> for PIPModel<20> {
 #[derive(Debug)]
 pub(crate) struct PIPLikelihoodCost<'a, const N: usize> {
     pub(crate) info: &'a PhyloInfo,
-    pub(crate) model: PIPModel<N>,
-    pub(crate) tmp: PIPModelInfo<N>,
 }
 
 #[derive(Debug)]
@@ -246,30 +244,12 @@ impl<const N: usize> EvolutionaryModelInfo<N> for PIPModelInfo<N> {
     }
 }
 
-impl<const N: usize> LikelihoodCostFunction<N> for PIPLikelihoodCost<'_, N>
-where
-    Const<N>: DimMin<Const<N>, Output = Const<N>>,
-{
-    fn compute_log_likelihood(&mut self) -> f64 {
-        for node_idx in &self.info.tree.postorder {
-            match node_idx {
-                Int(idx) => {
-                    if self.info.tree.root == *node_idx {
-                        self.set_root_values(*idx);
-                    }
-                    self.set_internal_values(*idx);
-                }
-                Leaf(idx) => {
-                    self.set_leaf_values(*idx);
-                }
-            };
-        }
-        let root_idx = self.get_node_id(&self.info.tree.root);
-        let msa_length = self.tmp.ftilde[0].ncols();
-        let nu = self.model.lambda * (self.tmp.tree_length + 1.0 / self.model.mu);
-        let ln_phi = nu.ln() * msa_length as f64 + (self.tmp.c0_p[root_idx] - 1.0) * nu
-            - (log_factorial(msa_length));
-        self.tmp.p[root_idx].map(|x| x.ln()).sum() + ln_phi
+impl<'a> LikelihoodCostFunction<'a, 4> for PIPLikelihoodCost<'a, 4> {
+    type Model = PIPModel<4>;
+    type Info = PIPModelInfo<4>;
+
+    fn compute_log_likelihood(&self, model: &Self::Model, tmp_info: &mut Self::Info) -> f64 {
+        self.compute_log_likelihood(model, tmp_info)
     }
 }
 
@@ -277,84 +257,101 @@ fn log_factorial(n: usize) -> f64 {
     (1..n + 1).map(|i| (i as f64).ln()).sum::<f64>()
 }
 
-impl<'a, const N: usize> PIPLikelihoodCost<'a, N>
+impl<const N: usize> PIPLikelihoodCost<'_, N>
 where
     Const<N>: DimMin<Const<N>, Output = Const<N>>,
 {
-    fn set_root_values(&mut self, idx: usize) {
+    fn compute_log_likelihood(&self, model: &PIPModel<N>, tmp: &mut PIPModelInfo<N>) -> f64 {
+        for node_idx in &self.info.tree.postorder {
+            match node_idx {
+                Int(idx) => {
+                    if self.info.tree.root == *node_idx {
+                        self.set_root_values(*idx, model, tmp);
+                    }
+                    self.set_internal_values(*idx, model, tmp);
+                }
+                Leaf(idx) => {
+                    self.set_leaf_values(*idx, model, tmp);
+                }
+            };
+        }
+        let root_idx = self.get_node_id(&self.info.tree.root);
+        let msa_length = tmp.ftilde[0].ncols();
+        let nu = model.lambda * (tmp.tree_length + 1.0 / model.mu);
+        let ln_phi = nu.ln() * msa_length as f64 + (tmp.c0_p[root_idx] - 1.0) * nu
+            - (log_factorial(msa_length));
+        tmp.p[root_idx].map(|x| x.ln()).sum() + ln_phi
+    }
+
+    fn set_root_values(&self, idx: usize, model: &PIPModel<N>, tmp: &mut PIPModelInfo<N>) {
         let idx = idx + self.info.tree.leaves.len();
-        self.compute_model(idx);
-        if !self.tmp.valid[idx] {
-            let mu = self.model.mu;
-            self.tmp.surv_probs[idx] = 1.0;
-            self.tmp.ins_probs[idx] =
-                Self::insertion_probability(self.tmp.tree_length, 1.0 / mu, mu);
-            self.compute_int_ftilde(idx);
-            self.compute_int_ancestors(idx);
-            self.tmp.anc[idx].fill_column(0, 1.0);
-            self.compute_int_p(idx);
-            self.compute_int_c0(idx);
-            self.tmp.valid[idx] = true;
+        self.compute_model(idx, model, tmp);
+        if !tmp.valid[idx] {
+            let mu = model.mu;
+            tmp.surv_probs[idx] = 1.0;
+            tmp.ins_probs[idx] = Self::insertion_probability(tmp.tree_length, 1.0 / mu, mu);
+            self.compute_int_ftilde(idx, model, tmp);
+            self.compute_int_ancestors(idx, tmp);
+            tmp.anc[idx].fill_column(0, 1.0);
+            self.compute_int_p(idx, tmp);
+            self.compute_int_c0(idx, model, tmp);
+            tmp.valid[idx] = true;
         }
     }
 
-    fn set_internal_values(&mut self, idx: usize) {
+    fn set_internal_values(&self, idx: usize, model: &PIPModel<N>, tmp: &mut PIPModelInfo<N>) {
         let idx = idx + self.info.tree.leaves.len();
-        self.compute_model(idx);
-        if !self.tmp.valid[idx] {
-            let mu = self.model.mu;
-            let b = self.tmp.branches[idx];
-            self.tmp.surv_probs[idx] = Self::survival_probability(mu, b);
-            self.tmp.ins_probs[idx] = Self::insertion_probability(self.tmp.tree_length, b, mu);
-            self.compute_int_ftilde(idx);
-            self.compute_int_ancestors(idx);
-            self.compute_int_p(idx);
-            self.compute_int_c0(idx);
-            self.tmp.valid[idx] = true;
+        self.compute_model(idx, model, tmp);
+        if !tmp.valid[idx] {
+            let mu = model.mu;
+            let b = tmp.branches[idx];
+            tmp.surv_probs[idx] = Self::survival_probability(mu, b);
+            tmp.ins_probs[idx] = Self::insertion_probability(tmp.tree_length, b, mu);
+            self.compute_int_ftilde(idx, model, tmp);
+            self.compute_int_ancestors(idx, tmp);
+            self.compute_int_p(idx, tmp);
+            self.compute_int_c0(idx, model, tmp);
+            tmp.valid[idx] = true;
         }
     }
 
-    fn set_leaf_values(&mut self, idx: usize) {
-        if !self.tmp.valid[idx] {
-            self.compute_model(idx);
-            let mu = self.model.mu;
-            let b = self.tmp.branches[idx];
-            self.tmp.surv_probs[idx] = Self::survival_probability(mu, b);
-            self.tmp.ins_probs[idx] = Self::insertion_probability(self.tmp.tree_length, b, mu);
+    fn set_leaf_values(&self, idx: usize, model: &PIPModel<N>, tmp: &mut PIPModelInfo<N>) {
+        if !tmp.valid[idx] {
+            self.compute_model(idx, model, tmp);
+            let mu = model.mu;
+            let b = tmp.branches[idx];
+            tmp.surv_probs[idx] = Self::survival_probability(mu, b);
+            tmp.ins_probs[idx] = Self::insertion_probability(tmp.tree_length, b, mu);
             for (i, c) in self.info.msa.as_ref().unwrap()[idx]
                 .seq()
                 .iter()
                 .enumerate()
             {
                 if *c != b'-' {
-                    self.tmp.anc[idx][(i, 0)] = 1.0;
+                    tmp.anc[idx][(i, 0)] = 1.0;
                 }
             }
-            self.tmp.f[idx] = self
-                .ftilde(&self.tmp.ftilde[idx])
-                .component_mul(&self.tmp.anc[idx].column(0));
-            self.tmp.p[idx] =
-                self.tmp.f[idx].clone() * self.tmp.surv_probs[idx] * self.tmp.ins_probs[idx];
-            self.tmp.c0_ftilde[idx][N] = 1.0;
-            self.tmp.c0_f[idx] = 0.0;
-            self.tmp.c0_p[idx] = (1.0 - self.tmp.surv_probs[idx]) * self.tmp.ins_probs[idx];
-            self.tmp.valid[idx] = true;
+            tmp.f[idx] =
+                Self::ftilde(&tmp.ftilde[idx], model).component_mul(&tmp.anc[idx].column(0));
+            tmp.p[idx] = tmp.f[idx].clone() * tmp.surv_probs[idx] * tmp.ins_probs[idx];
+            tmp.c0_ftilde[idx][N] = 1.0;
+            tmp.c0_f[idx] = 0.0;
+            tmp.c0_p[idx] = (1.0 - tmp.surv_probs[idx]) * tmp.ins_probs[idx];
+            tmp.valid[idx] = true;
         }
     }
 
-    fn compute_int_p(&mut self, idx: usize) {
-        self.tmp.p[idx] = self.tmp.f[idx]
-            .clone()
-            .component_mul(&self.tmp.anc[idx].column(0))
-            * self.tmp.surv_probs[idx]
-            * self.tmp.ins_probs[idx];
+    fn compute_int_p(&self, idx: usize, tmp: &mut PIPModelInfo<N>) {
+        tmp.p[idx] = tmp.f[idx].clone().component_mul(&tmp.anc[idx].column(0))
+            * tmp.surv_probs[idx]
+            * tmp.ins_probs[idx];
         let node = &self.info.tree.internals[idx - self.info.tree.leaves.len()];
         let x_idx = self.get_node_id(&node.children[0]);
         let y_idx = self.get_node_id(&node.children[1]);
-        let x_p = self.tmp.p[x_idx].clone();
-        let y_p = self.tmp.p[y_idx].clone();
-        self.tmp.p[idx] += self.tmp.anc[idx].column(1).component_mul(&x_p)
-            + self.tmp.anc[idx].column(2).component_mul(&y_p);
+        let x_p = tmp.p[x_idx].clone();
+        let y_p = tmp.p[y_idx].clone();
+        tmp.p[idx] +=
+            tmp.anc[idx].column(1).component_mul(&x_p) + tmp.anc[idx].column(2).component_mul(&y_p);
     }
 
     fn get_node_id(&self, node_idx: &NodeIdx) -> usize {
@@ -364,57 +361,56 @@ where
         }
     }
 
-    fn compute_int_ftilde(&mut self, idx: usize) {
+    fn compute_int_ftilde(&self, idx: usize, model: &PIPModel<N>, tmp: &mut PIPModelInfo<N>) {
         let node = &self.info.tree.internals[idx - self.info.tree.leaves.len()];
         let x_idx = self.get_node_id(&node.children[0]);
         let y_idx = self.get_node_id(&node.children[1]);
-        self.tmp.ftilde[idx] = (&self.tmp.models[x_idx])
-            .mul(&self.tmp.ftilde[x_idx])
-            .component_mul(&(&self.tmp.models[y_idx]).mul(&self.tmp.ftilde[y_idx]));
-        self.tmp.f[idx] = self.ftilde(&self.tmp.ftilde[idx]);
+        tmp.ftilde[idx] = (&tmp.models[x_idx])
+            .mul(&tmp.ftilde[x_idx])
+            .component_mul(&(&tmp.models[y_idx]).mul(&tmp.ftilde[y_idx]));
+        tmp.f[idx] = Self::ftilde(&tmp.ftilde[idx], model);
     }
 
-    fn compute_model(&mut self, idx: usize) {
-        if !self.tmp.models_valid[idx] {
-            self.tmp.models[idx] = self.model.get_p(self.tmp.branches[idx]);
-            self.tmp.models_valid[idx] = true;
+    fn compute_model(&self, idx: usize, model: &PIPModel<N>, tmp: &mut PIPModelInfo<N>) {
+        if !tmp.models_valid[idx] {
+            tmp.models[idx] = model.get_p(tmp.branches[idx]);
+            tmp.models_valid[idx] = true;
         }
     }
 
-    fn compute_int_ancestors(&mut self, idx: usize) {
+    fn compute_int_ancestors(&self, idx: usize, tmp: &mut PIPModelInfo<N>) {
         let node = &self.info.tree.internals[idx - self.info.tree.leaves.len()];
         let x_idx = self.get_node_id(&node.children[0]);
         let y_idx = self.get_node_id(&node.children[1]);
-        let x_anc = self.tmp.anc[x_idx].clone();
-        let y_anc = self.tmp.anc[y_idx].clone();
-        self.tmp.anc[idx].set_column(1, &x_anc.column(0));
-        self.tmp.anc[idx].set_column(2, &y_anc.column(0));
-        self.tmp.anc[idx].set_column(0, &(x_anc.column(0) + y_anc.column(0)));
-        for i in 0..self.tmp.anc[idx].nrows() {
-            debug_assert!((0.0..=2.0).contains(&self.tmp.anc[idx][(i, 0)]));
-            if self.tmp.anc[idx][(i, 0)] == 2.0 {
-                self.tmp.anc[idx].fill_row(i, 0.0);
-                self.tmp.anc[idx][(i, 0)] = 1.0;
+        let x_anc = tmp.anc[x_idx].clone();
+        let y_anc = tmp.anc[y_idx].clone();
+        tmp.anc[idx].set_column(1, &x_anc.column(0));
+        tmp.anc[idx].set_column(2, &y_anc.column(0));
+        tmp.anc[idx].set_column(0, &(x_anc.column(0) + y_anc.column(0)));
+        for i in 0..tmp.anc[idx].nrows() {
+            debug_assert!((0.0..=2.0).contains(&tmp.anc[idx][(i, 0)]));
+            if tmp.anc[idx][(i, 0)] == 2.0 {
+                tmp.anc[idx].fill_row(i, 0.0);
+                tmp.anc[idx][(i, 0)] = 1.0;
             }
         }
     }
 
-    fn compute_int_c0(&mut self, idx: usize) {
+    fn compute_int_c0(&self, idx: usize, model: &PIPModel<N>, tmp: &mut PIPModelInfo<N>) {
         let node = &self.info.tree.internals[idx - self.info.tree.leaves.len()];
         let x_idx = self.get_node_id(&node.children[0]);
         let y_idx = self.get_node_id(&node.children[1]);
-        self.tmp.c0_ftilde[idx] = (&self.tmp.models[x_idx])
-            .mul(&self.tmp.c0_ftilde[x_idx])
-            .component_mul(&(&self.tmp.models[y_idx]).mul(&self.tmp.c0_ftilde[y_idx]));
-        self.tmp.c0_f[idx] = self.ftilde(&self.tmp.c0_ftilde[idx])[0];
-        self.tmp.c0_p[idx] = (1.0 + self.tmp.surv_probs[idx] * (self.tmp.c0_f[idx] - 1.0))
-            * self.tmp.ins_probs[idx]
-            + self.tmp.c0_p[x_idx]
-            + self.tmp.c0_p[y_idx];
+        tmp.c0_ftilde[idx] = (&tmp.models[x_idx])
+            .mul(&tmp.c0_ftilde[x_idx])
+            .component_mul(&(&tmp.models[y_idx]).mul(&tmp.c0_ftilde[y_idx]));
+        tmp.c0_f[idx] = Self::ftilde(&tmp.c0_ftilde[idx], model)[0];
+        tmp.c0_p[idx] = (1.0 + tmp.surv_probs[idx] * (tmp.c0_f[idx] - 1.0)) * tmp.ins_probs[idx]
+            + tmp.c0_p[x_idx]
+            + tmp.c0_p[y_idx];
     }
 
-    fn ftilde(&self, partial_probs: &DMatrix<f64>) -> DVector<f64> {
-        self.model.pi.transpose().mul(partial_probs).transpose()
+    fn ftilde(partial_probs: &DMatrix<f64>, model: &PIPModel<N>) -> DVector<f64> {
+        model.pi.transpose().mul(partial_probs).transpose()
     }
 
     fn insertion_probability(tree_length: f64, b: f64, mu: f64) -> f64 {

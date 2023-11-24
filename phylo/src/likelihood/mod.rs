@@ -1,49 +1,36 @@
-use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
-use crate::phylo_info::PhyloInfo;
+use argmin::core::CostFunction;
+
+use crate::evolutionary_models::EvolutionaryModelInfo;
 use crate::substitution_models::{
-    dna_models::DNASubstModel, protein_models::ProteinSubstModel, SubstitutionLikelihoodCost,
-    SubstitutionModelInfo,
+    dna_models::{k80_q, DNASubstModel},
+    SubstitutionLikelihoodCost, SubstitutionModelInfo,
 };
 use crate::Result;
 
-pub trait LikelihoodCostFunction<const N: usize> {
-    fn compute_log_likelihood(&mut self) -> f64;
+struct K80ModelAlphaOptimiser<'a> {
+    likelihood_cost: SubstitutionLikelihoodCost<'a, 4>,
+    base_model: DNASubstModel,
 }
 
-pub fn setup_dna_likelihood<'a>(
-    info: &'a PhyloInfo,
-    model_name: &str,
-    model_params: &[f64],
-    normalise: bool,
-) -> Result<SubstitutionLikelihoodCost<'a, 4>> {
-    let mut model = DNASubstModel::new(model_name, model_params, normalise)?;
-    if normalise {
-        model.normalise();
+impl CostFunction for K80ModelAlphaOptimiser<'_> {
+    type Param = f64;
+    type Output = f64;
+
+    fn cost(&self, param: &Self::Param) -> Result<Self::Output> {
+        let mut model = self.base_model.clone();
+        model.q = k80_q(*param, model.params[1]);
+        let mut tmp_info = SubstitutionModelInfo::new(self.likelihood_cost.info, &model)?;
+        Ok(self
+            .likelihood_cost
+            .compute_log_likelihood(&model, &mut tmp_info))
     }
-    let temp_values = SubstitutionModelInfo::<4>::new(info, &model)?;
-    Ok(SubstitutionLikelihoodCost {
-        info,
-        model,
-        temp_values,
-    })
 }
 
-pub fn setup_protein_likelihood<'a>(
-    info: &'a PhyloInfo,
-    model_name: &str,
-    model_params: &[f64],
-    normalise: bool,
-) -> Result<SubstitutionLikelihoodCost<'a, 20>> {
-    let mut model = ProteinSubstModel::new(model_name, model_params, normalise)?;
-    if normalise {
-        model.normalise();
-    }
-    let temp_values = SubstitutionModelInfo::<20>::new(info, &model)?;
-    Ok(SubstitutionLikelihoodCost {
-        info,
-        model,
-        temp_values,
-    })
+pub trait LikelihoodCostFunction<'a, const N: usize> {
+    type Model;
+    type Info;
+
+    fn compute_log_likelihood(&self, model: &Self::Model, tmp_info: &mut Self::Info) -> f64;
 }
 
 #[cfg(test)]

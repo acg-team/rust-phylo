@@ -5,14 +5,20 @@ use log::warn;
 use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::EvolutionaryModel;
+use crate::likelihood::LikelihoodCostFunction;
 use crate::sequences::{charify, AMINOACIDS_STR};
-use crate::substitution_models::{FreqVector, ParsimonyModel, SubstMatrix, SubstitutionModel};
+use crate::substitution_models::{
+    FreqVector, ParsimonyModel, SubstMatrix, SubstitutionLikelihoodCost, SubstitutionModel,
+    SubstitutionModelInfo,
+};
 use crate::{Result, Rounding};
 
 pub(crate) type ProteinSubstArray = [f64; 400];
 pub(crate) type ProteinFrequencyArray = [f64; 20];
 
 pub type ProteinSubstModel = SubstitutionModel<20>;
+pub type ProteinLikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 20>;
+pub type ProteinSubstModelInfo = SubstitutionModelInfo<20>;
 
 impl EvolutionaryModel<20> for ProteinSubstModel {
     fn new(model_name: &str, _: &[f64], normalise: bool) -> Result<Self>
@@ -111,6 +117,15 @@ impl ParsimonyModel<20> for ProteinSubstModel {
 
     fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
         self.get_scoring_matrix(time, rounding)
+    }
+}
+
+impl<'a> LikelihoodCostFunction<'a, 20> for SubstitutionLikelihoodCost<'a, 20> {
+    type Model = ProteinSubstModel;
+    type Info = SubstitutionModelInfo<20>;
+
+    fn compute_log_likelihood(&self, model: &Self::Model, tmp_info: &mut Self::Info) -> f64 {
+        self.compute_log_likelihood(model, tmp_info)
     }
 }
 

@@ -5,11 +5,17 @@ use log::{info, warn};
 use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::EvolutionaryModel;
+use crate::likelihood::LikelihoodCostFunction;
 use crate::sequences::{charify, NUCLEOTIDES_STR};
-use crate::substitution_models::{FreqVector, ParsimonyModel, SubstMatrix, SubstitutionModel};
+use crate::substitution_models::{
+    FreqVector, ParsimonyModel, SubstMatrix, SubstitutionLikelihoodCost, SubstitutionModel,
+    SubstitutionModelInfo,
+};
 use crate::{Result, Rounding};
 
 pub type DNASubstModel = SubstitutionModel<4>;
+pub type DNALikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 4>;
+pub type DNASubstModelInfo = SubstitutionModelInfo<4>;
 
 struct GtrParams<'a> {
     pi: &'a FreqVector,
@@ -128,6 +134,15 @@ impl ParsimonyModel<4> for DNASubstModel {
 
     fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
         self.get_scoring_matrix(time, rounding)
+    }
+}
+
+impl<'a> LikelihoodCostFunction<'a, 4> for DNALikelihoodCost<'a> {
+    type Model = DNASubstModel;
+    type Info = SubstitutionModelInfo<4>;
+
+    fn compute_log_likelihood(&self, model: &Self::Model, tmp_info: &mut Self::Info) -> f64 {
+        self.compute_log_likelihood(model, tmp_info)
     }
 }
 
