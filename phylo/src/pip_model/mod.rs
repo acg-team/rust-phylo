@@ -245,27 +245,8 @@ impl<'a> LikelihoodCostFunction<'a, 4> for PIPLikelihoodCost<'a, 4> {
     type Model = PIPModel<4>;
     type Info = PIPModelInfo<4>;
 
-    fn compute_log_likelihood(&self, model: &Self::Model) -> f64 {
-        let mut tmp_info = PIPModelInfo::new(self.info, model).unwrap();
-        self.compute_log_likelihood_with_tmp(model, &mut tmp_info)
-    }
-
-    fn get_empirical_frequencies(&self) -> FreqVector {
-        todo!()
-    }
-}
-
-impl<'a> LikelihoodCostFunction<'a, 20> for PIPLikelihoodCost<'a, 20> {
-    type Model = PIPModel<20>;
-    type Info = PIPModelInfo<20>;
-
-    fn compute_log_likelihood(&self, model: &Self::Model) -> f64 {
-        let mut tmp_info = PIPModelInfo::new(self.info, model).unwrap();
-        self.compute_log_likelihood_with_tmp(model, &mut tmp_info)
-    }
-
-    fn get_empirical_frequencies(&self) -> FreqVector {
-        todo!()
+    fn compute_log_likelihood(&self, model: &Self::Model, tmp_info: &mut Self::Info) -> f64 {
+        self.compute_log_likelihood(model, tmp_info)
     }
 }
 
@@ -277,20 +258,19 @@ impl<const N: usize> PIPLikelihoodCost<'_, N>
 where
     Const<N>: DimMin<Const<N>, Output = Const<N>>,
 {
-    fn compute_log_likelihood_with_tmp(
-        &self,
-        model: &PIPModel<N>,
-        tmp: &mut PIPModelInfo<N>,
-    ) -> f64 {
+    fn compute_log_likelihood(&self, model: &PIPModel<N>, tmp: &mut PIPModelInfo<N>) -> f64 {
         for node_idx in &self.info.tree.postorder {
             match node_idx {
                 Int(idx) => {
                     if self.info.tree.root == *node_idx {
                         self.set_root_values(*idx, model, tmp);
+                        self.set_root_values(*idx, model, tmp);
                     }
+                    self.set_internal_values(*idx, model, tmp);
                     self.set_internal_values(*idx, model, tmp);
                 }
                 Leaf(idx) => {
+                    self.set_leaf_values(*idx, model, tmp);
                     self.set_leaf_values(*idx, model, tmp);
                 }
             };
@@ -328,6 +308,7 @@ where
     }
 
     fn set_internal_values(&self, idx: usize, model: &PIPModel<N>, tmp: &mut PIPModelInfo<N>) {
+    fn set_internal_values(&self, idx: usize, model: &PIPModel<N>, tmp: &mut PIPModelInfo<N>) {
         let idx = idx + self.info.tree.leaves.len();
         self.compute_model(idx);
         if !self.tmp.valid[idx] {
@@ -358,6 +339,7 @@ where
                 .enumerate()
             {
                 if *c != b'-' {
+                    tmp.anc[idx][(i, 0)] = 1.0;
                     tmp.anc[idx][(i, 0)] = 1.0;
                 }
             }
@@ -393,9 +375,14 @@ where
     }
 
     fn compute_int_ftilde(&self, idx: usize, model: &PIPModel<N>, tmp: &mut PIPModelInfo<N>) {
+    fn compute_int_ftilde(&self, idx: usize, model: &PIPModel<N>, tmp: &mut PIPModelInfo<N>) {
         let node = &self.info.tree.internals[idx - self.info.tree.leaves.len()];
         let x_idx = self.get_node_id(&node.children[0]);
         let y_idx = self.get_node_id(&node.children[1]);
+        tmp.ftilde[idx] = (&tmp.models[x_idx])
+            .mul(&tmp.ftilde[x_idx])
+            .component_mul(&(&tmp.models[y_idx]).mul(&tmp.ftilde[y_idx]));
+        tmp.f[idx] = Self::ftilde(&tmp.ftilde[idx], model);
         tmp.ftilde[idx] = (&tmp.models[x_idx])
             .mul(&tmp.ftilde[x_idx])
             .component_mul(&(&tmp.models[y_idx]).mul(&tmp.ftilde[y_idx]));
@@ -406,13 +393,28 @@ where
         if !tmp.models_valid[idx] {
             tmp.models[idx] = model.get_p(tmp.branches[idx]);
             tmp.models_valid[idx] = true;
+    fn compute_model(&self, idx: usize, model: &PIPModel<N>, tmp: &mut PIPModelInfo<N>) {
+        if !tmp.models_valid[idx] {
+            tmp.models[idx] = model.get_p(tmp.branches[idx]);
+            tmp.models_valid[idx] = true;
         }
     }
 
     fn compute_int_ancestors(&self, idx: usize, tmp: &mut PIPModelInfo<N>) {
+    fn compute_int_ancestors(&self, idx: usize, tmp: &mut PIPModelInfo<N>) {
         let node = &self.info.tree.internals[idx - self.info.tree.leaves.len()];
         let x_idx = self.get_node_id(&node.children[0]);
         let y_idx = self.get_node_id(&node.children[1]);
+        let x_anc = tmp.anc[x_idx].clone();
+        let y_anc = tmp.anc[y_idx].clone();
+        tmp.anc[idx].set_column(1, &x_anc.column(0));
+        tmp.anc[idx].set_column(2, &y_anc.column(0));
+        tmp.anc[idx].set_column(0, &(x_anc.column(0) + y_anc.column(0)));
+        for i in 0..tmp.anc[idx].nrows() {
+            debug_assert!((0.0..=2.0).contains(&tmp.anc[idx][(i, 0)]));
+            if tmp.anc[idx][(i, 0)] == 2.0 {
+                tmp.anc[idx].fill_row(i, 0.0);
+                tmp.anc[idx][(i, 0)] = 1.0;
         let x_anc = tmp.anc[x_idx].clone();
         let y_anc = tmp.anc[y_idx].clone();
         tmp.anc[idx].set_column(1, &x_anc.column(0));
@@ -428,6 +430,7 @@ where
     }
 
     fn compute_int_c0(&self, idx: usize, model: &PIPModel<N>, tmp: &mut PIPModelInfo<N>) {
+    fn compute_int_c0(&self, idx: usize, model: &PIPModel<N>, tmp: &mut PIPModelInfo<N>) {
         let node = &self.info.tree.internals[idx - self.info.tree.leaves.len()];
         let x_idx = self.get_node_id(&node.children[0]);
         let y_idx = self.get_node_id(&node.children[1]);
@@ -441,6 +444,8 @@ where
             + self.tmp.c0_pnu[y_idx];
     }
 
+    fn ftilde(partial_probs: &DMatrix<f64>, model: &PIPModel<N>) -> DVector<f64> {
+        model.pi.transpose().mul(partial_probs).transpose()
     fn ftilde(partial_probs: &DMatrix<f64>, model: &PIPModel<N>) -> DVector<f64> {
         model.pi.transpose().mul(partial_probs).transpose()
     }

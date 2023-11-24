@@ -3,23 +3,23 @@ use rstest::*;
 use std::path::PathBuf;
 
 use approx::assert_relative_eq;
+use argmin::core::{
+    observers::{ObserverMode, SlogLogger},
+    Executor,
+};
+use argmin::solver::brent::BrentOpt;
 use bio::io::fasta::Record;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
-use crate::likelihood::LikelihoodCostFunction;
-use crate::phylo_info::{GapHandling, PhyloInfo};
+use crate::likelihood::{K80ModelAlphaOptimiser, LikelihoodCostFunction};
+use crate::phylo_info::{
+    phyloinfo_from_files, phyloinfo_from_sequences_newick, phyloinfo_from_sequences_tree, PhyloInfo,
+};
 use crate::substitution_models::dna_models::{DNALikelihoodCost, DNASubstModel, DNASubstModelInfo};
-use crate::substitution_models::protein_models::{ProteinLikelihoodCost, ProteinSubstModel};
-use crate::substitution_models::{FreqVector, SubstMatrix};
-use crate::tree::{tree_parser, NodeIdx::Leaf as L, Tree};
-
-#[cfg(test)]
-fn tree_newick(newick: &str) -> Tree {
-    tree_parser::from_newick_string(newick)
-        .unwrap()
-        .pop()
-        .unwrap()
-}
+use crate::substitution_models::protein_models::{
+    ProteinLikelihoodCost, ProteinSubstModel, ProteinSubstModelInfo,
+};
+use crate::tree::{NodeIdx::Leaf as L, Tree};
 
 #[cfg(test)]
 fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
@@ -38,18 +38,20 @@ fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
 #[test]
 fn dna_simple_likelihood() {
     let info = setup_simple_phylo_info(1.0, 1.0);
-    let model = DNASubstModel::new("JC69", &[]).unwrap();
+    let model = DNASubstModel::new("JC69", &[], true).unwrap();
+    let mut tmp = DNASubstModelInfo::new(&info, &model).unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
 
     assert_relative_eq!(
-        likelihood.compute_log_likelihood(&model).0,
+        likelihood.compute_log_likelihood(&model, &mut tmp),
         -2.5832498829317445,
         epsilon = 1e-6
     );
     let info = setup_simple_phylo_info(1.0, 2.0);
+    let mut tmp = DNASubstModelInfo::new(&info, &model).unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model),
+        likelihood.compute_log_likelihood(&model, &mut tmp),
         -2.719098272533848,
         epsilon = 1e-6
     );
@@ -72,7 +74,7 @@ fn setup_simple_phylo_info_no_alignment() -> PhyloInfo {
 #[test]
 fn dna_likelihood_no_msa() {
     let info = setup_simple_phylo_info_no_alignment();
-    let model = DNASubstModel::new("JC69", &[]).unwrap();
+    let model = DNASubstModel::new("JC69", &[], false).unwrap();
     let tmp = DNASubstModelInfo::new(&info, &model);
     assert!(tmp.is_err());
 }
@@ -91,8 +93,9 @@ fn setup_phylo_info_single_leaf() -> PhyloInfo {
 fn dna_likelihood_one_node() {
     let info = setup_phylo_info_single_leaf();
     let likelihood = DNALikelihoodCost { info: &info };
-    let model = DNASubstModel::new("JC69", &[]).unwrap();
-    assert!(LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model) < 0.0);
+    let model = DNASubstModel::new("JC69", &[], false).unwrap();
+    let mut tmp = DNASubstModelInfo::new(&info, &model).unwrap();
+    assert!(likelihood.compute_log_likelihood(&model, &mut tmp) < 0.0);
 }
 
 #[cfg(test)]
@@ -112,35 +115,14 @@ fn setup_cb_example_phylo_info() -> PhyloInfo {
 fn dna_cb_example_likelihood() {
     let info = setup_cb_example_phylo_info();
     let likelihood = DNALikelihoodCost { info: &info };
-    let mut model = DNASubstModel::new(
+    let model = DNASubstModel::new(
         "tn93",
         &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
     )
     .unwrap();
-    model.q = SubstMatrix::from_row_slice(
-        4,
-        4,
-        &[
-            -0.15594579,
-            0.15524379,
-            0.00044550000000000004,
-            0.0002565,
-            0.13136013,
-            -0.13206213,
-            0.00044550000000000004,
-            0.0002565,
-            0.000297,
-            0.000351,
-            -0.056516265,
-            0.055868265,
-            0.000297,
-            0.000351,
-            0.097034355,
-            -0.097682355,
-        ],
-    );
+    let mut tmp = DNASubstModelInfo::new(&info, &model).unwrap();
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model),
+        likelihood.compute_log_likelihood(&model, &mut tmp),
         -17.1035117087,
         epsilon = 1e-6
     );
@@ -164,9 +146,10 @@ fn setup_mol_evo_example_phylo_info() -> PhyloInfo {
 fn dna_mol_evo_example_likelihood() {
     let info = setup_mol_evo_example_phylo_info();
     let likelihood = DNALikelihoodCost { info: &info };
-    let model = DNASubstModel::new("k80", &[]).unwrap();
+    let model = DNASubstModel::new("k80", &[], true).unwrap();
+    let mut tmp = DNASubstModelInfo::new(&info, &model).unwrap();
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model),
+        likelihood.compute_log_likelihood(&model, &mut tmp),
         -7.581408,
         epsilon = 1e-6
     );
@@ -177,38 +160,41 @@ fn dna_ambig_example_likelihood() {
     let model = DNASubstModel::new(
         "tn93",
         &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
+        false,
     )
     .unwrap();
 
-    let info_w_x = PhyloInfo::from_files(
+    let info_w_x = phyloinfo_from_files(
         PathBuf::from("./data/ambiguous_example.fasta"),
         PathBuf::from("./data/ambiguous_example.newick"),
-        &GapHandling::Ambiguous,
     )
     .unwrap();
+    let mut tmp_w_x = DNASubstModelInfo::new(&info_w_x, &model).unwrap();
     let likelihood_w_x = DNALikelihoodCost { info: &info_w_x };
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&likelihood_w_x, &model),
-        -94.46514304131543,
+        likelihood_w_x.compute_log_likelihood(&model, &mut tmp_w_x),
+        -90.1367231323,
         epsilon = 1e-6
     );
 
-    let info_w_n = PhyloInfo::from_files(
+    let info_w_n = phyloinfo_from_files(
         PathBuf::from("./data/ambiguous_example_N.fasta"),
         PathBuf::from("./data/ambiguous_example.newick"),
         &GapHandling::Ambiguous,
     )
     .unwrap();
+    let mut tmp_w_n = DNASubstModelInfo::new(&info_w_x, &model).unwrap();
     let likelihood_w_n = DNALikelihoodCost { info: &info_w_n };
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&likelihood_w_n, &model),
-        -94.46514304131543,
+        likelihood_w_n.compute_log_likelihood(&model, &mut tmp_w_n),
+        -90.1367231323,
         epsilon = 1e-6
     );
 
+
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&likelihood_w_x, &model),
-        LikelihoodCostFunction::compute_log_likelihood(&likelihood_w_n, &model),
+        likelihood_w_x.compute_log_likelihood(&model, &mut tmp_w_x),
+        likelihood_w_n.compute_log_likelihood(&model, &mut tmp_w_n),
     );
 }
 
@@ -221,12 +207,17 @@ fn dna_huelsenbeck_example_likelihood() {
         &GapHandling::Ambiguous,
     )
     .unwrap();
-    let model =
-        DNASubstModel::new("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0]).unwrap();
+    let model = DNASubstModel::new(
+        "gtr",
+        &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0],
+        true,
+    )
+    .unwrap();
+    let mut tmp = DNASubstModelInfo::new(&info, &model).unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
 
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model),
+        likelihood.compute_log_likelihood(&model, &mut tmp),
         -216.234734,
         epsilon = 1e-3
     );
@@ -248,10 +239,11 @@ fn protein_example_likelihood(
         &GapHandling::Ambiguous,
     )
     .unwrap();
-    let model = ProteinSubstModel::new(model_name, model_params).unwrap();
+    let model = ProteinSubstModel::new(model_name, model_params, true).unwrap();
+    let mut tmp = ProteinSubstModelInfo::new(&info, &model).unwrap();
     let likelihood = ProteinLikelihoodCost { info: &info };
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model),
+        likelihood.compute_log_likelihood(&model, &mut tmp),
         expected_llik,
         epsilon = epsilon
     );
@@ -292,12 +284,14 @@ fn setup_simple_reversibility() -> Vec<PhyloInfo> {
 #[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
 fn simple_dna_likelihood_reversibility(#[case] model_name: &str, #[case] model_params: &[f64]) {
     let info = setup_simple_reversibility();
-    let model = DNASubstModel::new(model_name, model_params).unwrap();
+    let model = DNASubstModel::new(model_name, model_params, false).unwrap();
+    let mut tmp = DNASubstModelInfo::new(&info[0], &model).unwrap();
+    let mut tmp_rerooted = DNASubstModelInfo::new(&info[1], &model).unwrap();
     let likelihood = DNALikelihoodCost { info: &info[0] };
     let likelihood_rerooted = DNALikelihoodCost { info: &info[1] };
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model),
-        LikelihoodCostFunction::compute_log_likelihood(&likelihood_rerooted, &model),
+        likelihood.compute_log_likelihood(&model, &mut tmp),
+        likelihood_rerooted.compute_log_likelihood(&model, &mut tmp_rerooted),
         epsilon = 1e-10,
     );
 }
@@ -338,13 +332,15 @@ fn simple_protein_likelihood_reversibility(
     #[case] model_params: &[f64],
     #[case] epsilon: f64,
 ) {
-    let info = setup_simple_protein_reversibility();
-    let model = ProteinSubstModel::new(model_name, model_params).unwrap();
+    let info = setup_simple_reversibility();
+    let model = ProteinSubstModel::new(model_name, model_params, true).unwrap();
+    let mut tmp = ProteinSubstModelInfo::new(&info[0], &model).unwrap();
+    let mut tmp_rerooted = ProteinSubstModelInfo::new(&info[1], &model).unwrap();
     let likelihood = ProteinLikelihoodCost { info: &info[0] };
     let likelihood_rerooted = ProteinLikelihoodCost { info: &info[1] };
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model),
-        LikelihoodCostFunction::compute_log_likelihood(&likelihood_rerooted, &model),
+        likelihood.compute_log_likelihood(&model, &mut tmp),
+        likelihood_rerooted.compute_log_likelihood(&model, &mut tmp_rerooted),
         epsilon = epsilon,
     );
 }
@@ -373,120 +369,32 @@ fn huelsenbeck_example_dna_reversibility_likelihood(
     )
     .unwrap();
 
-    let model = DNASubstModel::new(model_name, model_params).unwrap();
+    let model = DNASubstModel::new(model_name, model_params, false).unwrap();
+    let mut tmp = DNASubstModelInfo::new(&info1, &model).unwrap();
+    let mut tmp_rerooted = DNASubstModelInfo::new(&info2, &model).unwrap();
     let likelihood = DNALikelihoodCost { info: &info1 };
     let likelihood_rerooted = DNALikelihoodCost { info: &info2 };
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model),
-        LikelihoodCostFunction::compute_log_likelihood(&likelihood_rerooted, &model),
+        likelihood.compute_log_likelihood(&model, &mut tmp),
+        likelihood_rerooted.compute_log_likelihood(&model, &mut tmp_rerooted),
         epsilon = 1e-10,
     );
 }
 
 #[test]
-fn empirical_frequencies_no_ambigs() {
-    let sequences = vec![
-        Record::with_attrs("one", None, b"CCCCCCCC"),
-        Record::with_attrs("two", None, b"AAAAAAAA"),
-        Record::with_attrs("three", None, b"TTTTTTTT"),
-        Record::with_attrs("four", None, b"GGGGGGGG"),
-    ];
-    let newick = "((one:2,two:2):1,(three:1,four:1):2);".to_string();
-    let info =
-        PhyloInfo::from_sequences_tree(sequences, tree_newick(&newick), &GapHandling::Ambiguous)
-            .unwrap();
+fn check_likelihood_opt_k80() {
+    let info = setup_cb_example_phylo_info();
     let likelihood = DNALikelihoodCost { info: &info };
-    let freqs = likelihood.get_empirical_frequencies();
-    assert_relative_eq!(
-        freqs,
-        FreqVector::from_column_slice(&[0.25, 0.25, 0.25, 0.25]),
-        epsilon = 1e-6
-    );
-}
+    let model = DNASubstModel::new("k80", &[], false).unwrap();
+    let cost: K80ModelAlphaOptimiser<'_> = K80ModelAlphaOptimiser {
+        likelihood_cost: likelihood,
+        base_model: model,
+    };
+    let solver = BrentOpt::new(0.0000000001, 10000.0);
 
-#[test]
-fn empirical_frequencies_ambig_x_or_n() {
-    let sequences = vec![
-        Record::with_attrs("on", None, b"XXXXXXXX"),
-        Record::with_attrs("tw", None, b"XXXXXXXX"),
-        Record::with_attrs("th", None, b"NNNNNNNN"),
-        Record::with_attrs("fo", None, b"NNNNNNNN"),
-    ];
-    let newick = "((on:2,tw:2):1,(th:1,fo:1):2);".to_string();
-    let info =
-        PhyloInfo::from_sequences_tree(sequences, tree_newick(&newick), &GapHandling::Ambiguous)
-            .unwrap();
-    let likelihood = DNALikelihoodCost { info: &info };
-    let freqs = likelihood.get_empirical_frequencies();
-    assert_relative_eq!(
-        freqs,
-        FreqVector::from_column_slice(&[0.25, 0.25, 0.25, 0.25]),
-        epsilon = 1e-6
-    );
-    let sequences = vec![
-        Record::with_attrs("on", None, b"AAAAAAAAAA"),
-        Record::with_attrs("tw", None, b"XXXXXXXXXX"),
-        Record::with_attrs("th", None, b"CCCCCCCCCC"),
-        Record::with_attrs("fo", None, b"NNNNNNNNNN"),
-    ];
-    let newick = "(((on:2,tw:2):1,th:1):4,fo:1);".to_string();
-    let info =
-        PhyloInfo::from_sequences_tree(sequences, tree_newick(&newick), &GapHandling::Ambiguous)
-            .unwrap();
-    let likelihood = DNALikelihoodCost { info: &info };
-    let freqs = likelihood.get_empirical_frequencies();
-    assert_relative_eq!(
-        freqs,
-        FreqVector::from_column_slice(&[0.125, 0.375, 0.375, 0.125]),
-        epsilon = 1e-6
-    );
-}
-
-#[test]
-fn empirical_frequencies_ambig() {
-    let sequences = vec![
-        Record::with_attrs("A", None, b"VVVVVVVVV"),
-        Record::with_attrs("B", None, b"TTT"),
-    ];
-    let newick = "(A:2,B:2):1.0;".to_string();
-    let info =
-        PhyloInfo::from_sequences_tree(sequences, tree_newick(&newick), &GapHandling::Ambiguous)
-            .unwrap();
-    let likelihood = DNALikelihoodCost { info: &info };
-    let freqs = likelihood.get_empirical_frequencies();
-    assert_relative_eq!(
-        freqs,
-        FreqVector::from_column_slice(&[0.25, 0.25, 0.25, 0.25]),
-        epsilon = 1e-6
-    );
-    let sequences = vec![
-        Record::with_attrs("A", None, b"SSSSSSSSSSSSSSSSSSSS"),
-        Record::with_attrs("B", None, b"WWWWWWWWWWWWWWWWWWWW"),
-    ];
-    let info =
-        PhyloInfo::from_sequences_tree(sequences, tree_newick(&newick), &GapHandling::Ambiguous)
-            .unwrap();
-    let likelihood = DNALikelihoodCost { info: &info };
-    let freqs = likelihood.get_empirical_frequencies();
-    assert_relative_eq!(
-        freqs,
-        FreqVector::from_column_slice(&[0.25, 0.25, 0.25, 0.25]),
-        epsilon = 1e-6
-    );
-}
-
-#[test]
-fn empirical_frequencies_no_aas() {
-    let sequences = vec![Record::with_attrs("A", None, b"BBBBBBBBB")];
-    let newick = "A:1.0;".to_string();
-    let info =
-        PhyloInfo::from_sequences_tree(sequences, tree_newick(&newick), &GapHandling::Ambiguous)
-            .unwrap();
-    let likelihood = DNALikelihoodCost { info: &info };
-    let freqs = likelihood.get_empirical_frequencies();
-    assert_relative_eq!(
-        freqs,
-        FreqVector::from_column_slice(&[3.0 / 10.0, 3.0 / 10.0, 1.0 / 10.0, 3.0 / 10.0]),
-        epsilon = 1e-6
-    );
+    let res = Executor::new(cost, solver)
+        .add_observer(SlogLogger::term(), ObserverMode::Always)
+        .run()
+        .unwrap();
+    println!("Result of brent:\n{}", res);
 }

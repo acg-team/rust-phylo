@@ -110,39 +110,15 @@ pub struct SubstitutionLikelihoodCost<'a, const N: usize> {
     pub info: &'a PhyloInfo,
 }
 
-impl<'a> SubstitutionLikelihoodCost<'a, 4> {
-    pub fn compute_log_likelihood(&self, model: &DNASubstModel) -> (f64, SubstitutionModelInfo<4>) {
-        let mut tmp_info = SubstitutionModelInfo::<4>::new(self.info, model).unwrap();
-        let logl = self.compute_log_likelihood_with_tmp(model, &mut tmp_info);
-        (logl, tmp_info)
-    }
-}
-
-impl<'a> SubstitutionLikelihoodCost<'a, 20> {
-    pub fn compute_log_likelihood(
-        &self,
-        model: &ProteinSubstModel,
-    ) -> (f64, SubstitutionModelInfo<20>) {
-        let mut tmp_info = SubstitutionModelInfo::<20>::new(self.info, model).unwrap();
-        let logl = self.compute_log_likelihood_with_tmp(model, &mut tmp_info);
-        (logl, tmp_info)
-    }
-}
-
 impl<'a, const N: usize> SubstitutionLikelihoodCost<'a, N>
 where
     Const<N>: DimMin<Const<N>, Output = Const<N>>,
 {
-    fn compute_log_likelihood_with_tmp(
+    fn compute_log_likelihood(
         &self,
         model: &SubstitutionModel<N>,
         tmp_values: &mut SubstitutionModelInfo<N>,
     ) -> f64 {
-        debug_assert_eq!(
-            self.info.tree.internals.len(),
-            tmp_values.internal_info.len()
-        );
-        debug_assert_eq!(self.info.tree.leaves.len(), tmp_values.leaf_info.len());
         for node_idx in &self.info.tree.postorder {
             match node_idx {
                 NodeIdx::Internal(idx) => {
@@ -259,17 +235,6 @@ impl<const N: usize> EvolutionaryModelInfo<N> for SubstitutionModelInfo<N> {
             leaf_models_valid: vec![false; leaf_count],
             leaf_sequence_info,
         })
-    }
-
-    fn reset(&mut self) {
-        self.internal_info.iter_mut().for_each(|x| x.fill(0.0));
-        self.internal_info_valid.fill(false);
-        self.internal_models.iter_mut().for_each(|x| x.fill(0.0));
-        self.internal_models_valid.fill(false);
-        self.leaf_info.iter_mut().for_each(|x| x.fill(0.0));
-        self.leaf_info_valid.fill(false);
-        self.leaf_models.iter_mut().for_each(|x| x.fill(0.0));
-        self.leaf_models_valid.fill(false);
     }
 }
 
