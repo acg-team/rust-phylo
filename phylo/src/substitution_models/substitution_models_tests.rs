@@ -90,9 +90,9 @@ fn compile_aa_probability(chars: &[char], pi: &[f64]) -> FreqVector {
 
 #[test]
 fn dna_jc69_correct() {
-    let jc69 = DNASubstModel::new("jc69", &Vec::new(), false).unwrap();
-    let jc692 = DNASubstModel::new("JC69", &[2.0, 1.0], false).unwrap();
-    assert_eq!(jc69, jc692);
+    let jc69 = DNASubstModel::new("jc69", &Vec::new(), true).unwrap();
+    let jc69_2 = DNASubstModel::new("JC69", &[1.0, 2.0], true).unwrap();
+    assert_eq!(jc69, jc69_2);
     assert_relative_eq!(EvolutionaryModel::get_rate(&jc69, b'A', b'A'), -1.0);
     assert_relative_eq!(EvolutionaryModel::get_rate(&jc69, b'A', b'C'), 1.0 / 3.0);
     assert_relative_eq!(EvolutionaryModel::get_rate(&jc69, b'G', b'T'), 1.0 / 3.0);
@@ -100,14 +100,25 @@ fn dna_jc69_correct() {
         EvolutionaryModel::get_stationary_distribution(&jc69),
         &dvector![0.25, 0.25, 0.25, 0.25]
     );
+    let jc69_3 = DNASubstModel::new("JC69", &[4.0], true).unwrap();
+    assert_eq!(jc69.q, jc69_3.q);
+    assert_eq!(jc69.pi, jc69_3.pi);
+    let jc69_4 = DNASubstModel::new("JC69", &[4.0], false).unwrap();
+    assert_relative_eq!(EvolutionaryModel::get_rate(&jc69_4, b'A', b'A'), -3.0);
+    assert_relative_eq!(EvolutionaryModel::get_rate(&jc69_4, b'A', b'C'), 1.0);
+    assert_relative_eq!(EvolutionaryModel::get_rate(&jc69_4, b'G', b'T'), 1.0);
+    assert_relative_eq!(
+        EvolutionaryModel::get_stationary_distribution(&jc69_4),
+        &dvector![0.25, 0.25, 0.25, 0.25]
+    );
 }
 
 #[test]
 fn dna_k80_correct() {
-    let k80 = DNASubstModel::new("k80", &Vec::new(), false).unwrap();
-    let k801 = DNASubstModel::new("k80", &[2.0], false).unwrap();
-    let k802 = DNASubstModel::new("k80", &[2.0, 1.0], false).unwrap();
-    let k803 = DNASubstModel::new("k80", &[2.0, 1.0, 3.0, 6.0], false).unwrap();
+    let k80 = DNASubstModel::new("k80", &Vec::new(), true).unwrap();
+    let k801 = DNASubstModel::new("k80", &[2.0], true).unwrap();
+    let k802 = DNASubstModel::new("k80", &[2.0, 1.0], true).unwrap();
+    let k803 = DNASubstModel::new("k80", &[2.0, 1.0, 3.0, 6.0], true).unwrap();
     assert_eq!(k80, k801);
     assert_eq!(k80, k802);
     assert_eq!(k80, k803);
@@ -133,38 +144,44 @@ fn dna_hky_incorrect() {
 
 #[test]
 fn dna_hky_correct() {
-    let hky_res = DNASubstModel::new("hky", &[0.22, 0.26, 0.33, 0.19, 0.5], false);
-    assert!(hky_res.is_ok());
+    let hky = DNASubstModel::new("hky", &[0.22, 0.26, 0.33, 0.19, 0.5], false).unwrap();
     assert_relative_eq!(
-        EvolutionaryModel::get_stationary_distribution(&hky_res.unwrap()),
+        EvolutionaryModel::get_stationary_distribution(&hky),
         &dvector![0.22, 0.26, 0.33, 0.19]
+    );
+    let hky_2 = DNASubstModel::new("hky", &[0.22, 0.26, 0.33, 0.19, 0.5], true).unwrap();
+    assert_relative_eq!(
+        hky_2
+            .q
+            .diagonal()
+            .component_mul(&dvector![0.22, 0.26, 0.33, 0.19])
+            .sum(),
+        -1.0
     );
 }
 
 #[test]
 fn dna_gtr_correct() {
-    let mut gtr = DNASubstModel::new(
+    let gtr = DNASubstModel::new(
         "gtr",
         &repeat(0.25)
             .take(4)
             .chain(repeat(0.7).take(6))
             .collect::<Vec<f64>>(),
-        false,
+        true,
     )
     .unwrap();
-    gtr.normalise();
     assert_eq!(gtr.pi, dvector![0.25, 0.25, 0.25, 0.25]);
     assert_eq!(gtr.q[(0, 0)], -1.0);
-    let mut gtr2 = DNASubstModel::new(
+    let gtr2 = DNASubstModel::new(
         "gtr",
         &repeat(0.25)
             .take(4)
             .chain(repeat(1.0).take(6))
             .collect::<Vec<f64>>(),
-        false,
+        true,
     )
     .unwrap();
-    gtr2.normalise();
     assert_relative_eq!(gtr.q, gtr2.q);
     assert!(EvolutionaryModel::get_rate(&gtr, b'T', b'T') < 0.0);
     assert!(EvolutionaryModel::get_rate(&gtr, b'A', b'A') < 0.0);
@@ -216,7 +233,8 @@ fn dna_tn93_correct() {
         false,
     )
     .unwrap();
-    let expected = SubstMatrix::from_row_slice(
+    let expected_pi = dvector![0.22, 0.26, 0.33, 0.19];
+    let expected_q = SubstMatrix::from_row_slice(
         4,
         4,
         &[
@@ -238,15 +256,26 @@ fn dna_tn93_correct() {
             -0.097682355,
         ],
     );
-    assert_relative_eq!(tn93.q, expected);
+    assert_relative_eq!(tn93.q, expected_q);
+    assert_relative_eq!(
+        EvolutionaryModel::get_stationary_distribution(&tn93),
+        &expected_pi
+    );
     assert_relative_eq!(EvolutionaryModel::get_rate(&tn93, b'T', b'T'), -0.15594579);
     assert_relative_eq!(EvolutionaryModel::get_rate(&tn93, b'T', b'C'), 0.15524379);
     assert_relative_eq!(EvolutionaryModel::get_rate(&tn93, b'C', b'T'), 0.13136013);
     assert_relative_eq!(EvolutionaryModel::get_rate(&tn93, b'G', b'T'), 0.000297);
     assert_relative_eq!(EvolutionaryModel::get_rate(&tn93, b'G', b'A'), 0.097034355);
+    let tn93_2 = DNASubstModel::new(
+        "tn93",
+        &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
+        true,
+    )
+    .unwrap();
+    assert_relative_eq!(-1.0, tn93_2.q.diagonal().component_mul(&expected_pi).sum());
     assert_relative_eq!(
-        EvolutionaryModel::get_stationary_distribution(&tn93),
-        &dvector![0.22, 0.26, 0.33, 0.19]
+        EvolutionaryModel::get_stationary_distribution(&tn93_2),
+        &expected_pi
     );
 }
 

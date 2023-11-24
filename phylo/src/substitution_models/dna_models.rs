@@ -11,12 +11,29 @@ use crate::{Result, Rounding};
 
 pub type DNASubstModel = SubstitutionModel<4>;
 
+struct GtrParams<'a> {
+    pi: &'a FreqVector,
+    rtc: f64,
+    rta: f64,
+    rtg: f64,
+    rca: f64,
+    rcg: f64,
+    rag: f64,
+}
+
+struct TN93Params<'a> {
+    pi: &'a FreqVector,
+    a1: f64,
+    a2: f64,
+    b: f64,
+}
+
 impl EvolutionaryModel<4> for DNASubstModel {
     fn new(model_name: &str, model_params: &[f64], normalise: bool) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
-        let (q, pi) = match model_name.to_uppercase().as_str() {
+        let (params, q, pi) = match model_name.to_uppercase().as_str() {
             "JC69" => jc69(model_params)?,
             "K80" => k80(model_params)?,
             "TN93" => tn93(model_params)?,
@@ -25,6 +42,7 @@ impl EvolutionaryModel<4> for DNASubstModel {
             _ => bail!("Unknown DNA model requested."),
         };
         let mut model = DNASubstModel {
+            params,
             index: nucleotide_index(),
             q,
             pi,
@@ -122,18 +140,64 @@ pub fn nucleotide_index() -> [i32; 255] {
     index
 }
 
-pub fn jc69(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
-    if model_params.is_empty() {
-        warn!("Too many values provided for JC69 (>0).");
-        warn!("Provided values will be ignored.");
+fn make_pi(pi_array: &[f64]) -> Result<FreqVector> {
+    let pi = FreqVector::from_column_slice(pi_array);
+    debug_assert!(
+        pi.len() == 4,
+        "There have to be 4 equilibrium frequencies for DNA models."
+    );
+    if pi.sum() != 1.0 {
+        bail!("The equilibrium frequencies provided do not sum up to 1.");
     }
+    Ok(pi)
+}
+
+pub fn jc69(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)> {
+    let mu = if model_params.is_empty() {
+        warn!("Too few values provided for JC69, required 1 value, mu.");
+        warn!("Falling back to default values.");
+        1.0
+    } else if model_params.len() == 1 {
+        model_params[0]
+    } else {
+        warn!("Too many values provided for JC69, required 1 value, mu.");
+        warn!("Will only use the first value provided.");
+        model_params[0]
+    };
     Ok((
-        SubstMatrix::from_row_slice(4, 4, &JC69_ARR),
-        FreqVector::from_column_slice(JC69_PI_ARR.as_slice()),
+        vec![mu],
+        jc69_q(mu),
+        FreqVector::from_column_slice(&[0.25; 4]),
     ))
 }
 
-pub fn k80(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
+pub fn jc69_q(mu: f64) -> SubstMatrix {
+    let rate = mu / 4.0;
+    SubstMatrix::from_row_slice(
+        4,
+        4,
+        &[
+            -3.0 * rate,
+            rate,
+            rate,
+            rate,
+            rate,
+            -3.0 * rate,
+            rate,
+            rate,
+            rate,
+            rate,
+            -3.0 * rate,
+            rate,
+            rate,
+            rate,
+            rate,
+            -3.0 * rate,
+        ],
+    )
+}
+
+pub fn k80(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)> {
     let (alpha, beta) = if model_params.is_empty() {
         warn!("Too few values provided for K80, required 1 or 2 values, kappa or alpha and beta.");
         warn!("Falling back to default values.");
@@ -149,35 +213,38 @@ pub fn k80(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
     };
     info!("Setting up k80 with alpha = {}, beta = {}", alpha, beta);
     Ok((
-        SubstMatrix::from_row_slice(
-            4,
-            4,
-            [
-                -1.0,
-                alpha / (alpha + 2.0 * beta),
-                beta / (alpha + 2.0 * beta),
-                beta / (alpha + 2.0 * beta),
-                alpha / (alpha + 2.0 * beta),
-                -1.0,
-                beta / (alpha + 2.0 * beta),
-                beta / (alpha + 2.0 * beta),
-                beta / (alpha + 2.0 * beta),
-                beta / (alpha + 2.0 * beta),
-                -1.0,
-                alpha / (alpha + 2.0 * beta),
-                beta / (alpha + 2.0 * beta),
-                beta / (alpha + 2.0 * beta),
-                alpha / (alpha + 2.0 * beta),
-                -1.0,
-            ]
-            .as_slice(),
-        )
-        .transpose(),
-        FreqVector::from_column_slice(JC69_PI_ARR.as_slice()),
+        vec![alpha, beta],
+        k80_q(alpha, beta),
+        FreqVector::from_column_slice(&[0.25; 4]),
     ))
 }
 
-pub fn hky(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
+pub fn k80_q(alpha: f64, beta: f64) -> SubstMatrix {
+    SubstMatrix::from_column_slice(
+        4,
+        4,
+        &[
+            -(alpha + 2.0 * beta),
+            alpha,
+            beta,
+            beta,
+            alpha,
+            -(alpha + 2.0 * beta),
+            beta,
+            beta,
+            beta,
+            beta,
+            -(alpha + 2.0 * beta),
+            alpha,
+            beta,
+            beta,
+            alpha,
+            -(alpha + 2.0 * beta),
+        ],
+    )
+}
+
+pub fn hky(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)> {
     if model_params.len() != 5 {
         bail!(
             "{} parameters for the hky model, expected 5, got {}",
@@ -189,22 +256,18 @@ pub fn hky(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
             model_params.len()
         );
     }
-    let f_t = model_params[0];
-    let f_c = model_params[1];
-    let f_a = model_params[2];
-    let f_g = model_params[3];
-    let a1 = model_params[4];
-    let a2 = model_params[4];
-    let b = 1.0;
-    info!("Setting up hky with alpha = {}", a1);
-    if (f_t + f_c + f_a + f_g) != 1.0 {
-        bail!("The equilibrium frequencies provided do not sum up to 1.");
-    }
-    let q = tn93_matrix(f_t, f_c, f_a, f_g, a1, a2, b);
-    Ok((q, FreqVector::from_column_slice(&[f_t, f_c, f_a, f_g])))
+    let pi = make_pi(&model_params[0..4])?;
+    let hky_params = &TN93Params {
+        pi: &pi,
+        a1: model_params[4],
+        a2: model_params[4],
+        b: 1.0,
+    };
+    info!("Setting up hky with alpha = {}", hky_params.a1);
+    Ok((model_params[0..5].to_vec(), tn93_q(hky_params), pi))
 }
 
-pub fn tn93(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
+pub fn tn93(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)> {
     if model_params.len() != 7 {
         bail!(
             "{} parameters for the tn93 model, expected 7, got {}",
@@ -216,54 +279,50 @@ pub fn tn93(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
             model_params.len()
         );
     }
-    let f_t = model_params[0];
-    let f_c = model_params[1];
-    let f_a = model_params[2];
-    let f_g = model_params[3];
-    let a1 = model_params[4];
-    let a2 = model_params[5];
-    let b = model_params[6];
+    let pi = make_pi(&model_params[0..4])?;
+    let tn93_params = &TN93Params {
+        pi: &pi,
+        a1: model_params[4],
+        a2: model_params[5],
+        b: model_params[6],
+    };
     info!(
         "Setting up tn93 with alpha1 = {}, alpha2 = {}, beta = {}",
-        a1, a2, b
+        tn93_params.a1, tn93_params.a2, tn93_params.b
     );
-    if (f_t + f_c + f_a + f_g) != 1.0 {
-        bail!("The equilibrium frequencies provided do not sum up to 1.");
-    }
-    let q = tn93_matrix(f_t, f_c, f_a, f_g, a1, a2, b);
-    Ok((q, FreqVector::from_column_slice(&[f_t, f_c, f_a, f_g])))
+    Ok((model_params[0..7].to_vec(), tn93_q(tn93_params), pi))
 }
 
-fn tn93_matrix(f_t: f64, f_c: f64, f_a: f64, f_g: f64, a1: f64, a2: f64, b: f64) -> SubstMatrix {
-    let mut q = SubstMatrix::from_row_slice(
+fn tn93_q(p: &TN93Params) -> SubstMatrix {
+    let ft = p.pi[0];
+    let fc = p.pi[1];
+    let fa = p.pi[2];
+    let fg = p.pi[3];
+    SubstMatrix::from_row_slice(
         4,
         4,
         &[
-            0.0,
-            a1 * f_c,
-            b * f_a,
-            b * f_g,
-            a1 * f_t,
-            0.0,
-            b * f_a,
-            b * f_g,
-            b * f_t,
-            b * f_c,
-            0.0,
-            a2 * f_g,
-            b * f_t,
-            b * f_c,
-            a2 * f_a,
-            0.0,
+            -(p.a1 * fc + p.b * (fa + fg)),
+            p.a1 * fc,
+            p.b * fa,
+            p.b * fg,
+            p.a1 * ft,
+            -(p.a1 * ft + p.b * (fa + fg)),
+            p.b * fa,
+            p.b * fg,
+            p.b * ft,
+            p.b * fc,
+            -(p.b * (ft + fc) + p.a2 * fg),
+            p.a2 * fg,
+            p.b * ft,
+            p.b * fc,
+            p.a2 * fa,
+            -(p.b * (ft + fc) + p.a2 * fa),
         ],
-    );
-    for i in 0..4 {
-        q[(i, i)] = -q.row(i).sum();
-    }
-    q
+    )
 }
 
-pub(crate) fn gtr(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
+pub fn gtr(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)> {
     if model_params.len() != 10 {
         bail!(
             "{} parameters for the GTR model, expected 10, got {}",
@@ -275,65 +334,49 @@ pub(crate) fn gtr(model_params: &[f64]) -> Result<(SubstMatrix, FreqVector)> {
             model_params.len()
         );
     }
-    let f_t = model_params[0];
-    let f_c = model_params[1];
-    let f_a = model_params[2];
-    let f_g = model_params[3];
-    let r_tc = model_params[4];
-    let r_ta = model_params[5];
-    let r_tg = model_params[6];
-    let r_ca = model_params[7];
-    let r_cg = model_params[8];
-    let r_ag = model_params[9];
-    if (f_t + f_c + f_a + f_g) != 1.0 {
+    let pi = FreqVector::from_column_slice(&[
+        model_params[0],
+        model_params[1],
+        model_params[2],
+        model_params[3],
+    ]);
+    if pi.sum() != 1.0 {
         bail!("The equilibrium frequencies provided do not sum up to 1.");
     }
+    let gtr_params = &GtrParams {
+        pi: &pi,
+        rtc: model_params[4],
+        rta: model_params[5],
+        rtg: model_params[6],
+        rca: model_params[7],
+        rcg: model_params[8],
+        rag: model_params[9],
+    };
 
-    let mut q = SubstMatrix::from_row_slice(
+    Ok((model_params[0..10].to_vec(), gtr_q(gtr_params), pi))
+}
+
+fn gtr_q(gtr: &GtrParams) -> SubstMatrix {
+    SubstMatrix::from_row_slice(
         4,
         4,
         &[
-            0.0,
-            r_tc * f_c,
-            r_ta * f_a,
-            r_tg * f_g,
-            r_tc * f_t,
-            0.0,
-            r_ca * f_a,
-            r_cg * f_g,
-            r_ta * f_t,
-            r_ca * f_c,
-            0.0,
-            r_ag * f_g,
-            r_tg * f_t,
-            r_cg * f_c,
-            r_ag * f_a,
-            0.0,
+            -(gtr.rtc * gtr.pi[1] + gtr.rta * gtr.pi[2] + gtr.rtg * gtr.pi[3]),
+            gtr.rtc * gtr.pi[1],
+            gtr.rta * gtr.pi[2],
+            gtr.rtg * gtr.pi[3],
+            gtr.rtc * gtr.pi[0],
+            -(gtr.rtc * gtr.pi[0] + gtr.rca * gtr.pi[2] + gtr.rcg * gtr.pi[3]),
+            gtr.rca * gtr.pi[2],
+            gtr.rcg * gtr.pi[3],
+            gtr.rta * gtr.pi[0],
+            gtr.rca * gtr.pi[1],
+            -(gtr.rta * gtr.pi[0] + gtr.rca * gtr.pi[1] + gtr.rag * gtr.pi[3]),
+            gtr.rag * gtr.pi[3],
+            gtr.rtg * gtr.pi[0],
+            gtr.rcg * gtr.pi[1],
+            gtr.rag * gtr.pi[2],
+            -(gtr.rtg * gtr.pi[0] + gtr.rcg * gtr.pi[1] + gtr.rag * gtr.pi[2]),
         ],
-    );
-    for i in 0..4 {
-        q[(i, i)] = -q.row(i).sum();
-    }
-    Ok((q, FreqVector::from_column_slice(&[f_t, f_c, f_a, f_g])))
+    )
 }
-
-const JC69_ARR: [f64; 16] = [
-    -1.0,
-    1.0 / 3.0,
-    1.0 / 3.0,
-    1.0 / 3.0,
-    1.0 / 3.0,
-    -1.0,
-    1.0 / 3.0,
-    1.0 / 3.0,
-    1.0 / 3.0,
-    1.0 / 3.0,
-    -1.0,
-    1.0 / 3.0,
-    1.0 / 3.0,
-    1.0 / 3.0,
-    1.0 / 3.0,
-    -1.0,
-];
-
-const JC69_PI_ARR: [f64; 4] = [0.25, 0.25, 0.25, 0.25];

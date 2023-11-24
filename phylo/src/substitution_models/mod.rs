@@ -20,6 +20,7 @@ pub type FreqVector = DVector<f64>;
 #[derive(Clone, Debug, PartialEq)]
 pub struct SubstitutionModel<const N: usize> {
     index: [i32; 255],
+    pub params: Vec<f64>,
     pub q: SubstMatrix,
     pub pi: FreqVector,
 }

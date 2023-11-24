@@ -26,6 +26,7 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
             _ => bail!("Unknown protein model requested."),
         };
         let mut model = ProteinSubstModel {
+            params: vec![],
             index: aminoacid_index(),
             q,
             pi,
