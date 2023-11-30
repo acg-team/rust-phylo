@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::ops::Div;
 
 use anyhow::bail;
-use log::{info, warn};
+use log::warn;
 use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
@@ -21,9 +21,11 @@ pub type DNASubstModelInfo = SubstitutionModelInfo<4>;
 mod hky;
 mod jc69;
 mod k80;
+mod tn93;
 pub use hky::*;
 pub use jc69::*;
 pub use k80::*;
+pub use tn93::*;
 
 struct GtrParams<'a> {
     pi: &'a FreqVector,
@@ -33,13 +35,6 @@ struct GtrParams<'a> {
     rca: f64,
     rcg: f64,
     rag: f64,
-}
-
-struct TN93Params<'a> {
-    pi: &'a FreqVector,
-    a1: f64,
-    a2: f64,
-    b: f64,
 }
 
 fn make_dna_model(params: Vec<f64>, q: SubstMatrix, pi: FreqVector) -> DNASubstModel {
@@ -170,70 +165,6 @@ fn make_pi(pi_array: &[f64]) -> Result<FreqVector> {
         bail!("The equilibrium frequencies provided do not sum up to 1.");
     }
     Ok(pi)
-}
-
-pub fn tn93(model_params: &[f64]) -> Result<DNASubstModel> {
-    if model_params.len() != 7 {
-        bail!(
-            "{} parameters for the tn93 model, expected 7, got {}",
-            if model_params.len() < 7 {
-                "Not enough"
-            } else {
-                "Too many"
-            },
-            model_params.len()
-        );
-    }
-    let pi = make_pi(&model_params[0..4])?;
-    let tn93_params = &TN93Params {
-        pi: &pi,
-        a1: model_params[4],
-        a2: model_params[5],
-        b: model_params[6],
-    };
-    info!(
-        "Setting up tn93 with alpha1 = {}, alpha2 = {}, beta = {}",
-        tn93_params.a1, tn93_params.a2, tn93_params.b
-    );
-    Ok(make_dna_model(
-        model_params[0..7].to_vec(),
-        tn93_q(tn93_params),
-        pi,
-    ))
-}
-
-fn tn93_q(p: &TN93Params) -> SubstMatrix {
-    let ft = p.pi[0];
-    let fc = p.pi[1];
-    let fa = p.pi[2];
-    let fg = p.pi[3];
-    let total = (p.a1 * fc + p.b * (fa + fg)) * ft
-        + (p.a1 * ft + p.b * (fa + fg)) * fc
-        + (p.b * (ft + fc) + p.a2 * fg) * fa
-        + (p.b * (ft + fc) + p.a2 * fa) * fg;
-    SubstMatrix::from_row_slice(
-        4,
-        4,
-        &[
-            -(p.a1 * fc + p.b * (fa + fg)),
-            p.a1 * fc,
-            p.b * fa,
-            p.b * fg,
-            p.a1 * ft,
-            -(p.a1 * ft + p.b * (fa + fg)),
-            p.b * fa,
-            p.b * fg,
-            p.b * ft,
-            p.b * fc,
-            -(p.b * (ft + fc) + p.a2 * fg),
-            p.a2 * fg,
-            p.b * ft,
-            p.b * fc,
-            p.a2 * fa,
-            -(p.b * (ft + fc) + p.a2 * fa),
-        ],
-    )
-    .div(total)
 }
 
 pub fn gtr(model_params: &[f64]) -> Result<DNASubstModel> {
