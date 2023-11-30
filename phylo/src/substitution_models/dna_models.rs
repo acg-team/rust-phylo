@@ -18,8 +18,10 @@ pub type DNASubstModel = SubstitutionModel<4>;
 pub type DNALikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 4>;
 pub type DNASubstModelInfo = SubstitutionModelInfo<4>;
 
+mod hky;
 mod jc69;
 mod k80;
+pub use hky::*;
 pub use jc69::*;
 pub use k80::*;
 
@@ -57,8 +59,8 @@ impl EvolutionaryModel<4> for DNASubstModel {
         match model_name.to_uppercase().as_str() {
             "JC69" => jc69(model_params),
             "K80" => k80(model_params),
-            "TN93" => tn93(model_params),
             "HKY" => hky(model_params),
+            "TN93" => tn93(model_params),
             "GTR" => gtr(model_params),
             _ => bail!("Unknown DNA model requested."),
         }
@@ -168,33 +170,6 @@ fn make_pi(pi_array: &[f64]) -> Result<FreqVector> {
         bail!("The equilibrium frequencies provided do not sum up to 1.");
     }
     Ok(pi)
-}
-
-pub fn hky(model_params: &[f64]) -> Result<DNASubstModel> {
-    if model_params.len() != 5 {
-        bail!(
-            "{} parameters for the hky model, expected 5, got {}",
-            if model_params.len() < 5 {
-                "Not enough"
-            } else {
-                "Too many"
-            },
-            model_params.len()
-        );
-    }
-    let pi = make_pi(&model_params[0..4])?;
-    let hky_params = &TN93Params {
-        pi: &pi,
-        a1: model_params[4],
-        a2: model_params[4],
-        b: 1.0,
-    };
-    info!("Setting up hky with alpha = {}", hky_params.a1);
-    Ok(make_dna_model(
-        model_params[0..5].to_vec(),
-        tn93_q(hky_params),
-        pi,
-    ))
 }
 
 pub fn tn93(model_params: &[f64]) -> Result<DNASubstModel> {
