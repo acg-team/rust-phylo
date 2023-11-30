@@ -18,8 +18,9 @@ pub type DNASubstModel = SubstitutionModel<4>;
 pub type DNALikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 4>;
 pub type DNASubstModelInfo = SubstitutionModelInfo<4>;
 
+mod jc69;
 mod k80;
-
+pub use jc69::*;
 pub use k80::*;
 
 struct GtrParams<'a> {
@@ -167,26 +168,6 @@ fn make_pi(pi_array: &[f64]) -> Result<FreqVector> {
         bail!("The equilibrium frequencies provided do not sum up to 1.");
     }
     Ok(pi)
-}
-
-pub fn jc69(model_params: &[f64]) -> Result<DNASubstModel> {
-    if !model_params.is_empty() {
-        warn!("Too many values provided for JC69.");
-    }
-    Ok(make_dna_model(
-        vec![],
-        jc69_q(),
-        FreqVector::from_column_slice(&[0.25; 4]),
-    ))
-}
-
-pub fn jc69_q() -> SubstMatrix {
-    let r = 1.0 / 3.0;
-    SubstMatrix::from_row_slice(
-        4,
-        4,
-        &[-1.0, r, r, r, r, -1.0, r, r, r, r, -1.0, r, r, r, r, -1.0],
-    )
 }
 
 pub fn hky(model_params: &[f64]) -> Result<DNASubstModel> {
