@@ -28,7 +28,7 @@ pub enum SubstParams {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SubstitutionModel<const N: usize> {
     index: [i32; 255],
-    pub params: SubstParams,
+    pub params: Vec<f64>,
     pub(crate) q: SubstMatrix,
     pub(crate) pi: FreqVector,
 }
@@ -119,6 +119,11 @@ where
         model: &SubstitutionModel<N>,
         tmp_values: &mut SubstitutionModelInfo<N>,
     ) -> f64 {
+        debug_assert_eq!(
+            self.info.tree.internals.len(),
+            tmp_values.internal_info.len()
+        );
+        debug_assert_eq!(self.info.tree.leaves.len(), tmp_values.leaf_info.len());
         for node_idx in &self.info.tree.postorder {
             match node_idx {
                 NodeIdx::Internal(idx) => {
@@ -235,6 +240,17 @@ impl<const N: usize> EvolutionaryModelInfo<N> for SubstitutionModelInfo<N> {
             leaf_models_valid: vec![false; leaf_count],
             leaf_sequence_info,
         })
+    }
+
+    fn reset(&mut self) {
+        self.internal_info.iter_mut().for_each(|x| x.fill(0.0));
+        self.internal_info_valid.fill(false);
+        self.internal_models.iter_mut().for_each(|x| x.fill(0.0));
+        self.internal_models_valid.fill(false);
+        self.leaf_info.iter_mut().for_each(|x| x.fill(0.0));
+        self.leaf_info_valid.fill(false);
+        self.leaf_models.iter_mut().for_each(|x| x.fill(0.0));
+        self.leaf_models_valid.fill(false);
     }
 }
 

@@ -36,6 +36,12 @@ fn tree_newick(newick: &str) -> Tree {
         .unwrap()
 }
 
+const UNNORMALIZED_PIP_HKY_Q: [f64; 25] = [
+    -0.9, 0.11, 0.22, 0.22, 0.0, 0.13, -0.88, 0.26, 0.26, 0.0, 0.33, 0.33, -0.825, 0.165, 0.0,
+    0.19, 0.19, 0.095, -0.895, 0.0, 0.25, 0.25, 0.25, 0.25, -0.0,
+];
+const PIP_HKY_PARAMS: [f64; 7] = [0.5, 0.25, 0.22, 0.26, 0.33, 0.19, 0.5];
+
 #[cfg(test)]
 fn compare_pip_subst_rates<const N: usize>(
     chars: &str,
@@ -262,13 +268,11 @@ fn protein_char_probabilities(
 #[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
 fn pip_rates(#[case] model_name: &str, #[case] model_params: &[f64]) {
     let pip_params = [0.2, 0.15];
-    let pip_model =
-        PIPModel::<4>::new(model_name, &[&pip_params, model_params].concat(), false).unwrap();
-    let subst_model = DNASubstModel::new(model_name, model_params, false).unwrap();
+    let pip_model = PIPModel::<4>::new(model_name, &[&pip_params, model_params].concat()).unwrap();
+    let subst_model = DNASubstModel::new(model_name, model_params).unwrap();
     compare_pip_subst_rates(NUCLEOTIDES_STR, &pip_model, &subst_model);
-    let pip_model =
-        PIPModel::<4>::new(model_name, &[&pip_params, model_params].concat(), true).unwrap();
-    let subst_model = DNASubstModel::new(model_name, model_params, true).unwrap();
+    let pip_model = PIPModel::<4>::new(model_name, &[&pip_params, model_params].concat()).unwrap();
+    let subst_model = DNASubstModel::new(model_name, model_params).unwrap();
     compare_pip_subst_rates(NUCLEOTIDES_STR, &pip_model, &subst_model);
 }
 
@@ -348,7 +352,7 @@ fn pip_likelihood_no_msa() {
         &GapHandling::Proper,
     )
     .unwrap();
-    let model_jc69 = PIPModel::<4>::new("jc69", &[0.5, 0.25], false).unwrap();
+    let model_jc69 = PIPModel::<4>::new("jc69", &[0.5, 0.25]).unwrap();
     assert!(PIPModelInfo::<4>::new(&info, &model_jc69).is_err());
 }
 
@@ -770,8 +774,7 @@ fn pip_likelihood_huelsenbeck_example() {
         &GapHandling::Proper,
     )
     .unwrap();
-    let model =
-        PIPModel::<4>::new("hky", &[0.5, 0.25, 0.22, 0.26, 0.33, 0.19, 0.5], false).unwrap();
+    let model = PIPModel::<4>::new("hky", &PIP_HKY_PARAMS).unwrap();
     let mut tmp = PIPModelInfo::<4>::new(&info, &model).unwrap();
     let cost = PIPLikelihoodCost { info: &info };
     assert_relative_eq!(
@@ -780,8 +783,7 @@ fn pip_likelihood_huelsenbeck_example() {
         epsilon = 1e-4
     );
 
-    let model =
-        PIPModel::<4>::new("hky", &[1.2, 0.45, 0.25, 0.25, 0.25, 0.25, 1.0], false).unwrap();
+    let model = PIPModel::<4>::new("hky", &[1.2, 0.45, 0.25, 0.25, 0.25, 0.25, 1.0]).unwrap();
     let mut tmp = PIPModelInfo::<4>::new(&info, &model).unwrap();
     let cost = PIPLikelihoodCost { info: &info };
     assert_relative_eq!(
@@ -815,10 +817,10 @@ fn pip_likelihood_huelsenbeck_example_model_comp() {
     )
     .unwrap();
     let model_hky_as_jc69 =
-        PIPModel::<4>::new("hky", &[1.1, 0.55, 0.25, 0.25, 0.25, 0.25, 1.0], true).unwrap();
+        PIPModel::<4>::new("hky", &[1.1, 0.55, 0.25, 0.25, 0.25, 0.25, 1.0]).unwrap();
     let mut temp_values_1 = PIPModelInfo::<4>::new(&info, &model_hky_as_jc69).unwrap();
     let cost_1 = PIPLikelihoodCost { info: &info };
-    let model_jc69 = PIPModel::<4>::new("jc69", &[1.1, 0.55], true).unwrap();
+    let model_jc69 = PIPModel::<4>::new("jc69", &[1.1, 0.55]).unwrap();
     let mut temp_values_2 = PIPModelInfo::<4>::new(&info, &model_jc69).unwrap();
     let cost_2 = PIPLikelihoodCost { info: &info };
     assert_relative_eq!(
@@ -869,7 +871,7 @@ fn pip_likelihood_protein_example() {
         &GapHandling::Proper,
     )
     .unwrap();
-    let model_wag = PIPModel::<20>::new("wag", &[0.5, 0.25], false).unwrap();
+    let model_wag = PIPModel::<20>::new("wag", &[0.5, 0.25]).unwrap();
     let mut tmp = PIPModelInfo::<20>::new(&info, &model_wag).unwrap();
     let cost = PIPLikelihoodCost { info: &info };
     assert!(cost.compute_log_likelihood(&model_wag, &mut tmp) <= 0.0);

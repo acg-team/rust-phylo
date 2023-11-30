@@ -20,6 +20,13 @@ pub type ProteinSubstModel = SubstitutionModel<20>;
 pub type ProteinLikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 20>;
 pub type ProteinSubstModelInfo = SubstitutionModelInfo<20>;
 
+impl ProteinSubstModel {
+    fn normalise(&mut self) {
+        let factor = -(self.pi.transpose() * self.q.diagonal())[(0, 0)];
+        self.q /= factor;
+    }
+}
+
 impl EvolutionaryModel<20> for ProteinSubstModel {
     fn new(model_name: &str, _: &[f64]) -> Result<Self>
     where

@@ -1,3 +1,4 @@
+use rand::Rng;
 use rstest::*;
 
 use std::collections::HashMap;
@@ -10,6 +11,7 @@ use rand::Rng;
 
 use crate::evolutionary_models::EvolutionaryModel;
 use crate::sequences::AMINOACIDS_STR;
+use crate::substitution_models::ParsimonyModel;
 use crate::substitution_models::{
     dna_models::{
         parse_gtr_parameters, parse_hky_parameters, parse_jc69_parameters, parse_k80_parameters,
@@ -94,7 +96,7 @@ fn compile_aa_probability(chars: &[char], pi: &[f64]) -> FreqVector {
 
 #[test]
 fn dna_jc69_correct() {
-    let jc69 = DNASubstModel::new("jc69", &[]).unwrap();
+    let jc69 = DNASubstModel::new("jc69", &Vec::new()).unwrap();
     let jc69_2 = DNASubstModel::new("JC69", &[1.0, 2.0]).unwrap();
     assert_eq!(jc69, jc69_2);
     assert_relative_eq!(EvolutionaryModel::get_rate(&jc69, b'A', b'A'), -1.0);
@@ -105,20 +107,14 @@ fn dna_jc69_correct() {
         &dvector![0.25, 0.25, 0.25, 0.25]
     );
     let jc69_3 = DNASubstModel::new("JC69", &[4.0]).unwrap();
+    let jc69_3 = DNASubstModel::new("JC69", &[4.0]).unwrap();
     assert_eq!(jc69.q, jc69_3.q);
     assert_eq!(jc69.pi, jc69_3.pi);
 }
 
 #[test]
-fn dna_j69_params() {
-    let params = parse_jc69_parameters(&[0.1, 0.4, 0.75, 1.5]).unwrap();
-    assert_relative_eq!(params.pi, dvector![0.25, 0.25, 0.25, 0.25]);
-    assert_eq!(params.print_as_jc69(), format!("[lambda = {}]", 1.0));
-}
-
-#[test]
 fn dna_k80_correct() {
-    let k80 = DNASubstModel::new("k80", &[]).unwrap();
+    let k80 = DNASubstModel::new("k80", &Vec::new()).unwrap();
     let k801 = DNASubstModel::new("k80", &[2.0]).unwrap();
     let k802 = DNASubstModel::new("k80", &[2.0, 1.0]).unwrap();
     let k803 = DNASubstModel::new("k80", &[2.0, 1.0, 3.0, 6.0]).unwrap();
@@ -148,28 +144,24 @@ fn dna_k80_params() {
 #[test]
 fn dna_hky_incorrect() {
     let hky = DNASubstModel::new("hky", &[2.0, 1.0, 3.0, 6.0]);
+    let hky = DNASubstModel::new("hky", &[2.0, 1.0, 3.0, 6.0]);
     assert!(hky.is_err());
     let hky = DNASubstModel::new("hky", &[2.0, 1.0, 3.0, 6.0, 0.5]);
+    let hky = DNASubstModel::new("hky", &[2.0, 1.0, 3.0, 6.0, 0.5]);
     assert!(hky.is_err());
-    let hky = DNASubstModel::new("hky", &[2.0, 1.0, 3.0, 6.0, 0.5, 1.0]);
+    let hky = DNASubstModel::new("hky", &[0.22, 0.26, 0.33, 0.19, 0.5, 0.6, 0.7]);
     assert!(hky.is_err());
 }
 
 #[test]
 fn dna_hky_correct() {
     let hky = DNASubstModel::new("hky", &[0.22, 0.26, 0.33, 0.19, 0.5]).unwrap();
+    let hky = DNASubstModel::new("hky", &[0.22, 0.26, 0.33, 0.19, 0.5]).unwrap();
     assert_relative_eq!(
         EvolutionaryModel::get_stationary_distribution(&hky),
         &dvector![0.22, 0.26, 0.33, 0.19]
     );
-    let hky2 = DNASubstModel::new("hky", &[0.22, 0.26, 0.33, 0.19, 0.5, 1.0]).unwrap();
-    assert_relative_eq!(
-        EvolutionaryModel::get_stationary_distribution(&hky2),
-        &dvector![0.22, 0.26, 0.33, 0.19]
-    );
-    assert_eq!(hky, hky2);
-    let hky3 = DNASubstModel::new("hky", &[0.22, 0.26, 0.33, 0.19]).unwrap();
-    let hky4 = DNASubstModel::new("hky", &[0.22, 0.26, 0.33, 0.19, 2.0, 1.0]).unwrap();
+    let hky_2 = DNASubstModel::new("hky", &[0.22, 0.26, 0.33, 0.19, 0.5]).unwrap();
     assert_relative_eq!(
         hky3.q
             .diagonal()
@@ -233,7 +225,9 @@ fn dna_gtr_correct() {
 #[test]
 fn dna_gtr_incorrect() {
     let gtr = DNASubstModel::new("gtr", &[2.0, 1.0, 3.0, 6.0]);
+    let gtr = DNASubstModel::new("gtr", &[2.0, 1.0, 3.0, 6.0]);
     assert!(gtr.is_err());
+    let gtr = DNASubstModel::new("gtr", &[0.22, 0.26, 0.33, 0.19, 0.5, 0.6, 0.7]);
     let gtr = DNASubstModel::new("gtr", &[0.22, 0.26, 0.33, 0.19, 0.5, 0.6, 0.7]);
     assert!(gtr.is_err());
     let gtr = DNASubstModel::new(
@@ -277,9 +271,26 @@ fn dna_tn93_correct() {
     .unwrap();
     let expected_pi = dvector![0.22, 0.26, 0.33, 0.19];
     let expected_q = SubstMatrix::from_column_slice(
+    let expected_q = SubstMatrix::from_column_slice(
         4,
         4,
         &[
+            -1.4732124694954951,
+            1.2409529074850258,
+            0.002805744890196536,
+            0.002805744890196536,
+            1.4665807088459397,
+            -1.2475846681345815,
+            0.0033158803247777245,
+            0.0033158803247777245,
+            0.0042086173352948045,
+            0.0042086173352948045,
+            -0.5339064704940854,
+            0.9166789418005613,
+            0.002423143314260645,
+            0.002423143314260645,
+            0.5277848452791111,
+            -0.9228005670155355,
             -1.4732124694954951,
             1.2409529074850258,
             0.002805744890196536,
@@ -300,6 +311,7 @@ fn dna_tn93_correct() {
     );
     assert_relative_eq!(tn93.q, expected_q);
     assert_relative_eq!(tn93.q.diagonal().component_mul(&expected_pi).sum(), -1.0);
+    assert_relative_eq!(tn93.q.diagonal().component_mul(&expected_pi).sum(), -1.0);
     assert_relative_eq!(
         EvolutionaryModel::get_stationary_distribution(&tn93),
         &expected_pi
@@ -317,6 +329,20 @@ fn dna_tn93_correct() {
         EvolutionaryModel::get_rate(&tn93, b'A', b'T') * expected_pi[2],
     );
     assert_relative_eq!(
+        EvolutionaryModel::get_rate(&tn93, b'T', b'C') * expected_pi[0],
+        EvolutionaryModel::get_rate(&tn93, b'C', b'T') * expected_pi[1],
+    );
+    assert_relative_eq!(
+        EvolutionaryModel::get_rate(&tn93, b'A', b'G') * expected_pi[2],
+        EvolutionaryModel::get_rate(&tn93, b'G', b'A') * expected_pi[3],
+    );
+    assert_relative_eq!(
+        EvolutionaryModel::get_rate(&tn93, b'T', b'A') * expected_pi[0],
+        EvolutionaryModel::get_rate(&tn93, b'A', b'T') * expected_pi[2],
+    );
+    assert_relative_eq!(
+        EvolutionaryModel::get_rate(&tn93, b'C', b'G') * expected_pi[1],
+        EvolutionaryModel::get_rate(&tn93, b'G', b'C') * expected_pi[3],
         EvolutionaryModel::get_rate(&tn93, b'C', b'G') * expected_pi[1],
         EvolutionaryModel::get_rate(&tn93, b'G', b'C') * expected_pi[3],
     );
@@ -324,6 +350,7 @@ fn dna_tn93_correct() {
 
 #[test]
 fn dna_tn93_incorrect() {
+    let tn93 = DNASubstModel::new("tn93", &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435]);
     let tn93 = DNASubstModel::new("tn93", &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435]);
     assert!(tn93.is_err());
     let tn93 = DNASubstModel::new(
@@ -355,8 +382,8 @@ fn dna_tn93_params() {
 
 #[test]
 fn dna_model_incorrect() {
-    assert!(DNASubstModel::new("jc70", &[]).is_err());
-    assert!(DNASubstModel::new("wag", &[]).is_err());
+    assert!(DNASubstModel::new("jc70", &Vec::new()).is_err());
+    assert!(DNASubstModel::new("wag", &Vec::new()).is_err());
     assert!(DNASubstModel::new("gtr", &repeat(0.25).take(7).collect::<Vec<f64>>()).is_err());
     assert!(DNASubstModel::new("gtr", &repeat(0.25).take(11).collect::<Vec<f64>>()).is_err());
     assert!(DNASubstModel::new("gtr", &repeat(0.4).take(10).collect::<Vec<f64>>()).is_err());
@@ -364,7 +391,7 @@ fn dna_model_incorrect() {
 
 #[test]
 fn dna_p_matrix() {
-    let jc69 = DNASubstModel::new("jc69", &[]).unwrap();
+    let jc69 = DNASubstModel::new("jc69", &Vec::new()).unwrap();
     let p_inf = EvolutionaryModel::get_p(&jc69, 200000.0);
     assert_eq!(p_inf.nrows(), 4);
     assert_eq!(p_inf.ncols(), 4);
@@ -373,10 +400,12 @@ fn dna_p_matrix() {
 
 #[test]
 fn dna_normalisation() {
-    let jc69 = DNASubstModel::new("jc69", &[]).unwrap();
+    let jc69 = DNASubstModel::new("jc69", &Vec::new()).unwrap();
     assert_eq!((jc69.q.diagonal().transpose().mul(jc69.pi))[(0, 0)], -1.0);
     let k80 = DNASubstModel::new("k80", &[3.0, 1.5]).unwrap();
+    let k80 = DNASubstModel::new("k80", &[3.0, 1.5]).unwrap();
     assert_eq!((k80.q.diagonal().transpose().mul(k80.pi))[(0, 0)], -1.0);
+    let gtr = DNASubstModel::new(
     let gtr = DNASubstModel::new(
         "gtr",
         &[0.22, 0.26, 0.33, 0.19]
@@ -386,6 +415,7 @@ fn dna_normalisation() {
     )
     .unwrap();
     assert_eq!((gtr.q.diagonal().transpose().mul(gtr.pi))[(0, 0)], -1.0);
+    let tn93 = DNASubstModel::new(
     let tn93 = DNASubstModel::new(
         "tn93",
         &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
@@ -397,6 +427,7 @@ fn dna_normalisation() {
 #[test]
 fn dna_char_probabilities() {
     let (params, char_probs) = gtr_char_probs_data();
+    let gtr = DNASubstModel::new("gtr", &params).unwrap();
     let gtr = DNASubstModel::new("gtr", &params).unwrap();
     for (&char, expected) in char_probs.iter() {
         let actual = gtr.get_char_probability(&DNA_SETS[char as usize]);
@@ -410,6 +441,7 @@ fn dna_char_probabilities() {
 #[case::blosum("blosum", &BLOSUM_PI_ARR, 1e-5)]
 #[case::hivb("hivb", &HIVB_PI_ARR, 1e-8)]
 fn protein_char_probabilities(#[case] input: &str, #[case] pi_array: &[f64], #[case] epsilon: f64) {
+    let model = ProteinSubstModel::new(input, &[]).unwrap();
     let model = ProteinSubstModel::new(input, &[]).unwrap();
     let expected = protein_char_probs_data(pi_array);
     for (char, expected_probs) in expected.into_iter() {
@@ -425,6 +457,7 @@ fn protein_char_probabilities(#[case] input: &str, #[case] pi_array: &[f64], #[c
 #[case::hivb("hivb")]
 fn protein_weird_char_probabilities(#[case] input: &str) {
     let model = ProteinSubstModel::new(input, &[]).unwrap();
+
     assert_eq!(
         EvolutionaryModel::get_char_probability(&model, &PROTEIN_SETS[b'.' as usize]),
         EvolutionaryModel::get_char_probability(&model, &PROTEIN_SETS[b'X' as usize])
@@ -439,10 +472,25 @@ fn protein_weird_char_probabilities(#[case] input: &str) {
 #[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
 fn dna_weird_char_probabilities(#[case] input: &str, #[case] params: &[f64]) {
     let model = DNASubstModel::new(input, params).unwrap();
+    let model = DNASubstModel::new(input, params).unwrap();
     assert_eq!(
         EvolutionaryModel::get_char_probability(&model, &DNA_SETS[b'.' as usize]),
         EvolutionaryModel::get_char_probability(&model, &DNA_SETS[b'X' as usize]),
     );
+}
+
+fn capitalize_random_letters(input: &str) -> String {
+    let mut rng = rand::thread_rng();
+    input
+        .chars()
+        .map(|c| {
+            if c.is_alphabetic() && rng.gen_bool(0.5) {
+                c.to_uppercase().collect::<String>()
+            } else {
+                c.to_string()
+            }
+        })
+        .collect()
 }
 
 fn capitalize_random_letters(input: &str) -> String {
@@ -477,7 +525,16 @@ fn protein_model_correct(#[case] model_name: &str, #[case] epsilon: f64) {
     }
     assert_relative_eq!(
         EvolutionaryModel::get_stationary_distribution(&model_1).sum(),
+        EvolutionaryModel::get_stationary_distribution(&model_1).sum(),
         1.0,
+        epsilon = epsilon
+    );
+}
+
+#[rstest]
+#[case::wag("wag")]
+#[case::blosum("blosum")]
+#[case::hivb("hivb")]
         epsilon = epsilon
     );
 }
@@ -491,8 +548,16 @@ fn protein_model_incorrect_access(#[case] model_name: &str) {
     let model = ProteinSubstModel::new(model_name, &[]).unwrap();
     EvolutionaryModel::get_rate(&model, b'H', b'J');
     EvolutionaryModel::get_rate(&model, b'-', b'L');
+fn protein_model_incorrect_access(#[case] model_name: &str) {
+    let model = ProteinSubstModel::new(model_name, &[]).unwrap();
+    EvolutionaryModel::get_rate(&model, b'H', b'J');
+    EvolutionaryModel::get_rate(&model, b'-', b'L');
 }
 
+#[rstest]
+#[case::wag("wag")]
+#[case::blosum("blosum")]
+#[case::hivb("hivb")]
 #[rstest]
 #[case::wag("wag")]
 #[case::blosum("blosum")]
@@ -500,11 +565,16 @@ fn protein_model_incorrect_access(#[case] model_name: &str) {
 #[should_panic]
 fn protein_model_gap(#[case] model_name: &str) {
     let wag = ProteinSubstModel::new(model_name, &[]).unwrap();
+fn protein_model_gap(#[case] model_name: &str) {
+    let wag = ProteinSubstModel::new(model_name, &[]).unwrap();
     EvolutionaryModel::get_rate(&wag, b'-', b'L');
 }
 
 #[test]
 fn protein_model_incorrect() {
+    assert!(ProteinSubstModel::new("jc69", &[]).is_err());
+    assert!(ProteinSubstModel::new("waq", &[]).is_err());
+    assert!(ProteinSubstModel::new("HIV", &[]).is_err());
     assert!(ProteinSubstModel::new("jc69", &[]).is_err());
     assert!(ProteinSubstModel::new("waq", &[]).is_err());
     assert!(ProteinSubstModel::new("HIV", &[]).is_err());
@@ -517,6 +587,7 @@ fn protein_model_incorrect() {
 // #[case::hivb("hivb", 1e-3)]
 fn protein_p_matrix(#[case] input: &str, #[case] epsilon: f64) {
     let model = ProteinSubstModel::new(input, &[]).unwrap();
+    let model = ProteinSubstModel::new(input, &[]).unwrap();
     let p_inf = EvolutionaryModel::get_p(&model, 1000000.0);
     assert_eq!(p_inf.nrows(), 20);
     assert_eq!(p_inf.ncols(), 20);
@@ -528,6 +599,7 @@ fn protein_p_matrix(#[case] input: &str, #[case] epsilon: f64) {
 #[case::blosum("blosum", 1e-10)]
 #[case::hivb("hivb", 1e-10)]
 fn protein_normalisation(#[case] input: &str, #[case] epsilon: f64) {
+    let model = ProteinSubstModel::new(input, &[]).unwrap();
     let model = ProteinSubstModel::new(input, &[]).unwrap();
     assert_relative_eq!(
         (model.q.diagonal().transpose().mul(model.pi))[(0, 0)],
@@ -574,6 +646,7 @@ fn dna_scoring_matrices(
     #[case] rounding: &R,
 ) {
     let model = DNASubstModel::new(input, params).unwrap();
+    let model = DNASubstModel::new(input, params).unwrap();
     let scorings = ParsimonyModel::generate_scorings(&model, times, false, rounding);
     for &time in times {
         let (_, avg_0) = ParsimonyModel::get_scoring_matrix(&model, time, rounding);
@@ -584,6 +657,7 @@ fn dna_scoring_matrices(
 
 #[test]
 fn protein_scoring_matrices() {
+    let model = ProteinSubstModel::new("wag", &[]).unwrap();
     let model = ProteinSubstModel::new("wag", &[]).unwrap();
     let true_matrix_01 = SubstMatrix::from_row_slice(20, 20, &TRUE_MATRIX);
     let (mat, avg) = ParsimonyModel::get_scoring_matrix(&model, 0.1, &R::zero());
@@ -601,6 +675,7 @@ fn protein_scoring_matrices() {
 
 #[test]
 fn generate_protein_scorings() {
+    let model = ProteinSubstModel::new("wag", &[]).unwrap();
     let model = ProteinSubstModel::new("wag", &[]).unwrap();
     let scorings =
         ParsimonyModel::generate_scorings(&model, &[0.1, 0.3, 0.5, 0.7], false, &R::zero());
@@ -621,6 +696,7 @@ fn generate_protein_scorings() {
 #[test]
 fn matrix_entry_rounding() {
     let model = DNASubstModel::new("K80", &[1.0, 2.0]).unwrap();
+    let model = DNASubstModel::new("K80", &[1.0, 2.0]).unwrap();
     let (mat_round, avg_round) = model.get_scoring_matrix_corrected(0.1, true, &R::zero());
     let (mat, avg) = model.get_scoring_matrix_corrected(0.1, true, &R::none());
     assert_ne!(avg_round, avg);
@@ -628,6 +704,7 @@ fn matrix_entry_rounding() {
     for &element in mat_round.as_slice() {
         assert_eq!(element.round(), element);
     }
+    let model = ProteinSubstModel::new("HIVB", &[]).unwrap();
     let model = ProteinSubstModel::new("HIVB", &[]).unwrap();
     let (mat_round, avg_round) = model.get_scoring_matrix_corrected(0.1, true, &R::zero());
     let (mat, avg) = model.get_scoring_matrix_corrected(0.1, true, &R::none());
@@ -640,6 +717,7 @@ fn matrix_entry_rounding() {
 
 #[test]
 fn matrix_zero_diagonals() {
+    let model = ProteinSubstModel::new("HIVB", &[]).unwrap();
     let model = ProteinSubstModel::new("HIVB", &[]).unwrap();
     let (mat_zeros, avg_zeros) = model.get_scoring_matrix_corrected(0.5, true, &R::zero());
     let (mat, avg) = model.get_scoring_matrix_corrected(0.5, false, &R::zero());

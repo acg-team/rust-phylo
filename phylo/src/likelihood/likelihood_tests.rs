@@ -38,7 +38,7 @@ fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
 #[test]
 fn dna_simple_likelihood() {
     let info = setup_simple_phylo_info(1.0, 1.0);
-    let model = DNASubstModel::new("JC69", &[], true).unwrap();
+    let model = DNASubstModel::new("JC69", &[]).unwrap();
     let mut tmp = DNASubstModelInfo::new(&info, &model).unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
 
@@ -74,7 +74,7 @@ fn setup_simple_phylo_info_no_alignment() -> PhyloInfo {
 #[test]
 fn dna_likelihood_no_msa() {
     let info = setup_simple_phylo_info_no_alignment();
-    let model = DNASubstModel::new("JC69", &[], false).unwrap();
+    let model = DNASubstModel::new("JC69", &[]).unwrap();
     let tmp = DNASubstModelInfo::new(&info, &model);
     assert!(tmp.is_err());
 }
@@ -93,7 +93,7 @@ fn setup_phylo_info_single_leaf() -> PhyloInfo {
 fn dna_likelihood_one_node() {
     let info = setup_phylo_info_single_leaf();
     let likelihood = DNALikelihoodCost { info: &info };
-    let model = DNASubstModel::new("JC69", &[], false).unwrap();
+    let model = DNASubstModel::new("JC69", &[]).unwrap();
     let mut tmp = DNASubstModelInfo::new(&info, &model).unwrap();
     assert!(likelihood.compute_log_likelihood(&model, &mut tmp) < 0.0);
 }
@@ -115,11 +115,33 @@ fn setup_cb_example_phylo_info() -> PhyloInfo {
 fn dna_cb_example_likelihood() {
     let info = setup_cb_example_phylo_info();
     let likelihood = DNALikelihoodCost { info: &info };
-    let model = DNASubstModel::new(
+    let mut model = DNASubstModel::new(
         "tn93",
         &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
     )
     .unwrap();
+    model.q = SubstMatrix::from_row_slice(
+        4,
+        4,
+        &[
+            -0.15594579,
+            0.15524379,
+            0.00044550000000000004,
+            0.0002565,
+            0.13136013,
+            -0.13206213,
+            0.00044550000000000004,
+            0.0002565,
+            0.000297,
+            0.000351,
+            -0.056516265,
+            0.055868265,
+            0.000297,
+            0.000351,
+            0.097034355,
+            -0.097682355,
+        ],
+    );
     let mut tmp = DNASubstModelInfo::new(&info, &model).unwrap();
     assert_relative_eq!(
         likelihood.compute_log_likelihood(&model, &mut tmp),
@@ -146,7 +168,7 @@ fn setup_mol_evo_example_phylo_info() -> PhyloInfo {
 fn dna_mol_evo_example_likelihood() {
     let info = setup_mol_evo_example_phylo_info();
     let likelihood = DNALikelihoodCost { info: &info };
-    let model = DNASubstModel::new("k80", &[], true).unwrap();
+    let model = DNASubstModel::new("k80", &[]).unwrap();
     let mut tmp = DNASubstModelInfo::new(&info, &model).unwrap();
     assert_relative_eq!(
         likelihood.compute_log_likelihood(&model, &mut tmp),
@@ -160,7 +182,6 @@ fn dna_ambig_example_likelihood() {
     let model = DNASubstModel::new(
         "tn93",
         &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
-        false,
     )
     .unwrap();
 
@@ -173,7 +194,7 @@ fn dna_ambig_example_likelihood() {
     let likelihood_w_x = DNALikelihoodCost { info: &info_w_x };
     assert_relative_eq!(
         likelihood_w_x.compute_log_likelihood(&model, &mut tmp_w_x),
-        -90.1367231323,
+        -94.46514304131543,
         epsilon = 1e-6
     );
 
@@ -187,7 +208,7 @@ fn dna_ambig_example_likelihood() {
     let likelihood_w_n = DNALikelihoodCost { info: &info_w_n };
     assert_relative_eq!(
         likelihood_w_n.compute_log_likelihood(&model, &mut tmp_w_n),
-        -90.1367231323,
+        -94.46514304131543,
         epsilon = 1e-6
     );
 
@@ -207,12 +228,8 @@ fn dna_huelsenbeck_example_likelihood() {
         &GapHandling::Ambiguous,
     )
     .unwrap();
-    let model = DNASubstModel::new(
-        "gtr",
-        &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0],
-        true,
-    )
-    .unwrap();
+    let model =
+        DNASubstModel::new("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0]).unwrap();
     let mut tmp = DNASubstModelInfo::new(&info, &model).unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
 
@@ -239,7 +256,7 @@ fn protein_example_likelihood(
         &GapHandling::Ambiguous,
     )
     .unwrap();
-    let model = ProteinSubstModel::new(model_name, model_params, true).unwrap();
+    let model = ProteinSubstModel::new(model_name, model_params).unwrap();
     let mut tmp = ProteinSubstModelInfo::new(&info, &model).unwrap();
     let likelihood = ProteinLikelihoodCost { info: &info };
     assert_relative_eq!(
@@ -284,7 +301,7 @@ fn setup_simple_reversibility() -> Vec<PhyloInfo> {
 #[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
 fn simple_dna_likelihood_reversibility(#[case] model_name: &str, #[case] model_params: &[f64]) {
     let info = setup_simple_reversibility();
-    let model = DNASubstModel::new(model_name, model_params, false).unwrap();
+    let model = DNASubstModel::new(model_name, model_params).unwrap();
     let mut tmp = DNASubstModelInfo::new(&info[0], &model).unwrap();
     let mut tmp_rerooted = DNASubstModelInfo::new(&info[1], &model).unwrap();
     let likelihood = DNALikelihoodCost { info: &info[0] };
@@ -333,7 +350,7 @@ fn simple_protein_likelihood_reversibility(
     #[case] epsilon: f64,
 ) {
     let info = setup_simple_reversibility();
-    let model = ProteinSubstModel::new(model_name, model_params, true).unwrap();
+    let model = ProteinSubstModel::new(model_name, model_params).unwrap();
     let mut tmp = ProteinSubstModelInfo::new(&info[0], &model).unwrap();
     let mut tmp_rerooted = ProteinSubstModelInfo::new(&info[1], &model).unwrap();
     let likelihood = ProteinLikelihoodCost { info: &info[0] };
@@ -369,7 +386,7 @@ fn huelsenbeck_example_dna_reversibility_likelihood(
     )
     .unwrap();
 
-    let model = DNASubstModel::new(model_name, model_params, false).unwrap();
+    let model = DNASubstModel::new(model_name, model_params).unwrap();
     let mut tmp = DNASubstModelInfo::new(&info1, &model).unwrap();
     let mut tmp_rerooted = DNASubstModelInfo::new(&info2, &model).unwrap();
     let likelihood = DNALikelihoodCost { info: &info1 };
