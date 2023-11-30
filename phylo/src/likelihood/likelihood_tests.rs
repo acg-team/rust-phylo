@@ -363,7 +363,7 @@ fn huelsenbeck_example_dna_reversibility_likelihood(
 #[test]
 fn check_likelihood_opt_k80() {
     let info = phyloinfo_from_files(
-        PathBuf::from("./data/sim/K80/k80.fasta"),
+        PathBuf::from("./data/sim/K80/K80.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
     )
     .unwrap();
