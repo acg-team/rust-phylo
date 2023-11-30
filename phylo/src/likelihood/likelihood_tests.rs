@@ -7,11 +7,13 @@ use approx::assert_relative_eq;
 use bio::io::fasta::Record;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
-use crate::likelihood::{K80ModelOptimiser, LikelihoodCostFunction};
+use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::{
     phyloinfo_from_files, phyloinfo_from_sequences_newick, phyloinfo_from_sequences_tree, PhyloInfo,
 };
-use crate::substitution_models::dna_models::{DNALikelihoodCost, DNASubstModel, DNASubstModelInfo};
+use crate::substitution_models::dna_models::{
+    DNALikelihoodCost, DNASubstModel, DNASubstModelInfo, K80ModelOptimiser,
+};
 use crate::substitution_models::protein_models::{
     ProteinLikelihoodCost, ProteinSubstModel, ProteinSubstModelInfo,
 };

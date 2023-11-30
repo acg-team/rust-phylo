@@ -18,10 +18,9 @@ pub type DNASubstModel = SubstitutionModel<4>;
 pub type DNALikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 4>;
 pub type DNASubstModelInfo = SubstitutionModelInfo<4>;
 
-pub struct K80Params {
-    pub alpha: f64,
-    pub beta: f64,
-}
+mod k80;
+
+pub use k80::*;
 
 struct GtrParams<'a> {
     pi: &'a FreqVector,
@@ -40,10 +39,12 @@ struct TN93Params<'a> {
     b: f64,
 }
 
-impl DNASubstModel {
-    pub(crate) fn reset_k80_q(&mut self, params: &K80Params) {
-        self.q = k80_q(params);
-        self.params = vec![params.alpha, params.beta];
+fn make_dna_model(params: Vec<f64>, q: SubstMatrix, pi: FreqVector) -> DNASubstModel {
+    DNASubstModel {
+        params,
+        index: nucleotide_index(),
+        q,
+        pi,
     }
 }
 
@@ -52,21 +53,14 @@ impl EvolutionaryModel<4> for DNASubstModel {
     where
         Self: std::marker::Sized,
     {
-        let (params, q, pi) = match model_name.to_uppercase().as_str() {
-            "JC69" => jc69(model_params)?,
-            "K80" => k80(model_params)?,
-            "TN93" => tn93(model_params)?,
-            "HKY" => hky(model_params)?,
-            "GTR" => gtr(model_params)?,
+        match model_name.to_uppercase().as_str() {
+            "JC69" => jc69(model_params),
+            "K80" => k80(model_params),
+            "TN93" => tn93(model_params),
+            "HKY" => hky(model_params),
+            "GTR" => gtr(model_params),
             _ => bail!("Unknown DNA model requested."),
-        };
-        let model = DNASubstModel {
-            params,
-            index: nucleotide_index(),
-            q,
-            pi,
-        };
-        Ok(model)
+        }
     }
 
     fn get_p(&self, time: f64) -> SubstMatrix {
@@ -175,11 +169,15 @@ fn make_pi(pi_array: &[f64]) -> Result<FreqVector> {
     Ok(pi)
 }
 
-pub fn jc69(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)> {
+pub fn jc69(model_params: &[f64]) -> Result<DNASubstModel> {
     if !model_params.is_empty() {
         warn!("Too many values provided for JC69.");
     }
-    Ok((vec![], jc69_q(), FreqVector::from_column_slice(&[0.25; 4])))
+    Ok(make_dna_model(
+        vec![],
+        jc69_q(),
+        FreqVector::from_column_slice(&[0.25; 4]),
+    ))
 }
 
 pub fn jc69_q() -> SubstMatrix {
@@ -191,56 +189,7 @@ pub fn jc69_q() -> SubstMatrix {
     )
 }
 
-pub fn k80(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)> {
-    let (alpha, beta) = if model_params.is_empty() {
-        warn!("Too few values provided for K80, required 1 or 2 values, kappa or alpha and beta.");
-        warn!("Falling back to default values.");
-        (2.0, 1.0)
-    } else if model_params.len() == 1 {
-        (model_params[0], 1.0)
-    } else if model_params.len() == 2 {
-        (model_params[0], model_params[1])
-    } else {
-        warn!("Too many values provided for K80, required 2 values, alpha and beta.");
-        warn!("Will only use the first two values provided.");
-        (model_params[0], model_params[1])
-    };
-    info!("Setting up k80 with alpha = {}, beta = {}", alpha, beta);
-    Ok((
-        vec![alpha, beta],
-        k80_q(&K80Params { alpha, beta }),
-        FreqVector::from_column_slice(&[0.25; 4]),
-    ))
-}
-
-pub fn k80_q(p: &K80Params) -> SubstMatrix {
-    let total = p.alpha + 2.0 * p.beta;
-    SubstMatrix::from_column_slice(
-        4,
-        4,
-        &[
-            -(p.alpha + 2.0 * p.beta),
-            p.alpha,
-            p.beta,
-            p.beta,
-            p.alpha,
-            -(p.alpha + 2.0 * p.beta),
-            p.beta,
-            p.beta,
-            p.beta,
-            p.beta,
-            -(p.alpha + 2.0 * p.beta),
-            p.alpha,
-            p.beta,
-            p.beta,
-            p.alpha,
-            -(p.alpha + 2.0 * p.beta),
-        ],
-    )
-    .div(total)
-}
-
-pub fn hky(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)> {
+pub fn hky(model_params: &[f64]) -> Result<DNASubstModel> {
     if model_params.len() != 5 {
         bail!(
             "{} parameters for the hky model, expected 5, got {}",
@@ -260,10 +209,14 @@ pub fn hky(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)> 
         b: 1.0,
     };
     info!("Setting up hky with alpha = {}", hky_params.a1);
-    Ok((model_params[0..5].to_vec(), tn93_q(hky_params), pi))
+    Ok(make_dna_model(
+        model_params[0..5].to_vec(),
+        tn93_q(hky_params),
+        pi,
+    ))
 }
 
-pub fn tn93(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)> {
+pub fn tn93(model_params: &[f64]) -> Result<DNASubstModel> {
     if model_params.len() != 7 {
         bail!(
             "{} parameters for the tn93 model, expected 7, got {}",
@@ -286,7 +239,11 @@ pub fn tn93(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)>
         "Setting up tn93 with alpha1 = {}, alpha2 = {}, beta = {}",
         tn93_params.a1, tn93_params.a2, tn93_params.b
     );
-    Ok((model_params[0..7].to_vec(), tn93_q(tn93_params), pi))
+    Ok(make_dna_model(
+        model_params[0..7].to_vec(),
+        tn93_q(tn93_params),
+        pi,
+    ))
 }
 
 fn tn93_q(p: &TN93Params) -> SubstMatrix {
@@ -323,7 +280,7 @@ fn tn93_q(p: &TN93Params) -> SubstMatrix {
     .div(total)
 }
 
-pub fn gtr(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)> {
+pub fn gtr(model_params: &[f64]) -> Result<DNASubstModel> {
     if model_params.len() != 10 {
         bail!(
             "{} parameters for the GTR model, expected 10, got {}",
@@ -354,7 +311,11 @@ pub fn gtr(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)> 
         rag: model_params[9],
     };
 
-    Ok((model_params[0..10].to_vec(), gtr_q(gtr_params), pi))
+    Ok(make_dna_model(
+        model_params[0..10].to_vec(),
+        gtr_q(gtr_params),
+        pi,
+    ))
 }
 
 fn gtr_q(gtr: &GtrParams) -> SubstMatrix {
