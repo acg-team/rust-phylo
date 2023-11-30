@@ -20,8 +20,15 @@ pub type ProteinSubstModel = SubstitutionModel<20>;
 pub type ProteinLikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 20>;
 pub type ProteinSubstModelInfo = SubstitutionModelInfo<20>;
 
+impl ProteinSubstModel {
+    fn normalise(&mut self) {
+        let factor = -(self.pi.transpose() * self.q.diagonal())[(0, 0)];
+        self.q /= factor;
+    }
+}
+
 impl EvolutionaryModel<20> for ProteinSubstModel {
-    fn new(model_name: &str, _: &[f64], normalise: bool) -> Result<Self>
+    fn new(model_name: &str, _: &[f64]) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
@@ -37,9 +44,7 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
             q,
             pi,
         };
-        if normalise {
-            model.normalise();
-        }
+        model.normalise();
         Ok(model)
     }
 
@@ -49,10 +54,6 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
 
     fn get_rate(&self, i: u8, j: u8) -> f64 {
         self.get_rate(i, j)
-    }
-
-    fn normalise(&mut self) {
-        self.normalise()
     }
 
     fn get_stationary_distribution(&self) -> &FreqVector {

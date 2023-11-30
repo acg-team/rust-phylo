@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+use std::ops::Div;
 
 use anyhow::bail;
 use log::{info, warn};
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::EvolutionaryModel;
+use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::sequences::{charify, NUCLEOTIDES_STR};
 use crate::substitution_models::{
@@ -35,7 +36,7 @@ struct TN93Params<'a> {
 }
 
 impl EvolutionaryModel<4> for DNASubstModel {
-    fn new(model_name: &str, model_params: &[f64], normalise: bool) -> Result<Self>
+    fn new(model_name: &str, model_params: &[f64]) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
@@ -47,15 +48,12 @@ impl EvolutionaryModel<4> for DNASubstModel {
             "GTR" => gtr(model_params)?,
             _ => bail!("Unknown DNA model requested."),
         };
-        let mut model = DNASubstModel {
+        let model = DNASubstModel {
             params,
             index: nucleotide_index(),
             q,
             pi,
         };
-        if normalise {
-            model.normalise();
-        }
         Ok(model)
     }
 
@@ -65,10 +63,6 @@ impl EvolutionaryModel<4> for DNASubstModel {
 
     fn get_rate(&self, i: u8, j: u8) -> f64 {
         self.get_rate(i, j)
-    }
-
-    fn normalise(&mut self) {
-        self.normalise()
     }
 
     fn get_stationary_distribution(&self) -> &FreqVector {
@@ -168,47 +162,18 @@ fn make_pi(pi_array: &[f64]) -> Result<FreqVector> {
 }
 
 pub fn jc69(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)> {
-    let mu = if model_params.is_empty() {
-        warn!("Too few values provided for JC69, required 1 value, mu.");
-        warn!("Falling back to default values.");
-        1.0
-    } else if model_params.len() == 1 {
-        model_params[0]
-    } else {
-        warn!("Too many values provided for JC69, required 1 value, mu.");
-        warn!("Will only use the first value provided.");
-        model_params[0]
-    };
-    Ok((
-        vec![mu],
-        jc69_q(mu),
-        FreqVector::from_column_slice(&[0.25; 4]),
-    ))
+    if !model_params.is_empty() {
+        warn!("Too many values provided for JC69.");
+    }
+    Ok((vec![], jc69_q(), FreqVector::from_column_slice(&[0.25; 4])))
 }
 
-pub fn jc69_q(mu: f64) -> SubstMatrix {
-    let rate = mu / 4.0;
+pub fn jc69_q() -> SubstMatrix {
+    let r = 1.0 / 3.0;
     SubstMatrix::from_row_slice(
         4,
         4,
-        &[
-            -3.0 * rate,
-            rate,
-            rate,
-            rate,
-            rate,
-            -3.0 * rate,
-            rate,
-            rate,
-            rate,
-            rate,
-            -3.0 * rate,
-            rate,
-            rate,
-            rate,
-            rate,
-            -3.0 * rate,
-        ],
+        &[-1.0, r, r, r, r, -1.0, r, r, r, r, -1.0, r, r, r, r, -1.0],
     )
 }
 
@@ -229,34 +194,36 @@ pub fn k80(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)> 
     info!("Setting up k80 with alpha = {}, beta = {}", alpha, beta);
     Ok((
         vec![alpha, beta],
-        k80_q(alpha, beta),
+        k80_q(&K80Params { alpha, beta }),
         FreqVector::from_column_slice(&[0.25; 4]),
     ))
 }
 
-pub fn k80_q(alpha: f64, beta: f64) -> SubstMatrix {
+pub fn k80_q(p: &K80Params) -> SubstMatrix {
+    let total = p.alpha + 2.0 * p.beta;
     SubstMatrix::from_column_slice(
         4,
         4,
         &[
-            -(alpha + 2.0 * beta),
-            alpha,
-            beta,
-            beta,
-            alpha,
-            -(alpha + 2.0 * beta),
-            beta,
-            beta,
-            beta,
-            beta,
-            -(alpha + 2.0 * beta),
-            alpha,
-            beta,
-            beta,
-            alpha,
-            -(alpha + 2.0 * beta),
+            -(p.alpha + 2.0 * p.beta),
+            p.alpha,
+            p.beta,
+            p.beta,
+            p.alpha,
+            -(p.alpha + 2.0 * p.beta),
+            p.beta,
+            p.beta,
+            p.beta,
+            p.beta,
+            -(p.alpha + 2.0 * p.beta),
+            p.alpha,
+            p.beta,
+            p.beta,
+            p.alpha,
+            -(p.alpha + 2.0 * p.beta),
         ],
     )
+    .div(total)
 }
 
 pub fn hky(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)> {
@@ -313,6 +280,10 @@ fn tn93_q(p: &TN93Params) -> SubstMatrix {
     let fc = p.pi[1];
     let fa = p.pi[2];
     let fg = p.pi[3];
+    let total = (p.a1 * fc + p.b * (fa + fg)) * ft
+        + (p.a1 * ft + p.b * (fa + fg)) * fc
+        + (p.b * (ft + fc) + p.a2 * fg) * fa
+        + (p.b * (ft + fc) + p.a2 * fa) * fg;
     SubstMatrix::from_row_slice(
         4,
         4,
@@ -335,6 +306,7 @@ fn tn93_q(p: &TN93Params) -> SubstMatrix {
             -(p.b * (ft + fc) + p.a2 * fa),
         ],
     )
+    .div(total)
 }
 
 pub fn gtr(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)> {
@@ -372,26 +344,35 @@ pub fn gtr(model_params: &[f64]) -> Result<(Vec<f64>, SubstMatrix, FreqVector)> 
 }
 
 fn gtr_q(gtr: &GtrParams) -> SubstMatrix {
+    let ft = gtr.pi[0];
+    let fc = gtr.pi[1];
+    let fa = gtr.pi[2];
+    let fg = gtr.pi[3];
+    let total = (gtr.rtc * fc + gtr.rta * fa + gtr.rtg * fg) * ft
+        + (gtr.rtc * ft + gtr.rca * fa + gtr.rcg * fg) * fc
+        + (gtr.rta * ft + gtr.rca * fc + gtr.rag * fg) * fa
+        + (gtr.rtg * ft + gtr.rcg * fc + gtr.rag * fa) * fg;
     SubstMatrix::from_row_slice(
         4,
         4,
         &[
-            -(gtr.rtc * gtr.pi[1] + gtr.rta * gtr.pi[2] + gtr.rtg * gtr.pi[3]),
-            gtr.rtc * gtr.pi[1],
-            gtr.rta * gtr.pi[2],
-            gtr.rtg * gtr.pi[3],
-            gtr.rtc * gtr.pi[0],
-            -(gtr.rtc * gtr.pi[0] + gtr.rca * gtr.pi[2] + gtr.rcg * gtr.pi[3]),
-            gtr.rca * gtr.pi[2],
-            gtr.rcg * gtr.pi[3],
-            gtr.rta * gtr.pi[0],
-            gtr.rca * gtr.pi[1],
-            -(gtr.rta * gtr.pi[0] + gtr.rca * gtr.pi[1] + gtr.rag * gtr.pi[3]),
-            gtr.rag * gtr.pi[3],
-            gtr.rtg * gtr.pi[0],
-            gtr.rcg * gtr.pi[1],
-            gtr.rag * gtr.pi[2],
-            -(gtr.rtg * gtr.pi[0] + gtr.rcg * gtr.pi[1] + gtr.rag * gtr.pi[2]),
+            -(gtr.rtc * fc + gtr.rta * fa + gtr.rtg * fg),
+            gtr.rtc * fc,
+            gtr.rta * fa,
+            gtr.rtg * fg,
+            gtr.rtc * ft,
+            -(gtr.rtc * ft + gtr.rca * fa + gtr.rcg * fg),
+            gtr.rca * fa,
+            gtr.rcg * fg,
+            gtr.rta * ft,
+            gtr.rca * fc,
+            -(gtr.rta * ft + gtr.rca * fc + gtr.rag * fg),
+            gtr.rag * fg,
+            gtr.rtg * ft,
+            gtr.rcg * fc,
+            gtr.rag * fa,
+            -(gtr.rtg * ft + gtr.rcg * fc + gtr.rag * fa),
         ],
     )
+    .div(total)
 }

@@ -20,8 +20,8 @@ pub type FreqVector = DVector<f64>;
 pub struct SubstitutionModel<const N: usize> {
     index: [i32; 255],
     pub params: Vec<f64>,
-    pub q: SubstMatrix,
-    pub pi: FreqVector,
+    pub(crate) q: SubstMatrix,
+    pub(crate) pi: FreqVector,
 }
 
 pub trait ParsimonyModel<const N: usize> {
@@ -67,11 +67,6 @@ where
         }))
     }
 
-    fn normalise(&mut self) {
-        let factor = -(self.pi.transpose() * self.q.diagonal())[(0, 0)];
-        self.q /= factor;
-    }
-
     fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
         self.get_scoring_matrix_corrected(time, false, rounding)
     }
@@ -115,6 +110,11 @@ where
         model: &SubstitutionModel<N>,
         tmp_values: &mut SubstitutionModelInfo<N>,
     ) -> f64 {
+        debug_assert_eq!(
+            self.info.tree.internals.len(),
+            tmp_values.internal_info.len()
+        );
+        debug_assert_eq!(self.info.tree.leaves.len(), tmp_values.leaf_info.len());
         for node_idx in &self.info.tree.postorder {
             match node_idx {
                 NodeIdx::Internal(idx) => {
@@ -235,6 +235,17 @@ impl<const N: usize> EvolutionaryModelInfo<N> for SubstitutionModelInfo<N> {
             leaf_models_valid: vec![false; leaf_count],
             leaf_sequence_info,
         })
+    }
+
+    fn reset(&mut self) {
+        self.internal_info.iter_mut().for_each(|x| x.fill(0.0));
+        self.internal_info_valid.fill(false);
+        self.internal_models.iter_mut().for_each(|x| x.fill(0.0));
+        self.internal_models_valid.fill(false);
+        self.leaf_info.iter_mut().for_each(|x| x.fill(0.0));
+        self.leaf_info_valid.fill(false);
+        self.leaf_models.iter_mut().for_each(|x| x.fill(0.0));
+        self.leaf_models_valid.fill(false);
     }
 }
 

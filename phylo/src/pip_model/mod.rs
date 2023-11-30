@@ -28,11 +28,6 @@ impl<const N: usize> PIPModel<N>
 where
     Const<N>: DimMin<Const<N>, Output = Const<N>>,
 {
-    fn normalise(&mut self) {
-        let factor = -(self.pi.transpose() * self.q.diagonal())[(0, 0)];
-        self.q /= factor;
-    }
-
     fn get_p(&self, time: f64) -> SubstMatrix {
         debug_assert!(time >= 0.0);
         (self.q.clone() * time).exp()
@@ -89,18 +84,14 @@ where
 
 // TODO: Make sure Q matrix makes sense like this ALL the time.
 impl EvolutionaryModel<4> for PIPModel<4> {
-    fn new(model_name: &str, model_params: &[f64], normalise: bool) -> Result<Self>
+    fn new(model_name: &str, model_params: &[f64]) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
         let (lambda, mu) = PIPModel::<4>::check_pip_params(model_params)?;
-        let subst_model = DNASubstModel::new(model_name, &model_params[2..], normalise)?;
+        let subst_model = DNASubstModel::new(model_name, &model_params[2..])?;
         let index = nucleotide_index();
         Ok(PIPModel::make_pip(index, subst_model, mu, lambda))
-    }
-
-    fn normalise(&mut self) {
-        self.normalise();
     }
 
     fn get_p(&self, time: f64) -> SubstMatrix {
@@ -129,18 +120,14 @@ impl EvolutionaryModel<4> for PIPModel<4> {
 }
 
 impl EvolutionaryModel<20> for PIPModel<20> {
-    fn new(model_name: &str, model_params: &[f64], normalise: bool) -> Result<Self>
+    fn new(model_name: &str, model_params: &[f64]) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
         let (lambda, mu) = PIPModel::<20>::check_pip_params(model_params)?;
-        let subst_model = ProteinSubstModel::new(model_name, &model_params[2..], normalise)?;
+        let subst_model = ProteinSubstModel::new(model_name, &model_params[2..])?;
         let index = aminoacid_index();
         Ok(PIPModel::make_pip(index, subst_model, mu, lambda))
-    }
-
-    fn normalise(&mut self) {
-        self.normalise();
     }
 
     fn get_p(&self, time: f64) -> SubstMatrix {
@@ -241,6 +228,21 @@ impl<const N: usize> EvolutionaryModelInfo<N> for PIPModelInfo<N> {
             models: vec![SubstMatrix::zeros(N + 1, N + 1); node_count],
             models_valid: vec![false; node_count],
         })
+    }
+
+    fn reset(&mut self) {
+        self.ins_probs.fill(0.0);
+        self.surv_probs.fill(0.0);
+        self.anc.iter_mut().for_each(|x| x.fill(0.0));
+        self.ftilde.iter_mut().for_each(|x| x.fill(0.0));
+        self.f.iter_mut().for_each(|x| x.fill(0.0));
+        self.p.iter_mut().for_each(|x| x.fill(0.0));
+        self.c0_ftilde.iter_mut().for_each(|x| x.fill(0.0));
+        self.c0_f.fill(0.0);
+        self.c0_p.fill(0.0);
+        self.valid.fill(false);
+        self.models.iter_mut().for_each(|x| x.fill(0.0));
+        self.models_valid.fill(false);
     }
 }
 
