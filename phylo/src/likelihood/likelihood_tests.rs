@@ -3,15 +3,11 @@ use rstest::*;
 use std::path::PathBuf;
 
 use approx::assert_relative_eq;
-use argmin::core::{
-    observers::{ObserverMode, SlogLogger},
-    Executor,
-};
-use argmin::solver::brent::BrentOpt;
+
 use bio::io::fasta::Record;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
-use crate::likelihood::{K80ModelAlphaOptimiser, LikelihoodCostFunction};
+use crate::likelihood::{K80ModelOptimiser, LikelihoodCostFunction};
 use crate::phylo_info::{
     phyloinfo_from_files, phyloinfo_from_sequences_newick, phyloinfo_from_sequences_tree, PhyloInfo,
 };
@@ -19,6 +15,7 @@ use crate::substitution_models::dna_models::{DNALikelihoodCost, DNASubstModel, D
 use crate::substitution_models::protein_models::{
     ProteinLikelihoodCost, ProteinSubstModel, ProteinSubstModelInfo,
 };
+use crate::substitution_models::{SubstMatrix, SubstitutionModelInfo};
 use crate::tree::{NodeIdx::Leaf as L, Tree};
 
 #[cfg(test)]
@@ -365,18 +362,25 @@ fn huelsenbeck_example_dna_reversibility_likelihood(
 
 #[test]
 fn check_likelihood_opt_k80() {
-    let info = setup_cb_example_phylo_info();
+    let info = phyloinfo_from_files(
+        PathBuf::from("./data/sim/K80/k80.fasta"),
+        PathBuf::from("./data/sim/tree.newick"),
+    )
+    .unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
-    let model = DNASubstModel::new("k80", &[], false).unwrap();
-    let cost: K80ModelAlphaOptimiser<'_> = K80ModelAlphaOptimiser {
-        likelihood_cost: likelihood,
-        base_model: model,
-    };
-    let solver = BrentOpt::new(0.0000000001, 10000.0);
-
-    let res = Executor::new(cost, solver)
-        .add_observer(SlogLogger::term(), ObserverMode::Always)
-        .run()
+    let model = DNASubstModel::new("k80", &[4.0, 1.0]).unwrap();
+    let mut tmp_info = SubstitutionModelInfo::new(likelihood.info, &model).unwrap();
+    let unopt_logl = likelihood.compute_log_likelihood(&model, &mut tmp_info);
+    let (_, _, logl) = K80ModelOptimiser::new(&likelihood, &model)
+        .optimise_parameters()
         .unwrap();
-    println!("Result of brent:\n{}", res);
+    assert!(logl > unopt_logl);
+    let likelihood = DNALikelihoodCost { info: &info };
+    let model = DNASubstModel::new("k80", &[1.884815, 1.0]).unwrap();
+    assert_relative_eq!(
+        logl,
+        likelihood.compute_log_likelihood(&model, &mut tmp_info),
+        epsilon = 1e-6
+    );
+    assert_relative_eq!(logl, -4034.5008033, epsilon = 1e-6);
 }

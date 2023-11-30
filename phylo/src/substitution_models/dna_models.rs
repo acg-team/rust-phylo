@@ -18,6 +18,11 @@ pub type DNASubstModel = SubstitutionModel<4>;
 pub type DNALikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 4>;
 pub type DNASubstModelInfo = SubstitutionModelInfo<4>;
 
+pub struct K80Params {
+    pub alpha: f64,
+    pub beta: f64,
+}
+
 struct GtrParams<'a> {
     pi: &'a FreqVector,
     rtc: f64,
@@ -33,6 +38,13 @@ struct TN93Params<'a> {
     a1: f64,
     a2: f64,
     b: f64,
+}
+
+impl DNASubstModel {
+    pub(crate) fn reset_k80_q(&mut self, params: &K80Params) {
+        self.q = k80_q(params);
+        self.params = vec![params.alpha, params.beta];
+    }
 }
 
 impl EvolutionaryModel<4> for DNASubstModel {
@@ -136,7 +148,9 @@ impl<'a> LikelihoodCostFunction<'a, 4> for DNALikelihoodCost<'a> {
     type Info = SubstitutionModelInfo<4>;
 
     fn compute_log_likelihood(&self, model: &Self::Model, tmp_info: &mut Self::Info) -> f64 {
-        self.compute_log_likelihood(model, tmp_info)
+        let logl = self.compute_log_likelihood(model, tmp_info);
+        tmp_info.reset();
+        logl
     }
 }
 
