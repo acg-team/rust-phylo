@@ -7,7 +7,7 @@ use bio::io::fasta::Record;
 use nalgebra::{dvector, Const, DMatrix, DVector, DimMin};
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
-use crate::phylo_info::{phyloinfo_from_files, phyloinfo_from_sequences_newick, PhyloInfo};
+use crate::phylo_info::{phyloinfo_from_files, phyloinfo_from_sequences_tree, PhyloInfo};
 use crate::pip_model::{PIPLikelihoodCost, PIPModel, PIPModelInfo};
 use crate::sequences::{charify, AMINOACIDS_STR, NUCLEOTIDES_STR};
 use crate::substitution_models::{
@@ -16,12 +16,21 @@ use crate::substitution_models::{
     substitution_models_tests::{gtr_char_probs_data, protein_char_probs_data},
     FreqVector, SubstMatrix, SubstitutionModel,
 };
+use crate::tree::{tree_parser, Tree};
 
 const UNNORMALIZED_PIP_HKY_Q: [f64; 25] = [
     -0.9, 0.11, 0.22, 0.22, 0.0, 0.13, -0.88, 0.26, 0.26, 0.0, 0.33, 0.33, -0.825, 0.165, 0.0,
     0.19, 0.19, 0.095, -0.895, 0.0, 0.25, 0.25, 0.25, 0.25, -0.0,
 ];
 const PIP_HKY_PARAMS: [f64; 7] = [0.5, 0.25, 0.22, 0.26, 0.33, 0.19, 0.5];
+
+#[cfg(test)]
+fn tree_newick(newick: &str) -> Tree {
+    tree_parser::from_newick_string(newick)
+        .unwrap()
+        .pop()
+        .unwrap()
+}
 
 #[cfg(test)]
 fn compare_pip_subst_rates<const N: usize>(
@@ -344,7 +353,8 @@ fn setup_example_phylo_info() -> PhyloInfo {
         Record::with_attrs("C", None, b"-A-G"),
         Record::with_attrs("D", None, b"-CAA"),
     ];
-    phyloinfo_from_sequences_newick(&sequences, "((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;").unwrap()
+    phyloinfo_from_sequences_tree(&sequences, tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"))
+        .unwrap()
 }
 
 #[test]
@@ -666,7 +676,8 @@ fn setup_example_phylo_info_2() -> PhyloInfo {
         Record::with_attrs("C", None, b"--A-G"),
         Record::with_attrs("D", None, b"T-CAA"),
     ];
-    phyloinfo_from_sequences_newick(&sequences, "((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;").unwrap()
+    phyloinfo_from_sequences_tree(&sequences, tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"))
+        .unwrap()
 }
 
 #[test]

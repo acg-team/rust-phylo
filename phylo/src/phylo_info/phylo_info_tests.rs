@@ -1,16 +1,24 @@
 use std::{fmt::Debug, fmt::Display, path::PathBuf};
 
+use approx::assert_relative_eq;
 use assert_matches::assert_matches;
 use bio::io::fasta::Record;
 
 use crate::io::DataError;
 use crate::phylo_info::{
-    get_msa_if_aligned, phyloinfo_from_files, phyloinfo_from_sequences_newick,
-    phyloinfo_from_sequences_tree, PhyloInfo,
+    get_msa_if_aligned, phyloinfo_from_files, phyloinfo_from_sequences_tree, PhyloInfo,
 };
-use crate::tree::tree_parser::ParsingError;
+use crate::tree::tree_parser::{self, ParsingError};
 use crate::tree::NodeIdx::{Internal as I, Leaf as L};
 use crate::tree::Tree;
+
+#[cfg(test)]
+fn tree_newick(newick: &str) -> Tree {
+    tree_parser::from_newick_string(newick)
+        .unwrap()
+        .pop()
+        .unwrap()
+}
 
 #[test]
 fn setup_info_correct() {
@@ -21,6 +29,14 @@ fn setup_info_correct() {
     .unwrap();
     assert_eq!(res_info.tree.leaves.len(), 4);
     assert_eq!(res_info.sequences.len(), 4);
+    for (i, node) in res_info.tree.leaves.iter().enumerate() {
+        assert!(res_info.sequences[i].id() == node.id);
+    }
+    for rec in res_info.sequences.iter() {
+        assert!(!rec.seq().is_empty());
+        assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
+    }
+    assert_eq!(res_info.msa, None);
 }
 
 #[test]
@@ -163,26 +179,41 @@ fn check_phyloinfo_creation_newick_msa() {
         Record::with_attrs("B", None, b"ATATATATAA"),
         Record::with_attrs("C", None, b"TTATATATAT"),
     ];
-    let info = phyloinfo_from_sequences_newick(&sequences, "((A:2.0,B:2.0):1.0,C:2.0):0.0;");
+    let info =
+        phyloinfo_from_sequences_tree(&sequences, tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"));
     assert!(info.is_ok());
     assert!(info.unwrap().msa.is_some());
 }
 
 #[test]
-fn check_phyloinfo_creation_newick_no_msa() {
+fn check_phyloinfo_creation_tree_no_msa() {
     let sequences = vec![
         Record::with_attrs("A", None, b"CTATATAAC"),
         Record::with_attrs("B", None, b"ATATATATAA"),
         Record::with_attrs("C", None, b"TTATATATAT"),
     ];
-    let info = phyloinfo_from_sequences_newick(&sequences, "((A:2.0,B:2.0):1.0,C:2.0):0.0;");
-    assert!(info.is_ok());
-    assert!(info.unwrap().msa.is_none());
+    let info =
+        phyloinfo_from_sequences_tree(&sequences, tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"));
+    let res_info = info.unwrap();
+    assert!(res_info.msa.is_none());
+    for (i, node) in res_info.tree.leaves.iter().enumerate() {
+        assert!(res_info.sequences[i].id() == node.id);
+    }
+    for rec in res_info.sequences.iter() {
+        assert!(!rec.seq().is_empty());
+        assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
+    }
 }
 
 #[test]
-fn check_phyloinfo_creation_newick_no_seqs() {
-    let info = phyloinfo_from_sequences_newick(&[], "((A:2.0,B:2.0):1.0,C:2.0):0.0;");
+fn check_phyloinfo_creation_tree_no_seqs() {
+    let info = phyloinfo_from_sequences_tree(
+        &[],
+        tree_parser::from_newick_string("((A:2.0,B:2.0):1.0,C:2.0):0.0;")
+            .unwrap()
+            .pop()
+            .unwrap(),
+    );
     assert!(info.is_err());
 }
 
@@ -193,7 +224,13 @@ fn check_phyloinfo_creation_newick_mismatch_ids() {
         Record::with_attrs("E", None, b"ATATATATAA"),
         Record::with_attrs("F", None, b"TTATATATAT"),
     ];
-    let info = phyloinfo_from_sequences_newick(&sequences, "((A:2.0,B:2.0):1.0,C:2.0):0.0;");
+    let info = phyloinfo_from_sequences_tree(
+        &sequences,
+        tree_parser::from_newick_string("((A:2.0,B:2.0):1.0,C:2.0):0.0;")
+            .unwrap()
+            .pop()
+            .unwrap(),
+    );
     assert!(info.is_err());
 }
 
@@ -226,8 +263,15 @@ fn check_phyloinfo_creation_tree_correct_no_msa() {
         ],
         make_test_tree(),
     );
-    assert!(info.is_ok());
-    assert!(info.unwrap().msa.is_none());
+    let res_info = info.unwrap();
+    assert!(res_info.msa.is_none());
+    for (i, node) in res_info.tree.leaves.iter().enumerate() {
+        assert!(res_info.sequences[i].id() == node.id);
+    }
+    for rec in res_info.sequences.iter() {
+        assert!(!rec.seq().is_empty());
+        assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
+    }
 }
 
 #[test]

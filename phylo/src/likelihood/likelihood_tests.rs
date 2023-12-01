@@ -8,9 +8,7 @@ use bio::io::fasta::Record;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
-use crate::phylo_info::{
-    phyloinfo_from_files, phyloinfo_from_sequences_newick, phyloinfo_from_sequences_tree, PhyloInfo,
-};
+use crate::phylo_info::{phyloinfo_from_files, phyloinfo_from_sequences_tree, PhyloInfo};
 use crate::substitution_models::dna_models::{
     DNALikelihoodCost, DNASubstModel, DNASubstModelInfo, K80ModelOptimiser,
 };
@@ -18,7 +16,15 @@ use crate::substitution_models::protein_models::{
     ProteinLikelihoodCost, ProteinSubstModel, ProteinSubstModelInfo,
 };
 use crate::substitution_models::{SubstMatrix, SubstitutionModelInfo};
-use crate::tree::{NodeIdx::Leaf as L, Tree};
+use crate::tree::{tree_parser, NodeIdx::Leaf as L, Tree};
+
+#[cfg(test)]
+fn tree_newick(newick: &str) -> Tree {
+    tree_parser::from_newick_string(newick)
+        .unwrap()
+        .pop()
+        .unwrap()
+}
 
 #[cfg(test)]
 fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
@@ -99,7 +105,6 @@ fn dna_likelihood_one_node() {
 
 #[cfg(test)]
 fn setup_cb_example_phylo_info() -> PhyloInfo {
-    use crate::tree::tree_parser;
     let sequences = vec![
         Record::with_attrs("one", None, b"C"),
         Record::with_attrs("two", None, b"A"),
@@ -107,11 +112,7 @@ fn setup_cb_example_phylo_info() -> PhyloInfo {
         Record::with_attrs("four", None, b"G"),
     ];
     let newick = "((one:2,two:2):1,(three:1,four:1):2);".to_string();
-    let tree = tree_parser::from_newick_string(&newick)
-        .unwrap()
-        .pop()
-        .unwrap();
-    phyloinfo_from_sequences_tree(&sequences, tree).unwrap()
+    phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick)).unwrap()
 }
 
 #[test]
@@ -155,7 +156,6 @@ fn dna_cb_example_likelihood() {
 
 #[cfg(test)]
 fn setup_mol_evo_example_phylo_info() -> PhyloInfo {
-    use crate::tree::tree_parser;
     let sequences = vec![
         Record::with_attrs("one", None, b"T"),
         Record::with_attrs("two", None, b"C"),
@@ -164,11 +164,7 @@ fn setup_mol_evo_example_phylo_info() -> PhyloInfo {
         Record::with_attrs("five", None, b"C"),
     ];
     let newick = "(((one:0.2,two:0.2):0.1,three:0.2):0.1,(four:0.2,five:0.2):0.1);".to_string();
-    let tree = tree_parser::from_newick_string(&newick)
-        .unwrap()
-        .pop()
-        .unwrap();
-    phyloinfo_from_sequences_tree(&sequences, tree).unwrap()
+    phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick)).unwrap()
 }
 
 #[test]
@@ -278,10 +274,12 @@ fn setup_simple_reversibility() -> Vec<PhyloInfo> {
         Record::with_attrs("C", None, b"TTATATATAT"),
     ];
     res.push(
-        phyloinfo_from_sequences_newick(&sequences, "((A:2.0,B:2.0):1.0,C:2.0):0.0;").unwrap(),
+        phyloinfo_from_sequences_tree(&sequences, tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"))
+            .unwrap(),
     );
     res.push(
-        phyloinfo_from_sequences_newick(&sequences, "(A:1.0,(B:2.0,C:3.0):1.0):0.0;").unwrap(),
+        phyloinfo_from_sequences_tree(&sequences, tree_newick("(A:1.0,(B:2.0,C:3.0):1.0):0.0;"))
+            .unwrap(),
     );
     res
 }
