@@ -8,6 +8,7 @@ use crate::io::DataError;
 use crate::phylo_info::{
     get_msa_if_aligned, phyloinfo_from_files, phyloinfo_from_sequences_tree, PhyloInfo,
 };
+use crate::sequences::dna_alphabet;
 use crate::tree::tree_parser::{self, ParsingError};
 use crate::tree::NodeIdx::{Internal as I, Leaf as L};
 use crate::tree::Tree;
@@ -303,7 +304,19 @@ fn check_phyloinfo_creation_tree_mismatch_ids() {
 }
 
 #[test]
-fn check_phyloinfo_creation_tree_no_seqs() {
-    let info = phyloinfo_from_sequences_tree(&[], make_test_tree());
-    assert!(info.is_err());
+fn check_empirical_frequencies() {
+    let info = phyloinfo_from_sequences_tree(
+        &vec![
+            Record::with_attrs("A", None, b"AAAAAAA"),
+            Record::with_attrs("B", None, b"CCCCCCC"),
+            Record::with_attrs("C", None, b"GGGGGGG"),
+            Record::with_attrs("D", None, b"TTTTTTT"),
+        ],
+        make_test_tree(),
+    )
+    .unwrap();
+    let freqs = info.get_empirical_frequencies(&dna_alphabet());
+    assert_relative_eq!(freqs.clone().into_values().sum::<f64>(), 1.0);
+    assert_relative_eq!(freqs.get(&b'A').unwrap(), &0.25);
+    assert_relative_eq!(freqs.get(&b'-').unwrap(), &0.0);
 }

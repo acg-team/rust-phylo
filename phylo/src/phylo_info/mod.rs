@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use anyhow::bail;
+use bio::alphabets::Alphabet;
 use bio::io::fasta::Record;
 use log::{info, warn};
 
@@ -29,6 +30,64 @@ fn make_sequences_uppercase(sequences: &[Record]) -> Vec<Record> {
         .iter()
         .map(|rec| Record::with_attrs(rec.id(), rec.desc(), &rec.seq().to_ascii_uppercase()))
         .collect()
+}
+
+impl PhyloInfo {
+    /// Returns the empirical frequencies of the symbols in the sequences.
+    /// The frequencies are calculated from the unaligned sequences.
+    ///
+    /// # Arguments
+    /// * `alphabet` - Alphabet of the sequences.
+    ///
+    /// # Example
+    /// ```
+    /// # use bio::io::fasta::Record;
+    /// # use phylo::tree::Tree;
+    /// # fn make_test_data() -> (Vec<Record>, String) {
+    /// #   use phylo::tree::NodeIdx::{Internal as I, Leaf as L};
+    ///    let sequences = vec![
+    ///        Record::with_attrs("A", None, b"AAAAA"),
+    ///        Record::with_attrs("B", None, b"CCCCC"),
+    ///        Record::with_attrs("C", None, b"GGGGG"),
+    ///        Record::with_attrs("D", None, b"TTTTT"),
+    ///    ];
+    /// #   (sequences, "(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);".to_string())
+    /// # }
+    /// use phylo::phylo_info::phyloinfo_from_sequences_newick;
+    /// use phylo::sequences::dna_alphabet;
+    /// let (sequences, newick) = make_test_data();
+    /// let info = phyloinfo_from_sequences_newick(&sequences, &newick).unwrap();
+    /// let freqs = info.get_empirical_frequencies(&dna_alphabet());
+    /// assert_eq!(freqs[&b'A'], 0.25);
+    /// assert_eq!(freqs[&b'C'], 0.25);
+    /// assert_eq!(freqs[&b'G'], 0.25);
+    /// assert_eq!(freqs[&b'T'], 0.25);
+    /// assert_eq!(freqs.clone().into_values().sum::<f64>(), 1.0);
+    /// ```
+    pub fn get_empirical_frequencies(&self, alphabet: &Alphabet) -> HashMap<u8, f64> {
+        let total = self
+            .sequences
+            .iter()
+            .map(|rec| rec.seq().len())
+            .sum::<usize>() as f64;
+        let mut freqs = HashMap::new();
+        for char in alphabet
+            .symbols
+            .iter()
+            .map(|x| x as u8)
+            .collect::<Vec<u8>>()
+        {
+            freqs.insert(
+                char,
+                self.sequences
+                    .iter()
+                    .map(|rec| rec.seq().iter().filter(|&c| c == &char).count())
+                    .sum::<usize>() as f64
+                    / total,
+            );
+        }
+        freqs
+    }
 }
 
 /// Creates a PhyloInfo struct from a vector of fasta records and a tree.
