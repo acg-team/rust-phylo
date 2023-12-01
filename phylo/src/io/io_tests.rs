@@ -1,9 +1,12 @@
-use crate::io::{read_sequences_from_file, write_sequences_to_file};
-use bio::io::fasta;
-use rstest::*;
+use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
+
+use bio::io::fasta;
+use rstest::*;
 use tempfile::tempdir;
+
+use crate::io::{read_sequences_from_file, write_sequences_to_file};
 
 #[test]
 fn reading_correct_fasta() {
@@ -64,5 +67,17 @@ fn test_write_sequences_to_file_bad_path() {
         .path()
         .join("nonexistent_folder")
         .join("output.fasta");
+    assert!(write_sequences_to_file(&sequences, output_path).is_err());
+}
+
+#[test]
+fn test_write_sequences_to_existing_file() {
+    let sequences = vec![
+        fasta::Record::with_attrs("seq1", None, b"ATGC"),
+        fasta::Record::with_attrs("seq2", None, b"CGTA"),
+    ];
+    let temp_dir = tempdir().unwrap();
+    let output_path = temp_dir.path().join("output.fasta");
+    File::create(&output_path).unwrap();
     assert!(write_sequences_to_file(&sequences, output_path).is_err());
 }

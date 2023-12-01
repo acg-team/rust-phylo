@@ -70,6 +70,9 @@ pub fn read_sequences_from_file(path: PathBuf) -> Result<Vec<Record>> {
 /// * `sequences` - Vector of fasta records.
 /// * `path` - Path to the fasta file.
 ///
+/// # TODO:
+/// * Allow overwriting files if requested.
+///
 /// # Example
 /// ```
 /// use std::path::PathBuf;
@@ -101,6 +104,11 @@ pub fn read_sequences_from_file(path: PathBuf) -> Result<Vec<Record>> {
 /// ```
 pub fn write_sequences_to_file(sequences: &[Record], path: PathBuf) -> Result<()> {
     info!("Writing sequences/MSA to file {}.", path.display());
+    if path.exists() {
+        bail!(DataError {
+            message: String::from("File already exists")
+        });
+    }
     let mut writer = Writer::to_file(path)?;
     for rec in sequences {
         writer.write_record(rec)?;
@@ -114,6 +122,9 @@ pub fn write_sequences_to_file(sequences: &[Record], path: PathBuf) -> Result<()
 ///
 /// # Arguments
 /// * `path` - Path to the newick file.
+///
+/// # TODO:
+/// * Add support for unrooted trees.
 ///
 /// # Example
 /// ```
