@@ -1,11 +1,13 @@
-use crate::io::{self, DataError};
-use crate::tree::{tree_parser, Tree};
-use crate::Result;
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
+
 use anyhow::bail;
 use bio::io::fasta::Record;
 use log::{info, warn};
-use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+
+use crate::io::{self, DataError};
+use crate::tree::{tree_parser, Tree};
+use crate::Result;
 
 #[derive(Debug)]
 pub struct PhyloInfo {
@@ -14,9 +16,18 @@ pub struct PhyloInfo {
     pub tree: Tree,
 }
 
+fn make_sequences_uppercase(sequences: &[Record]) -> Vec<Record> {
+    sequences
+        .iter()
+        .map(|rec| Record::with_attrs(rec.id(), rec.desc(), &rec.seq().to_ascii_uppercase()))
+        .collect()
+}
+
+impl PhyloInfo {
 pub fn phyloinfo_from_sequences_tree(sequences: &[Record], tree: Tree) -> Result<PhyloInfo> {
     let mut sequences = sequences.to_vec();
     check_sequences_not_empty(&sequences)?;
+    sequences = make_sequences_uppercase(&sequences);
 
     validate_tree_sequence_ids(&tree, &sequences)?;
     sort_sequences_by_leaf_ids(&tree, &mut sequences);
@@ -35,6 +46,7 @@ pub fn phyloinfo_from_sequences_newick(
 ) -> Result<PhyloInfo> {
     let mut sequences = sequences.to_vec();
     check_sequences_not_empty(&sequences)?;
+    sequences = make_sequences_uppercase(&sequences);
     let mut trees = tree_parser::from_newick_string(newick_string)?;
     info!("{} tree(s) parsed successfully", trees.len());
 
@@ -56,6 +68,7 @@ pub fn phyloinfo_from_files(sequence_file: PathBuf, tree_file: PathBuf) -> Resul
     let mut sequences = io::read_sequences_from_file(sequence_file)?;
     info!("{} sequence(s) read successfully", sequences.len());
     check_sequences_not_empty(&sequences)?;
+    sequences = make_sequences_uppercase(&sequences);
 
     info!("Reading trees from file {}", tree_file.display());
     let mut trees = io::read_newick_from_file(tree_file)?;
