@@ -9,13 +9,21 @@ use crate::io::{self, DataError};
 use crate::tree::{tree_parser, Tree};
 use crate::Result;
 
+/// The PhyloInfo struct contains all the information needed to run a phylogenetic analysis.
+///
+/// # TODO:
+/// * Add getters/setters for the fields, make the fields private.
 #[derive(Debug)]
 pub struct PhyloInfo {
+    /// Unaligned phylogenetic sequences.
     pub sequences: Vec<Record>,
+    /// Multiple sequence alignment of the sequences, if they are aligned.
     pub msa: Option<Vec<Record>>,
+    /// Phylogenetic tree.
     pub tree: Tree,
 }
 
+/// Converts the given sequences to uppercase and returns a new vector.
 fn make_sequences_uppercase(sequences: &[Record]) -> Vec<Record> {
     sequences
         .iter()
@@ -24,6 +32,104 @@ fn make_sequences_uppercase(sequences: &[Record]) -> Vec<Record> {
 }
 
 impl PhyloInfo {
+    /// Returns the empirical frequencies of the symbols in the sequences.
+    /// The frequencies are calculated from the unaligned sequences.
+    ///
+    /// # Arguments
+    /// * `alphabet` - Alphabet of the sequences.
+    ///
+    /// # Example
+    /// ```
+    /// # use bio::io::fasta::Record;
+    /// # use phylo::tree::Tree;
+    /// # fn make_test_data() -> (Vec<Record>, String) {
+    /// #   use phylo::tree::NodeIdx::{Internal as I, Leaf as L};
+    ///    let sequences = vec![
+    ///        Record::with_attrs("A", None, b"AAAAA"),
+    ///        Record::with_attrs("B", None, b"CCCCC"),
+    ///        Record::with_attrs("C", None, b"GGGGG"),
+    ///        Record::with_attrs("D", None, b"TTTTT"),
+    ///    ];
+    /// #   (sequences, "(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);".to_string())
+    /// # }
+    /// use phylo::phylo_info::phyloinfo_from_sequences_newick;
+    /// use phylo::sequences::dna_alphabet;
+    /// let (sequences, newick) = make_test_data();
+    /// let info = phyloinfo_from_sequences_newick(&sequences, &newick).unwrap();
+    /// let freqs = info.get_empirical_frequencies(&dna_alphabet());
+    /// assert_eq!(freqs[&b'A'], 0.25);
+    /// assert_eq!(freqs[&b'C'], 0.25);
+    /// assert_eq!(freqs[&b'G'], 0.25);
+    /// assert_eq!(freqs[&b'T'], 0.25);
+    /// assert_eq!(freqs.clone().into_values().sum::<f64>(), 1.0);
+    /// ```
+    pub fn get_empirical_frequencies(&self, alphabet: &Alphabet) -> HashMap<u8, f64> {
+        let total = self
+            .sequences
+            .iter()
+            .map(|rec| rec.seq().len())
+            .sum::<usize>() as f64;
+        let mut freqs = HashMap::new();
+        for char in alphabet
+            .symbols
+            .iter()
+            .map(|x| x as u8)
+            .collect::<Vec<u8>>()
+        {
+            freqs.insert(
+                char,
+                self.sequences
+                    .iter()
+                    .map(|rec| rec.seq().iter().filter(|&c| c == &char).count())
+                    .sum::<usize>() as f64
+                    / total,
+            );
+        }
+        freqs
+    }
+}
+
+/// Creates a PhyloInfo struct from a vector of fasta records and a tree.
+/// The sequences might not be aligned, but the ids of the tree leaves and provided sequences must match.
+/// In the output the sequences are sorted by the leaf ids and converted to uppercase.
+///
+/// # Arguments
+/// * `sequences` - Vector of fasta records.
+/// * `tree` - Phylogenetic tree.
+///
+/// # Example
+/// ```
+/// # use bio::io::fasta::Record;
+/// # use phylo::tree::Tree;
+/// # fn make_test_data() -> (Vec<Record>, Tree) {
+/// #   use phylo::tree::NodeIdx::{Internal as I, Leaf as L};
+/// #   let sequences = vec![
+/// #       Record::with_attrs("A", None, b"aaaa"),
+/// #       Record::with_attrs("B", None, b"cccc"),
+/// #       Record::with_attrs("C", None, b"gg"),
+/// #       Record::with_attrs("D", None, b"TTTTTTT"),
+/// #   ];
+/// #   let mut tree = Tree::new(&sequences).unwrap();
+/// #   tree.add_parent(0, L(0), L(1), 2.0, 2.0);
+/// #   tree.add_parent(1, I(0), L(2), 1.0, 2.0);
+/// #   tree.add_parent(2, I(1), L(3), 1.0, 2.0);
+/// #   tree.complete = true;
+/// #   tree.create_postorder();
+/// #   tree.create_preorder();
+/// #   (sequences, tree)
+/// # }
+/// use phylo::phylo_info::phyloinfo_from_sequences_tree;
+/// let (sequences, tree) = make_test_data();
+/// let info = phyloinfo_from_sequences_tree(&sequences, tree).unwrap();
+/// assert!(info.msa.is_none());
+/// for (i, node) in info.tree.leaves.iter().enumerate() {
+///     assert!(info.sequences[i].id() == node.id);
+/// }
+/// for rec in info.sequences.iter() {
+///     assert!(!rec.seq().is_empty());
+///     assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
+/// }
+/// ```
 pub fn phyloinfo_from_sequences_tree(sequences: &[Record], tree: Tree) -> Result<PhyloInfo> {
     let mut sequences = sequences.to_vec();
     check_sequences_not_empty(&sequences)?;
@@ -40,6 +146,40 @@ pub fn phyloinfo_from_sequences_tree(sequences: &[Record], tree: Tree) -> Result
     })
 }
 
+/// Creates a PhyloInfo struct from a vector of fasta records and a newick string.
+/// The sequences might not be aligned, but the ids of the tree leaves and provided sequences must match.
+/// In the output the sequences are sorted by the leaf ids and converted to uppercase.
+///
+/// # Arguments
+/// * `sequences` - Vector of fasta records.
+/// * `newick_string` - Newick string.
+///
+/// # Example
+/// ```
+/// # use bio::io::fasta::Record;
+/// # use phylo::tree::Tree;
+/// # fn make_test_data() -> (Vec<Record>, String) {
+/// #   use phylo::tree::NodeIdx::{Internal as I, Leaf as L};
+/// #   let sequences = vec![
+/// #       Record::with_attrs("A", None, b"aaaa"),
+/// #       Record::with_attrs("B", None, b"cccc"),
+/// #       Record::with_attrs("C", None, b"gg"),
+/// #       Record::with_attrs("D", None, b"TTTTTTT"),
+/// #   ];
+/// #   (sequences, "(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);".to_string())
+/// # }
+/// use phylo::phylo_info::phyloinfo_from_sequences_newick;
+/// let (sequences, newick) = make_test_data();
+/// let info = phyloinfo_from_sequences_newick(&sequences, &newick).unwrap();
+/// assert!(info.msa.is_none());
+/// for (i, node) in info.tree.leaves.iter().enumerate() {
+///     assert!(info.sequences[i].id() == node.id);
+/// }
+/// for rec in info.sequences.iter() {
+///     assert!(!rec.seq().is_empty());
+///     assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
+/// }
+/// ```
 pub fn phyloinfo_from_sequences_newick(
     sequences: &[Record],
     newick_string: &str,
@@ -63,6 +203,31 @@ pub fn phyloinfo_from_sequences_newick(
     })
 }
 
+/// Creates a PhyloInfo struct from a two given files, one containing the sequences in fasta format and
+/// one containing the tree in newick format.
+/// The sequences might not be aligned, but the ids of the tree leaves and provided sequences must match.
+/// In the output the sequences are sorted by the leaf ids and converted to uppercase.
+///
+/// # Arguments
+/// * `sequence_file` - File path to the sequence fasta file.
+/// * `tree_file` - File path to the tree newick file.
+///
+/// # Example
+/// ```
+/// use std::path::PathBuf;
+/// use phylo::phylo_info::phyloinfo_from_files;
+/// let info = phyloinfo_from_files(
+///     PathBuf::from("./data/sequences_DNA_small.fasta"),
+///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick")).unwrap();
+/// assert!(info.msa.is_some());
+/// for (i, node) in info.tree.leaves.iter().enumerate() {
+///     assert!(info.sequences[i].id() == node.id);
+/// }
+/// for rec in info.sequences.iter() {
+///     assert!(!rec.seq().is_empty());
+///     assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
+/// }
+/// ```
 pub fn phyloinfo_from_files(sequence_file: PathBuf, tree_file: PathBuf) -> Result<PhyloInfo> {
     info!("Reading sequences from file {}", sequence_file.display());
     let mut sequences = io::read_sequences_from_file(sequence_file)?;
@@ -88,6 +253,11 @@ pub fn phyloinfo_from_files(sequence_file: PathBuf, tree_file: PathBuf) -> Resul
     })
 }
 
+/// Returns a vector of records representing the MSA if all the sequences are of the same length.
+/// Otherwise returns None.
+///
+/// # Arguments
+/// * `sequences` - Vector of fasta records.
 fn get_msa_if_aligned(sequences: &[Record]) -> Option<Vec<Record>> {
     let sequence_length = sequences[0].seq().len();
     if sequences
@@ -102,6 +272,7 @@ fn get_msa_if_aligned(sequences: &[Record]) -> Option<Vec<Record>> {
     }
 }
 
+/// Checks that there are sequences in the vector, bails with an error otherwise.
 fn check_sequences_not_empty(sequences: &Vec<Record>) -> Result<()> {
     if sequences.is_empty() {
         bail!(DataError {
@@ -111,6 +282,7 @@ fn check_sequences_not_empty(sequences: &Vec<Record>) -> Result<()> {
     Ok(())
 }
 
+/// Sorts sequences in the vector to match the order of the leaves in the tree.
 fn sort_sequences_by_leaf_ids(tree: &Tree, sequences: &mut [Record]) {
     let id_index: HashMap<&str, usize> = tree
         .leaves
@@ -126,6 +298,7 @@ fn sort_sequences_by_leaf_ids(tree: &Tree, sequences: &mut [Record]) {
     });
 }
 
+/// Checks that the ids of the tree leaves and the sequences match, bails with an error otherwise.
 fn validate_tree_sequence_ids(tree: &Tree, sequences: &[Record]) -> Result<()> {
     let tip_ids: HashSet<String> = HashSet::from_iter(tree.get_leaf_ids());
     let sequence_ids: HashSet<String> =
@@ -140,6 +313,8 @@ fn validate_tree_sequence_ids(tree: &Tree, sequences: &[Record]) -> Result<()> {
     Ok(())
 }
 
+/// Checks that there is at least one tree in the vector, bails with an error otherwise.
+/// Prints a warning if there is more than one tree because only the first tree will be processed.
 fn check_tree_number(trees: &Vec<Tree>) -> Result<()> {
     if trees.is_empty() {
         bail!(DataError {
