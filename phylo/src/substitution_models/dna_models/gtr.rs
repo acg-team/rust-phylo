@@ -36,9 +36,6 @@ pub fn gtr(model_params: &[f64]) -> Result<DNASubstModel> {
         model_params[2],
         model_params[3],
     ])?;
-    if pi.sum() != 1.0 {
-        bail!("The equilibrium frequencies provided do not sum up to 1.");
-    }
     let gtr_params = &GtrParams {
         pi: &pi,
         rtc: model_params[4],
