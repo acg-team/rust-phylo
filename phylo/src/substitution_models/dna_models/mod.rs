@@ -6,7 +6,7 @@ use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
-use crate::sequences::{charify, NUCLEOTIDES_STR};
+use crate::sequences::{charify, dna_alphabet, AMBIG, NUCLEOTIDES_STR};
 use crate::substitution_models::{
     FreqVector, ParsimonyModel, SubstMatrix, SubstitutionLikelihoodCost, SubstitutionModel,
     SubstitutionModelInfo,
@@ -134,6 +134,34 @@ impl<'a> LikelihoodCostFunction<'a, 4> for DNALikelihoodCost<'a> {
         let logl = self.compute_log_likelihood(model, tmp_info);
         tmp_info.reset();
         logl
+    }
+
+    fn get_empirical_frequencies(&self) -> FreqVector {
+        let all_counts = self.info.get_empirical_frequencies(&dna_alphabet());
+        let index = nucleotide_index();
+        let dna_ambiguous_chars = dna_ambiguous_chars();
+        let mut freqs = FreqVector::zeros(4);
+        for (&char, &count) in all_counts.iter() {
+            if index[char as usize] >= 0 {
+                freqs[index[char as usize] as usize] += count;
+            } else {
+                let charset = match dna_ambiguous_chars.get(&char) {
+                    Some(set) => set,
+                    None => {
+                        warn!(
+                            "Unknown character {} encountered, treating it as ambiguous.",
+                            char
+                        );
+                        dna_ambiguous_chars.get(&AMBIG).unwrap()
+                    }
+                };
+                let num = charset.len() as f64;
+                for &char in charset {
+                    freqs[index[char as usize] as usize] += count / num;
+                }
+            }
+        }
+        freqs
     }
 }
 

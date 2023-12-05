@@ -253,6 +253,10 @@ impl<'a> LikelihoodCostFunction<'a, 4> for PIPLikelihoodCost<'a, 4> {
     fn compute_log_likelihood(&self, model: &Self::Model, tmp_info: &mut Self::Info) -> f64 {
         self.compute_log_likelihood(model, tmp_info)
     }
+
+    fn get_empirical_frequencies(&self) -> FreqVector {
+        todo!()
+    }
 }
 
 fn log_factorial(n: usize) -> f64 {

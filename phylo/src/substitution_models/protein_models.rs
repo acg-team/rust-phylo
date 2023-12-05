@@ -128,6 +128,10 @@ impl<'a> LikelihoodCostFunction<'a, 20> for SubstitutionLikelihoodCost<'a, 20> {
     fn compute_log_likelihood(&self, model: &Self::Model, tmp_info: &mut Self::Info) -> f64 {
         self.compute_log_likelihood(model, tmp_info)
     }
+
+    fn get_empirical_frequencies(&self) -> FreqVector {
+        todo!()
+    }
 }
 
 pub fn aminoacid_index() -> [i32; 255] {
