@@ -54,7 +54,7 @@ impl PhyloInfo {
     /// ];
     /// let tree = from_newick_string("(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);").unwrap().pop().unwrap();
     /// let info = phyloinfo_from_sequences_tree(&sequences, tree).unwrap();
-    /// let freqs = info.get_counts(&dna_alphabet());
+    /// let freqs = info.get_empirical_frequencies(&dna_alphabet());
     /// assert_eq!(freqs[&b'A'], 0.25);
     /// assert_eq!(freqs[&b'C'], 0.25);
     /// assert_eq!(freqs[&b'G'], 0.25);
