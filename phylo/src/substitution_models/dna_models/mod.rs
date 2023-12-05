@@ -1,7 +1,8 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::bail;
 use log::warn;
+use map_macro::{hash_map, hash_set};
 use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
@@ -27,6 +28,35 @@ pub use hky::*;
 pub use jc69::*;
 pub use k80::*;
 pub use tn93::*;
+
+fn dna_ambiguous_chars() -> HashMap<u8, HashSet<u8>> {
+    hash_map! {
+        b'V' => hash_set! {b'C', b'A', b'G'},
+        b'v' => hash_set! {b'C', b'A', b'G'},
+        b'D' => hash_set! {b'T', b'A', b'G'},
+        b'd' => hash_set! {b'T', b'A', b'G'},
+        b'B' => hash_set! {b'T', b'C', b'G'},
+        b'b' => hash_set! {b'T', b'C', b'G'},
+        b'H' => hash_set! {b'T', b'C' ,b'A'},
+        b'h' => hash_set! {b'T', b'C', b'A'},
+        b'M' => hash_set! {b'A', b'C'},
+        b'm' => hash_set! {b'A', b'C'},
+        b'R' => hash_set! {b'A', b'G'},
+        b'r' => hash_set! {b'A', b'G'},
+        b'W' => hash_set! {b'A', b'T'},
+        b'w' => hash_set! {b'A', b'T'},
+        b'S' => hash_set! {b'C', b'G'},
+        b's' => hash_set! {b'C', b'G'},
+        b'Y' => hash_set! {b'C', b'T'},
+        b'y' => hash_set! {b'C', b'T'},
+        b'K' => hash_set! {b'G', b'T'},
+        b'k' => hash_set! {b'G', b'T'},
+        b'X' => hash_set! {b'A', b'C', b'G', b'T'},
+        b'x' => hash_set! {b'A', b'C', b'G', b'T'},
+        b'N' => hash_set! {b'A', b'C', b'G', b'T'},
+        b'n' => hash_set! {b'A', b'C', b'G', b'T'},
+    }
+}
 
 fn make_dna_model(params: Vec<f64>, q: SubstMatrix, pi: FreqVector) -> DNASubstModel {
     DNASubstModel {
@@ -65,49 +95,31 @@ impl EvolutionaryModel<4> for DNASubstModel {
     }
 
     fn get_char_probability(&self, char: u8) -> FreqVector {
-        let mut vec = FreqVector::zeros(4);
+        let mut probs = FreqVector::zeros(4);
+        let dna_ambiguous_chars = dna_ambiguous_chars();
+        let dna_char_set: HashSet<u8> =
+            HashSet::from_iter(NUCLEOTIDES_STR.as_bytes().iter().cloned());
         if NUCLEOTIDES_STR.contains(char as char) {
-            vec[self.index[char as usize] as usize] = 1.0;
+            probs[self.index[char as usize] as usize] = 1.0;
         } else {
-            vec = FreqVector::from_column_slice(self.get_stationary_distribution().as_slice());
-            match char {
-                b'V' => vec[self.index[b'T' as usize] as usize] = 0.0,
-                b'D' => vec[self.index[b'C' as usize] as usize] = 0.0,
-                b'B' => vec[self.index[b'A' as usize] as usize] = 0.0,
-                b'H' => vec[self.index[b'G' as usize] as usize] = 0.0,
-                b'M' => {
-                    vec[self.index[b'T' as usize] as usize] = 0.0;
-                    vec[self.index[b'G' as usize] as usize] = 0.0
+            probs = FreqVector::from_column_slice(self.get_stationary_distribution().as_slice());
+            let other = dna_ambiguous_chars.get(&char);
+            match other {
+                Some(other) => {
+                    let difference = dna_char_set.difference(other);
+                    for &char in difference {
+                        probs[self.index[char as usize] as usize] = 0.0;
+                    }
                 }
-                b'R' => {
-                    vec[self.index[b'T' as usize] as usize] = 0.0;
-                    vec[self.index[b'C' as usize] as usize] = 0.0
-                }
-                b'W' => {
-                    vec[self.index[b'G' as usize] as usize] = 0.0;
-                    vec[self.index[b'C' as usize] as usize] = 0.0
-                }
-                b'S' => {
-                    vec[self.index[b'T' as usize] as usize] = 0.0;
-                    vec[self.index[b'A' as usize] as usize] = 0.0
-                }
-                b'Y' => {
-                    vec[self.index[b'A' as usize] as usize] = 0.0;
-                    vec[self.index[b'G' as usize] as usize] = 0.0
-                }
-                b'K' => {
-                    vec[self.index[b'C' as usize] as usize] = 0.0;
-                    vec[self.index[b'A' as usize] as usize] = 0.0
-                }
-                _ => {
+                None => {
                     warn!("Unknown character {} encountered, treating it as X.", char);
-                    vec =
+                    probs =
                         FreqVector::from_column_slice(self.get_stationary_distribution().as_slice())
                 }
-            };
+            }
         }
-        vec.scale_mut(1.0 / vec.sum());
-        vec
+        probs.scale_mut(1.0 / probs.sum());
+        probs
     }
 }
 

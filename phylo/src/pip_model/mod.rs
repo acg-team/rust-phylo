@@ -7,6 +7,7 @@ use nalgebra::{Const, DMatrix, DVector, DimMin};
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
+use crate::sequences::GAP;
 use crate::substitution_models::dna_models::nucleotide_index;
 use crate::substitution_models::protein_models::{aminoacid_index, ProteinSubstModel};
 use crate::substitution_models::FreqVector;
@@ -107,10 +108,8 @@ impl EvolutionaryModel<4> for PIPModel<4> {
     }
 
     fn get_char_probability(&self, char: u8) -> FreqVector {
-        if char == b'-' {
-            let mut probs = FreqVector::from_column_slice(&[0.0; 5]);
-            probs[4] = 1.0;
-            probs
+        if char == GAP {
+            FreqVector::from_column_slice(&[0.0, 0.0, 0.0, 0.0, 1.0])
         } else {
             self.subst_model
                 .get_char_probability(char)
@@ -143,10 +142,8 @@ impl EvolutionaryModel<20> for PIPModel<20> {
     }
 
     fn get_char_probability(&self, char: u8) -> FreqVector {
-        if char == b'-' {
-            let mut probs = FreqVector::from_column_slice(&[0.0; 21]);
-            probs[20] = 1.0;
-            probs
+        if char == GAP {
+            FreqVector::from_column_slice(&[vec![0.0; 20], vec![1.0]].concat())
         } else {
             self.subst_model
                 .get_char_probability(char)
