@@ -8,12 +8,14 @@ use log::info;
 use nalgebra::{max, DMatrix};
 use rand::random;
 
+use crate::tree::{
+    nj_matrices::{Mat, NJMat},
+    NodeIdx::{Internal as Int, Leaf},
+};
 use crate::{Result, Rounding};
-use nj_matrices::{Mat, NJMat};
-use NodeIdx::{Internal as Int, Leaf};
 
 mod nj_matrices;
-pub(crate) mod tree_parser;
+pub mod tree_parser;
 
 #[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Eq, Ord, Hash)]
 pub enum NodeIdx {
