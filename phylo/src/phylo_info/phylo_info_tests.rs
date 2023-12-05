@@ -1,6 +1,5 @@
 use std::{fmt::Debug, fmt::Display, path::PathBuf};
 
-use approx::assert_relative_eq;
 use assert_matches::assert_matches;
 use bio::io::fasta::Record;
 
@@ -307,16 +306,19 @@ fn check_phyloinfo_creation_tree_mismatch_ids() {
 fn check_empirical_frequencies() {
     let info = phyloinfo_from_sequences_tree(
         &vec![
-            Record::with_attrs("A", None, b"AAAAAAA"),
-            Record::with_attrs("B", None, b"CCCCCCC"),
-            Record::with_attrs("C", None, b"GGGGGGG"),
-            Record::with_attrs("D", None, b"TTTTTTT"),
+            Record::with_attrs("A", None, b"AAAACCC"),
+            Record::with_attrs("B", None, b"TTTCC"),
+            Record::with_attrs("C", None, b"GGG"),
+            Record::with_attrs("D", None, b"TTAAA"),
         ],
         make_test_tree(),
     )
     .unwrap();
-    let freqs = info.get_empirical_frequencies(&dna_alphabet());
-    assert_relative_eq!(freqs.clone().into_values().sum::<f64>(), 1.0);
-    assert_relative_eq!(freqs.get(&b'A').unwrap(), &0.25);
-    assert_relative_eq!(freqs.get(&b'-').unwrap(), &0.0);
+    let counts = info.get_empirical_frequencies(&dna_alphabet());
+    assert_eq!(counts.clone().into_values().sum::<f64>(), 1.0);
+    assert_eq!(counts[&b'A'], 7.0 / 20.0);
+    assert_eq!(counts[&b'C'], 5.0 / 20.0);
+    assert_eq!(counts[&b'G'], 3.0 / 20.0);
+    assert_eq!(counts[&b'T'], 5.0 / 20.0);
+    assert_eq!(counts[&b'-'], 0.0);
 }

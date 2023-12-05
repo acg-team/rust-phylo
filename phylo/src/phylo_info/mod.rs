@@ -43,21 +43,18 @@ impl PhyloInfo {
     /// ```
     /// # use bio::io::fasta::Record;
     /// # use phylo::tree::Tree;
-    /// # fn make_test_data() -> (Vec<Record>, String) {
-    /// #   use phylo::tree::NodeIdx::{Internal as I, Leaf as L};
-    ///    let sequences = vec![
-    ///        Record::with_attrs("A", None, b"AAAAA"),
-    ///        Record::with_attrs("B", None, b"CCCCC"),
-    ///        Record::with_attrs("C", None, b"GGGGG"),
-    ///        Record::with_attrs("D", None, b"TTTTT"),
-    ///    ];
-    /// #   (sequences, "(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);".to_string())
-    /// # }
-    /// use phylo::phylo_info::phyloinfo_from_sequences_newick;
+    /// use phylo::phylo_info::phyloinfo_from_sequences_tree;
     /// use phylo::sequences::dna_alphabet;
-    /// let (sequences, newick) = make_test_data();
-    /// let info = phyloinfo_from_sequences_newick(&sequences, &newick).unwrap();
-    /// let freqs = info.get_empirical_frequencies(&dna_alphabet());
+    /// use phylo::tree::tree_parser::from_newick_string;
+    /// let sequences = vec![
+    ///     Record::with_attrs("A", None, b"AAAAA"),
+    ///     Record::with_attrs("B", None, b"CCCCC"),
+    ///     Record::with_attrs("C", None, b"GGGGG"),
+    ///     Record::with_attrs("D", None, b"TTTTT"),
+    /// ];
+    /// let tree = from_newick_string("(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);").unwrap().pop().unwrap();
+    /// let info = phyloinfo_from_sequences_tree(&sequences, tree).unwrap();
+    /// let freqs = info.get_counts(&dna_alphabet());
     /// assert_eq!(freqs[&b'A'], 0.25);
     /// assert_eq!(freqs[&b'C'], 0.25);
     /// assert_eq!(freqs[&b'G'], 0.25);
@@ -65,12 +62,12 @@ impl PhyloInfo {
     /// assert_eq!(freqs.clone().into_values().sum::<f64>(), 1.0);
     /// ```
     pub fn get_empirical_frequencies(&self, alphabet: &Alphabet) -> HashMap<u8, f64> {
+        let mut freqs = HashMap::new();
         let total = self
             .sequences
             .iter()
             .map(|rec| rec.seq().len())
             .sum::<usize>() as f64;
-        let mut freqs = HashMap::new();
         for char in alphabet
             .symbols
             .iter()
