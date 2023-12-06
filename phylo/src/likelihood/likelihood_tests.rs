@@ -465,16 +465,18 @@ fn empirical_frequencies_ambig() {
         FreqVector::from_column_slice(&[0.25, 0.25, 0.25, 0.25]),
         epsilon = 1e-6
     );
-    let sequences = vec![
-        Record::with_attrs("A", None, b"BBBBBBBBB"),
-        Record::with_attrs("B", None, b""),
-    ];
+}
+
+#[test]
+fn empirical_frequencies_no_aas() {
+    let sequences = vec![Record::with_attrs("A", None, b"BBBBBBBBB")];
+    let newick = "A:1.0;".to_string();
     let info = phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick)).unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
     let freqs = likelihood.get_empirical_frequencies();
     assert_relative_eq!(
         freqs,
-        FreqVector::from_column_slice(&[1.0 / 3.0, 1.0 / 3.0, 0.0, 1.0 / 3.0]),
+        FreqVector::from_column_slice(&[3.0 / 10.0, 3.0 / 10.0, 1.0 / 10.0, 3.0 / 10.0]),
         epsilon = 1e-6
     );
 }

@@ -156,7 +156,8 @@ impl<'a> LikelihoodCostFunction<'a, 4> for DNALikelihoodCost<'a> {
     }
 
     fn get_empirical_frequencies(&self) -> FreqVector {
-        let all_counts = self.info.get_empirical_frequencies(&dna_alphabet());
+        let all_counts = self.info.get_counts(&dna_alphabet());
+        let mut total = all_counts.values().sum::<f64>();
         let index = nucleotide_index();
         let dna_ambiguous_chars = dna_ambiguous_chars();
         let mut freqs = FreqVector::zeros(4);
@@ -180,7 +181,13 @@ impl<'a> LikelihoodCostFunction<'a, 4> for DNALikelihoodCost<'a> {
                 }
             }
         }
-        freqs
+        for &char in NUCLEOTIDES_STR.as_bytes() {
+            if freqs[index[char as usize] as usize] == 0.0 {
+                freqs[index[char as usize] as usize] += 1.0;
+                total += 1.0;
+            }
+        }
+        freqs.map(|x| x / total)
     }
 }
 

@@ -54,20 +54,15 @@ impl PhyloInfo {
     /// ];
     /// let tree = from_newick_string("(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);").unwrap().pop().unwrap();
     /// let info = phyloinfo_from_sequences_tree(&sequences, tree).unwrap();
-    /// let freqs = info.get_empirical_frequencies(&dna_alphabet());
-    /// assert_eq!(freqs[&b'A'], 0.25);
-    /// assert_eq!(freqs[&b'C'], 0.25);
-    /// assert_eq!(freqs[&b'G'], 0.25);
-    /// assert_eq!(freqs[&b'T'], 0.25);
-    /// assert_eq!(freqs.clone().into_values().sum::<f64>(), 1.0);
+    /// let freqs = info.get_counts(&dna_alphabet());
+    /// assert_eq!(freqs[&b'A'], 5.0);
+    /// assert_eq!(freqs[&b'C'], 5.0);
+    /// assert_eq!(freqs[&b'G'], 5.0);
+    /// assert_eq!(freqs[&b'T'], 5.0);
+    /// assert_eq!(freqs.clone().into_values().sum::<f64>(), 20.0);
     /// ```
-    pub fn get_empirical_frequencies(&self, alphabet: &Alphabet) -> HashMap<u8, f64> {
+    pub fn get_counts(&self, alphabet: &Alphabet) -> HashMap<u8, f64> {
         let mut freqs = HashMap::new();
-        let total = self
-            .sequences
-            .iter()
-            .map(|rec| rec.seq().len())
-            .sum::<usize>() as f64;
         for char in alphabet
             .symbols
             .iter()
@@ -79,8 +74,7 @@ impl PhyloInfo {
                 self.sequences
                     .iter()
                     .map(|rec| rec.seq().iter().filter(|&c| c == &char).count())
-                    .sum::<usize>() as f64
-                    / total,
+                    .sum::<usize>() as f64,
             );
         }
         freqs

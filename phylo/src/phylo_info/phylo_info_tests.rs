@@ -314,11 +314,11 @@ fn check_empirical_frequencies() {
         make_test_tree(),
     )
     .unwrap();
-    let counts = info.get_empirical_frequencies(&dna_alphabet());
-    assert_eq!(counts.clone().into_values().sum::<f64>(), 1.0);
-    assert_eq!(counts[&b'A'], 7.0 / 20.0);
-    assert_eq!(counts[&b'C'], 5.0 / 20.0);
-    assert_eq!(counts[&b'G'], 3.0 / 20.0);
-    assert_eq!(counts[&b'T'], 5.0 / 20.0);
+    let counts = info.get_counts(&dna_alphabet());
+    assert_eq!(counts.clone().into_values().sum::<f64>(), 20.0);
+    assert_eq!(counts[&b'A'], 7.0);
+    assert_eq!(counts[&b'C'], 5.0);
+    assert_eq!(counts[&b'G'], 3.0);
+    assert_eq!(counts[&b'T'], 5.0);
     assert_eq!(counts[&b'-'], 0.0);
 }
