@@ -1,4 +1,3 @@
-use rand::Rng;
 use rstest::*;
 
 use std::collections::HashMap;
@@ -7,16 +6,19 @@ use std::ops::Mul;
 
 use approx::assert_relative_eq;
 use nalgebra::dvector;
+use rand::Rng;
 
 use crate::evolutionary_models::EvolutionaryModel;
 use crate::sequences::AMINOACIDS_STR;
-use crate::substitution_models::ParsimonyModel;
 use crate::substitution_models::{
-    dna_models::DNASubstModel,
+    dna_models::{
+        parse_gtr_parameters, parse_hky_parameters, parse_jc69_parameters, parse_k80_parameters,
+        parse_tn93_parameters, DNASubstModel,
+    },
     protein_models::{
         ProteinSubstArray, ProteinSubstModel, BLOSUM_PI_ARR, HIVB_PI_ARR, WAG_PI_ARR,
     },
-    FreqVector, SubstMatrix,
+    FreqVector, ParsimonyModel, SubstMatrix,
 };
 use crate::{assert_float_relative_slice_eq, Rounding as R};
 
@@ -107,6 +109,13 @@ fn dna_jc69_correct() {
 }
 
 #[test]
+fn dna_j69_params() {
+    let params = parse_jc69_parameters(&[0.1, 0.4, 0.75, 1.5]).unwrap();
+    assert_relative_eq!(params.pi, dvector![0.25, 0.25, 0.25, 0.25]);
+    assert_eq!(params.print_as_jc69(), format!("[lambda = {}]", 1.0));
+}
+
+#[test]
 fn dna_k80_correct() {
     let k80 = DNASubstModel::new("k80", &Vec::new()).unwrap();
     let k801 = DNASubstModel::new("k80", &[2.0]).unwrap();
@@ -126,12 +135,22 @@ fn dna_k80_correct() {
 }
 
 #[test]
+fn dna_k80_params() {
+    let params = parse_k80_parameters(&[0.75, 1.5]).unwrap();
+    assert_relative_eq!(params.pi, dvector![0.25, 0.25, 0.25, 0.25]);
+    assert_eq!(
+        params.print_as_k80(),
+        format!("[alpha = {}, beta = {}]", 0.75, 1.5)
+    );
+}
+
+#[test]
 fn dna_hky_incorrect() {
     let hky = DNASubstModel::new("hky", &[2.0, 1.0, 3.0, 6.0]);
     assert!(hky.is_err());
     let hky = DNASubstModel::new("hky", &[2.0, 1.0, 3.0, 6.0, 0.5]);
     assert!(hky.is_err());
-    let hky = DNASubstModel::new("hky", &[0.22, 0.26, 0.33, 0.19, 0.5, 0.6, 0.7]);
+    let hky = DNASubstModel::new("hky", &[2.0, 1.0, 3.0, 6.0, 0.5, 1.0]);
     assert!(hky.is_err());
 }
 
@@ -142,14 +161,34 @@ fn dna_hky_correct() {
         EvolutionaryModel::get_stationary_distribution(&hky),
         &dvector![0.22, 0.26, 0.33, 0.19]
     );
-    let hky_2 = DNASubstModel::new("hky", &[0.22, 0.26, 0.33, 0.19, 0.5]).unwrap();
+    let hky2 = DNASubstModel::new("hky", &[0.22, 0.26, 0.33, 0.19, 0.5, 1.0]).unwrap();
     assert_relative_eq!(
-        hky_2
-            .q
+        EvolutionaryModel::get_stationary_distribution(&hky2),
+        &dvector![0.22, 0.26, 0.33, 0.19]
+    );
+    assert_eq!(hky, hky2);
+    let hky3 = DNASubstModel::new("hky", &[0.22, 0.26, 0.33, 0.19]).unwrap();
+    let hky4 = DNASubstModel::new("hky", &[0.22, 0.26, 0.33, 0.19, 2.0, 1.0]).unwrap();
+    assert_relative_eq!(
+        hky3.q
             .diagonal()
             .component_mul(&dvector![0.22, 0.26, 0.33, 0.19])
             .sum(),
         -1.0
+    );
+    assert_eq!(hky3, hky4);
+}
+
+#[test]
+fn dna_hky_params() {
+    let params = parse_hky_parameters(&[0.22, 0.26, 0.33, 0.19, 0.75, 1.5]).unwrap();
+    assert_relative_eq!(params.pi, dvector![0.22, 0.26, 0.33, 0.19]);
+    assert_eq!(
+        params.print_as_hky(),
+        format!(
+            "[pi = [{}, {}, {}, {}], alpha = {}, beta = {}]",
+            0.22, 0.26, 0.33, 0.19, 0.75, 1.5
+        )
     );
 }
 
@@ -212,6 +251,20 @@ fn dna_gtr_incorrect() {
             .collect::<Vec<f64>>(),
     );
     assert!(gtr.is_err());
+}
+
+#[test]
+fn dna_gtr_params() {
+    let params =
+        parse_gtr_parameters(&[0.22, 0.26, 0.33, 0.19, 0.75, 1.5, 3.0, 1.25, 0.45, 0.1]).unwrap();
+    assert_relative_eq!(params.pi, dvector![0.22, 0.26, 0.33, 0.19]);
+    assert_eq!(
+        params.print_as_gtr(),
+        format!(
+            "[pi = [{}, {}, {}, {}], rtc = {}, rta = {}, rtg = {}, rca = {}, rcg = {}, rag = {}]",
+            0.22, 0.26, 0.33, 0.19, 0.75, 1.5, 3.0, 1.25, 0.45, 0.1
+        )
+    );
 }
 
 #[test]
@@ -284,6 +337,19 @@ fn dna_tn93_incorrect() {
         ],
     );
     assert!(tn93.is_err());
+}
+
+#[test]
+fn dna_tn93_params() {
+    let params = parse_tn93_parameters(&[0.22, 0.26, 0.33, 0.19, 0.75, 1.5, 3.0]).unwrap();
+    assert_relative_eq!(params.pi, dvector![0.22, 0.26, 0.33, 0.19]);
+    assert_eq!(
+        params.print_as_tn93(),
+        format!(
+            "[pi = [{}, {}, {}, {}], alpha1 = {}, alpha2 = {}, beta = {}]",
+            0.22, 0.26, 0.33, 0.19, 0.75, 1.5, 3.0
+        )
+    );
 }
 
 #[test]

@@ -1,24 +1,22 @@
 use std::ops::Div;
 
 use anyhow::bail;
+use log::info;
 
 use crate::substitution_models::{
-    dna_models::{make_dna_model, make_pi, DNASubstModel, FreqVector},
+    dna_models::{make_dna_model, make_pi, DNASubstModel, DNASubstParams},
     SubstMatrix,
 };
 use crate::Result;
 
-struct GtrParams<'a> {
-    pi: &'a FreqVector,
-    rtc: f64,
-    rta: f64,
-    rtg: f64,
-    rca: f64,
-    rcg: f64,
-    rag: f64,
+pub fn gtr(model_params: &[f64]) -> Result<DNASubstModel> {
+    let gtr_params = parse_gtr_parameters(model_params)?;
+    info!("Setting up gtr with rates: {}", gtr_params.print_as_gtr());
+    let q = gtr_q(&gtr_params);
+    Ok(make_dna_model(gtr_params, q))
 }
 
-pub fn gtr(model_params: &[f64]) -> Result<DNASubstModel> {
+pub fn parse_gtr_parameters(model_params: &[f64]) -> Result<DNASubstParams> {
     if model_params.len() != 10 {
         bail!(
             "{} parameters for the GTR model, expected 10, got {}",
@@ -36,8 +34,8 @@ pub fn gtr(model_params: &[f64]) -> Result<DNASubstModel> {
         model_params[2],
         model_params[3],
     ])?;
-    let gtr_params = &GtrParams {
-        pi: &pi,
+    let gtr_params = DNASubstParams {
+        pi,
         rtc: model_params[4],
         rta: model_params[5],
         rtg: model_params[6],
@@ -46,14 +44,10 @@ pub fn gtr(model_params: &[f64]) -> Result<DNASubstModel> {
         rag: model_params[9],
     };
 
-    Ok(make_dna_model(
-        model_params[0..10].to_vec(),
-        gtr_q(gtr_params),
-        pi,
-    ))
+    Ok(gtr_params)
 }
 
-fn gtr_q(gtr: &GtrParams) -> SubstMatrix {
+fn gtr_q(gtr: &DNASubstParams) -> SubstMatrix {
     let ft = gtr.pi[0];
     let fc = gtr.pi[1];
     let fa = gtr.pi[2];

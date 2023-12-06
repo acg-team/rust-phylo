@@ -4,19 +4,24 @@ use argmin::core::{CostFunction, Executor};
 use argmin::solver::brent::BrentOpt;
 use log::{info, warn};
 
-use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
+use crate::evolutionary_models::EvolutionaryModelInfo;
 use crate::substitution_models::{
-    dna_models::{make_dna_model, DNASubstModel},
+    dna_models::{dna_substitution_parameters::DNASubstParams, make_dna_model, DNASubstModel},
     FreqVector, SubstMatrix, SubstitutionLikelihoodCost, SubstitutionModelInfo,
 };
 use crate::Result;
 
-pub struct K80Params {
-    pub alpha: f64,
-    pub beta: f64,
+pub fn k80(model_params: &[f64]) -> Result<DNASubstModel> {
+    let k80_params = parse_k80_parameters(model_params)?;
+    info!(
+        "Setting up k80 with parameters: {}",
+        k80_params.print_as_k80()
+    );
+    let q = k80_q(&k80_params);
+    Ok(make_dna_model(k80_params, q))
 }
 
-pub fn k80(model_params: &[f64]) -> Result<DNASubstModel> {
+pub fn parse_k80_parameters(model_params: &[f64]) -> Result<DNASubstParams> {
     let (alpha, beta) = if model_params.is_empty() {
         warn!("Too few values provided for K80, required 1 or 2 values, kappa or alpha and beta.");
         warn!("Falling back to default values.");
@@ -30,45 +35,54 @@ pub fn k80(model_params: &[f64]) -> Result<DNASubstModel> {
         warn!("Will only use the first two values provided.");
         (model_params[0], model_params[1])
     };
-    info!("Setting up k80 with alpha = {}, beta = {}", alpha, beta);
-    Ok(make_dna_model(
-        vec![alpha, beta],
-        k80_q(&K80Params { alpha, beta }),
-        FreqVector::from_column_slice(&[0.25; 4]),
-    ))
+    Ok(k80_params(alpha, beta))
 }
 
-pub fn k80_q(p: &K80Params) -> SubstMatrix {
-    let total = p.alpha + 2.0 * p.beta;
+fn k80_params(alpha: f64, beta: f64) -> DNASubstParams {
+    DNASubstParams {
+        pi: FreqVector::from_column_slice(&[0.25; 4]),
+        rtc: alpha,
+        rta: beta,
+        rtg: beta,
+        rca: beta,
+        rcg: beta,
+        rag: alpha,
+    }
+}
+
+pub fn k80_q(p: &DNASubstParams) -> SubstMatrix {
+    let alpha = p.rtc;
+    let beta = p.rta;
+    let total = alpha + 2.0 * beta;
     SubstMatrix::from_column_slice(
         4,
         4,
         &[
-            -(p.alpha + 2.0 * p.beta),
-            p.alpha,
-            p.beta,
-            p.beta,
-            p.alpha,
-            -(p.alpha + 2.0 * p.beta),
-            p.beta,
-            p.beta,
-            p.beta,
-            p.beta,
-            -(p.alpha + 2.0 * p.beta),
-            p.alpha,
-            p.beta,
-            p.beta,
-            p.alpha,
-            -(p.alpha + 2.0 * p.beta),
+            -(alpha + 2.0 * beta),
+            alpha,
+            beta,
+            beta,
+            alpha,
+            -(alpha + 2.0 * beta),
+            beta,
+            beta,
+            beta,
+            beta,
+            -(alpha + 2.0 * beta),
+            alpha,
+            beta,
+            beta,
+            alpha,
+            -(alpha + 2.0 * beta),
         ],
     )
     .div(total)
 }
 
 impl DNASubstModel {
-    pub(crate) fn reset_k80_q(&mut self, params: &K80Params) {
+    pub(crate) fn reset_k80_q(&mut self, params: &DNASubstParams) {
+        self.params = ((*params).clone()).into();
         self.q = k80_q(params);
-        self.params = vec![params.alpha, params.beta];
     }
 }
 
@@ -98,14 +112,14 @@ impl<'a> K80ModelOptimiser<'a> {
         }
     }
 
-    pub fn optimise_parameters(&self) -> Result<(u32, K80Params, f64)> {
+    pub fn optimise_parameters(&self) -> Result<(u32, DNASubstParams, f64)> {
         let epsilon = 1e-10;
         let alpha = self.base_model.params[0];
         let beta = self.base_model.params[1];
-        let mut model = DNASubstModel::new("k80", &[alpha, beta])?;
+        let mut model = k80(&[alpha, beta])?;
         let mut logl = f64::NEG_INFINITY;
         let mut new_logl = 0.0;
-        let mut k80_params = K80Params { alpha, beta };
+        let mut k80_params = k80_params(alpha, beta);
         let mut iters = 0;
         while (logl - new_logl).abs() > epsilon {
             logl = new_logl;
@@ -116,25 +130,39 @@ impl<'a> K80ModelOptimiser<'a> {
         Ok((iters, k80_params, -logl))
     }
 
-    fn optimise_alpha(&self, model: &mut DNASubstModel, k80_params: &mut K80Params) -> Result<f64> {
+    fn optimise_alpha(
+        &self,
+        model: &mut DNASubstModel,
+        k80_params: &mut DNASubstParams,
+    ) -> Result<f64> {
         model.reset_k80_q(k80_params);
         let alpha_optimiser = K80ModelAlphaOptimiser {
             likelihood_cost: self.likelihood_cost,
             base_model: model,
         };
         let res = Executor::new(alpha_optimiser, subst_param_brent()).run()?;
-        k80_params.alpha = res.state().best_param.unwrap();
+        let alpha = res.state().best_param.unwrap();
+        k80_params.rtc = alpha;
+        k80_params.rag = alpha;
         Ok(res.state().best_cost)
     }
 
-    fn optimise_beta(&self, model: &mut DNASubstModel, k80_params: &mut K80Params) -> Result<f64> {
+    fn optimise_beta(
+        &self,
+        model: &mut DNASubstModel,
+        k80_params: &mut DNASubstParams,
+    ) -> Result<f64> {
         model.reset_k80_q(k80_params);
         let beta_optimiser = K80ModelBetaOptimiser {
             likelihood_cost: self.likelihood_cost,
             base_model: model,
         };
         let res = Executor::new(beta_optimiser, subst_param_brent()).run()?;
-        k80_params.beta = res.state().best_param.unwrap();
+        let beta = res.state().best_param.unwrap();
+        k80_params.rta = beta;
+        k80_params.rtg = beta;
+        k80_params.rca = beta;
+        k80_params.rcg = beta;
         Ok(res.state().best_cost)
     }
 }
@@ -146,31 +174,35 @@ fn subst_param_brent() -> BrentOpt<f64> {
 impl CostFunction for K80ModelAlphaOptimiser<'_> {
     type Param = f64;
     type Output = f64;
+
     fn cost(&self, param: &Self::Param) -> Result<Self::Output> {
         let mut model = self.base_model.clone();
-        model.reset_k80_q(&K80Params {
-            alpha: *param,
-            beta: self.base_model.params[1],
-        });
+        model.reset_k80_q(&k80_params(*param, self.base_model.params[1]));
         let mut tmp_info = SubstitutionModelInfo::new(self.likelihood_cost.info, &model)?;
         Ok(-self
             .likelihood_cost
             .compute_log_likelihood(&model, &mut tmp_info))
+    }
+
+    fn parallelize(&self) -> bool {
+        true
     }
 }
 
 impl CostFunction for K80ModelBetaOptimiser<'_> {
     type Param = f64;
     type Output = f64;
+
     fn cost(&self, param: &Self::Param) -> Result<Self::Output> {
         let mut model = self.base_model.clone();
-        model.reset_k80_q(&K80Params {
-            alpha: self.base_model.params[0],
-            beta: *param,
-        });
+        model.reset_k80_q(&k80_params(self.base_model.params[0], *param));
         let mut tmp_info = SubstitutionModelInfo::new(self.likelihood_cost.info, &model)?;
         Ok(-self
             .likelihood_cost
             .compute_log_likelihood(&model, &mut tmp_info))
+    }
+
+    fn parallelize(&self) -> bool {
+        true
     }
 }

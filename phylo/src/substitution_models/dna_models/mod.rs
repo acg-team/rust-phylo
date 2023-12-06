@@ -18,6 +18,9 @@ pub type DNASubstModel = SubstitutionModel<4>;
 pub type DNALikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 4>;
 pub type DNASubstModelInfo = SubstitutionModelInfo<4>;
 
+mod dna_substitution_parameters;
+pub(crate) use dna_substitution_parameters::*;
+
 mod gtr;
 mod hky;
 mod jc69;
@@ -58,9 +61,13 @@ fn dna_ambiguous_chars() -> HashMap<u8, HashSet<u8>> {
     }
 }
 
-fn make_dna_model(params: Vec<f64>, q: SubstMatrix, pi: FreqVector) -> DNASubstModel {
+fn make_dna_model(
+    params: dna_substitution_parameters::DNASubstParams,
+    q: SubstMatrix,
+) -> DNASubstModel {
+    let pi = params.pi.clone();
     DNASubstModel {
-        params,
+        params: params.into(),
         index: nucleotide_index(),
         q,
         pi,

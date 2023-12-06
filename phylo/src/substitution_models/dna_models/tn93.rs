@@ -4,19 +4,25 @@ use anyhow::bail;
 use log::info;
 
 use crate::substitution_models::{
-    dna_models::{make_dna_model, make_pi, DNASubstModel, FreqVector},
+    dna_models::{
+        dna_substitution_parameters::DNASubstParams, make_dna_model, make_pi, DNASubstModel,
+        FreqVector,
+    },
     SubstMatrix,
 };
 use crate::Result;
 
-pub(crate) struct TN93Params<'a> {
-    pub(crate) pi: &'a FreqVector,
-    pub(crate) a1: f64,
-    pub(crate) a2: f64,
-    pub(crate) b: f64,
+pub fn tn93(model_params: &[f64]) -> Result<DNASubstModel> {
+    let tn93_params = parse_tn93_parameters(model_params)?;
+    info!(
+        "Setting up tn93 with parameters {}",
+        tn93_params.print_as_tn93()
+    );
+    let q = tn93_q(&tn93_params);
+    Ok(make_dna_model(tn93_params, q))
 }
 
-pub fn tn93(model_params: &[f64]) -> Result<DNASubstModel> {
+pub fn parse_tn93_parameters(model_params: &[f64]) -> Result<DNASubstParams> {
     if model_params.len() != 7 {
         bail!(
             "{} parameters for the tn93 model, expected 7, got {}",
@@ -28,53 +34,62 @@ pub fn tn93(model_params: &[f64]) -> Result<DNASubstModel> {
             model_params.len()
         );
     }
-    let pi = make_pi(&model_params[0..4])?;
-    let tn93_params = &TN93Params {
-        pi: &pi,
-        a1: model_params[4],
-        a2: model_params[5],
-        b: model_params[6],
-    };
-    info!(
-        "Setting up tn93 with alpha1 = {}, alpha2 = {}, beta = {}",
-        tn93_params.a1, tn93_params.a2, tn93_params.b
-    );
-    Ok(make_dna_model(
-        model_params[0..7].to_vec(),
-        tn93_q(tn93_params),
-        pi,
-    ))
+    let pi = make_pi(&[
+        model_params[0],
+        model_params[1],
+        model_params[2],
+        model_params[3],
+    ])?;
+    let alpha1 = model_params[4];
+    let alpha2 = model_params[5];
+    let beta = model_params[6];
+    Ok(tn93_params(pi, alpha1, alpha2, beta))
 }
 
-pub(crate) fn tn93_q(p: &TN93Params) -> SubstMatrix {
+fn tn93_params(pi: FreqVector, alpha1: f64, alpha2: f64, beta: f64) -> DNASubstParams {
+    DNASubstParams {
+        pi,
+        rtc: alpha1,
+        rta: beta,
+        rtg: beta,
+        rca: beta,
+        rcg: beta,
+        rag: alpha2,
+    }
+}
+
+pub(crate) fn tn93_q(p: &DNASubstParams) -> SubstMatrix {
     let ft = p.pi[0];
     let fc = p.pi[1];
     let fa = p.pi[2];
     let fg = p.pi[3];
-    let total = (p.a1 * fc + p.b * (fa + fg)) * ft
-        + (p.a1 * ft + p.b * (fa + fg)) * fc
-        + (p.b * (ft + fc) + p.a2 * fg) * fa
-        + (p.b * (ft + fc) + p.a2 * fa) * fg;
+    let alpha1 = p.rtc;
+    let alpha2 = p.rag;
+    let beta = p.rta;
+    let total = (alpha1 * fc + beta * (fa + fg)) * ft
+        + (alpha1 * ft + beta * (fa + fg)) * fc
+        + (beta * (ft + fc) + alpha2 * fg) * fa
+        + (beta * (ft + fc) + alpha2 * fa) * fg;
     SubstMatrix::from_row_slice(
         4,
         4,
         &[
-            -(p.a1 * fc + p.b * (fa + fg)),
-            p.a1 * fc,
-            p.b * fa,
-            p.b * fg,
-            p.a1 * ft,
-            -(p.a1 * ft + p.b * (fa + fg)),
-            p.b * fa,
-            p.b * fg,
-            p.b * ft,
-            p.b * fc,
-            -(p.b * (ft + fc) + p.a2 * fg),
-            p.a2 * fg,
-            p.b * ft,
-            p.b * fc,
-            p.a2 * fa,
-            -(p.b * (ft + fc) + p.a2 * fa),
+            -(alpha1 * fc + beta * (fa + fg)),
+            alpha1 * fc,
+            beta * fa,
+            beta * fg,
+            alpha1 * ft,
+            -(alpha1 * ft + beta * (fa + fg)),
+            beta * fa,
+            beta * fg,
+            beta * ft,
+            beta * fc,
+            -(beta * (ft + fc) + alpha2 * fg),
+            alpha2 * fg,
+            beta * ft,
+            beta * fc,
+            alpha2 * fa,
+            -(beta * (ft + fc) + alpha2 * fa),
         ],
     )
     .div(total)
