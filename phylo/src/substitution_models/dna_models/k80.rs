@@ -1,24 +1,25 @@
 use std::ops::Div;
 
+use anyhow::bail;
 use argmin::core::{CostFunction, Executor};
 use argmin::solver::brent::BrentOpt;
 use log::{info, warn};
 
 use crate::evolutionary_models::EvolutionaryModelInfo;
+use crate::substitution_models::SubstParams;
 use crate::substitution_models::{
     dna_models::{dna_substitution_parameters::DNASubstParams, make_dna_model, DNASubstModel},
     FreqVector, SubstMatrix, SubstitutionLikelihoodCost, SubstitutionModelInfo,
 };
 use crate::Result;
 
-pub fn k80(model_params: &[f64]) -> Result<DNASubstModel> {
-    let k80_params = parse_k80_parameters(model_params)?;
+pub fn k80(k80_params: DNASubstParams) -> DNASubstModel {
     info!(
         "Setting up k80 with parameters: {}",
         k80_params.print_as_k80()
     );
     let q = k80_q(&k80_params);
-    Ok(make_dna_model(k80_params, q))
+    make_dna_model(k80_params, q)
 }
 
 pub fn parse_k80_parameters(model_params: &[f64]) -> Result<DNASubstParams> {
@@ -80,9 +81,9 @@ pub fn k80_q(p: &DNASubstParams) -> SubstMatrix {
 }
 
 impl DNASubstModel {
-    pub(crate) fn reset_k80_q(&mut self, params: &DNASubstParams) {
-        self.params = ((*params).clone()).into();
-        self.q = k80_q(params);
+    pub(crate) fn reset_k80_q(&mut self, params: DNASubstParams) {
+        self.q = k80_q(&params);
+        self.params = SubstParams::DNA(params);
     }
 }
 
@@ -114,12 +115,12 @@ impl<'a> K80ModelOptimiser<'a> {
 
     pub fn optimise_parameters(&self) -> Result<(u32, DNASubstParams, f64)> {
         let epsilon = 1e-10;
-        let alpha = self.base_model.params[0];
-        let beta = self.base_model.params[1];
-        let mut model = k80(&[alpha, beta])?;
+        let SubstParams::DNA(mut k80_params) = self.base_model.params.clone() else {
+            unreachable!();
+        };
+        let mut model = k80(k80_params.clone());
         let mut logl = f64::NEG_INFINITY;
         let mut new_logl = 0.0;
-        let mut k80_params = k80_params(alpha, beta);
         let mut iters = 0;
         while (logl - new_logl).abs() > epsilon {
             logl = new_logl;
@@ -135,7 +136,7 @@ impl<'a> K80ModelOptimiser<'a> {
         model: &mut DNASubstModel,
         k80_params: &mut DNASubstParams,
     ) -> Result<f64> {
-        model.reset_k80_q(k80_params);
+        model.reset_k80_q(k80_params.clone());
         let alpha_optimiser = K80ModelAlphaOptimiser {
             likelihood_cost: self.likelihood_cost,
             base_model: model,
@@ -152,7 +153,7 @@ impl<'a> K80ModelOptimiser<'a> {
         model: &mut DNASubstModel,
         k80_params: &mut DNASubstParams,
     ) -> Result<f64> {
-        model.reset_k80_q(k80_params);
+        model.reset_k80_q(k80_params.clone());
         let beta_optimiser = K80ModelBetaOptimiser {
             likelihood_cost: self.likelihood_cost,
             base_model: model,
@@ -177,7 +178,12 @@ impl CostFunction for K80ModelAlphaOptimiser<'_> {
 
     fn cost(&self, param: &Self::Param) -> Result<Self::Output> {
         let mut model = self.base_model.clone();
-        model.reset_k80_q(&k80_params(*param, self.base_model.params[1]));
+        let SubstParams::DNA(mut k80_params) = model.params.clone() else {
+            bail!("Incorrect substitution model parameter type.")
+        };
+        k80_params.rtc = *param;
+        k80_params.rag = *param;
+        model.reset_k80_q(k80_params);
         let mut tmp_info = SubstitutionModelInfo::new(self.likelihood_cost.info, &model)?;
         Ok(-self
             .likelihood_cost
@@ -195,7 +201,14 @@ impl CostFunction for K80ModelBetaOptimiser<'_> {
 
     fn cost(&self, param: &Self::Param) -> Result<Self::Output> {
         let mut model = self.base_model.clone();
-        model.reset_k80_q(&k80_params(self.base_model.params[0], *param));
+        let SubstParams::DNA(mut k80_params) = model.params.clone() else {
+            bail!("Incorrect substitution model parameter type.")
+        };
+        k80_params.rta = *param;
+        k80_params.rtg = *param;
+        k80_params.rca = *param;
+        k80_params.rcg = *param;
+        model.reset_k80_q(k80_params);
         let mut tmp_info = SubstitutionModelInfo::new(self.likelihood_cost.info, &model)?;
         Ok(-self
             .likelihood_cost

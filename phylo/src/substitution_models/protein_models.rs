@@ -8,8 +8,8 @@ use crate::evolutionary_models::EvolutionaryModel;
 use crate::likelihood::LikelihoodCostFunction;
 use crate::sequences::{charify, AMINOACIDS_STR};
 use crate::substitution_models::{
-    FreqVector, ParsimonyModel, SubstMatrix, SubstitutionLikelihoodCost, SubstitutionModel,
-    SubstitutionModelInfo,
+    FreqVector, ParsimonyModel, SubstMatrix, SubstParams, SubstitutionLikelihoodCost,
+    SubstitutionModel, SubstitutionModelInfo,
 };
 use crate::{Result, Rounding};
 
@@ -19,6 +19,11 @@ pub(crate) type ProteinFrequencyArray = [f64; 20];
 pub type ProteinSubstModel = SubstitutionModel<20>;
 pub type ProteinLikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 20>;
 pub type ProteinSubstModelInfo = SubstitutionModelInfo<20>;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProteinSubstParams {
+    pub(crate) pi: FreqVector,
+}
 
 impl ProteinSubstModel {
     fn normalise(&mut self) {
@@ -39,7 +44,7 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
             _ => bail!("Unknown protein model requested."),
         };
         let mut model = ProteinSubstModel {
-            params: vec![],
+            params: SubstParams::Protein(ProteinSubstParams { pi: pi.clone() }),
             index: aminoacid_index(),
             q,
             pi,

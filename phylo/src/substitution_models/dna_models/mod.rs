@@ -9,8 +9,8 @@ use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::sequences::{charify, dna_alphabet, AMBIG, NUCLEOTIDES_STR};
 use crate::substitution_models::{
-    FreqVector, ParsimonyModel, SubstMatrix, SubstitutionLikelihoodCost, SubstitutionModel,
-    SubstitutionModelInfo,
+    FreqVector, ParsimonyModel, SubstMatrix, SubstParams, SubstitutionLikelihoodCost,
+    SubstitutionModel, SubstitutionModelInfo,
 };
 use crate::{Result, Rounding};
 
@@ -61,13 +61,10 @@ fn dna_ambiguous_chars() -> HashMap<u8, HashSet<u8>> {
     }
 }
 
-fn make_dna_model(
-    params: dna_substitution_parameters::DNASubstParams,
-    q: SubstMatrix,
-) -> DNASubstModel {
+fn make_dna_model(params: DNASubstParams, q: SubstMatrix) -> DNASubstModel {
     let pi = params.pi.clone();
     DNASubstModel {
-        params: params.into(),
+        params: SubstParams::DNA(params),
         index: nucleotide_index(),
         q,
         pi,
@@ -80,11 +77,11 @@ impl EvolutionaryModel<4> for DNASubstModel {
         Self: std::marker::Sized,
     {
         match model_name.to_uppercase().as_str() {
-            "JC69" => jc69(model_params),
-            "K80" => k80(model_params),
-            "HKY" => hky(model_params),
-            "TN93" => tn93(model_params),
-            "GTR" => gtr(model_params),
+            "JC69" => Ok(jc69(parse_jc69_parameters(model_params)?)),
+            "K80" => Ok(k80(parse_k80_parameters(model_params)?)),
+            "HKY" => Ok(hky(parse_hky_parameters(model_params)?)),
+            "TN93" => Ok(tn93(parse_tn93_parameters(model_params)?)),
+            "GTR" => Ok(gtr(parse_gtr_parameters(model_params)?)),
             _ => bail!("Unknown DNA model requested."),
         }
     }

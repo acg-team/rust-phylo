@@ -6,17 +6,17 @@ use argmin::solver::brent::BrentOpt;
 use log::info;
 
 use crate::evolutionary_models::EvolutionaryModelInfo;
+use crate::substitution_models::SubstParams;
 use crate::substitution_models::{
     dna_models::{make_dna_model, make_pi, DNASubstModel, DNASubstParams},
     SubstMatrix, SubstitutionLikelihoodCost, SubstitutionModelInfo,
 };
 use crate::Result;
 
-pub fn gtr(model_params: &[f64]) -> Result<DNASubstModel> {
-    let gtr_params = parse_gtr_parameters(model_params)?;
+pub fn gtr(gtr_params: DNASubstParams) -> DNASubstModel {
     info!("Setting up gtr with rates: {}", gtr_params.print_as_gtr());
     let q = gtr_q(&gtr_params);
-    Ok(make_dna_model(gtr_params, q))
+    make_dna_model(gtr_params, q)
 }
 
 pub fn parse_gtr_parameters(model_params: &[f64]) -> Result<DNASubstParams> {
@@ -86,7 +86,7 @@ fn gtr_q(gtr: &DNASubstParams) -> SubstMatrix {
 
 impl DNASubstModel {
     pub(crate) fn reset_gtr(&mut self, params: &DNASubstParams) {
-        self.params = ((*params).clone()).into();
+        self.params = SubstParams::DNA((*params).clone());
         self.q = gtr_q(params);
     }
 }
@@ -116,7 +116,9 @@ impl CostFunction for GTRParamOptimiser<'_> {
     type Output = f64;
 
     fn cost(&self, param: &Self::Param) -> Result<Self::Output> {
-        let mut params = parse_gtr_parameters(self.base_model.params.as_slice())?;
+        let SubstParams::DNA(mut params) = self.base_model.params.clone() else {
+            unreachable!()
+        };
         match self.parameter {
             ParamEnum::Pit | ParamEnum::Pic | ParamEnum::Pia | ParamEnum::Pig => {
                 bail!("Cannot optimise frequencies for now.")
@@ -158,13 +160,7 @@ impl<'a> GTRModelOptimiser<'a> {
     }
 
     pub fn optimise_parameters(&self) -> Result<(u32, DNASubstParams, f64)> {
-        let epsilon = 1e-10;
-        let params = self.base_model.params.clone();
-        let model = gtr(params.as_slice())?;
-        let mut logl = f64::NEG_INFINITY;
-        let mut new_logl = 0.0;
-        let mut gtr_params = parse_gtr_parameters(params.as_slice())?;
-        let mut iters = 0;
+        let epsilon = 1e-5;
         let params_to_optimise = [
             ParamEnum::Rag,
             ParamEnum::Rca,
@@ -173,6 +169,14 @@ impl<'a> GTRModelOptimiser<'a> {
             ParamEnum::Rtc,
             ParamEnum::Rtg,
         ];
+        let SubstParams::DNA(mut gtr_params) = self.base_model.params.clone() else {
+            unreachable!()
+        };
+        let model = gtr(gtr_params.clone());
+        let mut logl = f64::NEG_INFINITY;
+        let mut new_logl = 0.0;
+        let mut iters = 0;
+
         while (logl - new_logl).abs() > epsilon {
             println!("Iteration: {}", iters);
             logl = new_logl;
@@ -226,7 +230,7 @@ mod gtr_optimisation_tests {
     fn check_parameter_optimisation_gtr() {
         // Original params from paml: 0.88892  0.03190  0.00001  0.07102  0.02418
         let info = phyloinfo_from_files(
-            PathBuf::from("./data/sim/gtr/gtr.fasta"),
+            PathBuf::from("./data/sim/GTR/gtr.fasta"),
             PathBuf::from("./data/sim/tree.newick"),
         )
         .unwrap();
@@ -242,7 +246,7 @@ mod gtr_optimisation_tests {
         let mut tmp_info = SubstitutionModelInfo::new(likelihood.info, &model).unwrap();
         let unopt_logl = likelihood.compute_log_likelihood(&model, &mut tmp_info);
         assert_relative_eq!(unopt_logl, -3474.48083, epsilon = 1.0e-5);
-        let (iters, params, logl) = GTRModelOptimiser::new(&likelihood, &model)
+        let (_, _, logl) = GTRModelOptimiser::new(&likelihood, &model)
             .optimise_parameters()
             .unwrap();
         assert!(logl > unopt_logl);

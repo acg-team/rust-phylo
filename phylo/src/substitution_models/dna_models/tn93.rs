@@ -12,14 +12,13 @@ use crate::substitution_models::{
 };
 use crate::Result;
 
-pub fn tn93(model_params: &[f64]) -> Result<DNASubstModel> {
-    let tn93_params = parse_tn93_parameters(model_params)?;
+pub fn tn93(tn93_params: DNASubstParams) -> DNASubstModel {
     info!(
         "Setting up tn93 with parameters {}",
         tn93_params.print_as_tn93()
     );
     let q = tn93_q(&tn93_params);
-    Ok(make_dna_model(tn93_params, q))
+    make_dna_model(tn93_params, q)
 }
 
 pub fn parse_tn93_parameters(model_params: &[f64]) -> Result<DNASubstParams> {

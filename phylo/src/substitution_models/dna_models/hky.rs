@@ -7,14 +7,13 @@ use crate::substitution_models::dna_models::{
 use crate::substitution_models::FreqVector;
 use crate::Result;
 
-pub fn hky(model_params: &[f64]) -> Result<DNASubstModel> {
-    let hky_params = parse_hky_parameters(model_params)?;
+pub fn hky(hky_params: DNASubstParams) -> DNASubstModel {
     info!(
         "Setting up hky with parameters {}",
         hky_params.print_as_hky()
     );
     let q = tn93_q(&hky_params);
-    Ok(make_dna_model(hky_params, q))
+    make_dna_model(hky_params, q)
 }
 
 pub fn parse_hky_parameters(model_params: &[f64]) -> Result<DNASubstParams> {

@@ -17,9 +17,15 @@ pub type SubstMatrix = DMatrix<f64>;
 pub type FreqVector = DVector<f64>;
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum SubstParams {
+    DNA(dna_models::DNASubstParams),
+    Protein(protein_models::ProteinSubstParams),
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct SubstitutionModel<const N: usize> {
     index: [i32; 255],
-    pub params: Vec<f64>,
+    pub params: SubstParams,
     pub(crate) q: SubstMatrix,
     pub(crate) pi: FreqVector,
 }

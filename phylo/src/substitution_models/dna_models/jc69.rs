@@ -6,13 +6,12 @@ use crate::substitution_models::{
 };
 use crate::Result;
 
-pub fn jc69(model_params: &[f64]) -> Result<DNASubstModel> {
-    let jc69_params = parse_jc69_parameters(model_params)?;
+pub fn jc69(jc69_params: DNASubstParams) -> DNASubstModel {
     info!(
         "Setting up jc69 with parameters: {}",
         jc69_params.print_as_jc69()
     );
-    Ok(make_dna_model(jc69_params, jc69_q()))
+    make_dna_model(jc69_params, jc69_q())
 }
 
 pub fn parse_jc69_parameters(model_params: &[f64]) -> Result<DNASubstParams> {
