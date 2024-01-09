@@ -7,12 +7,11 @@
 ((Human: 0.056647, Chimpanzee: 0.071554): 0.028080, Gorilla: 0.075518, (Orangutan: 0.259783, Gibbon: 0.400727): 0.100618);
 
 7          * model: 0:JC69, 1:K80, 2:F81, 3:F84, 4:HKY85, 5:T92, 6:TN93, 7:REV
-op* kappa or rate parameters in model
+0.88892  0.03190  0.00001  0.07102  0.02418 * kappa or rate parameters in model
 0.0  1     * <alpha>  <#categories for discrete gamma>
 
 0.25318  0.32894  0.31196  0.10592    * base frequencies
   T        C        A        G
-
 
 ==================================================
 The rest of this data file are notes, ignored by the program evolver.

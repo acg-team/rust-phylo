@@ -208,3 +208,6 @@ fn make_pi(pi_array: &[f64]) -> Result<FreqVector> {
     }
     Ok(pi)
 }
+
+#[cfg(test)]
+mod dna_optimisation_tests;

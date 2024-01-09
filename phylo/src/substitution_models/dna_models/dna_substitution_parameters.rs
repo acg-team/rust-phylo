@@ -1,6 +1,23 @@
 use std::fmt::Display;
 
+use anyhow::bail;
+
 use crate::substitution_models::FreqVector;
+use crate::Result;
+
+#[derive(Clone, Copy, Debug)]
+pub enum ParamEnum {
+    Pit,
+    Pic,
+    Pia,
+    Pig,
+    Rtc,
+    Rta,
+    Rtg,
+    Rca,
+    Rcg,
+    Rag,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DNASubstParams {
@@ -11,6 +28,61 @@ pub struct DNASubstParams {
     pub(crate) rca: f64,
     pub(crate) rcg: f64,
     pub(crate) rag: f64,
+}
+
+impl DNASubstParams {
+    pub fn new(
+        pi: FreqVector,
+        rtc: f64,
+        rta: f64,
+        rtg: f64,
+        rca: f64,
+        rcg: f64,
+        rag: f64,
+    ) -> Result<Self> {
+        if pi.sum() != 1.0 {
+            bail!("Frequencies must sum to 1.0.");
+        }
+        Ok(Self {
+            pi,
+            rtc,
+            rta,
+            rtg,
+            rca,
+            rcg,
+            rag,
+        })
+    }
+
+    pub fn get_value(&self, param_name: &ParamEnum) -> f64 {
+        match param_name {
+            ParamEnum::Pit => self.pi[0],
+            ParamEnum::Pic => self.pi[1],
+            ParamEnum::Pia => self.pi[2],
+            ParamEnum::Pig => self.pi[3],
+            ParamEnum::Rtc => self.rtc,
+            ParamEnum::Rta => self.rta,
+            ParamEnum::Rtg => self.rtg,
+            ParamEnum::Rca => self.rca,
+            ParamEnum::Rcg => self.rcg,
+            ParamEnum::Rag => self.rag,
+        }
+    }
+
+    pub fn set_value(&mut self, param_name: &ParamEnum, value: f64) {
+        match param_name {
+            ParamEnum::Pit => self.pi[0] = value,
+            ParamEnum::Pic => self.pi[1] = value,
+            ParamEnum::Pia => self.pi[2] = value,
+            ParamEnum::Pig => self.pi[3] = value,
+            ParamEnum::Rtc => self.rtc = value,
+            ParamEnum::Rta => self.rta = value,
+            ParamEnum::Rtg => self.rtg = value,
+            ParamEnum::Rca => self.rca = value,
+            ParamEnum::Rcg => self.rcg = value,
+            ParamEnum::Rag => self.rag = value,
+        }
+    }
 }
 
 impl Display for DNASubstParams {
