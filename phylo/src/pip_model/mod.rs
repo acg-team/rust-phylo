@@ -262,8 +262,23 @@ impl<'a> LikelihoodCostFunction<'a, 4> for PIPLikelihoodCost<'a, 4> {
     type Model = PIPModel<4>;
     type Info = PIPModelInfo<4>;
 
-    fn compute_log_likelihood(&self, model: &Self::Model, tmp_info: &mut Self::Info) -> f64 {
-        self.compute_log_likelihood(model, tmp_info)
+    fn compute_log_likelihood(&self, model: &Self::Model) -> f64 {
+        let mut tmp_info = PIPModelInfo::new(self.info, model).unwrap();
+        self.compute_log_likelihood_with_tmp(model, &mut tmp_info)
+    }
+
+    fn get_empirical_frequencies(&self) -> FreqVector {
+        todo!()
+    }
+}
+
+impl<'a> LikelihoodCostFunction<'a, 20> for PIPLikelihoodCost<'a, 20> {
+    type Model = PIPModel<20>;
+    type Info = PIPModelInfo<20>;
+
+    fn compute_log_likelihood(&self, model: &Self::Model) -> f64 {
+        let mut tmp_info = PIPModelInfo::new(self.info, model).unwrap();
+        self.compute_log_likelihood_with_tmp(model, &mut tmp_info)
     }
 }
 
@@ -275,7 +290,11 @@ impl<const N: usize> PIPLikelihoodCost<'_, N>
 where
     Const<N>: DimMin<Const<N>, Output = Const<N>>,
 {
-    fn compute_log_likelihood(&self, model: &PIPModel<N>, tmp: &mut PIPModelInfo<N>) -> f64 {
+    fn compute_log_likelihood_with_tmp(
+        &self,
+        model: &PIPModel<N>,
+        tmp: &mut PIPModelInfo<N>,
+    ) -> f64 {
         for node_idx in &self.info.tree.postorder {
             match node_idx {
                 Int(idx) => {

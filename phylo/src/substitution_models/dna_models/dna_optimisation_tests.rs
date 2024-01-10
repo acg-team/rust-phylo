@@ -4,14 +4,22 @@ use approx::assert_relative_eq;
 
 use crate::evolutionary_models::EvolutionaryModel;
 use crate::likelihood::LikelihoodCostFunction;
+<<<<<<< HEAD
 use crate::phylo_info::{GapHandling, PhyloInfo};
 use crate::substitution_models::dna_models::{
     dna_model_optimiser::DNAModelOptimiser, gtr, parse_k80_parameters, DNALikelihoodCost,
     DNASubstModel, DNASubstParams,
+=======
+use crate::phylo_info::phyloinfo_from_files;
+use crate::substitution_models::dna_models::{
+    gtr::{self, GTRModelOptimiser},
+    DNALikelihoodCost, DNAModelOptimiser, DNASubstModel, DNASubstParams, K80ModelOptimiser,
+>>>>>>> 330834b (Fixed bug for incorrect likelihood)
 };
 use crate::substitution_models::FreqVector;
 
 #[test]
+<<<<<<< HEAD
 fn check_likelihood_opt_k80() {
     let info = PhyloInfo::from_files(
         PathBuf::from("./data/sim/K80/K80.fasta"),
@@ -27,6 +35,20 @@ fn check_likelihood_opt_k80() {
 
     let (_, _, logl) = DNAModelOptimiser::new(&likelihood)
         .optimise_k80_parameters(&params)
+=======
+fn check_likelihood_opt_k802() {
+    let info = phyloinfo_from_files(
+        PathBuf::from("./data/sim/K80/K80.fasta"),
+        PathBuf::from("./data/sim/tree.newick"),
+    )
+    .unwrap();
+    let likelihood = DNALikelihoodCost { info: &info };
+    let model = DNASubstModel::new("k80", &[4.0, 1.0]).unwrap();
+    let unopt_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
+
+    let (_, _, logl) = K80ModelOptimiser::new(&likelihood, &model)
+        .optimise_parameters()
+>>>>>>> 330834b (Fixed bug for incorrect likelihood)
         .unwrap();
     assert!(logl > unopt_logl);
 
