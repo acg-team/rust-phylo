@@ -77,10 +77,15 @@ fn check_parameter_optimisation_gtr() {
         rcg: 1.0,
         rag: 1.0,
     };
-    let model = gtr::gtr(params);
-    let (_, _, logl) = GTRModelOptimiser::new(&likelihood, &model)
-        .optimise_parameters()
+    let (_, opt_params, logl) = GTRModelOptimiser::new(&likelihood)
+        .optimise_parameters(&params)
         .unwrap();
     assert!(logl > phyml_logl);
     assert!(logl > paml_logl);
+
+    let (iters, _, double_opt_logl) = GTRModelOptimiser::new(&likelihood)
+        .optimise_parameters(&opt_params)
+        .unwrap();
+    assert!(double_opt_logl >= logl);
+    assert!(iters < 10);
 }

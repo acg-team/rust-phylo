@@ -5,7 +5,6 @@ use argmin::core::{CostFunction, Executor, IterState, State};
 use argmin::solver::goldensectionsearch::GoldenSectionSearch;
 use log::{debug, info};
 
-use crate::substitution_models::SubstParams;
 use crate::substitution_models::{
     dna_models::{make_dna_model, make_pi, DNASubstModel, DNASubstParams, ParamEnum},
     SubstMatrix, SubstitutionLikelihoodCost,
@@ -13,7 +12,7 @@ use crate::substitution_models::{
 use crate::Result;
 
 pub fn gtr(gtr_params: DNASubstParams) -> DNASubstModel {
-    info!("Setting up gtr with rates: {}", gtr_params.print_as_gtr());
+    info!("Setting up GTR with rates: {}", gtr_params.print_as_gtr());
     let q = gtr_q(&gtr_params);
     make_dna_model(gtr_params, q)
 }
@@ -85,7 +84,7 @@ fn gtr_q(gtr: &DNASubstParams) -> SubstMatrix {
 
 struct GtrParamOptimiser<'a> {
     likelihood_cost: &'a SubstitutionLikelihoodCost<'a, 4>,
-    base_model: &'a DNASubstModel,
+    params: DNASubstParams,
     parameter: ParamEnum,
 }
 
@@ -94,12 +93,9 @@ impl CostFunction for GtrParamOptimiser<'_> {
     type Output = f64;
 
     fn cost(&self, value: &Self::Param) -> Result<Self::Output> {
-        let SubstParams::DNA(mut params) = self.base_model.params.clone() else {
-            unreachable!()
-        };
-        set_param(&mut params, &self.parameter, *value)?;
-        let mut model = self.base_model.clone();
-        model.q = gtr_q(&params);
+        let mut gtr_params = self.params.clone();
+        set_param(&mut gtr_params, &self.parameter, *value)?;
+        let model = gtr(gtr_params);
         Ok(-self.likelihood_cost.compute_log_likelihood(&model).0)
     }
 
@@ -109,32 +105,28 @@ impl CostFunction for GtrParamOptimiser<'_> {
 }
 
 pub trait DNAModelOptimiser<'a> {
-    fn new(
-        likelihood_cost: &'a SubstitutionLikelihoodCost<'a, 4>,
-        base_model: &'a DNASubstModel,
-    ) -> Self;
-    fn optimise_parameters(&self) -> Result<(u32, DNASubstParams, f64)>;
+    fn new(likelihood_cost: &'a SubstitutionLikelihoodCost<'a, 4>) -> Self;
+    fn optimise_parameters(&self, params: &DNASubstParams) -> Result<(u32, DNASubstParams, f64)>;
 }
 
 pub struct GTRModelOptimiser<'a> {
+    epsilon: f64,
     likelihood_cost: &'a SubstitutionLikelihoodCost<'a, 4>,
-    base_model: &'a DNASubstModel,
 }
 
 impl<'a> DNAModelOptimiser<'a> for GTRModelOptimiser<'a> {
-    fn new(
-        likelihood_cost: &'a SubstitutionLikelihoodCost<'a, 4>,
-        base_model: &'a DNASubstModel,
-    ) -> Self {
+    fn new(likelihood_cost: &'a SubstitutionLikelihoodCost<'a, 4>) -> Self {
         GTRModelOptimiser {
+            epsilon: 1e-3,
             likelihood_cost,
-            base_model,
         }
     }
 
-    fn optimise_parameters(&self) -> Result<(u32, DNASubstParams, f64)> {
+    fn optimise_parameters(
+        &self,
+        start_params: &DNASubstParams,
+    ) -> Result<(u32, DNASubstParams, f64)> {
         println!("Optimising GTR parameters.");
-        let epsilon = 1e-3;
         let params_to_optimise = [
             ParamEnum::Rca,
             ParamEnum::Rcg,
@@ -142,38 +134,44 @@ impl<'a> DNAModelOptimiser<'a> for GTRModelOptimiser<'a> {
             ParamEnum::Rtc,
             ParamEnum::Rtg,
         ];
-        let SubstParams::DNA(mut gtr_params) = self.base_model.params.clone() else {
-            unreachable!()
-        };
-        let mut logl = f64::NEG_INFINITY;
-        let mut new_logl = 0.0;
+        let mut opt_logl = self
+            .likelihood_cost
+            .compute_log_likelihood(&gtr(start_params.clone()))
+            .0;
+        info!("Initial logl: {}.", opt_logl);
+        let mut prev_logl = f64::NEG_INFINITY;
         let mut iters = 0;
+        let mut opt_params = start_params.clone();
 
-        while (logl - new_logl).abs() > epsilon {
+        while (prev_logl - opt_logl).abs() > self.epsilon {
             debug!("Iteration: {}", iters);
-            logl = new_logl;
+            prev_logl = opt_logl;
             for param_name in params_to_optimise.iter() {
                 let optimiser = GtrParamOptimiser {
                     likelihood_cost: self.likelihood_cost,
-                    base_model: &gtr(gtr_params.clone()),
+                    params: opt_params.clone(),
                     parameter: *param_name,
                 };
-                let gss = GoldenSectionSearch::new(1e-5, 100.0)?.with_tolerance(0.01)?;
+                let gss = GoldenSectionSearch::new(1e-5, 100.0)?.with_tolerance(self.epsilon)?;
                 let res = Executor::new(optimiser, gss)
-                    .configure(|_| IterState::new().param(gtr_params.get_value(param_name)))
+                    .configure(|_| IterState::new().param(opt_params.get_value(param_name)))
                     .run()?;
                 let value = res.state().best_param.unwrap();
-                gtr_params.set_value(param_name, value);
-                new_logl = -res.state().best_cost;
+                opt_params.set_value(param_name, value);
+                opt_logl = -res.state().best_cost;
                 debug!(
                     "Optimised parameter {:?} to value {} with logl {}",
-                    param_name, value, new_logl
+                    param_name, value, opt_logl
                 );
-                debug!("New parameters: {}\n", gtr_params.print_as_gtr());
+                debug!("New parameters: {}\n", opt_params.print_as_gtr());
             }
             iters += 1;
         }
-        Ok((iters, gtr_params, logl))
+        info!(
+            "Final logl: {}, achieved in {} iteration(s).",
+            opt_logl, iters
+        );
+        Ok((iters, opt_params, opt_logl))
     }
 }
 
