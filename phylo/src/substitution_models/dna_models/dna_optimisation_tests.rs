@@ -6,24 +6,27 @@ use crate::evolutionary_models::EvolutionaryModel;
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::phyloinfo_from_files;
 use crate::substitution_models::dna_models::{
-    gtr::{self, GTRModelOptimiser},
-    DNALikelihoodCost, DNAModelOptimiser, DNASubstModel, DNASubstParams, K80ModelOptimiser,
+    dna_model_optimiser::DNAModelOptimiser,
+    gtr::{self},
+    parse_k80_parameters, DNALikelihoodCost, DNASubstModel, DNASubstParams,
 };
 use crate::substitution_models::FreqVector;
 
 #[test]
-fn check_likelihood_opt_k802() {
+fn check_likelihood_opt_k80() {
     let info = phyloinfo_from_files(
         PathBuf::from("./data/sim/K80/K80.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
     )
     .unwrap();
+
     let likelihood = DNALikelihoodCost { info: &info };
     let model = DNASubstModel::new("k80", &[4.0, 1.0]).unwrap();
+    let params = parse_k80_parameters(&[4.0, 1.0]).unwrap();
     let unopt_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
 
-    let (_, _, logl) = K80ModelOptimiser::new(&likelihood, &model)
-        .optimise_parameters()
+    let (_, _, logl) = DNAModelOptimiser::new(&likelihood)
+        .optimise_k80_parameters(&params)
         .unwrap();
     assert!(logl > unopt_logl);
 
@@ -77,14 +80,14 @@ fn check_parameter_optimisation_gtr() {
         rcg: 1.0,
         rag: 1.0,
     };
-    let (_, opt_params, logl) = GTRModelOptimiser::new(&likelihood)
-        .optimise_parameters(&params)
+    let (_, opt_params, logl) = DNAModelOptimiser::new(&likelihood)
+        .optimise_gtr_parameters(&params)
         .unwrap();
     assert!(logl > phyml_logl);
     assert!(logl > paml_logl);
 
-    let (iters, _, double_opt_logl) = GTRModelOptimiser::new(&likelihood)
-        .optimise_parameters(&opt_params)
+    let (iters, _, double_opt_logl) = DNAModelOptimiser::new(&likelihood)
+        .optimise_gtr_parameters(&opt_params)
         .unwrap();
     assert!(double_opt_logl >= logl);
     assert!(iters < 10);

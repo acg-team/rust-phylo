@@ -8,39 +8,10 @@ use bio::io::fasta::Record;
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::{phyloinfo_from_files, phyloinfo_from_sequences_tree, PhyloInfo};
-use crate::substitution_models::dna_models::{
-    k80, parse_k80_parameters, DNALikelihoodCost, DNASubstModel, DNASubstModelInfo,
-    K80ModelOptimiser,
-};
+use crate::substitution_models::dna_models::{DNALikelihoodCost, DNASubstModel, DNASubstModelInfo};
 use crate::substitution_models::protein_models::{ProteinLikelihoodCost, ProteinSubstModel};
 use crate::substitution_models::{FreqVector, SubstMatrix};
 use crate::tree::{tree_parser, NodeIdx::Leaf as L, Tree};
-
-#[test]
-fn check_likelihood_opt_k80() {
-    let info = phyloinfo_from_files(
-        PathBuf::from("./data/sim/K80/K80.fasta"),
-        PathBuf::from("./data/sim/tree.newick"),
-    )
-    .unwrap();
-    let likelihood = DNALikelihoodCost { info: &info };
-    let model = k80(parse_k80_parameters(&[4.0, 1.0]).unwrap());
-
-    let unopt_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
-    println!("Unoptimised logl: {}", unopt_logl);
-    let (_, _, logl) = K80ModelOptimiser::new(&likelihood, &model)
-        .optimise_parameters()
-        .unwrap();
-    assert!(logl > unopt_logl);
-    println!("Optimised logl: {}", logl);
-    let likelihood = DNALikelihoodCost { info: &info };
-    let model = DNASubstModel::new("k80", &[1.884815, 1.0]).unwrap();
-    let expected_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
-    println!("Expected logl: {}", expected_logl);
-
-    assert_relative_eq!(logl, expected_logl, epsilon = 1e-6);
-    assert_relative_eq!(logl, -4034.5008033, epsilon = 1e-6);
-}
 
 #[cfg(test)]
 fn tree_newick(newick: &str) -> Tree {

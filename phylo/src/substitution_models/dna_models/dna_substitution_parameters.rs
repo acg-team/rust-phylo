@@ -5,7 +5,7 @@ use anyhow::bail;
 use crate::substitution_models::FreqVector;
 use crate::Result;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ParamEnum {
     Pit,
     Pic,

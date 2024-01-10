@@ -1,13 +1,11 @@
 use std::ops::Div;
 
 use anyhow::bail;
-use argmin::core::{CostFunction, Executor, IterState, State};
-use argmin::solver::goldensectionsearch::GoldenSectionSearch;
-use log::{debug, info};
+use log::info;
 
 use crate::substitution_models::{
-    dna_models::{make_dna_model, make_pi, DNASubstModel, DNASubstParams, ParamEnum},
-    SubstMatrix, SubstitutionLikelihoodCost,
+    dna_models::{make_dna_model, make_pi, DNASubstModel, DNASubstParams},
+    SubstMatrix,
 };
 use crate::Result;
 
@@ -80,110 +78,4 @@ fn gtr_q(gtr: &DNASubstParams) -> SubstMatrix {
         ],
     )
     .div(total)
-}
-
-struct GtrParamOptimiser<'a> {
-    likelihood_cost: &'a SubstitutionLikelihoodCost<'a, 4>,
-    params: DNASubstParams,
-    parameter: ParamEnum,
-}
-
-impl CostFunction for GtrParamOptimiser<'_> {
-    type Param = f64;
-    type Output = f64;
-
-    fn cost(&self, value: &Self::Param) -> Result<Self::Output> {
-        let mut gtr_params = self.params.clone();
-        set_param(&mut gtr_params, &self.parameter, *value)?;
-        let model = gtr(gtr_params);
-        Ok(-self.likelihood_cost.compute_log_likelihood(&model).0)
-    }
-
-    fn parallelize(&self) -> bool {
-        true
-    }
-}
-
-pub trait DNAModelOptimiser<'a> {
-    fn new(likelihood_cost: &'a SubstitutionLikelihoodCost<'a, 4>) -> Self;
-    fn optimise_parameters(&self, params: &DNASubstParams) -> Result<(u32, DNASubstParams, f64)>;
-}
-
-pub struct GTRModelOptimiser<'a> {
-    epsilon: f64,
-    likelihood_cost: &'a SubstitutionLikelihoodCost<'a, 4>,
-}
-
-impl<'a> DNAModelOptimiser<'a> for GTRModelOptimiser<'a> {
-    fn new(likelihood_cost: &'a SubstitutionLikelihoodCost<'a, 4>) -> Self {
-        GTRModelOptimiser {
-            epsilon: 1e-3,
-            likelihood_cost,
-        }
-    }
-
-    fn optimise_parameters(
-        &self,
-        start_params: &DNASubstParams,
-    ) -> Result<(u32, DNASubstParams, f64)> {
-        println!("Optimising GTR parameters.");
-        let params_to_optimise = [
-            ParamEnum::Rca,
-            ParamEnum::Rcg,
-            ParamEnum::Rta,
-            ParamEnum::Rtc,
-            ParamEnum::Rtg,
-        ];
-        let mut opt_logl = self
-            .likelihood_cost
-            .compute_log_likelihood(&gtr(start_params.clone()))
-            .0;
-        info!("Initial logl: {}.", opt_logl);
-        let mut prev_logl = f64::NEG_INFINITY;
-        let mut iters = 0;
-        let mut opt_params = start_params.clone();
-
-        while (prev_logl - opt_logl).abs() > self.epsilon {
-            debug!("Iteration: {}", iters);
-            prev_logl = opt_logl;
-            for param_name in params_to_optimise.iter() {
-                let optimiser = GtrParamOptimiser {
-                    likelihood_cost: self.likelihood_cost,
-                    params: opt_params.clone(),
-                    parameter: *param_name,
-                };
-                let gss = GoldenSectionSearch::new(1e-5, 100.0)?.with_tolerance(self.epsilon)?;
-                let res = Executor::new(optimiser, gss)
-                    .configure(|_| IterState::new().param(opt_params.get_value(param_name)))
-                    .run()?;
-                let value = res.state().best_param.unwrap();
-                opt_params.set_value(param_name, value);
-                opt_logl = -res.state().best_cost;
-                debug!(
-                    "Optimised parameter {:?} to value {} with logl {}",
-                    param_name, value, opt_logl
-                );
-                debug!("New parameters: {}\n", opt_params.print_as_gtr());
-            }
-            iters += 1;
-        }
-        info!(
-            "Final logl: {}, achieved in {} iteration(s).",
-            opt_logl, iters
-        );
-        Ok((iters, opt_params, opt_logl))
-    }
-}
-
-fn set_param(gtr_params: &mut DNASubstParams, param_name: &ParamEnum, value: f64) -> Result<()> {
-    match param_name {
-        ParamEnum::Rtc => gtr_params.rtc = value,
-        ParamEnum::Rta => gtr_params.rta = value,
-        ParamEnum::Rtg => gtr_params.rtg = value,
-        ParamEnum::Rca => gtr_params.rca = value,
-        ParamEnum::Rcg => gtr_params.rcg = value,
-        ParamEnum::Rag => gtr_params.rag = value,
-        _ => bail!("Cannot optimise frequencies for now."),
-    }
-    Ok(())
 }
