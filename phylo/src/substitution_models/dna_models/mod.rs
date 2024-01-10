@@ -5,7 +5,7 @@ use log::warn;
 use map_macro::{hash_map, hash_set};
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
+use crate::evolutionary_models::EvolutionaryModel;
 use crate::likelihood::LikelihoodCostFunction;
 use crate::sequences::{charify, dna_alphabet, AMBIG, NUCLEOTIDES_STR};
 use crate::substitution_models::{
@@ -146,10 +146,8 @@ impl<'a> LikelihoodCostFunction<'a, 4> for DNALikelihoodCost<'a> {
     type Model = DNASubstModel;
     type Info = SubstitutionModelInfo<4>;
 
-    fn compute_log_likelihood(&self, model: &Self::Model, tmp_info: &mut Self::Info) -> f64 {
-        let logl = self.compute_log_likelihood(model, tmp_info);
-        tmp_info.reset();
-        logl
+    fn compute_log_likelihood(&self, model: &Self::Model) -> f64 {
+        self.compute_log_likelihood(model).0
     }
 
     fn get_empirical_frequencies(&self) -> FreqVector {

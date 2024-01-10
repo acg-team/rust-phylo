@@ -2,17 +2,37 @@ use std::path::PathBuf;
 
 use approx::assert_relative_eq;
 
-use crate::{
-    evolutionary_models::EvolutionaryModelInfo,
-    phylo_info::phyloinfo_from_files,
-    substitution_models::{
-        dna_models::{
-            gtr::{self, GTRModelOptimiser},
-            DNALikelihoodCost, DNAModelOptimiser, DNASubstParams,
-        },
-        FreqVector, SubstitutionModelInfo,
-    },
+use crate::evolutionary_models::EvolutionaryModel;
+use crate::likelihood::LikelihoodCostFunction;
+use crate::phylo_info::phyloinfo_from_files;
+use crate::substitution_models::dna_models::{
+    gtr::{self, GTRModelOptimiser},
+    DNALikelihoodCost, DNAModelOptimiser, DNASubstModel, DNASubstParams, K80ModelOptimiser,
 };
+use crate::substitution_models::FreqVector;
+
+#[test]
+fn check_likelihood_opt_k802() {
+    let info = phyloinfo_from_files(
+        PathBuf::from("./data/sim/K80/K80.fasta"),
+        PathBuf::from("./data/sim/tree.newick"),
+    )
+    .unwrap();
+    let likelihood = DNALikelihoodCost { info: &info };
+    let model = DNASubstModel::new("k80", &[4.0, 1.0]).unwrap();
+    let unopt_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
+
+    let (_, _, logl) = K80ModelOptimiser::new(&likelihood, &model)
+        .optimise_parameters()
+        .unwrap();
+    assert!(logl > unopt_logl);
+
+    let model = DNASubstModel::new("k80", &[1.884815, 1.0]).unwrap();
+    let expected_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
+
+    assert_relative_eq!(logl, expected_logl, epsilon = 1e-6);
+    assert_relative_eq!(logl, -4034.5008033, epsilon = 1e-6);
+}
 
 #[test]
 fn check_parameter_optimisation_gtr() {
@@ -32,8 +52,7 @@ fn check_parameter_optimisation_gtr() {
         rag: 1.0,
     }; // Optimized parameters from PhyML
     let model = gtr::gtr(phyml_params);
-    let mut tmp_info = SubstitutionModelInfo::new(likelihood.info, &model).unwrap();
-    let phyml_logl = likelihood.compute_log_likelihood(&model, &mut tmp_info);
+    let phyml_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
     assert_relative_eq!(phyml_logl, -3474.48083, epsilon = 1.0e-5);
 
     let paml_params = DNASubstParams {
@@ -46,8 +65,7 @@ fn check_parameter_optimisation_gtr() {
         rag: 1.0,
     }; // Original input to paml
     let model = gtr::gtr(paml_params);
-    let mut tmp_info = SubstitutionModelInfo::new(likelihood.info, &model).unwrap();
-    let paml_logl = likelihood.compute_log_likelihood(&model, &mut tmp_info);
+    let paml_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
     assert!(phyml_logl > paml_logl);
 
     let params = DNASubstParams {

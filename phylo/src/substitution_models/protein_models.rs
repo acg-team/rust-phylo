@@ -130,8 +130,8 @@ impl<'a> LikelihoodCostFunction<'a, 20> for SubstitutionLikelihoodCost<'a, 20> {
     type Model = ProteinSubstModel;
     type Info = SubstitutionModelInfo<20>;
 
-    fn compute_log_likelihood(&self, model: &Self::Model, tmp_info: &mut Self::Info) -> f64 {
-        self.compute_log_likelihood(model, tmp_info)
+    fn compute_log_likelihood(&self, model: &Self::Model) -> f64 {
+        self.compute_log_likelihood(model).0
     }
 
     fn get_empirical_frequencies(&self) -> FreqVector {

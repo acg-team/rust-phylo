@@ -7,8 +7,11 @@ use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::phylo_info::PhyloInfo;
+use crate::substitution_models::dna_models::DNASubstModel;
 use crate::tree::NodeIdx;
 use crate::{f64_h, Result, Rounding};
+
+use self::protein_models::ProteinSubstModel;
 
 pub mod dna_models;
 pub mod protein_models;
@@ -107,11 +110,30 @@ pub struct SubstitutionLikelihoodCost<'a, const N: usize> {
     pub info: &'a PhyloInfo,
 }
 
+impl<'a> SubstitutionLikelihoodCost<'a, 4> {
+    pub fn compute_log_likelihood(&self, model: &DNASubstModel) -> (f64, SubstitutionModelInfo<4>) {
+        let mut tmp_info = SubstitutionModelInfo::<4>::new(self.info, model).unwrap();
+        let logl = self.compute_log_likelihood_with_tmp(model, &mut tmp_info);
+        (logl, tmp_info)
+    }
+}
+
+impl<'a> SubstitutionLikelihoodCost<'a, 20> {
+    pub fn compute_log_likelihood(
+        &self,
+        model: &ProteinSubstModel,
+    ) -> (f64, SubstitutionModelInfo<20>) {
+        let mut tmp_info = SubstitutionModelInfo::<20>::new(self.info, model).unwrap();
+        let logl = self.compute_log_likelihood_with_tmp(model, &mut tmp_info);
+        (logl, tmp_info)
+    }
+}
+
 impl<'a, const N: usize> SubstitutionLikelihoodCost<'a, N>
 where
     Const<N>: DimMin<Const<N>, Output = Const<N>>,
 {
-    fn compute_log_likelihood(
+    fn compute_log_likelihood_with_tmp(
         &self,
         model: &SubstitutionModel<N>,
         tmp_values: &mut SubstitutionModelInfo<N>,

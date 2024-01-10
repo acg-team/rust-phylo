@@ -5,11 +5,10 @@ use argmin::core::{CostFunction, Executor};
 use argmin::solver::brent::BrentOpt;
 use log::{info, warn};
 
-use crate::evolutionary_models::EvolutionaryModelInfo;
 use crate::substitution_models::SubstParams;
 use crate::substitution_models::{
     dna_models::{dna_substitution_parameters::DNASubstParams, make_dna_model, DNASubstModel},
-    FreqVector, SubstMatrix, SubstitutionLikelihoodCost, SubstitutionModelInfo,
+    FreqVector, SubstMatrix, SubstitutionLikelihoodCost,
 };
 use crate::Result;
 
@@ -184,10 +183,7 @@ impl CostFunction for K80ModelAlphaOptimiser<'_> {
         k80_params.rtc = *param;
         k80_params.rag = *param;
         model.reset_k80_q(k80_params);
-        let mut tmp_info = SubstitutionModelInfo::new(self.likelihood_cost.info, &model)?;
-        Ok(-self
-            .likelihood_cost
-            .compute_log_likelihood(&model, &mut tmp_info))
+        Ok(-self.likelihood_cost.compute_log_likelihood(&model).0)
     }
 
     fn parallelize(&self) -> bool {
@@ -209,10 +205,7 @@ impl CostFunction for K80ModelBetaOptimiser<'_> {
         k80_params.rca = *param;
         k80_params.rcg = *param;
         model.reset_k80_q(k80_params);
-        let mut tmp_info = SubstitutionModelInfo::new(self.likelihood_cost.info, &model)?;
-        Ok(-self
-            .likelihood_cost
-            .compute_log_likelihood(&model, &mut tmp_info))
+        Ok(-self.likelihood_cost.compute_log_likelihood(&model).0)
     }
 
     fn parallelize(&self) -> bool {

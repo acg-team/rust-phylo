@@ -5,11 +5,10 @@ use argmin::core::{CostFunction, Executor, IterState, State};
 use argmin::solver::goldensectionsearch::GoldenSectionSearch;
 use log::{debug, info};
 
-use crate::evolutionary_models::EvolutionaryModelInfo;
 use crate::substitution_models::SubstParams;
 use crate::substitution_models::{
     dna_models::{make_dna_model, make_pi, DNASubstModel, DNASubstParams, ParamEnum},
-    SubstMatrix, SubstitutionLikelihoodCost, SubstitutionModelInfo,
+    SubstMatrix, SubstitutionLikelihoodCost,
 };
 use crate::Result;
 
@@ -101,10 +100,7 @@ impl CostFunction for GtrParamOptimiser<'_> {
         set_param(&mut params, &self.parameter, *value)?;
         let mut model = self.base_model.clone();
         model.q = gtr_q(&params);
-        let mut tmp_info = SubstitutionModelInfo::new(self.likelihood_cost.info, &model)?;
-        Ok(-self
-            .likelihood_cost
-            .compute_log_likelihood(&model, &mut tmp_info))
+        Ok(-self.likelihood_cost.compute_log_likelihood(&model).0)
     }
 
     fn parallelize(&self) -> bool {
