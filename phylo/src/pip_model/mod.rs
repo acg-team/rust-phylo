@@ -8,8 +8,8 @@ use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::sequences::GAP;
-use crate::substitution_models::dna_models::nucleotide_index;
-use crate::substitution_models::protein_models::{aminoacid_index, ProteinSubstModel};
+use crate::substitution_models::dna_models::NUCLEOTIDE_INDEX;
+use crate::substitution_models::protein_models::{ProteinSubstModel, AMINOACID_INDEX};
 use crate::substitution_models::FreqVector;
 use crate::substitution_models::{dna_models::DNASubstModel, SubstMatrix, SubstitutionModel};
 use crate::tree::NodeIdx::{self, Internal as Int, Leaf};
@@ -91,7 +91,7 @@ impl EvolutionaryModel<4> for PIPModel<4> {
     {
         let (lambda, mu) = PIPModel::<4>::check_pip_params(model_params)?;
         let subst_model = DNASubstModel::new(model_name, &model_params[2..])?;
-        let index = nucleotide_index();
+        let index = *NUCLEOTIDE_INDEX;
         Ok(PIPModel::make_pip(index, subst_model, mu, lambda))
     }
 
@@ -125,7 +125,7 @@ impl EvolutionaryModel<20> for PIPModel<20> {
     {
         let (lambda, mu) = PIPModel::<20>::check_pip_params(model_params)?;
         let subst_model = ProteinSubstModel::new(model_name, &model_params[2..])?;
-        let index = aminoacid_index();
+        let index = *AMINOACID_INDEX;
         Ok(PIPModel::make_pip(index, subst_model, mu, lambda))
     }
 

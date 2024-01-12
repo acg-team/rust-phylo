@@ -18,7 +18,6 @@ pub static NUCLEOTIDES_STR: &str = "TCAG";
 pub static AMB_NUCLEOTIDES_STR: &str = "RYSWKMBDHVNZX";
 
 pub(crate) static GAP: u8 = b'-';
-pub(crate) static AMBIG: u8 = b'X';
 
 pub fn dna_alphabet() -> Alphabet {
     let mut nucleotides = charify(NUCLEOTIDES_STR);

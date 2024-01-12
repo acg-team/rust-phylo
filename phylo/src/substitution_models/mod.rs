@@ -31,7 +31,6 @@ pub struct SubstitutionModel<const N: usize> {
     pub params: SubstParams,
     pub(crate) q: SubstMatrix,
     pub(crate) pi: FreqVector,
-    pub(crate) ambiguous_chars: &'static HashMap<u8, Vec<u8>>,
 }
 
 pub trait ParsimonyModel<const N: usize> {

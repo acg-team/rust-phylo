@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::bail;
+use lazy_static::lazy_static;
 use log::warn;
 use ordered_float::OrderedFloat;
 
@@ -13,14 +14,23 @@ use crate::substitution_models::{
 };
 use crate::{Result, Rounding};
 
-use super::dna_models::DNA_AMBIGUOUS_CHARS;
-
 pub(crate) type ProteinSubstArray = [f64; 400];
 pub(crate) type ProteinFrequencyArray = [f64; 20];
 
 pub type ProteinSubstModel = SubstitutionModel<20>;
 pub type ProteinLikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 20>;
 pub type ProteinSubstModelInfo = SubstitutionModelInfo<20>;
+
+lazy_static! {
+    pub static ref AMINOACID_INDEX: [i32; 255] = {
+        let mut index = [-1_i32; 255];
+        for (i, char) in charify(AMINOACIDS_STR).into_iter().enumerate() {
+            index[char as usize] = i as i32;
+            index[char.to_ascii_lowercase() as usize] = i as i32;
+        }
+        index
+    };
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProteinSubstParams {
@@ -46,9 +56,8 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
             _ => bail!("Unknown protein model requested."),
         };
         let mut model = ProteinSubstModel {
-            ambiguous_chars: &DNA_AMBIGUOUS_CHARS,
             params: SubstParams::Protein(ProteinSubstParams { pi: pi.clone() }),
-            index: aminoacid_index(),
+            index: *AMINOACID_INDEX,
             q,
             pi,
         };
@@ -140,15 +149,6 @@ impl<'a> LikelihoodCostFunction<'a, 20> for SubstitutionLikelihoodCost<'a, 20> {
     fn get_empirical_frequencies(&self) -> FreqVector {
         todo!()
     }
-}
-
-pub fn aminoacid_index() -> [i32; 255] {
-    let mut index = [-1_i32; 255];
-    for (i, char) in charify(AMINOACIDS_STR).into_iter().enumerate() {
-        index[char as usize] = i as i32;
-        index[char.to_ascii_lowercase() as usize] = i as i32;
-    }
-    index
 }
 
 pub fn wag() -> Result<(SubstMatrix, FreqVector)> {

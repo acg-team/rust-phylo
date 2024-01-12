@@ -1,18 +1,17 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use anyhow::bail;
-use log::warn;
+use lazy_static::lazy_static;
 use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::EvolutionaryModel;
 use crate::likelihood::LikelihoodCostFunction;
-use crate::sequences::{charify, dna_alphabet, AMBIG, NUCLEOTIDES_STR};
+use crate::sequences::{charify, dna_alphabet, NUCLEOTIDES_STR};
 use crate::substitution_models::{
     FreqVector, ParsimonyModel, SubstMatrix, SubstParams, SubstitutionLikelihoodCost,
     SubstitutionModel, SubstitutionModelInfo,
 };
 use crate::{Result, Rounding};
-use lazy_static::lazy_static;
 
 pub type DNASubstModel = SubstitutionModel<4>;
 pub type DNALikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 4>;
@@ -34,42 +33,60 @@ pub use k80::*;
 pub use tn93::*;
 
 lazy_static! {
-    pub static ref DNA_AMBIGUOUS_CHARS: HashMap<u8, Vec<u8>> = {
-        let mut map = HashMap::new();
-        map.insert(b'V', vec![b'C', b'A', b'G']);
-        map.insert(b'v', vec![b'C', b'A', b'G']);
-        map.insert(b'D', vec![b'T', b'A', b'G']);
-        map.insert(b'd', vec![b'T', b'A', b'G']);
-        map.insert(b'B', vec![b'T', b'C', b'G']);
-        map.insert(b'b', vec![b'T', b'C', b'G']);
-        map.insert(b'H', vec![b'T', b'C', b'A']);
-        map.insert(b'h', vec![b'T', b'C', b'A']);
-        map.insert(b'M', vec![b'A', b'C']);
-        map.insert(b'm', vec![b'A', b'C']);
-        map.insert(b'R', vec![b'A', b'G']);
-        map.insert(b'r', vec![b'A', b'G']);
-        map.insert(b'W', vec![b'A', b'T']);
-        map.insert(b'w', vec![b'A', b'T']);
-        map.insert(b'S', vec![b'C', b'G']);
-        map.insert(b's', vec![b'C', b'G']);
-        map.insert(b'Y', vec![b'C', b'T']);
-        map.insert(b'y', vec![b'C', b'T']);
-        map.insert(b'K', vec![b'G', b'T']);
-        map.insert(b'k', vec![b'G', b'T']);
-        map.insert(b'X', vec![b'A', b'C', b'G', b'T']);
-        map.insert(b'x', vec![b'A', b'C', b'G', b'T']);
-        map.insert(b'N', vec![b'A', b'C', b'G', b'T']);
-        map.insert(b'n', vec![b'A', b'C', b'G', b'T']);
+    pub static ref DNA_SETS: Vec<FreqVector> = {
+        let mut map = Vec::<FreqVector>::new();
+        map.resize(255, FreqVector::from_element(4, 1.0 / 4.0));
+        for (i, elem) in map.iter_mut().enumerate() {
+            let char = i as u8 as char;
+            elem.set_column(
+                0,
+                &match char {
+                    'T' | 't' => FreqVector::from_column_slice(&[1.0, 0.0, 0.0, 0.0]),
+                    'C' | 'c' => FreqVector::from_column_slice(&[0.0, 1.0, 0.0, 0.0]),
+                    'A' | 'a' => FreqVector::from_column_slice(&[0.0, 0.0, 1.0, 0.0]),
+                    'G' | 'g' => FreqVector::from_column_slice(&[0.0, 0.0, 0.0, 1.0]),
+                    'V' | 'v' => {
+                        FreqVector::from_column_slice(&[0.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0])
+                    }
+                    'D' | 'd' => {
+                        FreqVector::from_column_slice(&[1.0 / 3.0, 0.0, 1.0 / 3.0, 1.0 / 3.0])
+                    }
+                    'B' | 'b' => {
+                        FreqVector::from_column_slice(&[1.0 / 3.0, 1.0 / 3.0, 0.0, 1.0 / 3.0])
+                    }
+                    'H' | 'h' => {
+                        FreqVector::from_column_slice(&[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 0.0])
+                    }
+                    'M' | 'm' => FreqVector::from_column_slice(&[0.0, 1.0 / 2.0, 1.0 / 2.0, 0.0]),
+                    'R' | 'r' => FreqVector::from_column_slice(&[0.0, 0.0, 1.0 / 2.0, 1.0 / 2.0]),
+                    'W' | 'w' => FreqVector::from_column_slice(&[1.0 / 2.0, 0.0, 1.0 / 2.0, 0.0]),
+                    'S' | 's' => FreqVector::from_column_slice(&[0.0, 1.0 / 2.0, 0.0, 1.0 / 2.0]),
+                    'Y' | 'y' => FreqVector::from_column_slice(&[1.0 / 2.0, 1.0 / 2.0, 0.0, 0.0]),
+                    'K' | 'k' => FreqVector::from_column_slice(&[1.0 / 2.0, 0.0, 0.0, 1.0 / 2.0]),
+                    _ => continue,
+                },
+            );
+        }
         map
+    };
+}
+
+lazy_static! {
+    pub static ref NUCLEOTIDE_INDEX: [i32; 255] = {
+        let mut index = [-1_i32; 255];
+        for (i, char) in charify(NUCLEOTIDES_STR).into_iter().enumerate() {
+            index[char as usize] = i as i32;
+            index[char.to_ascii_lowercase() as usize] = i as i32;
+        }
+        index
     };
 }
 
 fn make_dna_model(params: DNASubstParams, q: SubstMatrix) -> DNASubstModel {
     let pi = params.pi.clone();
     DNASubstModel {
-        ambiguous_chars: &DNA_AMBIGUOUS_CHARS,
         params: SubstParams::DNA(params),
-        index: nucleotide_index(),
+        index: *NUCLEOTIDE_INDEX,
         q,
         pi,
     }
@@ -104,27 +121,11 @@ impl EvolutionaryModel<4> for DNASubstModel {
 
     fn get_char_probability(&self, char: u8) -> FreqVector {
         let mut probs = FreqVector::zeros(4);
-        let dna_char_set: HashSet<u8> =
-            HashSet::from_iter(NUCLEOTIDES_STR.as_bytes().iter().cloned());
         if NUCLEOTIDES_STR.contains(char as char) {
             probs[self.index[char as usize] as usize] = 1.0;
         } else {
-            probs = FreqVector::from_column_slice(self.get_stationary_distribution().as_slice());
-            let other = self.ambiguous_chars.get(&char);
-            match other {
-                Some(other) => {
-                    let other_set: HashSet<u8> = HashSet::from_iter(other.clone());
-                    let difference = dna_char_set.difference(&other_set);
-                    for &char in difference {
-                        probs[self.index[char as usize] as usize] = 0.0;
-                    }
-                }
-                None => {
-                    warn!("Unknown character {} encountered, treating it as X.", char);
-                    probs =
-                        FreqVector::from_column_slice(self.get_stationary_distribution().as_slice())
-                }
-            }
+            probs = FreqVector::from_column_slice(self.get_stationary_distribution().as_slice())
+                .component_mul(&DNA_SETS[char as usize]);
         }
         probs.scale_mut(1.0 / probs.sum());
         probs
@@ -157,27 +158,13 @@ impl<'a> LikelihoodCostFunction<'a, 4> for DNALikelihoodCost<'a> {
     fn get_empirical_frequencies(&self) -> FreqVector {
         let all_counts = self.info.get_counts(&dna_alphabet());
         let mut total = all_counts.values().sum::<f64>();
-        let index = nucleotide_index();
-        let dna_ambiguous_chars = &DNA_AMBIGUOUS_CHARS;
+        let index = &NUCLEOTIDE_INDEX;
         let mut freqs = FreqVector::zeros(4);
         for (&char, &count) in all_counts.iter() {
             if index[char as usize] >= 0 {
                 freqs[index[char as usize] as usize] += count;
             } else {
-                let charset = match dna_ambiguous_chars.get(&char) {
-                    Some(set) => set,
-                    None => {
-                        warn!(
-                            "Unknown character {} encountered, treating it as ambiguous.",
-                            char
-                        );
-                        dna_ambiguous_chars.get(&AMBIG).unwrap()
-                    }
-                };
-                let num = charset.len() as f64;
-                for &char in charset {
-                    freqs[index[char as usize] as usize] += count / num;
-                }
+                freqs += &DNA_SETS[char as usize].scale(count);
             }
         }
         for &char in NUCLEOTIDES_STR.as_bytes() {
@@ -188,15 +175,6 @@ impl<'a> LikelihoodCostFunction<'a, 4> for DNALikelihoodCost<'a> {
         }
         freqs.map(|x| x / total)
     }
-}
-
-pub fn nucleotide_index() -> [i32; 255] {
-    let mut index = [-1_i32; 255];
-    for (i, char) in charify(NUCLEOTIDES_STR).into_iter().enumerate() {
-        index[char as usize] = i as i32;
-        index[char.to_ascii_lowercase() as usize] = i as i32;
-    }
-    index
 }
 
 fn make_pi(pi_array: &[f64]) -> Result<FreqVector> {
