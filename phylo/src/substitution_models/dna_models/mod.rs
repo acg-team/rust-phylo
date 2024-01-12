@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::bail;
 use log::warn;
-use map_macro::{hash_map, hash_set};
 use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::EvolutionaryModel;
@@ -13,6 +12,7 @@ use crate::substitution_models::{
     SubstitutionModel, SubstitutionModelInfo,
 };
 use crate::{Result, Rounding};
+use lazy_static::lazy_static;
 
 pub type DNASubstModel = SubstitutionModel<4>;
 pub type DNALikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 4>;
@@ -33,38 +33,41 @@ pub use jc69::*;
 pub use k80::*;
 pub use tn93::*;
 
-fn dna_ambiguous_chars() -> HashMap<u8, HashSet<u8>> {
-    hash_map! {
-        b'V' => hash_set! {b'C', b'A', b'G'},
-        b'v' => hash_set! {b'C', b'A', b'G'},
-        b'D' => hash_set! {b'T', b'A', b'G'},
-        b'd' => hash_set! {b'T', b'A', b'G'},
-        b'B' => hash_set! {b'T', b'C', b'G'},
-        b'b' => hash_set! {b'T', b'C', b'G'},
-        b'H' => hash_set! {b'T', b'C' ,b'A'},
-        b'h' => hash_set! {b'T', b'C', b'A'},
-        b'M' => hash_set! {b'A', b'C'},
-        b'm' => hash_set! {b'A', b'C'},
-        b'R' => hash_set! {b'A', b'G'},
-        b'r' => hash_set! {b'A', b'G'},
-        b'W' => hash_set! {b'A', b'T'},
-        b'w' => hash_set! {b'A', b'T'},
-        b'S' => hash_set! {b'C', b'G'},
-        b's' => hash_set! {b'C', b'G'},
-        b'Y' => hash_set! {b'C', b'T'},
-        b'y' => hash_set! {b'C', b'T'},
-        b'K' => hash_set! {b'G', b'T'},
-        b'k' => hash_set! {b'G', b'T'},
-        b'X' => hash_set! {b'A', b'C', b'G', b'T'},
-        b'x' => hash_set! {b'A', b'C', b'G', b'T'},
-        b'N' => hash_set! {b'A', b'C', b'G', b'T'},
-        b'n' => hash_set! {b'A', b'C', b'G', b'T'},
-    }
+lazy_static! {
+    pub static ref DNA_AMBIGUOUS_CHARS: HashMap<u8, Vec<u8>> = {
+        let mut map = HashMap::new();
+        map.insert(b'V', vec![b'C', b'A', b'G']);
+        map.insert(b'v', vec![b'C', b'A', b'G']);
+        map.insert(b'D', vec![b'T', b'A', b'G']);
+        map.insert(b'd', vec![b'T', b'A', b'G']);
+        map.insert(b'B', vec![b'T', b'C', b'G']);
+        map.insert(b'b', vec![b'T', b'C', b'G']);
+        map.insert(b'H', vec![b'T', b'C', b'A']);
+        map.insert(b'h', vec![b'T', b'C', b'A']);
+        map.insert(b'M', vec![b'A', b'C']);
+        map.insert(b'm', vec![b'A', b'C']);
+        map.insert(b'R', vec![b'A', b'G']);
+        map.insert(b'r', vec![b'A', b'G']);
+        map.insert(b'W', vec![b'A', b'T']);
+        map.insert(b'w', vec![b'A', b'T']);
+        map.insert(b'S', vec![b'C', b'G']);
+        map.insert(b's', vec![b'C', b'G']);
+        map.insert(b'Y', vec![b'C', b'T']);
+        map.insert(b'y', vec![b'C', b'T']);
+        map.insert(b'K', vec![b'G', b'T']);
+        map.insert(b'k', vec![b'G', b'T']);
+        map.insert(b'X', vec![b'A', b'C', b'G', b'T']);
+        map.insert(b'x', vec![b'A', b'C', b'G', b'T']);
+        map.insert(b'N', vec![b'A', b'C', b'G', b'T']);
+        map.insert(b'n', vec![b'A', b'C', b'G', b'T']);
+        map
+    };
 }
 
 fn make_dna_model(params: DNASubstParams, q: SubstMatrix) -> DNASubstModel {
     let pi = params.pi.clone();
     DNASubstModel {
+        ambiguous_chars: &DNA_AMBIGUOUS_CHARS,
         params: SubstParams::DNA(params),
         index: nucleotide_index(),
         q,
@@ -101,17 +104,17 @@ impl EvolutionaryModel<4> for DNASubstModel {
 
     fn get_char_probability(&self, char: u8) -> FreqVector {
         let mut probs = FreqVector::zeros(4);
-        let dna_ambiguous_chars = dna_ambiguous_chars();
         let dna_char_set: HashSet<u8> =
             HashSet::from_iter(NUCLEOTIDES_STR.as_bytes().iter().cloned());
         if NUCLEOTIDES_STR.contains(char as char) {
             probs[self.index[char as usize] as usize] = 1.0;
         } else {
             probs = FreqVector::from_column_slice(self.get_stationary_distribution().as_slice());
-            let other = dna_ambiguous_chars.get(&char);
+            let other = self.ambiguous_chars.get(&char);
             match other {
                 Some(other) => {
-                    let difference = dna_char_set.difference(other);
+                    let other_set: HashSet<u8> = HashSet::from_iter(other.clone());
+                    let difference = dna_char_set.difference(&other_set);
                     for &char in difference {
                         probs[self.index[char as usize] as usize] = 0.0;
                     }
@@ -155,7 +158,7 @@ impl<'a> LikelihoodCostFunction<'a, 4> for DNALikelihoodCost<'a> {
         let all_counts = self.info.get_counts(&dna_alphabet());
         let mut total = all_counts.values().sum::<f64>();
         let index = nucleotide_index();
-        let dna_ambiguous_chars = dna_ambiguous_chars();
+        let dna_ambiguous_chars = &DNA_AMBIGUOUS_CHARS;
         let mut freqs = FreqVector::zeros(4);
         for (&char, &count) in all_counts.iter() {
             if index[char as usize] >= 0 {

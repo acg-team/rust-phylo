@@ -13,6 +13,8 @@ use crate::substitution_models::{
 };
 use crate::{Result, Rounding};
 
+use super::dna_models::DNA_AMBIGUOUS_CHARS;
+
 pub(crate) type ProteinSubstArray = [f64; 400];
 pub(crate) type ProteinFrequencyArray = [f64; 20];
 
@@ -44,6 +46,7 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
             _ => bail!("Unknown protein model requested."),
         };
         let mut model = ProteinSubstModel {
+            ambiguous_chars: &DNA_AMBIGUOUS_CHARS,
             params: SubstParams::Protein(ProteinSubstParams { pi: pi.clone() }),
             index: aminoacid_index(),
             q,
