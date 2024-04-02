@@ -8,9 +8,7 @@ use nalgebra::{dvector, Const, DMatrix, DVector, DimMin};
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
-use crate::phylo_info::{
-    phyloinfo_from_files, phyloinfo_from_sequences_tree, GapHandling, PhyloInfo,
-};
+use crate::phylo_info::{GapHandling, PhyloInfo};
 use crate::pip_model::{PIPLikelihoodCost, PIPModel, PIPModelInfo};
 use crate::sequences::{charify, AMINOACIDS_STR, NUCLEOTIDES_STR};
 use crate::substitution_models::dna_models::DNA_GAP_SETS;
@@ -341,7 +339,7 @@ fn pip_p_example_matrix() {
 
 #[test]
 fn pip_likelihood_no_msa() {
-    let info = phyloinfo_from_files(
+    let info = PhyloInfo::from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
         &GapHandling::Proper,
@@ -359,7 +357,7 @@ fn setup_example_phylo_info() -> PhyloInfo {
         Record::with_attrs("C", None, b"-A-G"),
         Record::with_attrs("D", None, b"-CAA"),
     ];
-    phyloinfo_from_sequences_tree(
+    PhyloInfo::from_sequences_tree(
         sequences,
         tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"),
         &GapHandling::Proper,
@@ -686,7 +684,7 @@ fn setup_example_phylo_info_2() -> PhyloInfo {
         Record::with_attrs("C", None, b"--A-G"),
         Record::with_attrs("D", None, b"T-CAA"),
     ];
-    phyloinfo_from_sequences_tree(
+    PhyloInfo::from_sequences_tree(
         sequences,
         tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"),
         &GapHandling::Proper,
@@ -709,7 +707,7 @@ fn pip_hky_likelihood_example_2() {
 
 #[test]
 fn pip_likelihood_huelsenbeck_example() {
-    let info = phyloinfo_from_files(
+    let info = PhyloInfo::from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
         &GapHandling::Proper,
@@ -748,7 +746,7 @@ fn pip_likelihood_huelsenbeck_example() {
 
 #[test]
 fn pip_likelihood_huelsenbeck_example_model_comp() {
-    let info = phyloinfo_from_files(
+    let info = PhyloInfo::from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
         &GapHandling::Proper,
@@ -767,7 +765,7 @@ fn pip_likelihood_huelsenbeck_example_model_comp() {
 
 #[test]
 fn pip_likelihood_huelsenbeck_example_reroot() {
-    let info_1 = phyloinfo_from_files(
+    let info_1 = PhyloInfo::from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
         &GapHandling::Proper,
@@ -782,7 +780,7 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
     .unwrap();
     let cost_1 = PIPLikelihoodCost::<4> { info: &info_1 };
 
-    let info_2 = phyloinfo_from_files(
+    let info_2 = PhyloInfo::from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example_reroot.newick"),
         &GapHandling::Proper,
@@ -798,7 +796,7 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
 
 #[test]
 fn pip_likelihood_protein_example() {
-    let info = phyloinfo_from_files(
+    let info = PhyloInfo::from_files(
         PathBuf::from("./data/phyml_protein_example.fasta"),
         PathBuf::from("./data/phyml_protein_example.newick"),
         &GapHandling::Proper,

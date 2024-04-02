@@ -4,17 +4,16 @@ use approx::assert_relative_eq;
 
 use crate::evolutionary_models::EvolutionaryModel;
 use crate::likelihood::LikelihoodCostFunction;
-use crate::phylo_info::{phyloinfo_from_files, GapHandling};
+use crate::phylo_info::{GapHandling, PhyloInfo};
 use crate::substitution_models::dna_models::{
-    dna_model_optimiser::DNAModelOptimiser,
-    gtr::{self},
-    parse_k80_parameters, DNALikelihoodCost, DNASubstModel, DNASubstParams,
+    dna_model_optimiser::DNAModelOptimiser, gtr, parse_k80_parameters, DNALikelihoodCost,
+    DNASubstModel, DNASubstParams,
 };
 use crate::substitution_models::FreqVector;
 
 #[test]
 fn check_likelihood_opt_k80() {
-    let info = phyloinfo_from_files(
+    let info = PhyloInfo::from_files(
         PathBuf::from("./data/sim/K80/K80.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
         &GapHandling::Ambiguous,
@@ -40,7 +39,7 @@ fn check_likelihood_opt_k80() {
 
 #[test]
 fn check_parameter_optimisation_gtr() {
-    let info = phyloinfo_from_files(
+    let info = PhyloInfo::from_files(
         PathBuf::from("./data/sim/GTR/gtr.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
         &GapHandling::Ambiguous,
