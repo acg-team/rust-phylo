@@ -7,7 +7,9 @@ use bio::io::fasta::Record;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
-use crate::phylo_info::{phyloinfo_from_files, phyloinfo_from_sequences_tree, PhyloInfo};
+use crate::phylo_info::{
+    phyloinfo_from_files, phyloinfo_from_sequences_tree, GapHandling, PhyloInfo,
+};
 use crate::substitution_models::dna_models::{DNALikelihoodCost, DNASubstModel, DNASubstModelInfo};
 use crate::substitution_models::protein_models::{ProteinLikelihoodCost, ProteinSubstModel};
 use crate::substitution_models::{FreqVector, SubstMatrix};
@@ -32,7 +34,7 @@ fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
     tree.complete = true;
     tree.create_postorder();
     tree.create_preorder();
-    phyloinfo_from_sequences_tree(&sequences, tree).unwrap()
+    phyloinfo_from_sequences_tree(&sequences, tree, &GapHandling::Ambiguous).unwrap()
 }
 
 #[test]
@@ -66,7 +68,7 @@ fn setup_simple_phylo_info_no_alignment() -> PhyloInfo {
     tree.complete = true;
     tree.create_postorder();
     tree.create_preorder();
-    phyloinfo_from_sequences_tree(&sequences, tree).unwrap()
+    phyloinfo_from_sequences_tree(&sequences, tree, &GapHandling::Ambiguous).unwrap()
 }
 
 #[test]
@@ -84,7 +86,7 @@ fn setup_phylo_info_single_leaf() -> PhyloInfo {
     tree.complete = true;
     tree.create_postorder();
     tree.create_preorder();
-    phyloinfo_from_sequences_tree(&sequences, tree).unwrap()
+    phyloinfo_from_sequences_tree(&sequences, tree, &GapHandling::Ambiguous).unwrap()
 }
 
 #[test]
@@ -104,7 +106,8 @@ fn setup_cb_example_phylo_info() -> PhyloInfo {
         Record::with_attrs("four", None, b"G"),
     ];
     let newick = "((one:2,two:2):1,(three:1,four:1):2);".to_string();
-    phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick)).unwrap()
+    phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick), &GapHandling::Ambiguous)
+        .unwrap()
 }
 
 #[test]
@@ -155,7 +158,8 @@ fn setup_mol_evo_example_phylo_info() -> PhyloInfo {
         Record::with_attrs("five", None, b"C"),
     ];
     let newick = "(((one:0.2,two:0.2):0.1,three:0.2):0.1,(four:0.2,five:0.2):0.1);".to_string();
-    phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick)).unwrap()
+    phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick), &GapHandling::Ambiguous)
+        .unwrap()
 }
 
 #[test]
@@ -181,6 +185,7 @@ fn dna_ambig_example_likelihood() {
     let info_w_x = phyloinfo_from_files(
         PathBuf::from("./data/ambiguous_example.fasta"),
         PathBuf::from("./data/ambiguous_example.newick"),
+        &GapHandling::Ambiguous,
     )
     .unwrap();
     let likelihood_w_x = DNALikelihoodCost { info: &info_w_x };
@@ -193,6 +198,7 @@ fn dna_ambig_example_likelihood() {
     let info_w_n = phyloinfo_from_files(
         PathBuf::from("./data/ambiguous_example_N.fasta"),
         PathBuf::from("./data/ambiguous_example.newick"),
+        &GapHandling::Ambiguous,
     )
     .unwrap();
     let likelihood_w_n = DNALikelihoodCost { info: &info_w_n };
@@ -214,6 +220,7 @@ fn dna_huelsenbeck_example_likelihood() {
     let info = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
+        &GapHandling::Ambiguous,
     )
     .unwrap();
     let model =
@@ -240,6 +247,7 @@ fn protein_example_likelihood(
     let info = phyloinfo_from_files(
         PathBuf::from("./data/phyml_protein_nogap_example.fasta"),
         PathBuf::from("./data/phyml_protein_example.newick"),
+        &GapHandling::Ambiguous,
     )
     .unwrap();
     let model = ProteinSubstModel::new(model_name, model_params).unwrap();
@@ -260,12 +268,20 @@ fn setup_simple_reversibility() -> Vec<PhyloInfo> {
         Record::with_attrs("C", None, b"TTATATATAT"),
     ];
     res.push(
-        phyloinfo_from_sequences_tree(&sequences, tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"))
-            .unwrap(),
+        phyloinfo_from_sequences_tree(
+            &sequences,
+            tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
+            &GapHandling::Ambiguous,
+        )
+        .unwrap(),
     );
     res.push(
-        phyloinfo_from_sequences_tree(&sequences, tree_newick("(A:1.0,(B:2.0,C:3.0):1.0):0.0;"))
-            .unwrap(),
+        phyloinfo_from_sequences_tree(
+            &sequences,
+            tree_newick("(A:1.0,(B:2.0,C:3.0):1.0):0.0;"),
+            &GapHandling::Ambiguous,
+        )
+        .unwrap(),
     );
     res
 }
@@ -288,6 +304,33 @@ fn simple_dna_likelihood_reversibility(#[case] model_name: &str, #[case] model_p
     );
 }
 
+#[cfg(test)]
+fn setup_simple_protein_reversibility() -> Vec<PhyloInfo> {
+    let mut res = Vec::<PhyloInfo>::new();
+    let sequences = vec![
+        Record::with_attrs("A", None, b"CTATATATACIJL"),
+        Record::with_attrs("B", None, b"ATATATATAAIHL"),
+        Record::with_attrs("C", None, b"TTATATATATIJL"),
+    ];
+    res.push(
+        phyloinfo_from_sequences_tree(
+            &sequences,
+            tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
+            &GapHandling::Ambiguous,
+        )
+        .unwrap(),
+    );
+    res.push(
+        phyloinfo_from_sequences_tree(
+            &sequences,
+            tree_newick("(A:1.0,(B:2.0,C:3.0):1.0):0.0;"),
+            &GapHandling::Ambiguous,
+        )
+        .unwrap(),
+    );
+    res
+}
+
 #[rstest]
 #[case::wag("wag", &[], 1e-8)]
 #[case::hivb("hivb", &[], 1e-8)]
@@ -297,7 +340,7 @@ fn simple_protein_likelihood_reversibility(
     #[case] model_params: &[f64],
     #[case] epsilon: f64,
 ) {
-    let info = setup_simple_reversibility();
+    let info = setup_simple_protein_reversibility();
     let model = ProteinSubstModel::new(model_name, model_params).unwrap();
     let likelihood = ProteinLikelihoodCost { info: &info[0] };
     let likelihood_rerooted = ProteinLikelihoodCost { info: &info[1] };
@@ -322,11 +365,13 @@ fn huelsenbeck_example_dna_reversibility_likelihood(
     let info1 = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
+        &GapHandling::Ambiguous,
     )
     .unwrap();
     let info2 = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example_reroot.newick"),
+        &GapHandling::Ambiguous,
     )
     .unwrap();
 
@@ -349,7 +394,9 @@ fn empirical_frequencies_no_ambigs() {
         Record::with_attrs("four", None, b"GGGGGGGG"),
     ];
     let newick = "((one:2,two:2):1,(three:1,four:1):2);".to_string();
-    let info = phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick)).unwrap();
+    let info =
+        phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick), &GapHandling::Ambiguous)
+            .unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
     let freqs = likelihood.get_empirical_frequencies();
     assert_relative_eq!(
@@ -368,7 +415,9 @@ fn empirical_frequencies_ambig_x_or_n() {
         Record::with_attrs("fo", None, b"NNNNNNNN"),
     ];
     let newick = "((on:2,tw:2):1,(th:1,fo:1):2);".to_string();
-    let info = phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick)).unwrap();
+    let info =
+        phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick), &GapHandling::Ambiguous)
+            .unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
     let freqs = likelihood.get_empirical_frequencies();
     assert_relative_eq!(
@@ -383,7 +432,9 @@ fn empirical_frequencies_ambig_x_or_n() {
         Record::with_attrs("fo", None, b"NNNNNNNNNN"),
     ];
     let newick = "(((on:2,tw:2):1,th:1):4,fo:1);".to_string();
-    let info = phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick)).unwrap();
+    let info =
+        phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick), &GapHandling::Ambiguous)
+            .unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
     let freqs = likelihood.get_empirical_frequencies();
     assert_relative_eq!(
@@ -400,7 +451,9 @@ fn empirical_frequencies_ambig() {
         Record::with_attrs("B", None, b"TTT"),
     ];
     let newick = "(A:2,B:2):1.0;".to_string();
-    let info = phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick)).unwrap();
+    let info =
+        phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick), &GapHandling::Ambiguous)
+            .unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
     let freqs = likelihood.get_empirical_frequencies();
     assert_relative_eq!(
@@ -412,7 +465,9 @@ fn empirical_frequencies_ambig() {
         Record::with_attrs("A", None, b"SSSSSSSSSSSSSSSSSSSS"),
         Record::with_attrs("B", None, b"WWWWWWWWWWWWWWWWWWWW"),
     ];
-    let info = phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick)).unwrap();
+    let info =
+        phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick), &GapHandling::Ambiguous)
+            .unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
     let freqs = likelihood.get_empirical_frequencies();
     assert_relative_eq!(
@@ -426,7 +481,9 @@ fn empirical_frequencies_ambig() {
 fn empirical_frequencies_no_aas() {
     let sequences = vec![Record::with_attrs("A", None, b"BBBBBBBBB")];
     let newick = "A:1.0;".to_string();
-    let info = phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick)).unwrap();
+    let info =
+        phyloinfo_from_sequences_tree(&sequences, tree_newick(&newick), &GapHandling::Ambiguous)
+            .unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
     let freqs = likelihood.get_empirical_frequencies();
     assert_relative_eq!(

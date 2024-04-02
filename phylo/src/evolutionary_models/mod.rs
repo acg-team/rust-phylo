@@ -16,7 +16,7 @@ pub trait EvolutionaryModel<const N: usize> {
     fn get_p(&self, time: f64) -> SubstMatrix;
     fn get_rate(&self, i: u8, j: u8) -> f64;
     fn get_stationary_distribution(&self) -> &FreqVector;
-    fn get_char_probability(&self, char: u8) -> FreqVector;
+    fn get_char_probability(&self, char_encoding: &FreqVector) -> FreqVector;
 }
 
 pub trait EvolutionaryModelInfo<const N: usize> {

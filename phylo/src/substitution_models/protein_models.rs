@@ -2,12 +2,11 @@ use std::collections::HashMap;
 
 use anyhow::bail;
 use lazy_static::lazy_static;
-use log::warn;
 use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::EvolutionaryModel;
 use crate::likelihood::LikelihoodCostFunction;
-use crate::sequences::{charify, AMINOACIDS_STR};
+use crate::sequences::{charify, AMINOACIDS_STR, GAP};
 use crate::substitution_models::{
     FreqVector, ParsimonyModel, SubstMatrix, SubstParams, SubstitutionLikelihoodCost,
     SubstitutionModel, SubstitutionModelInfo,
@@ -28,7 +27,97 @@ lazy_static! {
             index[char as usize] = i as i32;
             index[char.to_ascii_lowercase() as usize] = i as i32;
         }
+        index[GAP as usize] = 20;
         index
+    };
+    pub static ref PROTEIN_GAP_SETS: Vec<FreqVector> = {
+        let index = &AMINOACID_INDEX;
+        let mut map = Vec::<FreqVector>::new();
+        let mut x_set = FreqVector::from_element(21, 1.0 / 20.0);
+        x_set.fill_row(20, 0.0);
+        map.resize(255, x_set.clone());
+        for (i, elem) in map.iter_mut().enumerate() {
+            let char = i as u8 as char;
+            elem.set_column(
+                0,
+                &match char {
+                    'A' | 'a' | 'R' | 'r' | 'N' | 'n' | 'D' | 'd' | 'C' | 'c' | 'Q' | 'q' | 'E'
+                    | 'e' | 'G' | 'g' | 'H' | 'h' | 'I' | 'i' | 'L' | 'l' | 'K' | 'k' | 'M'
+                    | 'm' | 'F' | 'f' | 'P' | 'p' | 'S' | 's' | 'T' | 't' | 'W' | 'w' | 'Y'
+                    | 'y' | 'V' | 'v' => {
+                        let mut set = FreqVector::zeros(21);
+                        set.fill_row(index[char as usize] as usize, 1.0);
+                        set
+                    }
+                    'B' | 'b' => {
+                        let mut set = FreqVector::zeros(21);
+                        set.fill_row(index['D' as usize] as usize, 0.5);
+                        set.fill_row(index['N' as usize] as usize, 0.5);
+                        set
+                    }
+                    'Z' | 'z' => {
+                        let mut set = FreqVector::zeros(21);
+                        set.fill_row(index['E' as usize] as usize, 0.5);
+                        set.fill_row(index['Q' as usize] as usize, 0.5);
+                        set
+                    }
+                    'J' | 'j' => {
+                        let mut set = FreqVector::zeros(21);
+                        set.fill_row(index['I' as usize] as usize, 0.5);
+                        set.fill_row(index['L' as usize] as usize, 0.5);
+                        set
+                    }
+                    '-' => {
+                        let mut set = FreqVector::zeros(21);
+                        set.fill_row(index[GAP as usize] as usize, 1.0);
+                        set
+                    }
+                    _ => continue,
+                },
+            );
+        }
+        map
+    };
+    pub static ref PROTEIN_SETS: Vec<FreqVector> = {
+        let index = &AMINOACID_INDEX;
+        let mut map = Vec::<FreqVector>::new();
+        map.resize(255, FreqVector::from_element(20, 1.0 / 20.0));
+        for (i, elem) in map.iter_mut().enumerate() {
+            let char = i as u8 as char;
+            elem.set_column(
+                0,
+                &match char {
+                    'A' | 'a' | 'R' | 'r' | 'N' | 'n' | 'D' | 'd' | 'C' | 'c' | 'Q' | 'q' | 'E'
+                    | 'e' | 'G' | 'g' | 'H' | 'h' | 'I' | 'i' | 'L' | 'l' | 'K' | 'k' | 'M'
+                    | 'm' | 'F' | 'f' | 'P' | 'p' | 'S' | 's' | 'T' | 't' | 'W' | 'w' | 'Y'
+                    | 'y' | 'V' | 'v' => {
+                        let mut set = FreqVector::zeros(20);
+                        set.fill_row(index[char as usize] as usize, 1.0);
+                        set
+                    }
+                    'B' | 'b' => {
+                        let mut set = FreqVector::zeros(20);
+                        set.fill_row(index['D' as usize] as usize, 0.5);
+                        set.fill_row(index['N' as usize] as usize, 0.5);
+                        set
+                    }
+                    'Z' | 'z' => {
+                        let mut set = FreqVector::zeros(20);
+                        set.fill_row(index['E' as usize] as usize, 0.5);
+                        set.fill_row(index['Q' as usize] as usize, 0.5);
+                        set
+                    }
+                    'J' | 'j' => {
+                        let mut set = FreqVector::zeros(20);
+                        set.fill_row(index['I' as usize] as usize, 0.5);
+                        set.fill_row(index['L' as usize] as usize, 0.5);
+                        set
+                    }
+                    _ => continue,
+                },
+            );
+        }
+        map
     };
 }
 
@@ -77,49 +166,13 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
         self.get_stationary_distribution()
     }
 
-    fn get_char_probability(&self, char: u8) -> FreqVector {
-        let mut vec = FreqVector::zeros(20);
-        if AMINOACIDS_STR.contains(char as char) {
-            vec[self.index[char as usize] as usize] = 1.0;
-        } else {
-            match char {
-                b'B' => {
-                    vec[self.index[b'D' as usize] as usize] = self
-                        .get_stationary_distribution()
-                        .as_slice()[self.index[b'D' as usize] as usize];
-                    vec[self.index[b'N' as usize] as usize] = self
-                        .get_stationary_distribution()
-                        .as_slice()[self.index[b'N' as usize] as usize];
-                }
-                b'Z' => {
-                    vec[self.index[b'E' as usize] as usize] = self
-                        .get_stationary_distribution()
-                        .as_slice()[self.index[b'E' as usize] as usize];
-                    vec[self.index[b'Q' as usize] as usize] = self
-                        .get_stationary_distribution()
-                        .as_slice()[self.index[b'Q' as usize] as usize];
-                }
-                b'J' => {
-                    vec[self.index[b'I' as usize] as usize] = self
-                        .get_stationary_distribution()
-                        .as_slice()[self.index[b'I' as usize] as usize];
-                    vec[self.index[b'L' as usize] as usize] = self
-                        .get_stationary_distribution()
-                        .as_slice()[self.index[b'L' as usize] as usize];
-                }
-                b'X' => {
-                    vec =
-                        FreqVector::from_column_slice(self.get_stationary_distribution().as_slice())
-                }
-                _ => {
-                    warn!("Unknown character {} encountered, treating it as X.", char);
-                    vec =
-                        FreqVector::from_column_slice(self.get_stationary_distribution().as_slice())
-                }
-            };
-        }
-        vec.scale_mut(1.0 / vec.sum());
-        vec
+    fn get_char_probability(&self, char_encoding: &FreqVector) -> FreqVector {
+        let mut probs = self
+            .get_stationary_distribution()
+            .clone()
+            .component_mul(char_encoding);
+        probs.scale_mut(1.0 / probs.sum());
+        probs
     }
 }
 

@@ -13,10 +13,10 @@ use crate::sequences::AMINOACIDS_STR;
 use crate::substitution_models::{
     dna_models::{
         parse_gtr_parameters, parse_hky_parameters, parse_jc69_parameters, parse_k80_parameters,
-        parse_tn93_parameters, DNASubstModel,
+        parse_tn93_parameters, DNASubstModel, DNA_SETS,
     },
     protein_models::{
-        ProteinSubstArray, ProteinSubstModel, BLOSUM_PI_ARR, HIVB_PI_ARR, WAG_PI_ARR,
+        ProteinSubstArray, ProteinSubstModel, BLOSUM_PI_ARR, HIVB_PI_ARR, PROTEIN_SETS, WAG_PI_ARR,
     },
     FreqVector, ParsimonyModel, SubstMatrix,
 };
@@ -398,7 +398,7 @@ fn dna_char_probabilities() {
     let (params, char_probs) = gtr_char_probs_data();
     let gtr = DNASubstModel::new("gtr", &params).unwrap();
     for (&char, expected) in char_probs.iter() {
-        let actual = gtr.get_char_probability(char);
+        let actual = gtr.get_char_probability(&DNA_SETS[char as usize]);
         assert_relative_eq!(actual.sum(), 1.0);
         assert_relative_eq!(actual, expected, epsilon = 1e-4);
     }
@@ -412,7 +412,7 @@ fn protein_char_probabilities(#[case] input: &str, #[case] pi_array: &[f64], #[c
     let model = ProteinSubstModel::new(input, &[]).unwrap();
     let expected = protein_char_probs_data(pi_array);
     for (char, expected_probs) in expected.into_iter() {
-        let actual = model.get_char_probability(char);
+        let actual = model.get_char_probability(&PROTEIN_SETS[char as usize]);
         assert_relative_eq!(actual.sum(), 1.0, epsilon = epsilon);
         assert_relative_eq!(actual, expected_probs, epsilon = epsilon);
     }
@@ -424,10 +424,9 @@ fn protein_char_probabilities(#[case] input: &str, #[case] pi_array: &[f64], #[c
 #[case::hivb("hivb")]
 fn protein_weird_char_probabilities(#[case] input: &str) {
     let model = ProteinSubstModel::new(input, &[]).unwrap();
-
     assert_eq!(
-        EvolutionaryModel::get_char_probability(&model, b'.'),
-        EvolutionaryModel::get_char_probability(&model, b'X')
+        EvolutionaryModel::get_char_probability(&model, &PROTEIN_SETS[b'.' as usize]),
+        EvolutionaryModel::get_char_probability(&model, &PROTEIN_SETS[b'X' as usize])
     );
 }
 
@@ -440,8 +439,8 @@ fn protein_weird_char_probabilities(#[case] input: &str) {
 fn dna_weird_char_probabilities(#[case] input: &str, #[case] params: &[f64]) {
     let model = DNASubstModel::new(input, params).unwrap();
     assert_eq!(
-        EvolutionaryModel::get_char_probability(&model, b'.'),
-        EvolutionaryModel::get_char_probability(&model, b'X')
+        EvolutionaryModel::get_char_probability(&model, &DNA_SETS[b'.' as usize]),
+        EvolutionaryModel::get_char_probability(&model, &DNA_SETS[b'X' as usize]),
     );
 }
 

@@ -8,9 +8,13 @@ use nalgebra::{dvector, Const, DMatrix, DVector, DimMin};
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
-use crate::phylo_info::{phyloinfo_from_files, phyloinfo_from_sequences_tree, PhyloInfo};
+use crate::phylo_info::{
+    phyloinfo_from_files, phyloinfo_from_sequences_tree, GapHandling, PhyloInfo,
+};
 use crate::pip_model::{PIPLikelihoodCost, PIPModel, PIPModelInfo};
 use crate::sequences::{charify, AMINOACIDS_STR, NUCLEOTIDES_STR};
+use crate::substitution_models::dna_models::DNA_GAP_SETS;
+use crate::substitution_models::protein_models::PROTEIN_GAP_SETS;
 use crate::substitution_models::{
     dna_models::DNASubstModel,
     protein_models::{ProteinSubstModel, BLOSUM_PI_ARR, HIVB_PI_ARR, WAG_PI_ARR},
@@ -213,12 +217,12 @@ fn pip_dna_char_frequencies() {
     let pip_gtr = PIPModel::<4>::new("gtr", &[vec![0.2, 0.4], params].concat()).unwrap();
     for (&char, expected_gtr) in char_probs.iter() {
         let expected_pip = expected_gtr.clone().insert_row(4, 0.0);
-        let actual = pip_gtr.get_char_probability(char);
+        let actual = pip_gtr.get_char_probability(&DNA_GAP_SETS[char as usize]);
         assert_eq!(actual.len(), 5);
         assert_relative_eq!(actual.sum(), 1.0);
         assert_relative_eq!(actual, expected_pip, epsilon = 1e-4);
     }
-    let actual = pip_gtr.get_char_probability(b'-');
+    let actual = pip_gtr.get_char_probability(&DNA_GAP_SETS[b'-' as usize]);
     assert_eq!(actual.len(), 5);
     assert_relative_eq!(actual.sum(), 1.0);
     assert_relative_eq!(actual, dvector![0.0, 0.0, 0.0, 0.0, 1.0]);
@@ -237,12 +241,12 @@ fn protein_char_probabilities(
     let expected = protein_char_probs_data(pi_array);
     for (char, expected_prot) in expected.into_iter() {
         let expected_pip = expected_prot.clone().insert_row(20, 0.0);
-        let actual = pip.get_char_probability(char);
+        let actual = pip.get_char_probability(&PROTEIN_GAP_SETS[char as usize]);
         assert_eq!(actual.len(), 21);
         assert_relative_eq!(actual.sum(), 1.0, epsilon = epsilon);
         assert_relative_eq!(actual, expected_pip, epsilon = epsilon);
     }
-    let actual = pip.get_char_probability(b'-');
+    let actual = pip.get_char_probability(&PROTEIN_GAP_SETS[b'-' as usize]);
     assert_eq!(actual.len(), 21);
     assert_relative_eq!(actual.sum(), 1.0);
     assert_relative_eq!(
@@ -340,6 +344,7 @@ fn pip_likelihood_no_msa() {
     let info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+        &GapHandling::Proper,
     )
     .unwrap();
     let model_jc69 = PIPModel::<4>::new("jc69", &[0.5, 0.25]).unwrap();
@@ -354,8 +359,12 @@ fn setup_example_phylo_info() -> PhyloInfo {
         Record::with_attrs("C", None, b"-A-G"),
         Record::with_attrs("D", None, b"-CAA"),
     ];
-    phyloinfo_from_sequences_tree(&sequences, tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"))
-        .unwrap()
+    phyloinfo_from_sequences_tree(
+        &sequences,
+        tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"),
+        &GapHandling::Proper,
+    )
+    .unwrap()
 }
 
 #[test]
@@ -677,8 +686,12 @@ fn setup_example_phylo_info_2() -> PhyloInfo {
         Record::with_attrs("C", None, b"--A-G"),
         Record::with_attrs("D", None, b"T-CAA"),
     ];
-    phyloinfo_from_sequences_tree(&sequences, tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"))
-        .unwrap()
+    phyloinfo_from_sequences_tree(
+        &sequences,
+        tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"),
+        &GapHandling::Proper,
+    )
+    .unwrap()
 }
 
 #[test]
@@ -686,6 +699,7 @@ fn pip_hky_likelihood_example_2() {
     let mut model = PIPModel::<4>::new("hky", &PIP_HKY_PARAMS).unwrap();
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
     let info = setup_example_phylo_info_2();
+    println!("{:?}", info.leaf_encoding);
     let cost = PIPLikelihoodCost::<4> { info: &info };
     assert_relative_eq!(
         cost.compute_log_likelihood(&model),
@@ -699,6 +713,7 @@ fn pip_likelihood_huelsenbeck_example() {
     let info = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
+        &GapHandling::Proper,
     )
     .unwrap();
     let model = PIPModel::<4>::new("hky", &PIP_HKY_PARAMS).unwrap();
@@ -737,6 +752,7 @@ fn pip_likelihood_huelsenbeck_example_model_comp() {
     let info = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
+        &GapHandling::Proper,
     )
     .unwrap();
     let model_hky_as_jc69 =
@@ -755,6 +771,7 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
     let info_1 = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
+        &GapHandling::Proper,
     )
     .unwrap();
     let model_gtr = PIPModel::<4>::new(
@@ -769,6 +786,7 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
     let info_2 = phyloinfo_from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example_reroot.newick"),
+        &GapHandling::Proper,
     )
     .unwrap();
     let cost_2 = PIPLikelihoodCost::<4> { info: &info_2 };
@@ -784,6 +802,7 @@ fn pip_likelihood_protein_example() {
     let info = phyloinfo_from_files(
         PathBuf::from("./data/phyml_protein_example.fasta"),
         PathBuf::from("./data/phyml_protein_example.newick"),
+        &GapHandling::Proper,
     )
     .unwrap();
     let model_wag = PIPModel::<20>::new("wag", &[0.5, 0.25]).unwrap();

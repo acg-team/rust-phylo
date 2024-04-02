@@ -5,7 +5,7 @@ use bio::io::fasta::Record;
 
 use crate::io::DataError;
 use crate::phylo_info::{
-    get_msa_if_aligned, phyloinfo_from_files, phyloinfo_from_sequences_tree, PhyloInfo,
+    get_msa_if_aligned, phyloinfo_from_files, phyloinfo_from_sequences_tree, GapHandling, PhyloInfo,
 };
 use crate::sequences::dna_alphabet;
 use crate::tree::tree_parser::{self, ParsingError};
@@ -25,6 +25,7 @@ fn setup_info_correct() {
     let res_info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+        &GapHandling::Ambiguous,
     )
     .unwrap();
     assert_eq!(res_info.tree.leaves.len(), 4);
@@ -44,6 +45,7 @@ fn setup_info_mismatched_ids() {
     let info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_1.newick"),
+        &GapHandling::Ambiguous,
     );
     assert_matches!(
         downcast_error::<DataError>(&info).to_string().as_str(),
@@ -56,6 +58,7 @@ fn setup_info_missing_sequence_file() {
     let info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA_nonexistent.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_1.newick"),
+        &GapHandling::Ambiguous,
     );
     assert_matches!(
         info.unwrap_err().to_string().as_str(),
@@ -68,6 +71,7 @@ fn setup_info_empty_sequence_file() {
     let info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_empty.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_1.newick"),
+        &GapHandling::Ambiguous,
     );
     assert_matches!(
         downcast_error::<DataError>(&info).to_string().as_str(),
@@ -80,6 +84,7 @@ fn setup_info_empty_tree_file() {
     let info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_empty.newick"),
+        &GapHandling::Ambiguous,
     );
     assert_matches!(
         downcast_error::<DataError>(&info).to_string().as_str(),
@@ -92,6 +97,7 @@ fn setup_info_malformed_tree_file() {
     let info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_malformed.newick"),
+        &GapHandling::Ambiguous,
     );
     assert!(downcast_error::<ParsingError>(&info)
         .to_string()
@@ -103,6 +109,7 @@ fn setup_info_multiple_trees() {
     let res_info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_multiple.newick"),
+        &GapHandling::Ambiguous,
     )
     .unwrap();
     assert_eq!(res_info.tree.leaves.len(), 4);
@@ -120,6 +127,7 @@ fn info_check_sequence_order() {
     let info = phyloinfo_from_files(
         PathBuf::from("./data/real_examples/HIV_subset.fas"),
         PathBuf::from("./data/real_examples/HIV_subset.nwk"),
+        &GapHandling::Ambiguous,
     )
     .unwrap();
     for i in 0..info.sequences.len() {
@@ -136,6 +144,7 @@ fn setup_unaligned_empty_msa() {
     let info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+        &GapHandling::Ambiguous,
     )
     .unwrap();
     assert!(info.msa.is_none())
@@ -146,6 +155,7 @@ fn setup_aligned_msa() {
     let info = phyloinfo_from_files(
         PathBuf::from("./data/sequences_DNA1.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+        &GapHandling::Ambiguous,
     )
     .unwrap();
     assert!(info.msa.is_some());
@@ -179,8 +189,11 @@ fn check_phyloinfo_creation_newick_msa() {
         Record::with_attrs("B", None, b"ATATATATAA"),
         Record::with_attrs("C", None, b"TTATATATAT"),
     ];
-    let info =
-        phyloinfo_from_sequences_tree(&sequences, tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"));
+    let info = phyloinfo_from_sequences_tree(
+        &sequences,
+        tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
+        &GapHandling::Ambiguous,
+    );
     assert!(info.is_ok());
     assert!(info.unwrap().msa.is_some());
 }
@@ -192,8 +205,11 @@ fn check_phyloinfo_creation_tree_no_msa() {
         Record::with_attrs("B", None, b"ATATATATAA"),
         Record::with_attrs("C", None, b"TTATATATAT"),
     ];
-    let info =
-        phyloinfo_from_sequences_tree(&sequences, tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"));
+    let info = phyloinfo_from_sequences_tree(
+        &sequences,
+        tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
+        &GapHandling::Ambiguous,
+    );
     let res_info = info.unwrap();
     assert!(res_info.msa.is_none());
     for (i, node) in res_info.tree.leaves.iter().enumerate() {
@@ -213,6 +229,7 @@ fn check_phyloinfo_creation_tree_no_seqs() {
             .unwrap()
             .pop()
             .unwrap(),
+        &GapHandling::Ambiguous,
     );
     assert!(info.is_err());
 }
@@ -230,6 +247,7 @@ fn check_phyloinfo_creation_newick_mismatch_ids() {
             .unwrap()
             .pop()
             .unwrap(),
+        &GapHandling::Ambiguous,
     );
     assert!(info.is_err());
 }
@@ -262,6 +280,7 @@ fn check_phyloinfo_creation_tree_correct_no_msa() {
             Record::with_attrs("D", None, b"A"),
         ],
         make_test_tree(),
+        &GapHandling::Ambiguous,
     );
     let res_info = info.unwrap();
     assert!(res_info.msa.is_none());
@@ -284,6 +303,7 @@ fn check_phyloinfo_creation_tree_correct_msa() {
             Record::with_attrs("D", None, b"A-"),
         ],
         make_test_tree(),
+        &GapHandling::Ambiguous,
     );
     assert!(info.is_ok());
     assert!(info.unwrap().msa.is_some());
@@ -298,6 +318,7 @@ fn check_phyloinfo_creation_tree_mismatch_ids() {
             Record::with_attrs("F", None, b"TTATATATAT"),
         ],
         make_test_tree(),
+        &GapHandling::Ambiguous,
     );
     assert!(info.is_err());
 }
@@ -312,6 +333,7 @@ fn check_empirical_frequencies() {
             Record::with_attrs("D", None, b"TTAAA"),
         ],
         make_test_tree(),
+        &GapHandling::Ambiguous,
     )
     .unwrap();
     let counts = info.get_counts(&dna_alphabet());

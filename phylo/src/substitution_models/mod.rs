@@ -240,18 +240,14 @@ impl<const N: usize> EvolutionaryModelInfo<N> for SubstitutionModelInfo<N> {
         let internal_count = info.tree.internals.len();
         let msa = info.msa.as_ref().unwrap();
         let msa_length = msa[0].seq().len();
-        let leaf_sequence_info = msa
-            .iter()
-            .map(|rec| {
-                DMatrix::from_columns(
-                    rec.seq()
-                        .iter()
-                        .map(|&c| model.get_char_probability(c))
-                        .collect::<Vec<_>>()
-                        .as_slice(),
-                )
-            })
-            .collect::<Vec<_>>();
+
+        let mut leaf_sequence_info = info.leaf_encoding.clone();
+        for leaf_seq in leaf_sequence_info.iter_mut() {
+            for mut site_info in leaf_seq.column_iter_mut() {
+                site_info.component_mul_assign(model.get_stationary_distribution());
+                site_info.scale_mut((1.0) / site_info.sum());
+            }
+        }
         Ok(SubstitutionModelInfo {
             internal_info: vec![DMatrix::<f64>::zeros(N, msa_length); internal_count],
             internal_info_valid: vec![false; internal_count],

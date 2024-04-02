@@ -7,7 +7,6 @@ use nalgebra::{Const, DMatrix, DVector, DimMin};
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
-use crate::sequences::GAP;
 use crate::substitution_models::dna_models::NUCLEOTIDE_INDEX;
 use crate::substitution_models::protein_models::{ProteinSubstModel, AMINOACID_INDEX};
 use crate::substitution_models::FreqVector;
@@ -107,14 +106,17 @@ impl EvolutionaryModel<4> for PIPModel<4> {
         self.get_stationary_distribution()
     }
 
-    fn get_char_probability(&self, char: u8) -> FreqVector {
-        if char == GAP {
-            FreqVector::from_column_slice(&[0.0, 0.0, 0.0, 0.0, 1.0])
+    fn get_char_probability(&self, char_encoding: &FreqVector) -> FreqVector {
+        let mut probs = self
+            .get_stationary_distribution()
+            .clone()
+            .component_mul(char_encoding);
+        if probs.sum() == 0.0 {
+            probs.fill_row(4, 1.0);
         } else {
-            self.subst_model
-                .get_char_probability(char)
-                .insert_row(4, 0.0)
+            probs.scale_mut(1.0 / probs.sum());
         }
+        probs
     }
 }
 
@@ -141,14 +143,17 @@ impl EvolutionaryModel<20> for PIPModel<20> {
         self.get_stationary_distribution()
     }
 
-    fn get_char_probability(&self, char: u8) -> FreqVector {
-        if char == GAP {
-            FreqVector::from_column_slice(&[vec![0.0; 20], vec![1.0]].concat())
+    fn get_char_probability(&self, char_encoding: &FreqVector) -> FreqVector {
+        let mut probs = self
+            .get_stationary_distribution()
+            .clone()
+            .component_mul(char_encoding);
+        if probs.sum() == 0.0 {
+            probs.fill_row(20, 1.0);
         } else {
-            self.subst_model
-                .get_char_probability(char)
-                .insert_row(20, 0.0)
+            probs.scale_mut(1.0 / probs.sum());
         }
+        probs
     }
 }
 
@@ -185,18 +190,17 @@ impl<const N: usize> EvolutionaryModelInfo<N> for PIPModelInfo<N> {
         let node_count = leaf_count + internal_count;
         let msa = info.msa.as_ref().unwrap();
         let msa_length = msa[0].seq().len();
-        let leaf_seq_info = msa
-            .iter()
-            .map(|rec| {
-                DMatrix::from_columns(
-                    rec.seq()
-                        .iter()
-                        .map(|&c| model.get_char_probability(c))
-                        .collect::<Vec<_>>()
-                        .as_slice(),
-                )
-            })
-            .collect::<Vec<_>>();
+        let mut leaf_seq_info = info.leaf_encoding.clone();
+        for leaf_seq in leaf_seq_info.iter_mut() {
+            for mut site_info in leaf_seq.column_iter_mut() {
+                site_info.component_mul_assign(model.get_stationary_distribution());
+                if site_info.sum() == 0.0 {
+                    site_info.fill_row(N, 1.0);
+                } else {
+                    site_info.scale_mut((1.0) / site_info.sum());
+                }
+            }
+        }
         Ok(PIPModelInfo {
             tree_length: info.tree.get_all_branch_lengths().iter().sum(),
             ftilde: leaf_seq_info
