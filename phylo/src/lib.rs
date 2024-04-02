@@ -44,4 +44,3 @@ impl Rounding {
 pub(crate) fn cmp_f64() -> impl Fn(&f64, &f64) -> std::cmp::Ordering {
     |a, b| a.partial_cmp(b).unwrap()
 }
-
