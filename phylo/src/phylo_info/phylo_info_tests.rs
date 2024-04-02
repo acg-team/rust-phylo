@@ -7,7 +7,6 @@ use crate::io::DataError;
 use crate::phylo_info::{
     get_msa_if_aligned, phyloinfo_from_files, phyloinfo_from_sequences_tree, GapHandling, PhyloInfo,
 };
-use crate::sequences::dna_alphabet;
 use crate::tree::tree_parser::{self, ParsingError};
 use crate::tree::NodeIdx::{Internal as I, Leaf as L};
 use crate::tree::Tree;
@@ -336,7 +335,7 @@ fn check_empirical_frequencies() {
         &GapHandling::Ambiguous,
     )
     .unwrap();
-    let counts = info.get_counts(&dna_alphabet());
+    let counts = info.get_counts();
     assert_eq!(counts.clone().into_values().sum::<f64>(), 20.0);
     assert_eq!(counts[&b'A'], 7.0);
     assert_eq!(counts[&b'C'], 5.0);

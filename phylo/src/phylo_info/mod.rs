@@ -2,13 +2,12 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use anyhow::bail;
-use bio::alphabets::Alphabet;
 use bio::io::fasta::Record;
 use log::{info, warn};
 use nalgebra::{DMatrix, DVector};
 
 use crate::io::{self, DataError};
-use crate::sequences::{get_sequence_type, SequenceType};
+use crate::sequences::{dna_alphabet, get_sequence_type, protein_alphabet, SequenceType};
 use crate::substitution_models::dna_models::{DNA_GAP_SETS, DNA_SETS};
 use crate::substitution_models::protein_models::{PROTEIN_GAP_SETS, PROTEIN_SETS};
 use crate::tree::Tree;
@@ -29,6 +28,7 @@ pub enum GapHandling {
 pub struct PhyloInfo {
     /// Unaligned phylogenetic sequences.
     pub sequences: Vec<Record>,
+    pub sequence_type: SequenceType,
     /// Multiple sequence alignment of the sequences, if they are aligned.
     pub msa: Option<Vec<Record>>,
     /// Phylogenetic tree.
@@ -67,20 +67,23 @@ impl PhyloInfo {
     /// ];
     /// let tree = from_newick_string("(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);").unwrap().pop().unwrap();
     /// let info = phyloinfo_from_sequences_tree(&sequences, tree, &GapHandling::Ambiguous).unwrap();
-    /// let freqs = info.get_counts(&dna_alphabet());
+    /// let freqs = info.get_counts();
     /// assert_eq!(freqs[&b'A'], 5.0);
     /// assert_eq!(freqs[&b'C'], 5.0);
     /// assert_eq!(freqs[&b'G'], 5.0);
     /// assert_eq!(freqs[&b'T'], 5.0);
     /// assert_eq!(freqs.clone().into_values().sum::<f64>(), 20.0);
     /// ```
-    pub fn get_counts(&self, alphabet: &Alphabet) -> HashMap<u8, f64> {
+    pub fn get_counts(&self) -> HashMap<u8, f64> {
         let mut freqs = HashMap::new();
-        for char in alphabet
-            .symbols
-            .iter()
-            .map(|x| x as u8)
-            .collect::<Vec<u8>>()
+        for char in match self.sequence_type {
+            SequenceType::DNA => dna_alphabet(),
+            SequenceType::Protein => protein_alphabet(),
+        }
+        .symbols
+        .iter()
+        .map(|x| x as u8)
+        .collect::<Vec<u8>>()
         {
             freqs.insert(
                 char,
@@ -197,9 +200,11 @@ pub fn phyloinfo_from_sequences_tree(
     sort_sequences_by_leaf_ids(&tree, &mut sequences);
 
     let msa = get_msa_if_aligned(&sequences);
-    let leaf_encoding = create_leaf_encoding(&msa, &get_sequence_type(&sequences), gap_handling);
+    let sequence_type = get_sequence_type(&sequences);
+    let leaf_encoding = create_leaf_encoding(&msa, &sequence_type, gap_handling);
     Ok(PhyloInfo {
         sequences,
+        sequence_type,
         tree,
         msa,
         leaf_encoding,
@@ -255,9 +260,12 @@ pub fn phyloinfo_from_files(
     sort_sequences_by_leaf_ids(&tree, &mut sequences);
 
     let msa = get_msa_if_aligned(&sequences);
-    let leaf_encoding = create_leaf_encoding(&msa, &get_sequence_type(&sequences), gap_handling);
+
+    let sequence_type = get_sequence_type(&sequences);
+    let leaf_encoding = create_leaf_encoding(&msa, &sequence_type, gap_handling);
     Ok(PhyloInfo {
         sequences,
+        sequence_type,
         tree,
         msa,
         leaf_encoding,

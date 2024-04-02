@@ -6,7 +6,7 @@ use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::EvolutionaryModel;
 use crate::likelihood::LikelihoodCostFunction;
-use crate::sequences::{charify, dna_alphabet, GAP, NUCLEOTIDES_STR};
+use crate::sequences::{charify, GAP, NUCLEOTIDES_STR};
 use crate::substitution_models::{
     FreqVector, ParsimonyModel, SubstMatrix, SubstParams, SubstitutionLikelihoodCost,
     SubstitutionModel, SubstitutionModelInfo,
@@ -209,7 +209,7 @@ impl<'a> LikelihoodCostFunction<'a, 4> for DNALikelihoodCost<'a> {
     }
 
     fn get_empirical_frequencies(&self) -> FreqVector {
-        let all_counts = self.info.get_counts(&dna_alphabet());
+        let all_counts = self.info.get_counts();
         let mut total = all_counts.values().sum::<f64>();
         let index = &NUCLEOTIDE_INDEX;
         let mut freqs = FreqVector::zeros(4);
