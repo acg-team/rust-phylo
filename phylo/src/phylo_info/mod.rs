@@ -10,7 +10,7 @@ use crate::io::{self, DataError};
 use crate::sequences::{dna_alphabet, get_sequence_type, protein_alphabet, SequenceType};
 use crate::substitution_models::dna_models::{DNA_GAP_SETS, DNA_SETS};
 use crate::substitution_models::protein_models::{PROTEIN_GAP_SETS, PROTEIN_SETS};
-use crate::tree::Tree;
+use crate::tree::{build_nj_tree, Tree};
 use crate::Result;
 
 /// Gap handling options. Ambiguous means that gaps are treated as unknown characters (X),
@@ -145,13 +145,71 @@ fn get_leaf_encoding(
     }
 }
 
-/// Creates a PhyloInfo struct from a vector of fasta records and a tree.
-/// The sequences might not be aligned, but the ids of the tree leaves and provided sequences must match.
+/// Creates a PhyloInfo struct from a vector of fasta records.
+/// The sequences might not be aligned.
+/// The tree is built using the neighbour-joining algorithm.
 /// In the output the sequences are sorted by the leaf ids and converted to uppercase.
 ///
 /// # Arguments
 /// * `sequences` - Vector of fasta records.
-/// * `tree` - Phylogenetic tree.
+/// * `gap_handling` - Gap handling option -- treat gaps as ambiguous characters or as a separate character.
+///
+/// # Example
+/// ```
+/// # use bio::io::fasta::Record;
+/// # use phylo::tree::Tree;
+/// # let sequences = vec![
+/// #     Record::with_attrs("A", None, b"aaaa"),
+/// #     Record::with_attrs("B", None, b"cccc"),
+/// #     Record::with_attrs("C", None, b"gg"),
+/// #     Record::with_attrs("D", None, b"TTTTTTT"),
+/// # ];
+/// #
+/// use phylo::phylo_info::GapHandling;
+/// use phylo::phylo_info::phyloinfo_from_sequences;
+/// let phylo_info = phylo::phylo_info::phyloinfo_from_sequences(sequences, &GapHandling::Ambiguous);
+/// ```
+pub fn phyloinfo_from_sequences(
+    sequences: Vec<Record>,
+    gap_handling: &GapHandling,
+) -> Result<PhyloInfo> {
+    let tree = build_nj_tree(&sequences)?;
+    phyloinfo_from_sequences_tree(sequences, tree, gap_handling)
+}
+
+/// Creates a PhyloInfo struct from a vector of fasta records.
+/// The sequences might not be aligned.
+/// The tree is built using the neighbour-joining algorithm.
+/// In the output the sequences are sorted by the leaf ids and converted to uppercase.
+///
+/// # Arguments
+/// * `sequences` - Vector of fasta records.
+/// * `gap_handling` - Gap handling option -- treat gaps as ambiguous characters or as a separate character.
+///
+/// # Example
+/// ```
+/// use std::path::PathBuf;
+/// use phylo::phylo_info::GapHandling;
+/// use phylo::phylo_info::phyloinfo_from_sequence_file;
+/// let phylo_info = phylo::phylo_info::phyloinfo_from_sequence_file(PathBuf::from("./data/sequences_DNA_small.fasta"), &GapHandling::Ambiguous);
+/// ```
+pub fn phyloinfo_from_sequence_file(
+    sequence_file: PathBuf,
+    gap_handling: &GapHandling,
+) -> Result<PhyloInfo> {
+    info!("Reading sequences from file {}", sequence_file.display());
+    let sequences = io::read_sequences_from_file(sequence_file)?;
+    info!("{} sequence(s) read successfully", sequences.len());
+    phyloinfo_from_sequences(sequences, gap_handling)
+}
+
+/// Creates a PhyloInfo struct from a vector of fasta records and a tree.
+/// The sequences might not be aligned.
+/// The ids of the tree leaves and provided sequences must match.
+/// In the output the sequences are sorted by the leaf ids and converted to uppercase.
+///
+/// # Arguments
+/// * `sequence_file` - File path to the sequence fasta file.
 /// * `gap_handling` - Gap handling option -- treat gaps as ambiguous characters or as a separate character.
 ///
 /// # Example
@@ -175,9 +233,9 @@ fn get_leaf_encoding(
 /// #   tree.create_preorder();
 /// #   (sequences, tree)
 /// # }
+/// # let (sequences, tree) = make_test_data();
 /// use phylo::phylo_info::GapHandling;
 /// use phylo::phylo_info::phyloinfo_from_sequences_tree;
-/// let (sequences, tree) = make_test_data();
 /// let info = phyloinfo_from_sequences_tree(sequences, tree, &GapHandling::Ambiguous).unwrap();
 /// assert!(info.msa.is_none());
 /// for (i, node) in info.tree.leaves.iter().enumerate() {
@@ -213,7 +271,8 @@ pub fn phyloinfo_from_sequences_tree(
 
 /// Creates a PhyloInfo struct from a two given files, one containing the sequences in fasta format and
 /// one containing the tree in newick format.
-/// The sequences might not be aligned, but the ids of the tree leaves and provided sequences must match.
+/// The sequences might not be aligned.
+/// The ids of the tree leaves and provided sequences must match.
 /// In the output the sequences are sorted by the leaf ids and converted to uppercase.
 ///
 /// # Arguments
