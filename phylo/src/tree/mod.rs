@@ -322,12 +322,12 @@ fn build_nj_tree_from_matrix(nj_data: NJMat, sequences: &[Record]) -> Result<Tre
     build_nj_tree_w_rng_from_matrix(nj_data, sequences, rng_len)
 }
 
-pub fn build_nj_tree(sequences: &Vec<Record>) -> Result<Tree> {
+pub fn build_nj_tree(sequences: &[Record]) -> Result<Tree> {
     let nj_data = compute_distance_matrix(sequences);
     build_nj_tree_from_matrix(nj_data, sequences)
 }
 
-fn compute_distance_matrix(sequences: &Vec<Record>) -> nj_matrices::NJMat {
+fn compute_distance_matrix(sequences: &[Record]) -> nj_matrices::NJMat {
     let nseqs = sequences.len();
     let mut distances = DMatrix::zeros(nseqs, nseqs);
     for i in 0..nseqs {
