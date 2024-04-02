@@ -20,14 +20,15 @@ use crate::substitution_models::{
     },
     FreqVector, ParsimonyModel, SubstMatrix,
 };
-use crate::{assert_float_relative_slice_eq, Rounding as R};
+use crate::Rounding as R;
 
 #[cfg(test)]
-fn check_pi_convergence(substmat: SubstMatrix, pi: &[f64], epsilon: f64) {
+
+fn check_pi_convergence(substmat: SubstMatrix, pi: &FreqVector, epsilon: f64) {
     assert_eq!(substmat.row(0).len(), pi.len());
     for row in substmat.row_iter() {
         assert_relative_eq!(row.sum(), 1.0, epsilon = epsilon);
-        assert_float_relative_slice_eq(&row.iter().cloned().collect::<Vec<f64>>(), pi, epsilon);
+        assert_relative_eq!(row, pi.transpose().as_view(), epsilon = epsilon);
     }
 }
 
@@ -367,7 +368,7 @@ fn dna_p_matrix() {
     let p_inf = EvolutionaryModel::get_p(&jc69, 200000.0);
     assert_eq!(p_inf.nrows(), 4);
     assert_eq!(p_inf.ncols(), 4);
-    check_pi_convergence(p_inf, jc69.pi.as_slice(), 1e-5);
+    check_pi_convergence(p_inf, &jc69.pi, 1e-5);
 }
 
 #[test]
@@ -519,7 +520,7 @@ fn protein_p_matrix(#[case] input: &str, #[case] epsilon: f64) {
     let p_inf = EvolutionaryModel::get_p(&model, 1000000.0);
     assert_eq!(p_inf.nrows(), 20);
     assert_eq!(p_inf.ncols(), 20);
-    check_pi_convergence(p_inf, model.pi.as_slice(), epsilon);
+    check_pi_convergence(p_inf, &model.pi, epsilon);
 }
 
 #[rstest]
