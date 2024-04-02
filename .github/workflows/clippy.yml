@@ -20,7 +20,8 @@ jobs:
       - uses: mbrobbel/rustfmt-check@master
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --manifest-path ./phylo/Cargo.toml --all -- --check
+          args: --manifest-path ./phylo/Cargo.toml
+
   clippy_check:
     runs-on: ubuntu-latest
     steps:
