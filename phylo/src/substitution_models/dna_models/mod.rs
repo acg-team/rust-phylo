@@ -18,10 +18,10 @@ pub type DNALikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 4>;
 pub type DNASubstModelInfo = SubstitutionModelInfo<4>;
 
 mod dna_substitution_parameters;
-pub(crate) use dna_substitution_parameters::*;
+pub use dna_substitution_parameters::*;
 pub mod dna_model_optimiser;
 
-mod gtr;
+pub mod gtr;
 mod hky;
 mod jc69;
 mod k80;
