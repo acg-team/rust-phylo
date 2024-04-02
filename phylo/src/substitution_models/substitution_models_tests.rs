@@ -93,7 +93,7 @@ fn compile_aa_probability(chars: &[char], pi: &[f64]) -> FreqVector {
 
 #[test]
 fn dna_jc69_correct() {
-    let jc69 = DNASubstModel::new("jc69", &Vec::new()).unwrap();
+    let jc69 = DNASubstModel::new("jc69", &[]).unwrap();
     let jc69_2 = DNASubstModel::new("JC69", &[1.0, 2.0]).unwrap();
     assert_eq!(jc69, jc69_2);
     assert_relative_eq!(EvolutionaryModel::get_rate(&jc69, b'A', b'A'), -1.0);
@@ -117,7 +117,7 @@ fn dna_j69_params() {
 
 #[test]
 fn dna_k80_correct() {
-    let k80 = DNASubstModel::new("k80", &Vec::new()).unwrap();
+    let k80 = DNASubstModel::new("k80", &[]).unwrap();
     let k801 = DNASubstModel::new("k80", &[2.0]).unwrap();
     let k802 = DNASubstModel::new("k80", &[2.0, 1.0]).unwrap();
     let k803 = DNASubstModel::new("k80", &[2.0, 1.0, 3.0, 6.0]).unwrap();
@@ -354,8 +354,8 @@ fn dna_tn93_params() {
 
 #[test]
 fn dna_model_incorrect() {
-    assert!(DNASubstModel::new("jc70", &Vec::new()).is_err());
-    assert!(DNASubstModel::new("wag", &Vec::new()).is_err());
+    assert!(DNASubstModel::new("jc70", &[]).is_err());
+    assert!(DNASubstModel::new("wag", &[]).is_err());
     assert!(DNASubstModel::new("gtr", &repeat(0.25).take(7).collect::<Vec<f64>>()).is_err());
     assert!(DNASubstModel::new("gtr", &repeat(0.25).take(11).collect::<Vec<f64>>()).is_err());
     assert!(DNASubstModel::new("gtr", &repeat(0.4).take(10).collect::<Vec<f64>>()).is_err());
@@ -363,7 +363,7 @@ fn dna_model_incorrect() {
 
 #[test]
 fn dna_p_matrix() {
-    let jc69 = DNASubstModel::new("jc69", &Vec::new()).unwrap();
+    let jc69 = DNASubstModel::new("jc69", &[]).unwrap();
     let p_inf = EvolutionaryModel::get_p(&jc69, 200000.0);
     assert_eq!(p_inf.nrows(), 4);
     assert_eq!(p_inf.ncols(), 4);
@@ -372,7 +372,7 @@ fn dna_p_matrix() {
 
 #[test]
 fn dna_normalisation() {
-    let jc69 = DNASubstModel::new("jc69", &Vec::new()).unwrap();
+    let jc69 = DNASubstModel::new("jc69", &[]).unwrap();
     assert_eq!((jc69.q.diagonal().transpose().mul(jc69.pi))[(0, 0)], -1.0);
     let k80 = DNASubstModel::new("k80", &[3.0, 1.5]).unwrap();
     assert_eq!((k80.q.diagonal().transpose().mul(k80.pi))[(0, 0)], -1.0);
