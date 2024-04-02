@@ -6,7 +6,7 @@ use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::EvolutionaryModel;
 use crate::likelihood::LikelihoodCostFunction;
-use crate::sequences::{charify, AMINOACIDS_STR};
+use crate::sequences::{charify, AMINOACIDS_STR, GAP};
 use crate::substitution_models::{
     FreqVector, ParsimonyModel, SubstMatrix, SubstitutionLikelihoodCost, SubstitutionModel,
     SubstitutionModelInfo,
@@ -20,6 +20,115 @@ pub type ProteinSubstModel = SubstitutionModel<20>;
 pub type ProteinLikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 20>;
 pub type ProteinSubstModelInfo = SubstitutionModelInfo<20>;
 
+<<<<<<< HEAD
+=======
+lazy_static! {
+    pub static ref AMINOACID_INDEX: [i32; 255] = {
+        let mut index = [-1_i32; 255];
+        for (i, char) in charify(AMINOACIDS_STR).into_iter().enumerate() {
+            index[char as usize] = i as i32;
+            index[char.to_ascii_lowercase() as usize] = i as i32;
+        }
+        index[GAP as usize] = 20;
+        index
+    };
+    pub static ref PROTEIN_GAP_SETS: Vec<FreqVector> = {
+        let index = &AMINOACID_INDEX;
+        let mut map = Vec::<FreqVector>::new();
+        let mut x_set = FreqVector::from_element(21, 1.0 / 20.0);
+        x_set.fill_row(20, 0.0);
+        map.resize(255, x_set.clone());
+        for (i, elem) in map.iter_mut().enumerate() {
+            let char = i as u8 as char;
+            elem.set_column(
+                0,
+                &match char {
+                    'A' | 'a' | 'R' | 'r' | 'N' | 'n' | 'D' | 'd' | 'C' | 'c' | 'Q' | 'q' | 'E'
+                    | 'e' | 'G' | 'g' | 'H' | 'h' | 'I' | 'i' | 'L' | 'l' | 'K' | 'k' | 'M'
+                    | 'm' | 'F' | 'f' | 'P' | 'p' | 'S' | 's' | 'T' | 't' | 'W' | 'w' | 'Y'
+                    | 'y' | 'V' | 'v' => {
+                        let mut set = FreqVector::zeros(21);
+                        set.fill_row(index[char as usize] as usize, 1.0);
+                        set
+                    }
+                    'B' | 'b' => {
+                        let mut set = FreqVector::zeros(21);
+                        set.fill_row(index['D' as usize] as usize, 0.5);
+                        set.fill_row(index['N' as usize] as usize, 0.5);
+                        set
+                    }
+                    'Z' | 'z' => {
+                        let mut set = FreqVector::zeros(21);
+                        set.fill_row(index['E' as usize] as usize, 0.5);
+                        set.fill_row(index['Q' as usize] as usize, 0.5);
+                        set
+                    }
+                    'J' | 'j' => {
+                        let mut set = FreqVector::zeros(21);
+                        set.fill_row(index['I' as usize] as usize, 0.5);
+                        set.fill_row(index['L' as usize] as usize, 0.5);
+                        set
+                    }
+                    '-' => {
+                        let mut set = FreqVector::zeros(21);
+                        set.fill_row(index[GAP as usize] as usize, 1.0);
+                        set
+                    }
+                    _ => continue,
+                },
+            );
+        }
+        map
+    };
+    pub static ref PROTEIN_SETS: Vec<FreqVector> = {
+        let index = &AMINOACID_INDEX;
+        let mut map = Vec::<FreqVector>::new();
+        map.resize(255, FreqVector::from_element(20, 1.0 / 20.0));
+        for (i, elem) in map.iter_mut().enumerate() {
+            let char = i as u8 as char;
+            elem.set_column(
+                0,
+                &match char {
+                    'A' | 'a' | 'R' | 'r' | 'N' | 'n' | 'D' | 'd' | 'C' | 'c' | 'Q' | 'q' | 'E'
+                    | 'e' | 'G' | 'g' | 'H' | 'h' | 'I' | 'i' | 'L' | 'l' | 'K' | 'k' | 'M'
+                    | 'm' | 'F' | 'f' | 'P' | 'p' | 'S' | 's' | 'T' | 't' | 'W' | 'w' | 'Y'
+                    | 'y' | 'V' | 'v' => {
+                        let mut set = FreqVector::zeros(20);
+                        set.fill_row(index[char as usize] as usize, 1.0);
+                        set
+                    }
+                    'B' | 'b' => {
+                        let mut set = FreqVector::zeros(20);
+                        set.fill_row(index['D' as usize] as usize, 0.5);
+                        set.fill_row(index['N' as usize] as usize, 0.5);
+                        set
+                    }
+                    'Z' | 'z' => {
+                        let mut set = FreqVector::zeros(20);
+                        set.fill_row(index['E' as usize] as usize, 0.5);
+                        set.fill_row(index['Q' as usize] as usize, 0.5);
+                        set
+                    }
+                    'J' | 'j' => {
+                        let mut set = FreqVector::zeros(20);
+                        set.fill_row(index['I' as usize] as usize, 0.5);
+                        set.fill_row(index['L' as usize] as usize, 0.5);
+                        set
+                    }
+                    _ => continue,
+                },
+            );
+        }
+        map
+    };
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProteinSubstParams {
+    pub(crate) pi: FreqVector,
+}
+
+>>>>>>> 82e4359 (Proper leaf encoding handling with static arrays)
 impl ProteinSubstModel {
     fn normalise(&mut self) {
         let factor = -(self.pi.transpose() * self.q.diagonal())[(0, 0)];

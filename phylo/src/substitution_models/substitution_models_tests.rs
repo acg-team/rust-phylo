@@ -457,7 +457,6 @@ fn protein_char_probabilities(#[case] input: &str, #[case] pi_array: &[f64], #[c
 #[case::hivb("hivb")]
 fn protein_weird_char_probabilities(#[case] input: &str) {
     let model = ProteinSubstModel::new(input, &[]).unwrap();
-
     assert_eq!(
         EvolutionaryModel::get_char_probability(&model, &PROTEIN_SETS[b'.' as usize]),
         EvolutionaryModel::get_char_probability(&model, &PROTEIN_SETS[b'X' as usize])

@@ -6,7 +6,11 @@ use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::EvolutionaryModel;
 use crate::likelihood::LikelihoodCostFunction;
+<<<<<<< HEAD
 use crate::sequences::{charify, GAP, NUCLEOTIDES_STR};
+=======
+use crate::sequences::{charify, dna_alphabet, GAP, NUCLEOTIDES_STR};
+>>>>>>> 82e4359 (Proper leaf encoding handling with static arrays)
 use crate::substitution_models::{
     FreqVector, ParsimonyModel, SubstMatrix, SubstParams, SubstitutionLikelihoodCost,
     SubstitutionModel, SubstitutionModelInfo,

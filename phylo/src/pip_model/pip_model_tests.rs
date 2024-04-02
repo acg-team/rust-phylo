@@ -13,8 +13,14 @@ use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::phylo_info::{phyloinfo_from_files, phyloinfo_from_sequences_newick, PhyloInfo};
 =======
 use crate::likelihood::LikelihoodCostFunction;
+<<<<<<< HEAD
 use crate::phylo_info::{phyloinfo_from_files, phyloinfo_from_sequences_tree, PhyloInfo};
 >>>>>>> 330834b (Fixed bug for incorrect likelihood)
+=======
+use crate::phylo_info::{
+    phyloinfo_from_files, phyloinfo_from_sequences_tree, GapHandling, PhyloInfo,
+};
+>>>>>>> 82e4359 (Proper leaf encoding handling with static arrays)
 use crate::pip_model::{PIPLikelihoodCost, PIPModel, PIPModelInfo};
 use crate::sequences::{charify, AMINOACIDS_STR, NUCLEOTIDES_STR};
 use crate::substitution_models::dna_models::DNA_GAP_SETS;
@@ -369,8 +375,13 @@ fn setup_example_phylo_info() -> PhyloInfo {
         Record::with_attrs("C", None, b"-A-G"),
         Record::with_attrs("D", None, b"-CAA"),
     ];
+<<<<<<< HEAD
     PhyloInfo::from_sequences_tree(
         sequences,
+=======
+    phyloinfo_from_sequences_tree(
+        &sequences,
+>>>>>>> 82e4359 (Proper leaf encoding handling with static arrays)
         tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"),
         &GapHandling::Proper,
     )
@@ -749,8 +760,13 @@ fn setup_example_phylo_info_2() -> PhyloInfo {
         Record::with_attrs("C", None, b"--A-G"),
         Record::with_attrs("D", None, b"T-CAA"),
     ];
+<<<<<<< HEAD
     PhyloInfo::from_sequences_tree(
         sequences,
+=======
+    phyloinfo_from_sequences_tree(
+        &sequences,
+>>>>>>> 82e4359 (Proper leaf encoding handling with static arrays)
         tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"),
         &GapHandling::Proper,
     )
@@ -762,6 +778,7 @@ fn pip_hky_likelihood_example_2() {
     let mut model = PIPModel::<4>::new("hky", &PIP_HKY_PARAMS).unwrap();
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
     let info = setup_example_phylo_info_2();
+    println!("{:?}", info.leaf_encoding);
     let cost = PIPLikelihoodCost::<4> { info: &info };
     assert_relative_eq!(
         cost.compute_log_likelihood(),

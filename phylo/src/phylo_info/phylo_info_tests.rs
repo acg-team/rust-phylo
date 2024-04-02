@@ -4,7 +4,14 @@ use assert_matches::assert_matches;
 use bio::io::fasta::Record;
 
 use crate::io::DataError;
+<<<<<<< HEAD
 use crate::phylo_info::{GapHandling, PhyloInfo};
+=======
+use crate::phylo_info::{
+    get_msa_if_aligned, phyloinfo_from_files, phyloinfo_from_sequences_tree, GapHandling, PhyloInfo,
+};
+use crate::sequences::dna_alphabet;
+>>>>>>> 82e4359 (Proper leaf encoding handling with static arrays)
 use crate::tree::tree_parser::{self, ParsingError};
 use crate::tree::NodeIdx::{Internal as I, Leaf as L};
 use crate::tree::Tree;
@@ -186,8 +193,13 @@ fn check_phyloinfo_creation_newick_msa() {
         Record::with_attrs("B", None, b"ATATATATAA"),
         Record::with_attrs("C", None, b"TTATATATAT"),
     ];
+<<<<<<< HEAD
     let info = PhyloInfo::from_sequences_tree(
         sequences,
+=======
+    let info = phyloinfo_from_sequences_tree(
+        &sequences,
+>>>>>>> 82e4359 (Proper leaf encoding handling with static arrays)
         tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
         &GapHandling::Ambiguous,
     );
@@ -202,8 +214,13 @@ fn check_phyloinfo_creation_tree_no_msa() {
         Record::with_attrs("B", None, b"ATATATATAA"),
         Record::with_attrs("C", None, b"TTATATATAT"),
     ];
+<<<<<<< HEAD
     let info = PhyloInfo::from_sequences_tree(
         sequences,
+=======
+    let info = phyloinfo_from_sequences_tree(
+        &sequences,
+>>>>>>> 82e4359 (Proper leaf encoding handling with static arrays)
         tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
         &GapHandling::Ambiguous,
     );

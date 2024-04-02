@@ -5,12 +5,16 @@ use approx::assert_relative_eq;
 use crate::evolutionary_models::EvolutionaryModel;
 use crate::likelihood::LikelihoodCostFunction;
 <<<<<<< HEAD
+<<<<<<< HEAD
 use crate::phylo_info::{GapHandling, PhyloInfo};
 use crate::substitution_models::dna_models::{
     dna_model_optimiser::DNAModelOptimiser, gtr, parse_k80_parameters, DNALikelihoodCost,
     DNASubstModel, DNASubstParams,
 =======
 use crate::phylo_info::phyloinfo_from_files;
+=======
+use crate::phylo_info::{phyloinfo_from_files, GapHandling};
+>>>>>>> 82e4359 (Proper leaf encoding handling with static arrays)
 use crate::substitution_models::dna_models::{
     gtr::{self, GTRModelOptimiser},
     DNALikelihoodCost, DNAModelOptimiser, DNASubstModel, DNASubstParams, K80ModelOptimiser,
