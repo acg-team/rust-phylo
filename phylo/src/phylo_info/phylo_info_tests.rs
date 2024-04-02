@@ -189,7 +189,7 @@ fn check_phyloinfo_creation_newick_msa() {
         Record::with_attrs("C", None, b"TTATATATAT"),
     ];
     let info = phyloinfo_from_sequences_tree(
-        &sequences,
+        sequences,
         tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
         &GapHandling::Ambiguous,
     );
@@ -205,7 +205,7 @@ fn check_phyloinfo_creation_tree_no_msa() {
         Record::with_attrs("C", None, b"TTATATATAT"),
     ];
     let info = phyloinfo_from_sequences_tree(
-        &sequences,
+        sequences,
         tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
         &GapHandling::Ambiguous,
     );
@@ -223,7 +223,7 @@ fn check_phyloinfo_creation_tree_no_msa() {
 #[test]
 fn check_phyloinfo_creation_tree_no_seqs() {
     let info = phyloinfo_from_sequences_tree(
-        &[],
+        vec![],
         tree_parser::from_newick_string("((A:2.0,B:2.0):1.0,C:2.0):0.0;")
             .unwrap()
             .pop()
@@ -241,7 +241,7 @@ fn check_phyloinfo_creation_newick_mismatch_ids() {
         Record::with_attrs("F", None, b"TTATATATAT"),
     ];
     let info = phyloinfo_from_sequences_tree(
-        &sequences,
+        sequences,
         tree_parser::from_newick_string("((A:2.0,B:2.0):1.0,C:2.0):0.0;")
             .unwrap()
             .pop()
@@ -272,7 +272,7 @@ fn make_test_tree() -> Tree {
 #[test]
 fn check_phyloinfo_creation_tree_correct_no_msa() {
     let info = phyloinfo_from_sequences_tree(
-        &[
+        vec![
             Record::with_attrs("A", None, b"AAAAA"),
             Record::with_attrs("B", None, b"A"),
             Record::with_attrs("C", None, b"AA"),
@@ -295,7 +295,7 @@ fn check_phyloinfo_creation_tree_correct_no_msa() {
 #[test]
 fn check_phyloinfo_creation_tree_correct_msa() {
     let info = phyloinfo_from_sequences_tree(
-        &[
+        vec![
             Record::with_attrs("A", None, b"AA"),
             Record::with_attrs("B", None, b"A-"),
             Record::with_attrs("C", None, b"AA"),
@@ -311,7 +311,7 @@ fn check_phyloinfo_creation_tree_correct_msa() {
 #[test]
 fn check_phyloinfo_creation_tree_mismatch_ids() {
     let info = phyloinfo_from_sequences_tree(
-        &[
+        vec![
             Record::with_attrs("D", None, b"CTATATAAC"),
             Record::with_attrs("E", None, b"ATATATATAA"),
             Record::with_attrs("F", None, b"TTATATATAT"),
@@ -325,7 +325,7 @@ fn check_phyloinfo_creation_tree_mismatch_ids() {
 #[test]
 fn check_empirical_frequencies() {
     let info = phyloinfo_from_sequences_tree(
-        &[
+        vec![
             Record::with_attrs("A", None, b"AAAACCC"),
             Record::with_attrs("B", None, b"TTTCC"),
             Record::with_attrs("C", None, b"GGG"),

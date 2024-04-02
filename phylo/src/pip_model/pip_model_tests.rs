@@ -360,7 +360,7 @@ fn setup_example_phylo_info() -> PhyloInfo {
         Record::with_attrs("D", None, b"-CAA"),
     ];
     phyloinfo_from_sequences_tree(
-        &sequences,
+        sequences,
         tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"),
         &GapHandling::Proper,
     )
@@ -687,7 +687,7 @@ fn setup_example_phylo_info_2() -> PhyloInfo {
         Record::with_attrs("D", None, b"T-CAA"),
     ];
     phyloinfo_from_sequences_tree(
-        &sequences,
+        sequences,
         tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"),
         &GapHandling::Proper,
     )

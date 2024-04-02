@@ -66,7 +66,7 @@ impl PhyloInfo {
     ///     Record::with_attrs("D", None, b"TTTTT"),
     /// ];
     /// let tree = from_newick_string("(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);").unwrap().pop().unwrap();
-    /// let info = phyloinfo_from_sequences_tree(&sequences, tree, &GapHandling::Ambiguous).unwrap();
+    /// let info = phyloinfo_from_sequences_tree(sequences, tree, &GapHandling::Ambiguous).unwrap();
     /// let freqs = info.get_counts();
     /// assert_eq!(freqs[&b'A'], 5.0);
     /// assert_eq!(freqs[&b'C'], 5.0);
@@ -177,7 +177,7 @@ fn get_leaf_encoding(
 /// use phylo::phylo_info::GapHandling;
 /// use phylo::phylo_info::phyloinfo_from_sequences_tree;
 /// let (sequences, tree) = make_test_data();
-/// let info = phyloinfo_from_sequences_tree(&sequences, tree, &GapHandling::Ambiguous).unwrap();
+/// let info = phyloinfo_from_sequences_tree(sequences, tree, &GapHandling::Ambiguous).unwrap();
 /// assert!(info.msa.is_none());
 /// for (i, node) in info.tree.leaves.iter().enumerate() {
 ///     assert!(info.sequences[i].id() == node.id);
@@ -188,11 +188,10 @@ fn get_leaf_encoding(
 /// }
 /// ```
 pub fn phyloinfo_from_sequences_tree(
-    sequences: &[Record],
+    mut sequences: Vec<Record>,
     tree: Tree,
     gap_handling: &GapHandling,
 ) -> Result<PhyloInfo> {
-    let mut sequences = sequences.to_vec();
     check_sequences_not_empty(&sequences)?;
     sequences = make_sequences_uppercase(&sequences);
 
@@ -244,10 +243,8 @@ pub fn phyloinfo_from_files(
     gap_handling: &GapHandling,
 ) -> Result<PhyloInfo> {
     info!("Reading sequences from file {}", sequence_file.display());
-    let mut sequences = io::read_sequences_from_file(sequence_file)?;
+    let sequences = io::read_sequences_from_file(sequence_file)?;
     info!("{} sequence(s) read successfully", sequences.len());
-    check_sequences_not_empty(&sequences)?;
-    sequences = make_sequences_uppercase(&sequences);
 
     info!("Reading trees from file {}", tree_file.display());
     let mut trees = io::read_newick_from_file(tree_file)?;
@@ -256,20 +253,7 @@ pub fn phyloinfo_from_files(
     check_tree_number(&trees)?;
     let tree = trees.remove(0);
 
-    validate_tree_sequence_ids(&tree, &sequences)?;
-    sort_sequences_by_leaf_ids(&tree, &mut sequences);
-
-    let msa = get_msa_if_aligned(&sequences);
-
-    let sequence_type = get_sequence_type(&sequences);
-    let leaf_encoding = create_leaf_encoding(&msa, &sequence_type, gap_handling);
-    Ok(PhyloInfo {
-        sequences,
-        sequence_type,
-        tree,
-        msa,
-        leaf_encoding,
-    })
+    phyloinfo_from_sequences_tree(sequences, tree, gap_handling)
 }
 
 /// Returns a vector of records representing the MSA if all the sequences are of the same length.
