@@ -47,7 +47,7 @@ impl<'a> DNAModelOptimiser<'a> {
         &self,
         start_values: &DNASubstParams,
     ) -> Result<(u32, DNASubstParams, f64)> {
-        println!("Optimising K80 parameters.");
+        info!("Optimising K80 parameters.");
         let param_sets = [
             ("alpha", vec![ParamEnum::Rtc, ParamEnum::Rag]),
             (
@@ -67,7 +67,7 @@ impl<'a> DNAModelOptimiser<'a> {
         &self,
         start_values: &DNASubstParams,
     ) -> Result<(u32, DNASubstParams, f64)> {
-        println!("Optimising HKY parameters.");
+        info!("Optimising HKY parameters.");
         let param_sets = [
             ("alpha", vec![ParamEnum::Rtc, ParamEnum::Rag]),
             (
@@ -87,7 +87,7 @@ impl<'a> DNAModelOptimiser<'a> {
         &self,
         start_values: &DNASubstParams,
     ) -> Result<(u32, DNASubstParams, f64)> {
-        println!("Optimising HKY parameters.");
+        info!("Optimising TN93 parameters.");
         let param_sets = [
             ("alpha1", vec![ParamEnum::Rtc]),
             ("alpha2", vec![ParamEnum::Rag]),
@@ -108,7 +108,7 @@ impl<'a> DNAModelOptimiser<'a> {
         &self,
         start_values: &DNASubstParams,
     ) -> Result<(u32, DNASubstParams, f64)> {
-        println!("Optimising GTR parameters.");
+        info!("Optimising GTR parameters.");
         let param_sets = [
             ("rca", vec![ParamEnum::Rca]),
             ("rcg", vec![ParamEnum::Rcg]),

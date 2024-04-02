@@ -699,7 +699,6 @@ fn pip_hky_likelihood_example_2() {
     let mut model = PIPModel::<4>::new("hky", &PIP_HKY_PARAMS).unwrap();
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
     let info = setup_example_phylo_info_2();
-    println!("{:?}", info.leaf_encoding);
     let cost = PIPLikelihoodCost::<4> { info: &info };
     assert_relative_eq!(
         cost.compute_log_likelihood(&model),
