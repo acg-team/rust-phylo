@@ -284,7 +284,7 @@ fn get_msa_if_aligned(sequences: &[Record]) -> Option<Vec<Record>> {
 }
 
 /// Checks that there are sequences in the vector, bails with an error otherwise.
-fn check_sequences_not_empty(sequences: &Vec<Record>) -> Result<()> {
+fn check_sequences_not_empty(sequences: &[Record]) -> Result<()> {
     if sequences.is_empty() {
         bail!(DataError {
             message: String::from("No sequences provided, aborting.")
@@ -326,7 +326,7 @@ fn validate_tree_sequence_ids(tree: &Tree, sequences: &[Record]) -> Result<()> {
 
 /// Checks that there is at least one tree in the vector, bails with an error otherwise.
 /// Prints a warning if there is more than one tree because only the first tree will be processed.
-fn check_tree_number(trees: &Vec<Tree>) -> Result<()> {
+fn check_tree_number(trees: &[Tree]) -> Result<()> {
     if trees.is_empty() {
         bail!(DataError {
             message: String::from("No trees in the tree file, aborting.")
