@@ -410,6 +410,14 @@ fn newick_multiple_correct() {
 }
 
 #[test]
+fn newick_parse_parentheses_around_all() {
+    let trees = tree_parser::from_newick_string(&String::from(
+        "(((((A:1,B:1)F:1,C:2)G:1,D:3)H:1,E:4)I:1);",
+    ));
+    assert!(trees.is_ok());
+}
+
+#[test]
 fn newick_parse_whitespace() {
     let trees = tree_parser::from_newick_string(&String::from(
         "     (     (((  (A:1   , B  :   1.0)  \n \n F:1,C:2.0   )G:1,D:3)H:+1.0  ,  E:4)   I:1)\n;\n   ",
