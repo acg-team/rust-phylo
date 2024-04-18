@@ -1,18 +1,18 @@
-use super::compute_distance_matrix;
-use super::nj_matrices::NJMat;
-use super::tree_parser::{self, from_newick_string, ParsingError, Rule};
-use super::{
-    build_nj_tree_from_matrix, build_nj_tree_w_rng_from_matrix, get_percentiles, Node, NodeIdx,
-    NodeIdx::Internal as I, NodeIdx::Leaf as L, Tree,
-};
-use crate::tree::{argmin_wo_diagonal, get_percentiles_rounded};
-use crate::{cmp_f64, Rounding};
-use approx::relative_eq;
+use std::iter::repeat;
+
 use bio::io::fasta::Record;
 use nalgebra::{dmatrix, DMatrix};
 use pest::error::ErrorVariant;
 use rand::Rng;
-use std::iter::repeat;
+
+use crate::tree::nj_matrices::NJMat;
+use crate::tree::tree_parser::{self, from_newick_string, ParsingError, Rule};
+use crate::tree::{
+    argmin_wo_diagonal, build_nj_tree_from_matrix, build_nj_tree_w_rng_from_matrix,
+    compute_distance_matrix, get_percentiles, get_percentiles_rounded, Node, NodeIdx,
+    NodeIdx::Internal as I, NodeIdx::Leaf as L, Tree,
+};
+use crate::{cmp_f64, Rounding};
 
 #[cfg(test)]
 fn setup_test_tree() -> Tree {
