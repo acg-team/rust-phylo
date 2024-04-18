@@ -86,16 +86,6 @@ fn tree_wo_sequences() {
     assert!(tree.is_err());
 }
 
-impl PartialEq for Node {
-    fn eq(&self, other: &Self) -> bool {
-        (self.idx == other.idx)
-            && (self.parent == other.parent)
-            && (self.children.iter().min() == other.children.iter().min())
-            && (self.children.iter().max() == other.children.iter().max())
-            && relative_eq!(self.blen, other.blen)
-    }
-}
-
 #[test]
 fn nj_correct_web_example() {
     let nj_distances = NJMat {
@@ -417,6 +407,23 @@ fn newick_multiple_correct() {
     assert_eq!(trees[2].root, I(0));
     assert_eq!(trees[2].leaves.len(), 3);
     assert_eq!(trees[2].internals.len(), 2);
+}
+
+#[test]
+fn newick_parse_whitespace() {
+    let trees = tree_parser::from_newick_string(&String::from(
+        "     (     (((  (A:1   , B  :   1.0)  \n \n F:1,C:2.0   )G:1,D:3)H:+1.0  ,  E:4)   I:1)\n;\n   ",
+    ));
+    assert!(trees.is_ok());
+    let tree0 = trees.unwrap().pop().unwrap();
+    let tree1 = tree_parser::from_newick_string(&String::from(
+        "(((((A:1,B:1)F:1,C:2)G:1,D:3)H:1,E:4)I:1);",
+    ))
+    .unwrap()
+    .pop()
+    .unwrap();
+    assert_eq!(tree0.leaves, tree1.leaves);
+    assert_eq!(tree0.internals, tree1.internals);
 }
 
 fn make_parsing_error(rules: &[Rule]) -> ErrorVariant<Rule> {

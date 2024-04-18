@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use anyhow::bail;
+use approx::relative_eq;
 use bio::alignment::distance::levenshtein;
 use bio::io::fasta::Record;
 use inc_stats::Percentiles;
@@ -49,6 +50,16 @@ pub struct Node {
     pub children: Vec<NodeIdx>,
     pub blen: f64,
     pub id: String,
+}
+
+impl PartialEq for Node {
+    fn eq(&self, other: &Self) -> bool {
+        (self.idx == other.idx)
+            && (self.parent == other.parent)
+            && (self.children.iter().min() == other.children.iter().min())
+            && (self.children.iter().max() == other.children.iter().max())
+            && relative_eq!(self.blen, other.blen)
+    }
 }
 
 impl Node {

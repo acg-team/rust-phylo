@@ -157,6 +157,7 @@ impl Tree {
             .next()
             .unwrap()
             .as_str()
+            .trim()
             .parse::<f64>()
             .unwrap_or_default()
     }
