@@ -345,11 +345,24 @@ fn check_empirical_frequencies() {
 #[test]
 fn check_phyloinfo_creation_sequences() {
     let sequences = vec![
+        Record::with_attrs("C", None, b"TTATATATAT"),
         Record::with_attrs("A", None, b"CTATATATAC"),
         Record::with_attrs("B", None, b"ATATATATAA"),
-        Record::with_attrs("C", None, b"TTATATATAT"),
     ];
     let info = PhyloInfo::from_sequences(sequences, &GapHandling::Ambiguous);
     assert!(info.is_ok());
-    assert!(info.unwrap().msa.is_some());
+    let info = info.unwrap();
+    assert!(info.msa.is_some());
+    assert_eq!(
+        info.sequences
+            .iter()
+            .map(|rec| rec.id())
+            .collect::<Vec<_>>(),
+        info.tree
+            .leaves
+            .iter()
+            .map(|node| node.id.clone())
+            .collect::<Vec<_>>(),
+    );
+    assert!(info.tree.complete);
 }
