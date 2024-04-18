@@ -152,7 +152,7 @@ impl Tree {
         }
     }
 
-    pub fn add_parent(
+    pub(crate) fn add_parent(
         &mut self,
         parent_idx: usize,
         idx_i: NodeIdx,
@@ -171,7 +171,7 @@ impl Tree {
         self.add_parent_to_child(&idx_j, parent_idx, blen_j);
     }
 
-    pub fn add_parent_to_child(&mut self, idx: &NodeIdx, parent_idx: usize, blen: f64) {
+    pub(crate) fn add_parent_to_child(&mut self, idx: &NodeIdx, parent_idx: usize, blen: f64) {
         match *idx {
             Int(idx) => self.internals[idx].add_parent(Int(parent_idx), blen),
             Leaf(idx) => self.leaves[idx].add_parent(Int(parent_idx), blen),
