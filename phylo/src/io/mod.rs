@@ -2,7 +2,7 @@ use std::{
     error::Error,
     fmt,
     fs::{self, File},
-    io::{LineWriter, Write},
+    io::Write,
     path::PathBuf,
 };
 
@@ -170,7 +170,7 @@ pub fn read_newick_from_file(path: PathBuf) -> Result<Vec<Tree>> {
 /// write_newick_to_file(&trees, output_path.clone()).unwrap();
 /// # let mut file_content = String::new();
 /// # File::open(output_path.clone()).unwrap().read_to_string(&mut file_content).unwrap();
-/// # assert_eq!(file_content, "(((A:1,B:2):1,(D:1,E:2):1):0);");
+/// # assert_eq!(file_content.trim(), "(((A:1,B:2):1,(D:1,E:2):1):0);");
 /// # assert!(remove_file(output_path).is_ok());
 /// ```
 pub fn write_newick_to_file(trees: &[Tree], path: PathBuf) -> Result<()> {
@@ -180,9 +180,10 @@ pub fn write_newick_to_file(trees: &[Tree], path: PathBuf) -> Result<()> {
             message: String::from("File already exists")
         });
     }
-    let mut writer = LineWriter::new(File::create(path)?);
+    let mut writer = File::create(path)?;
     for tree in trees {
         writer.write_all(tree.to_newick().as_bytes())?;
+        writer.write_all(b"\n")?;
     }
     info!("Finished writing successfully.");
     Ok(())
