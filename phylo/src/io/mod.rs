@@ -41,10 +41,10 @@ impl Error for DataError {}
 /// use phylo::io::read_sequences_from_file;
 /// use std::path::PathBuf;
 /// let records = read_sequences_from_file(PathBuf::from("./data/sequences_DNA_small.fasta")).unwrap();
-/// assert_eq!(records.len(), 4);
-/// for rec in records {
-///     assert_eq!(rec.seq().len(), 7);
-/// }
+/// # assert_eq!(records.len(), 4);
+/// # for rec in records {
+/// #    assert_eq!(rec.seq().len(), 7);
+/// # }
 /// ```
 pub fn read_sequences_from_file(path: PathBuf) -> Result<Vec<Record>> {
     info!("Reading sequences from file {}.", path.display());
@@ -81,32 +81,27 @@ pub fn read_sequences_from_file(path: PathBuf) -> Result<Vec<Record>> {
 ///
 /// # Example
 /// ```
+/// # use std::io::Read;
+///
 /// use std::path::PathBuf;
 /// use std::fs::{File, remove_file};
-/// use std::io::Read;
-/// use std::time::{SystemTime, UNIX_EPOCH};
+///
 /// use bio::io::fasta::Record;
 /// use phylo::io::write_sequences_to_file;
 /// let sequences = vec![
 ///    Record::with_attrs("seq1", None, b"ATGC"),
 ///    Record::with_attrs("seq2", None, b"CGTA"),
 /// ];
-/// let output_path = PathBuf::from(format!(
-///     "./data/doctest_tmp_output_{}.fasta",
-///     SystemTime::now()
-///         .duration_since(UNIX_EPOCH)
-///         .unwrap()
-///         .as_secs()
-/// ));
+/// let output_path = PathBuf::from("./data/doctest_tmp_output.fasta");
 /// write_sequences_to_file(&sequences, output_path.clone()).unwrap();
-/// let mut file_content = String::new();
-/// File::open(output_path.clone())
-///    .unwrap()
-///    .read_to_string(&mut file_content)
-///    .unwrap();
-/// let expected_output = ">seq1\nATGC\n>seq2\nCGTA\n";
-/// assert_eq!(file_content, expected_output);
-/// assert!(remove_file(output_path).is_ok());
+/// # let mut file_content = String::new();
+/// # File::open(output_path.clone())
+/// #   .unwrap()
+/// #   .read_to_string(&mut file_content)
+/// #   .unwrap();
+/// # let expected_output = ">seq1\nATGC\n>seq2\nCGTA\n";
+/// # assert_eq!(file_content, expected_output);
+/// # assert!(remove_file(output_path).is_ok());
 /// ```
 pub fn write_sequences_to_file(sequences: &[Record], path: PathBuf) -> Result<()> {
     info!("Writing sequences/MSA to file {}.", path.display());
@@ -137,9 +132,9 @@ pub fn write_sequences_to_file(sequences: &[Record], path: PathBuf) -> Result<()
 /// use phylo::io::read_newick_from_file;
 /// use std::path::PathBuf;
 /// let trees = read_newick_from_file(PathBuf::from("./data/tree.newick")).unwrap();
-/// assert_eq!(trees.len(), 1);
-/// assert_eq!(trees[0].leaves.len(), 4);
-/// assert!(read_newick_from_file(PathBuf::from("./data/tree_unrooted.newick")).is_err());
+/// # assert_eq!(trees.len(), 1);
+/// # assert_eq!(trees[0].leaves.len(), 4);
+/// # assert!(read_newick_from_file(PathBuf::from("./data/tree_unrooted.newick")).is_err());
 /// ```
 pub fn read_newick_from_file(path: PathBuf) -> Result<Vec<Tree>> {
     info!("Reading rooted newick tree from file {}.", path.display());
