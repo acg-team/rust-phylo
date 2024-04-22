@@ -205,6 +205,7 @@ impl PhyloInfo {
     /// ```
     /// # use bio::io::fasta::Record;
     /// # use phylo::tree::Tree;
+    /// # use phylo::tree::tree_parser::{self, from_newick_string};
     /// # fn make_test_data() -> (Vec<Record>, Tree) {
     /// #   use phylo::tree::NodeIdx::{Internal as I, Leaf as L};
     /// #   let sequences = vec![
@@ -213,13 +214,7 @@ impl PhyloInfo {
     /// #       Record::with_attrs("C", None, b"gg"),
     /// #       Record::with_attrs("D", None, b"TTTTTTT"),
     /// #   ];
-    /// #   let mut tree = Tree::new(&sequences).unwrap();
-    /// #   tree.add_parent(0, L(0), L(1), 2.0, 2.0);
-    /// #   tree.add_parent(1, I(0), L(2), 1.0, 2.0);
-    /// #   tree.add_parent(2, I(1), L(3), 1.0, 2.0);
-    /// #   tree.complete = true;
-    /// #   tree.create_postorder();
-    /// #   tree.create_preorder();
+    /// #   let tree = from_newick_string("((((A:2,B:2):1,C:2):1,D:2):0);").unwrap().pop().unwrap();
     /// #   (sequences, tree)
     /// # }
     /// # let (sequences, tree) = make_test_data();
