@@ -590,3 +590,63 @@ fn test_node_idx_display() {
 fn test_argmin_fail() {
     argmin_wo_diagonal(DMatrix::<f64>::from_vec(1, 1, vec![0.0]), |_| 0);
 }
+
+#[test]
+fn test_to_newick_simple() {
+    let tree = Tree {
+        root: I(0),
+        leaves: vec![
+            Node::new_leaf(0, None, 1.0, "A".to_string()),
+            Node::new_leaf(1, None, 5.5, "B".to_string()),
+        ],
+        internals: vec![Node::new_internal(
+            0,
+            None,
+            vec![L(0), L(1)],
+            2.0,
+            "C".to_string(),
+        )],
+        postorder: vec![L(0), L(1), I(0)],
+        preorder: vec![I(0), L(0), L(1)],
+        complete: false,
+    };
+    assert_eq!(tree.to_newick(), "((A:1,B:5.5)C:2);");
+}
+
+#[test]
+fn test_from_newick_to_newick() {
+    let newick0 = "(((((A:1,B:1)F:1,C:2)G:1,D:3)H:1,E:4)I:1);";
+    let newick1 = "(((A:1.5,B:2.3)E:5.1,(C:3.9,D:4.8)F:6.2)G:7.3);";
+    let newick2 = "((A:1,(B:1,C:1)E:2)F:1);";
+
+    let trees =
+        tree_parser::from_newick_string(format!("{}\n{}\n{}", newick0, newick1, newick2).as_str())
+            .unwrap();
+    assert_eq!(trees[0].to_newick(), newick0);
+    assert_eq!(trees[1].to_newick(), newick1);
+    assert_eq!(trees[2].to_newick(), newick2);
+}
+
+#[test]
+fn test_to_newick_complex() {
+    let newick = "(((raccoon:19.19959,bear:6.80041):0.84600,((sea_lion:11.99700, seal:12.00300):7.52973,((monkey:100.85930,cat:47.14069):20.59201, weasel:18.87953):2.09460):3.87382):9.0,dog:25.46154):10.0;";
+    let tree = tree_parser::from_newick_string(newick)
+        .unwrap()
+        .pop()
+        .unwrap();
+    assert!(tree.complete);
+}
+
+#[test]
+fn check_same_trees_after_newick() {
+    let newick = "(((A:1.5,B:2.3)E:5.1,(C:3.9,D:4.8)F:6.2)G:7.3);";
+    let tree = from_newick_string(newick).unwrap().pop().unwrap();
+    assert_eq!(tree.to_newick(), newick);
+    let tree2 = from_newick_string(&tree.to_newick())
+        .unwrap()
+        .pop()
+        .unwrap();
+    assert_eq!(tree.internals, tree2.internals);
+    assert_eq!(tree.leaves, tree2.leaves);
+    assert_eq!(tree.root, tree2.root);
+}

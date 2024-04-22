@@ -140,6 +140,28 @@ impl Tree {
         }
     }
 
+    pub fn to_newick(&self) -> String {
+        format!("({});", self._to_newick(self.root))
+    }
+
+    fn _to_newick(&self, node_idx: NodeIdx) -> String {
+        match node_idx {
+            NodeIdx::Leaf(idx) => {
+                let node = &self.leaves[idx];
+                format!("{}:{}", node.id, node.blen)
+            }
+            NodeIdx::Internal(idx) => {
+                let node = &self.internals[idx];
+                let children_newick: Vec<String> = node
+                    .children
+                    .iter()
+                    .map(|&child_idx| self._to_newick(child_idx))
+                    .collect();
+                format!("({}){}:{}", children_newick.join(","), &node.id, node.blen)
+            }
+        }
+    }
+
     pub fn get_node_id_string(&self, node_idx: &NodeIdx) -> String {
         let id = match node_idx {
             Int(idx) => &self.internals[*idx].id,
