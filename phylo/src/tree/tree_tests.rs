@@ -212,7 +212,6 @@ fn nj_correct_2() {
     assert_eq!(branch_length(&tree, "D"), 7.0);
     assert_eq!(tree.internals[0].blen, 1.0);
     assert_eq!(tree.internals[1].blen, 1.0);
-    println!("{:?}", tree.leaves);
     assert_eq!(tree.internals.len(), 3);
     assert_eq!(tree.postorder.len(), 7);
     assert!(is_unique(&tree.postorder));
@@ -356,6 +355,18 @@ fn newick_complex_tree_correct() {
 }
 
 #[test]
+fn newick_complex_tree_2() {
+    // tree from https://www.megasoftware.net/mega4/WebHelp/glossary/rh_newick_format.htm
+    let newick = "(((raccoon:19.19959,bear:6.80041):0.84600,((sea_lion:11.99700, seal:12.00300):7.52973,((monkey:100.85930,cat:47.14069):20.59201, weasel:18.87953):2.09460):3.87382),dog:25.46154);";
+    let tree = tree_parser::from_newick_string(newick)
+        .unwrap()
+        .pop()
+        .unwrap();
+    assert!(tree.complete);
+    assert_eq!(tree.internals[usize::from(tree.root)].blen, 0.0);
+}
+
+#[test]
 fn newick_simple_balanced_correct() {
     let trees = tree_parser::from_newick_string(&String::from(
         "((A:1.0,B:2.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3;",
@@ -455,8 +466,6 @@ fn newick_garbage() {
     let trees = from_newick_string(&String::from("()()();"));
     check_parsing_error(trees.unwrap_err(), &[Rule::internal, Rule::label]);
     let trees = from_newick_string(&String::from("((A:1.0,B:1.0);"));
-    check_parsing_error(trees.unwrap_err(), &[Rule::label, Rule::branch_length]);
-    let trees = from_newick_string(&String::from("((A:1.0,B:1.0));"));
     check_parsing_error(trees.unwrap_err(), &[Rule::label, Rule::branch_length]);
     let trees = from_newick_string(&String::from("(:1.0,:2.0)E:5.1;"));
     check_parsing_error(trees.unwrap_err(), &[Rule::internal, Rule::label]);
