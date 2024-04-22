@@ -118,14 +118,14 @@ pub fn write_sequences_to_file(sequences: &[Record], path: PathBuf) -> Result<()
     Ok(())
 }
 
-/// Reads rooted newick trees from a file, returning a vector of trees.
-/// Currently can only process rooted trees, will return an error otherwise.
+/// Reads newick trees from a file, returning a vector of trees.
+/// Will read both rooted and unrooted trees, but unrooted trees will be converted to rooted
+/// using zero length branches at the trifurcation.
+/// For example, the unrooted tree "((A:1,B:2):1,(D:1,E:2):1,C:4);" will be converted to the rooted
+/// tree "(((A:1,B:2):1,(D:1,E:2):1):0,C:4):0;".
 ///
 /// # Arguments
 /// * `path` - Path to the newick file.
-///
-/// # TODO:
-/// * Add support for unrooted trees.
 ///
 /// # Example
 /// ```
@@ -137,7 +137,7 @@ pub fn write_sequences_to_file(sequences: &[Record], path: PathBuf) -> Result<()
 /// # assert!(read_newick_from_file(PathBuf::from("./data/tree_unrooted.newick")).is_err());
 /// ```
 pub fn read_newick_from_file(path: PathBuf) -> Result<Vec<Tree>> {
-    info!("Reading rooted newick tree from file {}.", path.display());
+    info!("Reading newick trees from file {}.", path.display());
     let newick = fs::read_to_string(path)?;
     info!("Read file successfully.");
     tree_parser::from_newick_string(&newick)

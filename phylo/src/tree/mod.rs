@@ -93,10 +93,9 @@ impl Node {
         Self::new_internal(node_idx, None, Vec::new(), 0.0, "".to_string())
     }
 
-    fn add_parent(&mut self, parent_idx: NodeIdx, blen: f64) {
+    fn add_parent(&mut self, parent_idx: NodeIdx) {
         debug_assert!(matches!(parent_idx, Int(_)));
         self.parent = Some(parent_idx);
-        self.blen = blen;
     }
 }
 
@@ -189,14 +188,27 @@ impl Tree {
             0.0,
             "".to_string(),
         ));
-        self.add_parent_to_child(&idx_i, parent_idx, blen_i);
-        self.add_parent_to_child(&idx_j, parent_idx, blen_j);
+        self.add_parent_to_child(idx_i, Int(parent_idx), blen_i);
+        self.add_parent_to_child(idx_j, Int(parent_idx), blen_j);
     }
 
-    pub(crate) fn add_parent_to_child(&mut self, idx: &NodeIdx, parent_idx: usize, blen: f64) {
-        match *idx {
-            Int(idx) => self.internals[idx].add_parent(Int(parent_idx), blen),
-            Leaf(idx) => self.leaves[idx].add_parent(Int(parent_idx), blen),
+    pub(crate) fn add_parent_to_child(&mut self, idx: NodeIdx, parent_idx: NodeIdx, blen: f64) {
+        match idx {
+            Int(idx) => {
+                self.internals[idx].add_parent(parent_idx);
+                self.internals[idx].blen = blen;
+            }
+            Leaf(idx) => {
+                self.leaves[idx].add_parent(parent_idx);
+                self.leaves[idx].blen = blen;
+            }
+        }
+    }
+
+    pub fn add_parent_to_child_no_blen(&mut self, idx: NodeIdx, parent_idx: NodeIdx) {
+        match idx {
+            Int(idx) => self.internals[idx].add_parent(parent_idx),
+            Leaf(idx) => self.leaves[idx].add_parent(parent_idx),
         }
     }
 

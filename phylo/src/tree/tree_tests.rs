@@ -445,6 +445,54 @@ fn newick_parse_whitespace() {
     assert_eq!(tree0.internals, tree1.internals);
 }
 
+#[test]
+fn newick_parse_unrooted() {
+    let trees = tree_parser::from_newick_string(&String::from(
+        "((A:1.0,B:1.0)E:1.0,(C:1.0,D:1.0)F:1.0,G:4.0);",
+    ));
+    assert!(trees.is_ok());
+    let tree = trees.unwrap().pop().unwrap();
+    let leaves = vec![
+        Node::new_leaf(0, Some(I(0)), 1.0, "A".to_string()),
+        Node::new_leaf(1, Some(I(0)), 1.0, "B".to_string()),
+        Node::new_leaf(2, Some(I(1)), 1.0, "C".to_string()),
+        Node::new_leaf(3, Some(I(1)), 1.0, "D".to_string()),
+        Node::new_leaf(4, Some(I(3)), 4.0, "G".to_string()),
+    ];
+    assert_eq!(tree.leaves, leaves);
+    let internals = vec![
+        Node::new_internal(0, Some(I(2)), vec![L(0), L(1)], 1.0, "E".to_string()),
+        Node::new_internal(1, Some(I(2)), vec![L(2), L(3)], 1.0, "F".to_string()),
+        Node::new_internal(2, Some(I(3)), vec![I(0), I(1)], 0.0, "".to_string()),
+        Node::new_internal(3, None, vec![I(2), L(4)], 0.0, "".to_string()),
+    ];
+    assert_eq!(tree.internals, internals);
+    assert_eq!(tree.root, I(3));
+}
+
+#[test]
+fn newick_parse_unrooted_long() {
+    let mut trees = tree_parser::from_newick_string(&String::from(
+        "((raccoon:19.19959,bear:6.80041):0.84600,((sea_lion:11.99700, seal:12.00300):7.52973,((monkey:100.85930,cat:47.14069):20.59201, weasel:18.87953):2.09460):3.87382,dog:25.46154);",
+    )).unwrap();
+    assert_eq!(trees.len(), 1);
+    let tree = trees.pop().unwrap();
+    assert_eq!(tree.internals.len(), 7);
+    assert_eq!(tree.leaves.len(), 8);
+}
+
+#[test]
+fn newick_parse_unrooted_rooted_mix() {
+    let trees = tree_parser::from_newick_string(&String::from(
+        "((raccoon:19.19959,bear:6.80041):0.84600,((sea_lion:11.99700, seal:12.00300):7.52973,((monkey:100.85930,cat:47.14069):20.59201, weasel:18.87953):2.09460):3.87382,dog:25.46154);
+        ((((A:0.11,B:0.22)F:0.33,C:0.44)G:0.55,D:0.66)H:0.77,E:0.88)I:0.99;
+        ((A:1.0,B:1.0)E:1.0,(C:1.0,D:1.0)F:1.0,G:4.0);
+        (G:2,H:5,N:5);
+        (G:2,H:5)N:5;",
+    )).unwrap();
+    assert_eq!(trees.len(), 5);
+}
+
 fn make_parsing_error(rules: &[Rule]) -> ErrorVariant<Rule> {
     ErrorVariant::ParsingError {
         positives: rules.to_vec(),
@@ -464,11 +512,17 @@ fn newick_garbage() {
     let trees = from_newick_string(&String::from(";"));
     check_parsing_error(trees.unwrap_err(), &[Rule::newick]);
     let trees = from_newick_string(&String::from("()()();"));
-    check_parsing_error(trees.unwrap_err(), &[Rule::internal, Rule::label]);
+    check_parsing_error(
+        trees.unwrap_err(),
+        &[Rule::tree, Rule::internal, Rule::label],
+    );
     let trees = from_newick_string(&String::from("((A:1.0,B:1.0);"));
     check_parsing_error(trees.unwrap_err(), &[Rule::label, Rule::branch_length]);
     let trees = from_newick_string(&String::from("(:1.0,:2.0)E:5.1;"));
-    check_parsing_error(trees.unwrap_err(), &[Rule::internal, Rule::label]);
+    check_parsing_error(
+        trees.unwrap_err(),
+        &[Rule::tree, Rule::internal, Rule::label],
+    );
 }
 
 #[test]
