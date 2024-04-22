@@ -1,4 +1,10 @@
-use std::{error::Error, fmt, fs, path::PathBuf};
+use std::{
+    error::Error,
+    fmt,
+    fs::{self, File},
+    io::{LineWriter, Write},
+    path::PathBuf,
+};
 
 use anyhow::bail;
 use bio::{
@@ -140,6 +146,46 @@ pub fn read_newick_from_file(path: PathBuf) -> Result<Vec<Tree>> {
     let newick = fs::read_to_string(path)?;
     info!("Read file successfully.");
     tree_parser::from_newick_string(&newick)
+}
+
+/// Writes newick trees to the given file path. Will return an error if the file already exists.
+///
+/// # Arguments
+/// * `trees` - Vector of newick trees.
+/// * `path` - Path to the newick file.
+///
+/// # Example
+/// ```
+/// # use std::fs::{File, remove_file};
+/// # use std::io::Read;
+///
+/// use std::path::PathBuf;
+///
+/// use phylo::tree::tree_parser::from_newick_string;
+/// use phylo::tree::Tree;
+/// use phylo::io::write_newick_to_file;
+///
+/// let output_path = PathBuf::from("./data/doctest_tmp_output.newick");
+/// let trees = from_newick_string("((A:1.0,B:2.0):1,(D:1.0,E:2.0):1):0.0;").unwrap();
+/// write_newick_to_file(&trees, output_path.clone()).unwrap();
+/// # let mut file_content = String::new();
+/// # File::open(output_path.clone()).unwrap().read_to_string(&mut file_content).unwrap();
+/// # assert_eq!(file_content, "(((A:1,B:2):1,(D:1,E:2):1):0);");
+/// # assert!(remove_file(output_path).is_ok());
+/// ```
+pub fn write_newick_to_file(trees: &[Tree], path: PathBuf) -> Result<()> {
+    info!("Writing newick trees to file {}.", path.display());
+    if path.exists() {
+        bail!(DataError {
+            message: String::from("File already exists")
+        });
+    }
+    let mut writer = LineWriter::new(File::create(path)?);
+    for tree in trees {
+        writer.write_all(tree.to_newick().as_bytes())?;
+    }
+    info!("Finished writing successfully.");
+    Ok(())
 }
 
 #[cfg(test)]
