@@ -1,4 +1,6 @@
+use std::fs::{self};
 use std::iter::repeat;
+use std::path::PathBuf;
 
 use bio::io::fasta::Record;
 use nalgebra::{dmatrix, DMatrix};
@@ -712,4 +714,34 @@ fn check_same_trees_after_newick() {
     assert_eq!(tree.internals, tree2.internals);
     assert_eq!(tree.leaves, tree2.leaves);
     assert_eq!(tree.root, tree2.root);
+}
+
+#[test]
+fn test_parse_huge_newick() {
+    let path = PathBuf::from(
+        "./data/real_examples/initial_msa_env_aa_one_seq_pP_subtypeB.fas.timetree.nwk",
+    );
+    let newick = fs::read_to_string(path).unwrap();
+    let trees = tree_parser::from_newick_string(&newick);
+    assert!(trees.is_ok());
+    let mut trees = trees.unwrap();
+    assert_eq!(trees.len(), 1);
+    let tree = trees.pop().unwrap();
+    assert_eq!(tree.leaves.len(), 762);
+    assert_eq!(tree.internals.len(), 761);
+    assert!(tree.complete);
+}
+
+#[test]
+fn test_generate_huge_newick() {
+    let path = PathBuf::from(
+        "./data/real_examples/initial_msa_env_aa_one_seq_pP_subtypeB.fas.timetree.nwk",
+    );
+    let newick = fs::read_to_string(path).unwrap();
+    let trees = tree_parser::from_newick_string(&newick);
+    let tree = trees.unwrap().pop().unwrap();
+    let newick = tree.to_newick();
+    assert!(newick.len() > 1000);
+    let trees_parsed = tree_parser::from_newick_string(&newick);
+    assert!(trees_parsed.is_ok());
 }
