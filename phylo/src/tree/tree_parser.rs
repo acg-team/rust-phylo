@@ -1,13 +1,17 @@
-use super::Node;
-use super::NodeIdx::{self, Internal as Int, Leaf};
-use super::Tree;
-use crate::Result;
+use std::fmt;
+use std::result::Result as stdResult;
+
 use anyhow::bail;
 use log::info;
 use pest::{error::Error as PestError, iterators::Pair, Parser};
 use pest_derive::Parser;
-use std::fmt;
-use std::result::Result as stdResult;
+
+use crate::tree::{
+    Node,
+    NodeIdx::{self, Internal as Int, Leaf},
+    Tree,
+};
+use crate::Result;
 
 #[derive(Parser)]
 #[grammar = "./tree/newick.pest"]
@@ -23,7 +27,7 @@ impl fmt::Display for ParsingError {
     }
 }
 
-pub(crate) fn from_newick_string(newick_string: &str) -> Result<Vec<Tree>> {
+pub fn from_newick_string(newick_string: &str) -> Result<Vec<Tree>> {
     info!("Parsing newick trees.");
     let mut trees = Vec::new();
     let newick_tree_res = NewickParser::parse(Rule::newick, newick_string);

@@ -168,7 +168,7 @@ fn nj_correct() {
 }
 
 #[cfg(test)]
-fn is_unique<T: std::cmp::Eq + std::hash::Hash>(vec: &Vec<T>) -> bool {
+fn is_unique<T: std::cmp::Eq + std::hash::Hash>(vec: &[T]) -> bool {
     let set: std::collections::HashSet<_> = vec.iter().collect();
     set.len() == vec.len()
 }

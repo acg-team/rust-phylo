@@ -5,12 +5,18 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[profile.release]
+opt-level = 3
+
 [dependencies]
 anyhow = "1.0.72"
 approx = "0.5.1"
+argmin = "0.8.1"
 assert_matches = "1.5.0"
 bio = "1.3.1"
+lazy_static = "1.4.0"
 log = "0.4.19"
+map-macro = "0.2.6"
 nalgebra = "0.32.3"
 ordered-float = "3.7.0"
 pest = "2.7.2"

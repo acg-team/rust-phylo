@@ -4,30 +4,45 @@ use assert_matches::assert_matches;
 use bio::io::fasta::Record;
 
 use crate::io::DataError;
-use crate::phylo_info::{
-    get_msa_if_aligned, phyloinfo_from_files, phyloinfo_from_sequences_newick,
-    phyloinfo_from_sequences_tree, PhyloInfo,
-};
-use crate::tree::tree_parser::ParsingError;
+use crate::phylo_info::{GapHandling, PhyloInfo};
+use crate::tree::tree_parser::{self, ParsingError};
 use crate::tree::NodeIdx::{Internal as I, Leaf as L};
 use crate::tree::Tree;
 
+#[cfg(test)]
+fn tree_newick(newick: &str) -> Tree {
+    tree_parser::from_newick_string(newick)
+        .unwrap()
+        .pop()
+        .unwrap()
+}
+
 #[test]
 fn setup_info_correct() {
-    let res_info = phyloinfo_from_files(
+    let res_info = PhyloInfo::from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+        &GapHandling::Ambiguous,
     )
     .unwrap();
     assert_eq!(res_info.tree.leaves.len(), 4);
     assert_eq!(res_info.sequences.len(), 4);
+    for (i, node) in res_info.tree.leaves.iter().enumerate() {
+        assert!(res_info.sequences[i].id() == node.id);
+    }
+    for rec in res_info.sequences.iter() {
+        assert!(!rec.seq().is_empty());
+        assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
+    }
+    assert_eq!(res_info.msa, None);
 }
 
 #[test]
 fn setup_info_mismatched_ids() {
-    let info = phyloinfo_from_files(
+    let info = PhyloInfo::from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_1.newick"),
+        &GapHandling::Ambiguous,
     );
     assert_matches!(
         downcast_error::<DataError>(&info).to_string().as_str(),
@@ -37,9 +52,10 @@ fn setup_info_mismatched_ids() {
 
 #[test]
 fn setup_info_missing_sequence_file() {
-    let info = phyloinfo_from_files(
+    let info = PhyloInfo::from_files(
         PathBuf::from("./data/sequences_DNA_nonexistent.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_1.newick"),
+        &GapHandling::Ambiguous,
     );
     assert_matches!(
         info.unwrap_err().to_string().as_str(),
@@ -49,9 +65,10 @@ fn setup_info_missing_sequence_file() {
 
 #[test]
 fn setup_info_empty_sequence_file() {
-    let info = phyloinfo_from_files(
+    let info = PhyloInfo::from_files(
         PathBuf::from("./data/sequences_empty.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_1.newick"),
+        &GapHandling::Ambiguous,
     );
     assert_matches!(
         downcast_error::<DataError>(&info).to_string().as_str(),
@@ -61,9 +78,10 @@ fn setup_info_empty_sequence_file() {
 
 #[test]
 fn setup_info_empty_tree_file() {
-    let info = phyloinfo_from_files(
+    let info = PhyloInfo::from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_empty.newick"),
+        &GapHandling::Ambiguous,
     );
     assert_matches!(
         downcast_error::<DataError>(&info).to_string().as_str(),
@@ -73,9 +91,10 @@ fn setup_info_empty_tree_file() {
 
 #[test]
 fn setup_info_malformed_tree_file() {
-    let info = phyloinfo_from_files(
+    let info = PhyloInfo::from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_malformed.newick"),
+        &GapHandling::Ambiguous,
     );
     assert!(downcast_error::<ParsingError>(&info)
         .to_string()
@@ -84,9 +103,10 @@ fn setup_info_malformed_tree_file() {
 
 #[test]
 fn setup_info_multiple_trees() {
-    let res_info = phyloinfo_from_files(
+    let res_info = PhyloInfo::from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_multiple.newick"),
+        &GapHandling::Ambiguous,
     )
     .unwrap();
     assert_eq!(res_info.tree.leaves.len(), 4);
@@ -101,9 +121,10 @@ fn downcast_error<T: Display + Debug + Send + Sync + 'static>(
 
 #[test]
 fn info_check_sequence_order() {
-    let info = phyloinfo_from_files(
+    let info = PhyloInfo::from_files(
         PathBuf::from("./data/real_examples/HIV_subset.fas"),
         PathBuf::from("./data/real_examples/HIV_subset.nwk"),
+        &GapHandling::Ambiguous,
     )
     .unwrap();
     for i in 0..info.sequences.len() {
@@ -117,9 +138,10 @@ fn info_check_sequence_order() {
 
 #[test]
 fn setup_unaligned_empty_msa() {
-    let info = phyloinfo_from_files(
+    let info = PhyloInfo::from_files(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+        &GapHandling::Ambiguous,
     )
     .unwrap();
     assert!(info.msa.is_none())
@@ -127,9 +149,10 @@ fn setup_unaligned_empty_msa() {
 
 #[test]
 fn setup_aligned_msa() {
-    let info = phyloinfo_from_files(
+    let info = PhyloInfo::from_files(
         PathBuf::from("./data/sequences_DNA1.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+        &GapHandling::Ambiguous,
     )
     .unwrap();
     assert!(info.msa.is_some());
@@ -145,7 +168,7 @@ fn test_aligned_check() {
         Record::with_attrs("D3", None, b"A"),
         Record::with_attrs("E4", None, b"AAA"),
     ];
-    assert!(get_msa_if_aligned(&sequences).is_none());
+    assert!(PhyloInfo::get_msa_if_aligned(&sequences).is_none());
     let sequences = vec![
         Record::with_attrs("A0", None, b"AAAAA"),
         Record::with_attrs("B1", None, b"A----"),
@@ -153,7 +176,7 @@ fn test_aligned_check() {
         Record::with_attrs("D3", None, b"AAAAA"),
         Record::with_attrs("E4", None, b"AAATT"),
     ];
-    assert!(get_msa_if_aligned(&sequences).is_some());
+    assert!(PhyloInfo::get_msa_if_aligned(&sequences).is_some());
 }
 
 #[test]
@@ -163,26 +186,48 @@ fn check_phyloinfo_creation_newick_msa() {
         Record::with_attrs("B", None, b"ATATATATAA"),
         Record::with_attrs("C", None, b"TTATATATAT"),
     ];
-    let info = phyloinfo_from_sequences_newick(&sequences, "((A:2.0,B:2.0):1.0,C:2.0):0.0;");
+    let info = PhyloInfo::from_sequences_tree(
+        sequences,
+        tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
+        &GapHandling::Ambiguous,
+    );
     assert!(info.is_ok());
     assert!(info.unwrap().msa.is_some());
 }
 
 #[test]
-fn check_phyloinfo_creation_newick_no_msa() {
+fn check_phyloinfo_creation_tree_no_msa() {
     let sequences = vec![
         Record::with_attrs("A", None, b"CTATATAAC"),
         Record::with_attrs("B", None, b"ATATATATAA"),
         Record::with_attrs("C", None, b"TTATATATAT"),
     ];
-    let info = phyloinfo_from_sequences_newick(&sequences, "((A:2.0,B:2.0):1.0,C:2.0):0.0;");
-    assert!(info.is_ok());
-    assert!(info.unwrap().msa.is_none());
+    let info = PhyloInfo::from_sequences_tree(
+        sequences,
+        tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
+        &GapHandling::Ambiguous,
+    );
+    let res_info = info.unwrap();
+    assert!(res_info.msa.is_none());
+    for (i, node) in res_info.tree.leaves.iter().enumerate() {
+        assert!(res_info.sequences[i].id() == node.id);
+    }
+    for rec in res_info.sequences.iter() {
+        assert!(!rec.seq().is_empty());
+        assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
+    }
 }
 
 #[test]
-fn check_phyloinfo_creation_newick_no_seqs() {
-    let info = phyloinfo_from_sequences_newick(&[], "((A:2.0,B:2.0):1.0,C:2.0):0.0;");
+fn check_phyloinfo_creation_tree_no_seqs() {
+    let info = PhyloInfo::from_sequences_tree(
+        vec![],
+        tree_parser::from_newick_string("((A:2.0,B:2.0):1.0,C:2.0):0.0;")
+            .unwrap()
+            .pop()
+            .unwrap(),
+        &GapHandling::Ambiguous,
+    );
     assert!(info.is_err());
 }
 
@@ -193,7 +238,14 @@ fn check_phyloinfo_creation_newick_mismatch_ids() {
         Record::with_attrs("E", None, b"ATATATATAA"),
         Record::with_attrs("F", None, b"TTATATATAT"),
     ];
-    let info = phyloinfo_from_sequences_newick(&sequences, "((A:2.0,B:2.0):1.0,C:2.0):0.0;");
+    let info = PhyloInfo::from_sequences_tree(
+        sequences,
+        tree_parser::from_newick_string("((A:2.0,B:2.0):1.0,C:2.0):0.0;")
+            .unwrap()
+            .pop()
+            .unwrap(),
+        &GapHandling::Ambiguous,
+    );
     assert!(info.is_err());
 }
 
@@ -217,29 +269,38 @@ fn make_test_tree() -> Tree {
 
 #[test]
 fn check_phyloinfo_creation_tree_correct_no_msa() {
-    let info = phyloinfo_from_sequences_tree(
-        &vec![
+    let info = PhyloInfo::from_sequences_tree(
+        vec![
             Record::with_attrs("A", None, b"AAAAA"),
             Record::with_attrs("B", None, b"A"),
             Record::with_attrs("C", None, b"AA"),
             Record::with_attrs("D", None, b"A"),
         ],
         make_test_tree(),
+        &GapHandling::Ambiguous,
     );
-    assert!(info.is_ok());
-    assert!(info.unwrap().msa.is_none());
+    let res_info = info.unwrap();
+    assert!(res_info.msa.is_none());
+    for (i, node) in res_info.tree.leaves.iter().enumerate() {
+        assert!(res_info.sequences[i].id() == node.id);
+    }
+    for rec in res_info.sequences.iter() {
+        assert!(!rec.seq().is_empty());
+        assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
+    }
 }
 
 #[test]
 fn check_phyloinfo_creation_tree_correct_msa() {
-    let info = phyloinfo_from_sequences_tree(
-        &vec![
+    let info = PhyloInfo::from_sequences_tree(
+        vec![
             Record::with_attrs("A", None, b"AA"),
             Record::with_attrs("B", None, b"A-"),
             Record::with_attrs("C", None, b"AA"),
             Record::with_attrs("D", None, b"A-"),
         ],
         make_test_tree(),
+        &GapHandling::Ambiguous,
     );
     assert!(info.is_ok());
     assert!(info.unwrap().msa.is_some());
@@ -247,19 +308,48 @@ fn check_phyloinfo_creation_tree_correct_msa() {
 
 #[test]
 fn check_phyloinfo_creation_tree_mismatch_ids() {
-    let info = phyloinfo_from_sequences_tree(
-        &vec![
+    let info = PhyloInfo::from_sequences_tree(
+        vec![
             Record::with_attrs("D", None, b"CTATATAAC"),
             Record::with_attrs("E", None, b"ATATATATAA"),
             Record::with_attrs("F", None, b"TTATATATAT"),
         ],
         make_test_tree(),
+        &GapHandling::Ambiguous,
     );
     assert!(info.is_err());
 }
 
 #[test]
-fn check_phyloinfo_creation_tree_no_seqs() {
-    let info = phyloinfo_from_sequences_tree(&[], make_test_tree());
-    assert!(info.is_err());
+fn check_empirical_frequencies() {
+    let info = PhyloInfo::from_sequences_tree(
+        vec![
+            Record::with_attrs("A", None, b"AAAACCC"),
+            Record::with_attrs("B", None, b"TTTCC"),
+            Record::with_attrs("C", None, b"GGG"),
+            Record::with_attrs("D", None, b"TTAAA"),
+        ],
+        make_test_tree(),
+        &GapHandling::Ambiguous,
+    )
+    .unwrap();
+    let counts = info.get_counts();
+    assert_eq!(counts.clone().into_values().sum::<f64>(), 20.0);
+    assert_eq!(counts[&b'A'], 7.0);
+    assert_eq!(counts[&b'C'], 5.0);
+    assert_eq!(counts[&b'G'], 3.0);
+    assert_eq!(counts[&b'T'], 5.0);
+    assert_eq!(counts[&b'-'], 0.0);
+}
+
+#[test]
+fn check_phyloinfo_creation_sequences() {
+    let sequences = vec![
+        Record::with_attrs("A", None, b"CTATATATAC"),
+        Record::with_attrs("B", None, b"ATATATATAA"),
+        Record::with_attrs("C", None, b"TTATATATAT"),
+    ];
+    let info = PhyloInfo::from_sequences(sequences, &GapHandling::Ambiguous);
+    assert!(info.is_ok());
+    assert!(info.unwrap().msa.is_some());
 }

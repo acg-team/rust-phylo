@@ -1,5 +1,5 @@
 use bio::alphabets::Alphabet;
-use bio::io::fasta;
+use bio::io::fasta::Record;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum SequenceType {
@@ -35,7 +35,7 @@ pub fn protein_alphabet() -> Alphabet {
     Alphabet::new(aminoacids)
 }
 
-pub fn get_sequence_type(sequences: &Vec<fasta::Record>) -> SequenceType {
+pub fn get_sequence_type(sequences: &[Record]) -> SequenceType {
     let dna_alphabet = dna_alphabet();
     for record in sequences {
         if !dna_alphabet.is_word(record.seq()) {
