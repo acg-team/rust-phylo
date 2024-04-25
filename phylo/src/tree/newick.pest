@@ -1,7 +1,9 @@
-newick        =  { SOI ~ tree* ~ EOI }
-tree          =  { node ~ ";" } 
-node          = _{ (leaf | internal)}
-leaf          =  { label ~ (branch_length)? }
+newick        =  { SOI ~ ( tree ~ ";" ) * ~ EOI | SOI ~ ( "(" ~ tree ~ ")" ~ ";" ) * ~ EOI }
+tree          =  { rooted | unrooted }
+rooted        =  { node }
+unrooted      =  { "(" ~ node ~ "," ~ node ~ "," ~ node ~ ")" }
+node          = _{ leaf | internal }
+leaf          =  { label ~ branch_length? }
 internal      =  { "(" ~ node ~ "," ~ node ~ ")" ~ label? ~ branch_length? }
 label         =  { safe_chars+ }
 safe_chars    = _{ !(":" | "," | ";" | "(" | ")" | "[" | "]" | WHITESPACE) ~ ANY }

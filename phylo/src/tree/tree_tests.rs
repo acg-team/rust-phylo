@@ -1,18 +1,20 @@
-use super::compute_distance_matrix;
-use super::nj_matrices::NJMat;
-use super::tree_parser::{self, from_newick_string, ParsingError, Rule};
-use super::{
-    build_nj_tree_from_matrix, build_nj_tree_w_rng_from_matrix, get_percentiles, Node, NodeIdx,
-    NodeIdx::Internal as I, NodeIdx::Leaf as L, Tree,
-};
-use crate::tree::{argmin_wo_diagonal, get_percentiles_rounded};
-use crate::{cmp_f64, Rounding};
-use approx::relative_eq;
+use std::fs::{self};
+use std::iter::repeat;
+use std::path::PathBuf;
+
 use bio::io::fasta::Record;
 use nalgebra::{dmatrix, DMatrix};
 use pest::error::ErrorVariant;
 use rand::Rng;
-use std::iter::repeat;
+
+use crate::tree::nj_matrices::NJMat;
+use crate::tree::tree_parser::{self, from_newick_string, ParsingError, Rule};
+use crate::tree::{
+    argmin_wo_diagonal, build_nj_tree_from_matrix, build_nj_tree_w_rng_from_matrix,
+    compute_distance_matrix, get_percentiles, get_percentiles_rounded, Node, NodeIdx,
+    NodeIdx::Internal as I, NodeIdx::Leaf as L, Tree,
+};
+use crate::{cmp_f64, Rounding};
 
 #[cfg(test)]
 fn setup_test_tree() -> Tree {
@@ -84,16 +86,6 @@ fn postorder() {
 fn tree_wo_sequences() {
     let tree = Tree::new(&[]);
     assert!(tree.is_err());
-}
-
-impl PartialEq for Node {
-    fn eq(&self, other: &Self) -> bool {
-        (self.idx == other.idx)
-            && (self.parent == other.parent)
-            && (self.children.iter().min() == other.children.iter().min())
-            && (self.children.iter().max() == other.children.iter().max())
-            && relative_eq!(self.blen, other.blen)
-    }
 }
 
 #[test]
@@ -222,7 +214,6 @@ fn nj_correct_2() {
     assert_eq!(branch_length(&tree, "D"), 7.0);
     assert_eq!(tree.internals[0].blen, 1.0);
     assert_eq!(tree.internals[1].blen, 1.0);
-    println!("{:?}", tree.leaves);
     assert_eq!(tree.internals.len(), 3);
     assert_eq!(tree.postorder.len(), 7);
     assert!(is_unique(&tree.postorder));
@@ -366,6 +357,18 @@ fn newick_complex_tree_correct() {
 }
 
 #[test]
+fn newick_complex_tree_2() {
+    // tree from https://www.megasoftware.net/mega4/WebHelp/glossary/rh_newick_format.htm
+    let newick = "(((raccoon:19.19959,bear:6.80041):0.84600,((sea_lion:11.99700, seal:12.00300):7.52973,((monkey:100.85930,cat:47.14069):20.59201, weasel:18.87953):2.09460):3.87382),dog:25.46154);";
+    let tree = tree_parser::from_newick_string(newick)
+        .unwrap()
+        .pop()
+        .unwrap();
+    assert!(tree.complete);
+    assert_eq!(tree.internals[usize::from(tree.root)].blen, 0.0);
+}
+
+#[test]
 fn newick_simple_balanced_correct() {
     let trees = tree_parser::from_newick_string(&String::from(
         "((A:1.0,B:2.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3;",
@@ -419,6 +422,79 @@ fn newick_multiple_correct() {
     assert_eq!(trees[2].internals.len(), 2);
 }
 
+#[test]
+fn newick_parse_parentheses_around_all() {
+    let trees = tree_parser::from_newick_string(&String::from(
+        "(((((A:1,B:1)F:1,C:2)G:1,D:3)H:1,E:4)I:1);",
+    ));
+    assert!(trees.is_ok());
+}
+
+#[test]
+fn newick_parse_whitespace() {
+    let trees = tree_parser::from_newick_string(&String::from(
+        "     (     (((  (A:1   , B  :   1.0)  \n \n F:1,C:2.0   )G:1,D:3)H:+1.0  ,  E:4)   I:1)\n;\n   ",
+    ));
+    assert!(trees.is_ok());
+    let tree0 = trees.unwrap().pop().unwrap();
+    let tree1 = tree_parser::from_newick_string(&String::from(
+        "(((((A:1,B:1)F:1,C:2)G:1,D:3)H:1,E:4)I:1);",
+    ))
+    .unwrap()
+    .pop()
+    .unwrap();
+    assert_eq!(tree0.leaves, tree1.leaves);
+    assert_eq!(tree0.internals, tree1.internals);
+}
+
+#[test]
+fn newick_parse_unrooted() {
+    let trees = tree_parser::from_newick_string(&String::from(
+        "((A:1.0,B:1.0)E:1.0,(C:1.0,D:1.0)F:1.0,G:4.0);",
+    ));
+    assert!(trees.is_ok());
+    let tree = trees.unwrap().pop().unwrap();
+    let leaves = vec![
+        Node::new_leaf(0, Some(I(0)), 1.0, "A".to_string()),
+        Node::new_leaf(1, Some(I(0)), 1.0, "B".to_string()),
+        Node::new_leaf(2, Some(I(1)), 1.0, "C".to_string()),
+        Node::new_leaf(3, Some(I(1)), 1.0, "D".to_string()),
+        Node::new_leaf(4, Some(I(3)), 4.0, "G".to_string()),
+    ];
+    assert_eq!(tree.leaves, leaves);
+    let internals = vec![
+        Node::new_internal(0, Some(I(2)), vec![L(0), L(1)], 1.0, "E".to_string()),
+        Node::new_internal(1, Some(I(2)), vec![L(2), L(3)], 1.0, "F".to_string()),
+        Node::new_internal(2, Some(I(3)), vec![I(0), I(1)], 0.0, "".to_string()),
+        Node::new_internal(3, None, vec![I(2), L(4)], 0.0, "".to_string()),
+    ];
+    assert_eq!(tree.internals, internals);
+    assert_eq!(tree.root, I(3));
+}
+
+#[test]
+fn newick_parse_unrooted_long() {
+    let mut trees = tree_parser::from_newick_string(&String::from(
+        "((raccoon:19.19959,bear:6.80041):0.84600,((sea_lion:11.99700, seal:12.00300):7.52973,((monkey:100.85930,cat:47.14069):20.59201, weasel:18.87953):2.09460):3.87382,dog:25.46154);",
+    )).unwrap();
+    assert_eq!(trees.len(), 1);
+    let tree = trees.pop().unwrap();
+    assert_eq!(tree.internals.len(), 7);
+    assert_eq!(tree.leaves.len(), 8);
+}
+
+#[test]
+fn newick_parse_unrooted_rooted_mix() {
+    let trees = tree_parser::from_newick_string(&String::from(
+        "((raccoon:19.19959,bear:6.80041):0.84600,((sea_lion:11.99700, seal:12.00300):7.52973,((monkey:100.85930,cat:47.14069):20.59201, weasel:18.87953):2.09460):3.87382,dog:25.46154);
+        ((((A:0.11,B:0.22)F:0.33,C:0.44)G:0.55,D:0.66)H:0.77,E:0.88)I:0.99;
+        ((A:1.0,B:1.0)E:1.0,(C:1.0,D:1.0)F:1.0,G:4.0);
+        (G:2,H:5,N:5);
+        (G:2,H:5)N:5;",
+    )).unwrap();
+    assert_eq!(trees.len(), 5);
+}
+
 fn make_parsing_error(rules: &[Rule]) -> ErrorVariant<Rule> {
     ErrorVariant::ParsingError {
         positives: rules.to_vec(),
@@ -438,13 +514,17 @@ fn newick_garbage() {
     let trees = from_newick_string(&String::from(";"));
     check_parsing_error(trees.unwrap_err(), &[Rule::newick]);
     let trees = from_newick_string(&String::from("()()();"));
-    check_parsing_error(trees.unwrap_err(), &[Rule::internal, Rule::label]);
+    check_parsing_error(
+        trees.unwrap_err(),
+        &[Rule::tree, Rule::internal, Rule::label],
+    );
     let trees = from_newick_string(&String::from("((A:1.0,B:1.0);"));
     check_parsing_error(trees.unwrap_err(), &[Rule::label, Rule::branch_length]);
-    let trees = from_newick_string(&String::from("((A:1.0,B:1.0));"));
-    check_parsing_error(trees.unwrap_err(), &[Rule::label, Rule::branch_length]);
     let trees = from_newick_string(&String::from("(:1.0,:2.0)E:5.1;"));
-    check_parsing_error(trees.unwrap_err(), &[Rule::internal, Rule::label]);
+    check_parsing_error(
+        trees.unwrap_err(),
+        &[Rule::tree, Rule::internal, Rule::label],
+    );
 }
 
 #[test]
@@ -574,4 +654,94 @@ fn test_node_idx_display() {
 #[should_panic]
 fn test_argmin_fail() {
     argmin_wo_diagonal(DMatrix::<f64>::from_vec(1, 1, vec![0.0]), |_| 0);
+}
+
+#[test]
+fn test_to_newick_simple() {
+    let tree = Tree {
+        root: I(0),
+        leaves: vec![
+            Node::new_leaf(0, None, 1.0, "A".to_string()),
+            Node::new_leaf(1, None, 5.5, "B".to_string()),
+        ],
+        internals: vec![Node::new_internal(
+            0,
+            None,
+            vec![L(0), L(1)],
+            2.0,
+            "C".to_string(),
+        )],
+        postorder: vec![L(0), L(1), I(0)],
+        preorder: vec![I(0), L(0), L(1)],
+        complete: false,
+    };
+    assert_eq!(tree.to_newick(), "((A:1,B:5.5)C:2);");
+}
+
+#[test]
+fn test_from_newick_to_newick() {
+    let newick0 = "(((((A:1,B:1)F:1,C:2)G:1,D:3)H:1,E:4)I:1);";
+    let newick1 = "(((A:1.5,B:2.3)E:5.1,(C:3.9,D:4.8)F:6.2)G:7.3);";
+    let newick2 = "((A:1,(B:1,C:1)E:2)F:1);";
+
+    let trees =
+        tree_parser::from_newick_string(format!("{}\n{}\n{}", newick0, newick1, newick2).as_str())
+            .unwrap();
+    assert_eq!(trees[0].to_newick(), newick0);
+    assert_eq!(trees[1].to_newick(), newick1);
+    assert_eq!(trees[2].to_newick(), newick2);
+}
+
+#[test]
+fn test_to_newick_complex() {
+    let newick = "(((raccoon:19.19959,bear:6.80041):0.84600,((sea_lion:11.99700, seal:12.00300):7.52973,((monkey:100.85930,cat:47.14069):20.59201, weasel:18.87953):2.09460):3.87382):9.0,dog:25.46154):10.0;";
+    let tree = tree_parser::from_newick_string(newick)
+        .unwrap()
+        .pop()
+        .unwrap();
+    assert!(tree.complete);
+}
+
+#[test]
+fn check_same_trees_after_newick() {
+    let newick = "(((A:1.5,B:2.3)E:5.1,(C:3.9,D:4.8)F:6.2)G:7.3);";
+    let tree = from_newick_string(newick).unwrap().pop().unwrap();
+    assert_eq!(tree.to_newick(), newick);
+    let tree2 = from_newick_string(&tree.to_newick())
+        .unwrap()
+        .pop()
+        .unwrap();
+    assert_eq!(tree.internals, tree2.internals);
+    assert_eq!(tree.leaves, tree2.leaves);
+    assert_eq!(tree.root, tree2.root);
+}
+
+#[test]
+fn test_parse_huge_newick() {
+    let path = PathBuf::from(
+        "./data/real_examples/initial_msa_env_aa_one_seq_pP_subtypeB.fas.timetree.nwk",
+    );
+    let newick = fs::read_to_string(path).unwrap();
+    let trees = tree_parser::from_newick_string(&newick);
+    assert!(trees.is_ok());
+    let mut trees = trees.unwrap();
+    assert_eq!(trees.len(), 1);
+    let tree = trees.pop().unwrap();
+    assert_eq!(tree.leaves.len(), 762);
+    assert_eq!(tree.internals.len(), 761);
+    assert!(tree.complete);
+}
+
+#[test]
+fn test_generate_huge_newick() {
+    let path = PathBuf::from(
+        "./data/real_examples/initial_msa_env_aa_one_seq_pP_subtypeB.fas.timetree.nwk",
+    );
+    let newick = fs::read_to_string(path).unwrap();
+    let trees = tree_parser::from_newick_string(&newick);
+    let tree = trees.unwrap().pop().unwrap();
+    let newick = tree.to_newick();
+    assert!(newick.len() > 1000);
+    let trees_parsed = tree_parser::from_newick_string(&newick);
+    assert!(trees_parsed.is_ok());
 }

@@ -1,4 +1,10 @@
-use std::{error::Error, fmt, fs, path::PathBuf};
+use std::{
+    error::Error,
+    fmt,
+    fs::{self, File},
+    io::Write,
+    path::PathBuf,
+};
 
 use anyhow::bail;
 use bio::{
@@ -35,10 +41,10 @@ impl Error for DataError {}
 /// use phylo::io::read_sequences_from_file;
 /// use std::path::PathBuf;
 /// let records = read_sequences_from_file(PathBuf::from("./data/sequences_DNA_small.fasta")).unwrap();
-/// assert_eq!(records.len(), 4);
-/// for rec in records {
-///     assert_eq!(rec.seq().len(), 7);
-/// }
+/// # assert_eq!(records.len(), 4);
+/// # for rec in records {
+/// #    assert_eq!(rec.seq().len(), 7);
+/// # }
 /// ```
 pub fn read_sequences_from_file(path: PathBuf) -> Result<Vec<Record>> {
     info!("Reading sequences from file {}.", path.display());
@@ -75,32 +81,27 @@ pub fn read_sequences_from_file(path: PathBuf) -> Result<Vec<Record>> {
 ///
 /// # Example
 /// ```
+/// # use std::io::Read;
+///
 /// use std::path::PathBuf;
 /// use std::fs::{File, remove_file};
-/// use std::io::Read;
-/// use std::time::{SystemTime, UNIX_EPOCH};
+///
 /// use bio::io::fasta::Record;
 /// use phylo::io::write_sequences_to_file;
 /// let sequences = vec![
 ///    Record::with_attrs("seq1", None, b"ATGC"),
 ///    Record::with_attrs("seq2", None, b"CGTA"),
 /// ];
-/// let output_path = PathBuf::from(format!(
-///     "./data/doctest_tmp_output_{}.fasta",
-///     SystemTime::now()
-///         .duration_since(UNIX_EPOCH)
-///         .unwrap()
-///         .as_secs()
-/// ));
+/// let output_path = PathBuf::from("./data/doctest_tmp_output.fasta");
 /// write_sequences_to_file(&sequences, output_path.clone()).unwrap();
-/// let mut file_content = String::new();
-/// File::open(output_path.clone())
-///    .unwrap()
-///    .read_to_string(&mut file_content)
-///    .unwrap();
-/// let expected_output = ">seq1\nATGC\n>seq2\nCGTA\n";
-/// assert_eq!(file_content, expected_output);
-/// assert!(remove_file(output_path).is_ok());
+/// # let mut file_content = String::new();
+/// # File::open(output_path.clone())
+/// #   .unwrap()
+/// #   .read_to_string(&mut file_content)
+/// #   .unwrap();
+/// # let expected_output = ">seq1\nATGC\n>seq2\nCGTA\n";
+/// # assert_eq!(file_content, expected_output);
+/// # assert!(remove_file(output_path).is_ok());
 /// ```
 pub fn write_sequences_to_file(sequences: &[Record], path: PathBuf) -> Result<()> {
     info!("Writing sequences/MSA to file {}.", path.display());
@@ -117,29 +118,69 @@ pub fn write_sequences_to_file(sequences: &[Record], path: PathBuf) -> Result<()
     Ok(())
 }
 
-/// Reads rooted newick trees from a file, returning a vector of trees.
-/// Currently can only process rooted trees, will return an error otherwise.
+/// Reads newick trees from a file, returning a vector of trees.
+/// Will read both rooted and unrooted trees, but unrooted trees will be converted to rooted
+/// using zero length branches at the trifurcation.
+/// For example, the unrooted tree "((A:1,B:2):1,(D:1,E:2):1,C:4);" will be converted to the rooted
+/// tree "(((A:1,B:2):1,(D:1,E:2):1):0,C:4):0;".
 ///
 /// # Arguments
 /// * `path` - Path to the newick file.
-///
-/// # TODO:
-/// * Add support for unrooted trees.
 ///
 /// # Example
 /// ```
 /// use phylo::io::read_newick_from_file;
 /// use std::path::PathBuf;
 /// let trees = read_newick_from_file(PathBuf::from("./data/tree.newick")).unwrap();
-/// assert_eq!(trees.len(), 1);
-/// assert_eq!(trees[0].leaves.len(), 4);
-/// assert!(read_newick_from_file(PathBuf::from("./data/tree_unrooted.newick")).is_err());
+/// # assert_eq!(trees.len(), 1);
+/// # assert_eq!(trees[0].leaves.len(), 4);
 /// ```
 pub fn read_newick_from_file(path: PathBuf) -> Result<Vec<Tree>> {
-    info!("Reading rooted newick tree from file {}.", path.display());
+    info!("Reading newick trees from file {}.", path.display());
     let newick = fs::read_to_string(path)?;
     info!("Read file successfully.");
     tree_parser::from_newick_string(&newick)
+}
+
+/// Writes newick trees to the given file path. Will return an error if the file already exists.
+///
+/// # Arguments
+/// * `trees` - Vector of newick trees.
+/// * `path` - Path to the newick file.
+///
+/// # Example
+/// ```
+/// # use std::fs::{File, remove_file};
+/// # use std::io::Read;
+///
+/// use std::path::PathBuf;
+///
+/// use phylo::tree::tree_parser::from_newick_string;
+/// use phylo::tree::Tree;
+/// use phylo::io::write_newick_to_file;
+///
+/// let output_path = PathBuf::from("./data/doctest_tmp_output.newick");
+/// let trees = from_newick_string("((A:1.0,B:2.0):1,(D:1.0,E:2.0):1):0.0;").unwrap();
+/// write_newick_to_file(&trees, output_path.clone()).unwrap();
+/// # let mut file_content = String::new();
+/// # File::open(output_path.clone()).unwrap().read_to_string(&mut file_content).unwrap();
+/// # assert_eq!(file_content.trim(), "(((A:1,B:2):1,(D:1,E:2):1):0);");
+/// # assert!(remove_file(output_path).is_ok());
+/// ```
+pub fn write_newick_to_file(trees: &[Tree], path: PathBuf) -> Result<()> {
+    info!("Writing newick trees to file {}.", path.display());
+    if path.exists() {
+        bail!(DataError {
+            message: String::from("File already exists")
+        });
+    }
+    let mut writer = File::create(path)?;
+    for tree in trees {
+        writer.write_all(tree.to_newick().as_bytes())?;
+        writer.write_all(b"\n")?;
+    }
+    info!("Finished writing successfully.");
+    Ok(())
 }
 
 #[cfg(test)]

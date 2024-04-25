@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use anyhow::bail;
+use approx::relative_eq;
 use bio::alignment::distance::levenshtein;
 use bio::io::fasta::Record;
 use inc_stats::Percentiles;
@@ -51,6 +52,16 @@ pub struct Node {
     pub id: String,
 }
 
+impl PartialEq for Node {
+    fn eq(&self, other: &Self) -> bool {
+        (self.idx == other.idx)
+            && (self.parent == other.parent)
+            && (self.children.iter().min() == other.children.iter().min())
+            && (self.children.iter().max() == other.children.iter().max())
+            && relative_eq!(self.blen, other.blen)
+    }
+}
+
 impl Node {
     fn new_leaf(idx: usize, parent: Option<NodeIdx>, blen: f64, id: String) -> Self {
         Self {
@@ -82,10 +93,9 @@ impl Node {
         Self::new_internal(node_idx, None, Vec::new(), 0.0, "".to_string())
     }
 
-    fn add_parent(&mut self, parent_idx: NodeIdx, blen: f64) {
+    fn add_parent(&mut self, parent_idx: NodeIdx) {
         debug_assert!(matches!(parent_idx, Int(_)));
         self.parent = Some(parent_idx);
-        self.blen = blen;
     }
 }
 
@@ -129,6 +139,28 @@ impl Tree {
         }
     }
 
+    pub fn to_newick(&self) -> String {
+        format!("({});", self._to_newick(self.root))
+    }
+
+    fn _to_newick(&self, node_idx: NodeIdx) -> String {
+        match node_idx {
+            NodeIdx::Leaf(idx) => {
+                let node = &self.leaves[idx];
+                format!("{}:{}", node.id, node.blen)
+            }
+            NodeIdx::Internal(idx) => {
+                let node = &self.internals[idx];
+                let children_newick: Vec<String> = node
+                    .children
+                    .iter()
+                    .map(|&child_idx| self._to_newick(child_idx))
+                    .collect();
+                format!("({}){}:{}", children_newick.join(","), &node.id, node.blen)
+            }
+        }
+    }
+
     pub fn get_node_id_string(&self, node_idx: &NodeIdx) -> String {
         let id = match node_idx {
             Int(idx) => &self.internals[*idx].id,
@@ -141,7 +173,7 @@ impl Tree {
         }
     }
 
-    pub fn add_parent(
+    pub(crate) fn add_parent(
         &mut self,
         parent_idx: usize,
         idx_i: NodeIdx,
@@ -156,14 +188,27 @@ impl Tree {
             0.0,
             "".to_string(),
         ));
-        self.add_parent_to_child(&idx_i, parent_idx, blen_i);
-        self.add_parent_to_child(&idx_j, parent_idx, blen_j);
+        self.add_parent_to_child(idx_i, Int(parent_idx), blen_i);
+        self.add_parent_to_child(idx_j, Int(parent_idx), blen_j);
     }
 
-    pub fn add_parent_to_child(&mut self, idx: &NodeIdx, parent_idx: usize, blen: f64) {
-        match *idx {
-            Int(idx) => self.internals[idx].add_parent(Int(parent_idx), blen),
-            Leaf(idx) => self.leaves[idx].add_parent(Int(parent_idx), blen),
+    pub(crate) fn add_parent_to_child(&mut self, idx: NodeIdx, parent_idx: NodeIdx, blen: f64) {
+        match idx {
+            Int(idx) => {
+                self.internals[idx].add_parent(parent_idx);
+                self.internals[idx].blen = blen;
+            }
+            Leaf(idx) => {
+                self.leaves[idx].add_parent(parent_idx);
+                self.leaves[idx].blen = blen;
+            }
+        }
+    }
+
+    pub fn add_parent_to_child_no_blen(&mut self, idx: NodeIdx, parent_idx: NodeIdx) {
+        match idx {
+            Int(idx) => self.internals[idx].add_parent(parent_idx),
+            Leaf(idx) => self.leaves[idx].add_parent(parent_idx),
         }
     }
 
