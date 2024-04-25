@@ -199,6 +199,77 @@ fn protein_nj_correct() {
 }
 
 #[test]
+fn nj_correct_2() {
+    // NJ based on example from https://www.tenderisthebyte.com/blog/2022/08/31/neighbor-joining-trees/#neighbor-joining-trees
+    let nj_distances = NJMat {
+        idx: (0..4).map(NodeIdx::Leaf).collect(),
+        distances: dmatrix![
+                0.0, 4.0, 5.0, 10.0;
+                4.0, 0.0, 7.0, 12.0;
+                5.0, 7.0, 0.0, 9.0;
+                10.0, 12.0, 9.0, 0.0],
+    };
+    let sequences = vec![
+        Record::with_attrs("A", None, b""),
+        Record::with_attrs("B", None, b""),
+        Record::with_attrs("C", None, b""),
+        Record::with_attrs("D", None, b""),
+    ];
+    let tree = build_nj_tree_w_rng_from_matrix(nj_distances, &sequences, |_| 0).unwrap();
+    assert_eq!(branch_length(&tree, "A"), 1.0);
+    assert_eq!(branch_length(&tree, "B"), 3.0);
+    assert_eq!(branch_length(&tree, "C"), 2.0);
+    assert_eq!(branch_length(&tree, "D"), 7.0);
+    assert_eq!(tree.internals[0].blen, 1.0);
+    assert_eq!(tree.internals[1].blen, 1.0);
+    println!("{:?}", tree.leaves);
+    assert_eq!(tree.internals.len(), 3);
+    assert_eq!(tree.postorder.len(), 7);
+    assert!(is_unique(&tree.postorder));
+    assert_eq!(tree.preorder.len(), 7);
+    assert!(is_unique(&tree.preorder));
+}
+
+#[test]
+fn nj_correct_wiki_example() {
+    // NJ based on example from https://en.wikipedia.org/wiki/Neighbor_joining
+    let nj_distances = NJMat {
+        idx: (0..5).map(NodeIdx::Leaf).collect(),
+        distances: dmatrix![
+            0.0, 5.0, 9.0, 9.0, 8.0;
+            5.0, 0.0, 10.0, 10.0, 9.0;
+            9.0, 10.0, 0.0, 8.0, 7.0;
+            9.0, 10.0, 8.0, 0.0, 3.0;
+            8.0, 9.0, 7.0, 3.0, 0.0],
+    };
+    let sequences = vec![
+        Record::with_attrs("a", None, b""),
+        Record::with_attrs("b", None, b""),
+        Record::with_attrs("c", None, b""),
+        Record::with_attrs("d", None, b""),
+        Record::with_attrs("e", None, b""),
+    ];
+    let tree = build_nj_tree_w_rng_from_matrix(nj_distances, &sequences, |l| l - 1).unwrap();
+    assert_eq!(branch_length(&tree, "a"), 2.0);
+    assert_eq!(branch_length(&tree, "b"), 3.0);
+    assert_eq!(branch_length(&tree, "c"), 4.0);
+    assert_eq!(branch_length(&tree, "d"), 1.0);
+    assert_eq!(branch_length(&tree, "e"), 1.0);
+    assert_eq!(tree.internals[0].blen, 3.0);
+    assert_eq!(tree.internals[1].blen, 2.0);
+    assert_eq!(tree.internals[2].blen, 1.0);
+    assert_eq!(tree.internals.len(), 4);
+    assert_eq!(tree.postorder.len(), 9);
+    assert!(is_unique(&tree.postorder));
+    assert_eq!(tree.preorder.len(), 9);
+    assert!(is_unique(&tree.preorder));
+}
+
+fn branch_length(tree: &Tree, id: &str) -> f64 {
+    tree.leaves[usize::from(tree.get_idx_by_id(id).unwrap())].blen
+}
+
+#[test]
 fn newick_single_correct() {
     let trees = from_newick_string(&String::from(
         "(((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0,D:1.0)G:2.0;",

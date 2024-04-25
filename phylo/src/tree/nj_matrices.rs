@@ -34,6 +34,7 @@ impl NJMat {
             .remove_rows_at(&[idx_i, idx_j]);
         self.idx.remove(max(idx_i, idx_j));
         self.idx.remove(min(idx_i, idx_j));
+        debug_assert!(idx_i > idx_j);
         self
     }
 
