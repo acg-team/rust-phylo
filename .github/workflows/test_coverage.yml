@@ -35,6 +35,8 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           files: results.xml
     - name: upload coverage report to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
           files: lcov.info
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
