@@ -8,6 +8,9 @@ edition = "2021"
 [profile.release]
 opt-level = 3
 
+[profile.dev]
+opt-level = 0
+
 [dependencies]
 anyhow = "1.0.72"
 approx = "0.5.1"
