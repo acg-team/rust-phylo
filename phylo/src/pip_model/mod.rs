@@ -7,12 +7,15 @@ use nalgebra::{Const, DMatrix, DVector, DimMin};
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
-use crate::substitution_models::dna_models::NUCLEOTIDE_INDEX;
+use crate::substitution_models::dna_models::{DNASubstModel, NUCLEOTIDE_INDEX};
 use crate::substitution_models::protein_models::{ProteinSubstModel, AMINOACID_INDEX};
-use crate::substitution_models::FreqVector;
-use crate::substitution_models::{dna_models::DNASubstModel, SubstMatrix, SubstitutionModel};
+use crate::substitution_models::{FreqVector, SubstMatrix, SubstitutionModel};
 use crate::tree::NodeIdx::{self, Internal as Int, Leaf};
 use crate::Result;
+
+mod dna_pip_parameters;
+pub mod pip_model_optimiser;
+pub use dna_pip_parameters::*;
 
 #[derive(Clone, Debug)]
 pub struct PIPModel<const N: usize> {
@@ -158,12 +161,7 @@ impl EvolutionaryModel<20> for PIPModel<20> {
 }
 
 #[derive(Debug)]
-pub(crate) struct PIPLikelihoodCost<'a, const N: usize> {
-    pub(crate) info: &'a PhyloInfo,
-}
-
-#[derive(Debug)]
-pub(crate) struct PIPModelInfo<const N: usize> {
+pub struct PIPModelInfo<const N: usize> {
     tree_length: f64,
     ins_probs: Vec<f64>,
     surv_probs: Vec<f64>,
@@ -247,17 +245,30 @@ impl<const N: usize> EvolutionaryModelInfo<N> for PIPModelInfo<N> {
     }
 }
 
+pub struct PIPLikelihoodCost<'a, const N: usize> {
+    pub info: &'a PhyloInfo,
+}
+
 impl<'a> LikelihoodCostFunction<'a, 4> for PIPLikelihoodCost<'a, 4> {
     type Model = PIPModel<4>;
     type Info = PIPModelInfo<4>;
 
     fn compute_log_likelihood(&self, model: &Self::Model) -> f64 {
-        let mut tmp_info = PIPModelInfo::new(self.info, model).unwrap();
-        self.compute_log_likelihood_with_tmp(model, &mut tmp_info)
+        self.compute_log_likelihood(model).0
     }
 
     fn get_empirical_frequencies(&self) -> FreqVector {
         todo!()
+    }
+}
+
+impl<'a> PIPLikelihoodCost<'a, 4> {
+    pub(crate) fn compute_log_likelihood(&self, model: &PIPModel<4>) -> (f64, PIPModelInfo<4>) {
+        let mut tmp_info = PIPModelInfo::new(self.info, model).unwrap();
+        (
+            self.compute_log_likelihood_with_tmp(model, &mut tmp_info),
+            tmp_info,
+        )
     }
 }
 
@@ -266,12 +277,20 @@ impl<'a> LikelihoodCostFunction<'a, 20> for PIPLikelihoodCost<'a, 20> {
     type Info = PIPModelInfo<20>;
 
     fn compute_log_likelihood(&self, model: &Self::Model) -> f64 {
-        let mut tmp_info = PIPModelInfo::new(self.info, model).unwrap();
-        self.compute_log_likelihood_with_tmp(model, &mut tmp_info)
+        self.compute_log_likelihood(model).0
     }
 
     fn get_empirical_frequencies(&self) -> FreqVector {
         todo!()
+    }
+}
+impl<'a> PIPLikelihoodCost<'a, 20> {
+    fn compute_log_likelihood(&self, model: &PIPModel<20>) -> (f64, PIPModelInfo<20>) {
+        let mut tmp_info = PIPModelInfo::new(self.info, model).unwrap();
+        (
+            self.compute_log_likelihood_with_tmp(model, &mut tmp_info),
+            tmp_info,
+        )
     }
 }
 
@@ -451,5 +470,7 @@ where
     }
 }
 
+#[cfg(test)]
+mod pip_dna_optimisation_tests;
 #[cfg(test)]
 mod pip_model_tests;
