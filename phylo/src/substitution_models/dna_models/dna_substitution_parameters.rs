@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use anyhow::bail;
+use log::warn;
 
 use crate::substitution_models::FreqVector;
 use crate::Result;
@@ -74,10 +75,9 @@ impl DNASubstParams {
 
     pub fn set_value(&mut self, param_name: &ParamEnum, value: f64) {
         match param_name {
-            ParamEnum::Pit => self.pi[0] = value,
-            ParamEnum::Pic => self.pi[1] = value,
-            ParamEnum::Pia => self.pi[2] = value,
-            ParamEnum::Pig => self.pi[3] = value,
+            ParamEnum::Pit | ParamEnum::Pic | ParamEnum::Pia | ParamEnum::Pig => {
+                warn!("Cannot set frequencies individually. Use set_pi() instead.")
+            }
             ParamEnum::Rtc => self.rtc = value,
             ParamEnum::Rta => self.rta = value,
             ParamEnum::Rtg => self.rtg = value,
@@ -86,6 +86,10 @@ impl DNASubstParams {
             ParamEnum::Rag => self.rag = value,
             _ => panic!("Invalid parameter name."),
         }
+    }
+
+    pub fn set_pi(&mut self, pi: FreqVector) {
+        self.pi = pi;
     }
 }
 
