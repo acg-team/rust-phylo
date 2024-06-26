@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::substitution_models::dna_models::{DNASubstParams, ParamEnum};
+use crate::substitution_models::dna_models::{DNASubstParams, Parameter};
 use crate::Result;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -19,18 +19,18 @@ impl PIPDNAParams {
         })
     }
 
-    pub fn get_value(&self, param_name: &ParamEnum) -> f64 {
+    pub fn get_value(&self, param_name: &Parameter) -> f64 {
         match param_name {
-            ParamEnum::Lambda => self.lambda,
-            ParamEnum::Mu => self.mu,
+            Parameter::Lambda => self.lambda,
+            Parameter::Mu => self.mu,
             _ => self.subst_params.get_value(param_name),
         }
     }
 
-    pub fn set_value(&mut self, param_name: &ParamEnum, value: f64) {
+    pub fn set_value(&mut self, param_name: &Parameter, value: f64) {
         match param_name {
-            ParamEnum::Lambda => self.lambda = value,
-            ParamEnum::Mu => self.mu = value,
+            Parameter::Lambda => self.lambda = value,
+            Parameter::Mu => self.mu = value,
             _ => self.subst_params.set_value(param_name, value),
         }
     }

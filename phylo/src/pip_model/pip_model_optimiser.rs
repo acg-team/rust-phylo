@@ -4,7 +4,7 @@ use log::{debug, info};
 
 use crate::pip_model::PIPLikelihoodCost;
 use crate::pip_model::PIPModel;
-use crate::substitution_models::dna_models::{gtr, ParamEnum, NUCLEOTIDE_INDEX};
+use crate::substitution_models::dna_models::{gtr, Parameter, NUCLEOTIDE_INDEX};
 use crate::Result;
 
 use super::PIPDNAParams;
@@ -12,7 +12,7 @@ use super::PIPDNAParams;
 pub(crate) struct PIPDNAParamOptimiser<'a> {
     pub(crate) likelihood_cost: &'a PIPLikelihoodCost<'a, 4>,
     pub(crate) params: PIPDNAParams,
-    pub(crate) parameter: &'a [ParamEnum],
+    pub(crate) parameter: &'a [Parameter],
 }
 
 impl CostFunction for PIPDNAParamOptimiser<'_> {
@@ -55,13 +55,13 @@ impl<'a> PIPDNAModelOptimiser<'a> {
     ) -> Result<(u32, PIPDNAParams, f64)> {
         info!("Optimising PIP with GTR parameters.");
         let param_sets = [
-            ("rca", vec![ParamEnum::Rca]),
-            ("rcg", vec![ParamEnum::Rcg]),
-            ("rta", vec![ParamEnum::Rta]),
-            ("rtc", vec![ParamEnum::Rtc]),
-            ("rtg", vec![ParamEnum::Rtg]),
-            ("mu", vec![ParamEnum::Mu]),
-            ("lambda", vec![ParamEnum::Lambda]),
+            ("rca", vec![Parameter::Rca]),
+            ("rcg", vec![Parameter::Rcg]),
+            ("rta", vec![Parameter::Rta]),
+            ("rtc", vec![Parameter::Rtc]),
+            ("rtg", vec![Parameter::Rtg]),
+            ("mu", vec![Parameter::Mu]),
+            ("lambda", vec![Parameter::Lambda]),
         ];
         self.optimise_parameters(start_values, &param_sets)
     }
@@ -72,8 +72,8 @@ impl<'a> PIPDNAModelOptimiser<'a> {
     ) -> Result<(u32, PIPDNAParams, f64)> {
         info!("Optimising PIP with JC69 parameters.");
         let param_sets = [
-            ("mu", vec![ParamEnum::Mu]),
-            ("lambda", vec![ParamEnum::Lambda]),
+            ("mu", vec![Parameter::Mu]),
+            ("lambda", vec![Parameter::Lambda]),
         ];
         self.optimise_parameters(start_values, &param_sets)
     }
@@ -84,18 +84,18 @@ impl<'a> PIPDNAModelOptimiser<'a> {
     ) -> Result<(u32, PIPDNAParams, f64)> {
         info!("Optimising HKY parameters.");
         let param_sets = [
-            ("alpha", vec![ParamEnum::Rtc, ParamEnum::Rag]),
+            ("alpha", vec![Parameter::Rtc, Parameter::Rag]),
             (
                 "beta",
                 vec![
-                    ParamEnum::Rta,
-                    ParamEnum::Rtg,
-                    ParamEnum::Rca,
-                    ParamEnum::Rcg,
+                    Parameter::Rta,
+                    Parameter::Rtg,
+                    Parameter::Rca,
+                    Parameter::Rcg,
                 ],
             ),
-            ("mu", vec![ParamEnum::Mu]),
-            ("lambda", vec![ParamEnum::Lambda]),
+            ("mu", vec![Parameter::Mu]),
+            ("lambda", vec![Parameter::Lambda]),
         ];
         self.optimise_parameters(start_values, &param_sets)
     }
@@ -103,7 +103,7 @@ impl<'a> PIPDNAModelOptimiser<'a> {
     pub(crate) fn optimise_parameters(
         &self,
         start_values: &PIPDNAParams,
-        param_sets: &[(&str, Vec<ParamEnum>)],
+        param_sets: &[(&str, Vec<Parameter>)],
     ) -> Result<(u32, PIPDNAParams, f64)> {
         info!("Optimising PIP parameters.");
         let pip = PIPModel::<4>::make_pip(

@@ -3,11 +3,12 @@ use std::fmt::Display;
 use anyhow::bail;
 use log::warn;
 
+use crate::substitution_models::dna_models::DNAModelType;
 use crate::substitution_models::FreqVector;
 use crate::Result;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum ParamEnum {
+pub enum Parameter {
     Pit,
     Pic,
     Pia,
@@ -21,6 +22,7 @@ pub enum ParamEnum {
     Mu,
     Lambda,
 }
+use Parameter::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DNASubstParams {
@@ -57,39 +59,43 @@ impl DNASubstParams {
         })
     }
 
-    pub fn get_value(&self, param_name: &ParamEnum) -> f64 {
+    pub fn get_value(&self, param_name: &Parameter) -> f64 {
         match param_name {
-            ParamEnum::Pit => self.pi[0],
-            ParamEnum::Pic => self.pi[1],
-            ParamEnum::Pia => self.pi[2],
-            ParamEnum::Pig => self.pi[3],
-            ParamEnum::Rtc => self.rtc,
-            ParamEnum::Rta => self.rta,
-            ParamEnum::Rtg => self.rtg,
-            ParamEnum::Rca => self.rca,
-            ParamEnum::Rcg => self.rcg,
-            ParamEnum::Rag => self.rag,
+            Pit => self.pi[0],
+            Pic => self.pi[1],
+            Pia => self.pi[2],
+            Pig => self.pi[3],
+            Rtc => self.rtc,
+            Rta => self.rta,
+            Rtg => self.rtg,
+            Rca => self.rca,
+            Rcg => self.rcg,
+            Rag => self.rag,
             _ => panic!("Invalid parameter name."),
         }
     }
 
-    pub fn set_value(&mut self, param_name: &ParamEnum, value: f64) {
+    pub fn set_value(&mut self, param_name: &Parameter, value: f64) {
         match param_name {
-            ParamEnum::Pit | ParamEnum::Pic | ParamEnum::Pia | ParamEnum::Pig => {
+            Pit | Pic | Pia | Pig => {
                 warn!("Cannot set frequencies individually. Use set_pi() instead.")
             }
-            ParamEnum::Rtc => self.rtc = value,
-            ParamEnum::Rta => self.rta = value,
-            ParamEnum::Rtg => self.rtg = value,
-            ParamEnum::Rca => self.rca = value,
-            ParamEnum::Rcg => self.rcg = value,
-            ParamEnum::Rag => self.rag = value,
+            Rtc => self.rtc = value,
+            Rta => self.rta = value,
+            Rtg => self.rtg = value,
+            Rca => self.rca = value,
+            Rcg => self.rcg = value,
+            Rag => self.rag = value,
             _ => panic!("Invalid parameter name."),
         }
     }
 
     pub fn set_pi(&mut self, pi: FreqVector) {
-        self.pi = pi;
+        if pi.sum() != 1.0 {
+            warn!("Frequencies must sum to 1.0, not setting values");
+        } else {
+            self.pi = pi;
+        }
     }
 }
 
@@ -110,6 +116,35 @@ impl Display for DNASubstParams {
 }
 
 impl DNASubstParams {
+    pub(crate) fn parameter_definition(
+        model_type: DNAModelType,
+    ) -> Vec<(&'static str, Vec<Parameter>)> {
+        match model_type {
+            DNAModelType::JC69 => vec![],
+            DNAModelType::K80 => vec![
+                ("alpha", vec![Rtc, Rag]),
+                ("beta", vec![Rta, Rtg, Rca, Rcg]),
+            ],
+            DNAModelType::HKY => vec![
+                ("alpha", vec![Rtc, Rag]),
+                ("beta", vec![Rta, Rtg, Rca, Rcg]),
+            ],
+            DNAModelType::TN93 => vec![
+                ("alpha1", vec![Rtc]),
+                ("alpha2", vec![Rag]),
+                ("beta", vec![Rta, Rtg, Rca, Rcg]),
+            ],
+
+            DNAModelType::GTR => vec![
+                ("rca", vec![Rca]),
+                ("rcg", vec![Rcg]),
+                ("rta", vec![Rta]),
+                ("rtc", vec![Rtc]),
+                ("rtg", vec![Rtg]),
+            ],
+        }
+    }
+
     pub fn print_as_jc69(&self) -> String {
         debug_assert!(
             self.rtc == 1.0

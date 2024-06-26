@@ -2,6 +2,12 @@ use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{FreqVector, SubstMatrix};
 use crate::Result;
 
+pub enum FrequencyOptimisation {
+    Empirical,
+    Estimated,
+    Fixed,
+}
+
 impl<const N: usize> std::fmt::Debug for dyn EvolutionaryModel<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "EvolutionaryModel with {} states", N)

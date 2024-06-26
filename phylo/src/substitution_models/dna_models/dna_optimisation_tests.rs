@@ -2,9 +2,10 @@ use std::path::PathBuf;
 
 use approx::assert_relative_eq;
 
-use crate::evolutionary_models::EvolutionaryModel;
+use crate::evolutionary_models::{EvolutionaryModel, FrequencyOptimisation};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::{GapHandling, PhyloInfo};
+use crate::substitution_models::dna_models::DNAModelType;
 use crate::substitution_models::dna_models::{
     dna_model_optimiser::DNAModelOptimiser, gtr, parse_k80_parameters, DNALikelihoodCost,
     DNASubstModel, DNASubstParams,
@@ -26,7 +27,7 @@ fn check_likelihood_opt_k80() {
     let unopt_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
 
     let (_, _, logl) = DNAModelOptimiser::new(&likelihood)
-        .optimise_k80_parameters(&params)
+        .optimise_parameters(&params, DNAModelType::K80, FrequencyOptimisation::Fixed)
         .unwrap();
     assert!(logl > unopt_logl);
 
@@ -81,14 +82,14 @@ fn check_parameter_optimisation_gtr() {
         rcg: 1.0,
         rag: 1.0,
     };
-    let (_, opt_params, logl) = DNAModelOptimiser::new(&likelihood)
-        .optimise_gtr_parameters(&params)
+    let (_, _, logl) = DNAModelOptimiser::new(&likelihood)
+        .optimise_parameters(&params, DNAModelType::GTR, FrequencyOptimisation::Fixed)
         .unwrap();
     assert!(logl > phyml_logl);
     assert!(logl > paml_logl);
 
     let (iters, _, double_opt_logl) = DNAModelOptimiser::new(&likelihood)
-        .optimise_gtr_parameters(&opt_params)
+        .optimise_parameters(&params, DNAModelType::GTR, FrequencyOptimisation::Fixed)
         .unwrap();
     assert!(double_opt_logl >= logl);
     assert!(iters < 10);

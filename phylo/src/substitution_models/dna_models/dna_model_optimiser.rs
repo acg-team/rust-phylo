@@ -1,15 +1,17 @@
 use argmin::core::{CostFunction, Executor, IterState, State};
 use argmin::solver::brent::BrentOpt;
-use log::{debug, info};
+use log::{debug, info, warn};
 
-use crate::substitution_models::dna_models::{gtr, DNASubstParams, ParamEnum};
+use crate::evolutionary_models::FrequencyOptimisation::{self, *};
+use crate::likelihood::LikelihoodCostFunction;
+use crate::substitution_models::dna_models::{gtr, DNAModelType, DNASubstParams, Parameter};
 use crate::substitution_models::SubstitutionLikelihoodCost;
 use crate::Result;
 
 pub(crate) struct DNAParamOptimiser<'a> {
     pub(crate) likelihood_cost: &'a SubstitutionLikelihoodCost<'a, 4>,
     pub(crate) params: DNASubstParams,
-    pub(crate) parameter: &'a [ParamEnum],
+    pub(crate) parameter: &'a [Parameter],
 }
 
 impl CostFunction for DNAParamOptimiser<'_> {
@@ -43,95 +45,45 @@ impl<'a> DNAModelOptimiser<'a> {
         }
     }
 
-    pub fn optimise_k80_parameters(
-        &self,
-        start_values: &DNASubstParams,
-    ) -> Result<(u32, DNASubstParams, f64)> {
-        info!("Optimising K80 parameters.");
-        let param_sets = [
-            ("alpha", vec![ParamEnum::Rtc, ParamEnum::Rag]),
-            (
-                "beta",
-                vec![
-                    ParamEnum::Rta,
-                    ParamEnum::Rtg,
-                    ParamEnum::Rca,
-                    ParamEnum::Rcg,
-                ],
-            ),
-        ];
-        self.optimise_parameters(start_values, &param_sets)
+    fn set_empirical_frequencies(&self, start_values: &DNASubstParams) -> DNASubstParams {
+        let mut start_values = start_values.clone();
+        start_values.set_pi(self.likelihood_cost.get_empirical_frequencies());
+        info!("Set stationary frequencies to empirical.");
+        start_values
     }
 
-    pub fn optimise_hky_parameters(
+    pub fn optimise_parameters(
         &self,
         start_values: &DNASubstParams,
+        model_type: DNAModelType,
+        optimise_freqs: FrequencyOptimisation,
     ) -> Result<(u32, DNASubstParams, f64)> {
-        info!("Optimising HKY parameters.");
-        let param_sets = [
-            ("alpha", vec![ParamEnum::Rtc, ParamEnum::Rag]),
-            (
-                "beta",
-                vec![
-                    ParamEnum::Rta,
-                    ParamEnum::Rtg,
-                    ParamEnum::Rca,
-                    ParamEnum::Rcg,
-                ],
-            ),
-        ];
-        self.optimise_parameters(start_values, &param_sets)
+        info!("Optimising {} parameters.", model_type);
+        let param_sets = DNASubstParams::parameter_definition(model_type);
+        let start_values = match optimise_freqs {
+            Fixed => start_values,
+            Empirical => &self.set_empirical_frequencies(start_values),
+            Estimated => {
+                warn!("Stationary frequency estimation not available, falling back on empirical.");
+                &self.set_empirical_frequencies(start_values)
+            }
+        };
+        self.run_parameter_brent(start_values, param_sets)
     }
 
-    pub fn optimise_tn93_parameters(
+    fn run_parameter_brent(
         &self,
         start_values: &DNASubstParams,
+        param_sets: Vec<(&str, Vec<Parameter>)>,
     ) -> Result<(u32, DNASubstParams, f64)> {
-        info!("Optimising TN93 parameters.");
-        let param_sets = [
-            ("alpha1", vec![ParamEnum::Rtc]),
-            ("alpha2", vec![ParamEnum::Rag]),
-            (
-                "beta",
-                vec![
-                    ParamEnum::Rta,
-                    ParamEnum::Rtg,
-                    ParamEnum::Rca,
-                    ParamEnum::Rcg,
-                ],
-            ),
-        ];
-        self.optimise_parameters(start_values, &param_sets)
-    }
-
-    pub fn optimise_gtr_parameters(
-        &self,
-        start_values: &DNASubstParams,
-    ) -> Result<(u32, DNASubstParams, f64)> {
-        info!("Optimising GTR parameters.");
-        let param_sets = [
-            ("rca", vec![ParamEnum::Rca]),
-            ("rcg", vec![ParamEnum::Rcg]),
-            ("rta", vec![ParamEnum::Rta]),
-            ("rtc", vec![ParamEnum::Rtc]),
-            ("rtg", vec![ParamEnum::Rtg]),
-        ];
-        self.optimise_parameters(start_values, &param_sets)
-    }
-
-    pub(crate) fn optimise_parameters(
-        &self,
-        start_values: &DNASubstParams,
-        param_sets: &[(&str, Vec<ParamEnum>)],
-    ) -> Result<(u32, DNASubstParams, f64)> {
+        let mut prev_logl = f64::NEG_INFINITY;
         let mut opt_logl = self
             .likelihood_cost
             .compute_log_likelihood(&gtr(start_values.clone()))
             .0;
         info!("Initial logl: {}.", opt_logl);
-        let mut prev_logl = f64::NEG_INFINITY;
-        let mut iters = 0;
         let mut opt_params = start_values.clone();
+        let mut iters = 0;
         while (prev_logl - opt_logl).abs() > self.epsilon {
             debug!("Iteration: {}", iters);
             prev_logl = opt_logl;
