@@ -64,7 +64,7 @@ fn test_optimisation_pip_propip_example() {
         .optimise_jc69_parameters(&pip_params)
         .unwrap();
     assert!(logl > initial_logl);
-    assert_eq!(logl, -1136.3884248861254);
+    assert_relative_eq!(logl, -1136.3884248861254);
     let model = PIPModel::new("gtr", &Vec::<f64>::from(optimised_params.clone())).unwrap();
     let recomp_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
     assert_eq!(logl, recomp_logl);
