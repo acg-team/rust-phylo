@@ -42,7 +42,7 @@ fn dna_simple_likelihood() {
     let likelihood = DNALikelihoodCost { info: &info };
 
     assert_relative_eq!(
-        likelihood.compute_log_likelihood(&model).0,
+        LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model),
         -2.5832498829317445,
         epsilon = 1e-6
     );
