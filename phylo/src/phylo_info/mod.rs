@@ -335,12 +335,7 @@ impl PhyloInfo {
             .enumerate()
             .map(|(index, leaf)| (leaf.id.as_str(), index))
             .collect();
-        sequences.sort_by_key(|record| {
-            id_index
-                .get(record.id())
-                .cloned()
-                .unwrap_or(std::usize::MAX)
-        });
+        sequences.sort_by_key(|record| id_index.get(record.id()).cloned().unwrap_or(usize::MAX));
     }
 
     /// Checks that the ids of the tree leaves and the sequences match, bails with an error otherwise.

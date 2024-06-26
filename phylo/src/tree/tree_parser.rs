@@ -179,7 +179,7 @@ impl Tree {
         let cur_node_idx = stack.pop().unwrap_or_default();
         self.internals[cur_node_idx].id = id;
         self.internals[cur_node_idx].blen = blen;
-        self.internals[cur_node_idx].children = children.clone();
+        self.internals[cur_node_idx].children.clone_from(&children);
         for child_idx in &children {
             match child_idx {
                 Int(idx) => self.internals[*idx].parent = Some(Int(cur_node_idx)),
