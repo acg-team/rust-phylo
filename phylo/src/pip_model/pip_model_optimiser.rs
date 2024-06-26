@@ -2,6 +2,7 @@ use argmin::core::{CostFunction, Executor, IterState, State};
 use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
+use crate::evolutionary_models::EvolutionaryModelParameters;
 use crate::pip_model::PIPLikelihoodCost;
 use crate::pip_model::PIPModel;
 use crate::substitution_models::dna_models::{gtr, Parameter, NUCLEOTIDE_INDEX};

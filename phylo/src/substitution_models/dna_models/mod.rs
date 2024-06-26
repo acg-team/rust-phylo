@@ -5,7 +5,7 @@ use anyhow::bail;
 use lazy_static::lazy_static;
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::EvolutionaryModel;
+use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelParameters};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::sequences::{charify, GAP, NUCLEOTIDES_STR};
 use crate::substitution_models::{
@@ -33,7 +33,7 @@ pub use jc69::*;
 pub use k80::*;
 pub use tn93::*;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DNAModelType {
     JC69,
     K80,
@@ -175,14 +175,22 @@ impl EvolutionaryModel<4> for DNASubstModel {
     where
         Self: std::marker::Sized,
     {
-        match model_name.to_uppercase().as_str() {
-            "JC69" => Ok(jc69(parse_jc69_parameters(model_params)?)),
-            "K80" => Ok(k80(parse_k80_parameters(model_params)?)),
-            "HKY" => Ok(hky(parse_hky_parameters(model_params)?)),
-            "TN93" => Ok(tn93(parse_tn93_parameters(model_params)?)),
-            "GTR" => Ok(gtr(parse_gtr_parameters(model_params)?)),
+        let model_type = match model_name.to_uppercase().as_str() {
+            "JC69" => DNAModelType::JC69,
+            "K80" => DNAModelType::K80,
+            "HKY" => DNAModelType::HKY,
+            "TN93" => DNAModelType::TN93,
+            "GTR" => DNAModelType::GTR,
             _ => bail!("Unknown DNA model requested."),
-        }
+        };
+        let model_params = DNASubstParams::new(&model_type, model_params)?;
+        Ok(match model_type {
+            DNAModelType::JC69 => jc69(model_params),
+            DNAModelType::K80 => k80(model_params),
+            DNAModelType::HKY => hky(model_params),
+            DNAModelType::TN93 => tn93(model_params),
+            DNAModelType::GTR => gtr(model_params),
+        })
     }
 
     fn get_p(&self, time: f64) -> SubstMatrix {

@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
-use anyhow::bail;
 use log::warn;
 
+use crate::evolutionary_models::EvolutionaryModelParameters;
 use crate::substitution_models::dna_models::DNAModelType;
 use crate::substitution_models::FreqVector;
 use crate::Result;
@@ -24,6 +24,11 @@ pub enum Parameter {
 }
 use Parameter::*;
 
+use super::{
+    parse_gtr_parameters, parse_hky_parameters, parse_jc69_parameters, parse_k80_parameters,
+    parse_tn93_parameters,
+};
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct DNASubstParams {
     pub pi: FreqVector,
@@ -35,31 +40,18 @@ pub struct DNASubstParams {
     pub rag: f64,
 }
 
-impl DNASubstParams {
-    pub fn new(
-        pi: FreqVector,
-        rtc: f64,
-        rta: f64,
-        rtg: f64,
-        rca: f64,
-        rcg: f64,
-        rag: f64,
-    ) -> Result<Self> {
-        if pi.sum() != 1.0 {
-            bail!("Frequencies must sum to 1.0.");
+impl EvolutionaryModelParameters for DNASubstParams {
+    fn new(model_type: &DNAModelType, model_params: &[f64]) -> Result<Self> {
+        match model_type {
+            DNAModelType::JC69 => parse_jc69_parameters(model_params),
+            DNAModelType::K80 => parse_k80_parameters(model_params),
+            DNAModelType::HKY => parse_hky_parameters(model_params),
+            DNAModelType::TN93 => parse_tn93_parameters(model_params),
+            DNAModelType::GTR => parse_gtr_parameters(model_params),
         }
-        Ok(Self {
-            pi,
-            rtc,
-            rta,
-            rtg,
-            rca,
-            rcg,
-            rag,
-        })
     }
 
-    pub fn get_value(&self, param_name: &Parameter) -> f64 {
+    fn get_value(&self, param_name: &Parameter) -> f64 {
         match param_name {
             Pit => self.pi[0],
             Pic => self.pi[1],
@@ -75,7 +67,7 @@ impl DNASubstParams {
         }
     }
 
-    pub fn set_value(&mut self, param_name: &Parameter, value: f64) {
+    fn set_value(&mut self, param_name: &Parameter, value: f64) {
         match param_name {
             Pit | Pic | Pia | Pig => {
                 warn!("Cannot set frequencies individually. Use set_pi() instead.")
@@ -90,7 +82,7 @@ impl DNASubstParams {
         }
     }
 
-    pub fn set_pi(&mut self, pi: FreqVector) {
+    fn set_pi(&mut self, pi: FreqVector) {
         if pi.sum() != 1.0 {
             warn!("Frequencies must sum to 1.0, not setting values");
         } else {

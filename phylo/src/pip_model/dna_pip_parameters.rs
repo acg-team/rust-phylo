@@ -1,38 +1,55 @@
 use std::fmt::Display;
 
-use crate::substitution_models::dna_models::{DNASubstParams, Parameter};
+use crate::substitution_models::dna_models::DNAModelType;
+use crate::substitution_models::FreqVector;
 use crate::Result;
+use crate::{
+    evolutionary_models::EvolutionaryModelParameters,
+    substitution_models::dna_models::{
+        DNASubstParams,
+        Parameter::{self, *},
+    },
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PIPDNAParams {
+    model_type: DNAModelType,
     pub subst_params: DNASubstParams,
     pub lambda: f64,
     pub mu: f64,
 }
 
-impl PIPDNAParams {
-    pub fn new(subst_params: DNASubstParams, mu: f64, lambda: f64) -> Result<Self> {
+impl EvolutionaryModelParameters for PIPDNAParams {
+    fn new(model_type: &DNAModelType, model_params: &[f64]) -> Result<Self> {
+        let lambda = model_params[0];
+        let mu = model_params[1];
+        let subst_params = DNASubstParams::new(model_type, &model_params[2..])?;
         Ok(Self {
+            model_type: *model_type,
             lambda,
             mu,
             subst_params,
         })
     }
 
-    pub fn get_value(&self, param_name: &Parameter) -> f64 {
+    fn get_value(&self, param_name: &Parameter) -> f64 {
         match param_name {
-            Parameter::Lambda => self.lambda,
-            Parameter::Mu => self.mu,
+            Lambda => self.lambda,
+            Mu => self.mu,
             _ => self.subst_params.get_value(param_name),
         }
     }
 
-    pub fn set_value(&mut self, param_name: &Parameter, value: f64) {
+    fn set_value(&mut self, param_name: &Parameter, value: f64) {
         match param_name {
-            Parameter::Lambda => self.lambda = value,
-            Parameter::Mu => self.mu = value,
+            Lambda => self.lambda = value,
+            Mu => self.mu = value,
             _ => self.subst_params.set_value(param_name, value),
         }
+    }
+
+    fn set_pi(&mut self, pi: FreqVector) {
+        self.subst_params.set_pi(pi);
     }
 }
 

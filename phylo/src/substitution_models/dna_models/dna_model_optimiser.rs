@@ -2,6 +2,7 @@ use argmin::core::{CostFunction, Executor, IterState, State};
 use argmin::solver::brent::BrentOpt;
 use log::{debug, info, warn};
 
+use crate::evolutionary_models::EvolutionaryModelParameters;
 use crate::evolutionary_models::FrequencyOptimisation::{self, *};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::substitution_models::dna_models::{gtr, DNAModelType, DNASubstParams, Parameter};
