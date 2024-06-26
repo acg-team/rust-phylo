@@ -699,7 +699,7 @@ fn pip_hky_likelihood_example_2() {
     let info = setup_example_phylo_info_2();
     let cost = PIPLikelihoodCost::<4> { info: &info };
     assert_relative_eq!(
-        cost.compute_log_likelihood(&model),
+        LikelihoodCostFunction::compute_log_likelihood(&cost, &model),
         -24.9549393298,
         epsilon = 1e-2
     );
@@ -716,7 +716,7 @@ fn pip_likelihood_huelsenbeck_example() {
     let model = PIPModel::<4>::new("hky", &PIP_HKY_PARAMS).unwrap();
     let cost = PIPLikelihoodCost::<4> { info: &info };
     assert_relative_eq!(
-        cost.compute_log_likelihood(&model),
+        LikelihoodCostFunction::compute_log_likelihood(&cost, &model),
         -372.1419415285655,
         epsilon = 1e-4
     );
@@ -724,7 +724,7 @@ fn pip_likelihood_huelsenbeck_example() {
     let model = PIPModel::<4>::new("hky", &[1.2, 0.45, 0.25, 0.25, 0.25, 0.25, 1.0]).unwrap();
     let cost = PIPLikelihoodCost::<4> { info: &info };
     assert_relative_eq!(
-        cost.compute_log_likelihood(&model),
+        LikelihoodCostFunction::compute_log_likelihood(&cost, &model),
         -361.1613531649497, // value from the python script
         epsilon = 1e-1
     );
@@ -738,7 +738,7 @@ fn pip_likelihood_huelsenbeck_example() {
     .unwrap();
     let cost = PIPLikelihoodCost::<4> { info: &info };
     assert_relative_eq!(
-        cost.compute_log_likelihood(&model),
+        LikelihoodCostFunction::compute_log_likelihood(&cost, &model),
         -359.2343309917135,
         epsilon = 1e-4
     );
@@ -758,8 +758,8 @@ fn pip_likelihood_huelsenbeck_example_model_comp() {
     let model_jc69 = PIPModel::<4>::new("jc69", &[1.1, 0.55]).unwrap();
     let cost_2 = PIPLikelihoodCost::<4> { info: &info };
     assert_relative_eq!(
-        cost_1.compute_log_likelihood(&model_hky_as_jc69),
-        cost_2.compute_log_likelihood(&model_jc69),
+        LikelihoodCostFunction::compute_log_likelihood(&cost_1, &model_hky_as_jc69),
+        LikelihoodCostFunction::compute_log_likelihood(&cost_2, &model_jc69),
     );
 }
 
@@ -789,8 +789,13 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
     let cost_2 = PIPLikelihoodCost::<4> { info: &info_2 };
 
     assert_relative_eq!(
-        cost_1.compute_log_likelihood(&model_gtr),
-        cost_2.compute_log_likelihood(&model_gtr),
+        LikelihoodCostFunction::compute_log_likelihood(&cost_1, &model_gtr),
+        LikelihoodCostFunction::compute_log_likelihood(&cost_2, &model_gtr),
+    );
+    assert_relative_eq!(
+        LikelihoodCostFunction::compute_log_likelihood(&cost_1, &model_gtr),
+        -359.2343309917135,
+        epsilon = 1e-4
     );
 }
 
@@ -804,5 +809,5 @@ fn pip_likelihood_protein_example() {
     .unwrap();
     let model_wag = PIPModel::<20>::new("wag", &[0.5, 0.25]).unwrap();
     let cost = PIPLikelihoodCost::<20> { info: &info };
-    assert!(cost.compute_log_likelihood(&model_wag) <= 0.0);
+    assert!(LikelihoodCostFunction::compute_log_likelihood(&cost, &model_wag) <= 0.0);
 }
