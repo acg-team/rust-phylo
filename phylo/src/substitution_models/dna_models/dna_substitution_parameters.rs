@@ -17,6 +17,8 @@ pub enum ParamEnum {
     Rca,
     Rcg,
     Rag,
+    Mu,
+    Lambda,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -66,6 +68,7 @@ impl DNASubstParams {
             ParamEnum::Rca => self.rca,
             ParamEnum::Rcg => self.rcg,
             ParamEnum::Rag => self.rag,
+            _ => panic!("Invalid parameter name."),
         }
     }
 
@@ -81,6 +84,7 @@ impl DNASubstParams {
             ParamEnum::Rca => self.rca = value,
             ParamEnum::Rcg => self.rcg = value,
             ParamEnum::Rag => self.rag = value,
+            _ => panic!("Invalid parameter name."),
         }
     }
 }
