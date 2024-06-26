@@ -5,7 +5,9 @@ use log::{debug, info, warn};
 use crate::evolutionary_models::EvolutionaryModelParameters;
 use crate::evolutionary_models::FrequencyOptimisation::{self, *};
 use crate::likelihood::LikelihoodCostFunction;
-use crate::substitution_models::dna_models::{gtr, DNAModelType, DNASubstParams, Parameter};
+use crate::substitution_models::dna_models::{
+    make_dna_model, DNAModelType, DNASubstParams, Parameter,
+};
 use crate::substitution_models::SubstitutionLikelihoodCost;
 use crate::Result;
 
@@ -24,7 +26,7 @@ impl CostFunction for DNAParamOptimiser<'_> {
         for param_name in self.parameter {
             gtr_params.set_value(param_name, *value);
         }
-        let model = gtr(gtr_params);
+        let model = make_dna_model(gtr_params);
         Ok(-self.likelihood_cost.compute_log_likelihood(&model).0)
     }
 
@@ -80,7 +82,7 @@ impl<'a> DNAModelOptimiser<'a> {
         let mut prev_logl = f64::NEG_INFINITY;
         let mut opt_logl = self
             .likelihood_cost
-            .compute_log_likelihood(&gtr(start_values.clone()))
+            .compute_log_likelihood(&make_dna_model(start_values.clone()))
             .0;
         info!("Initial logl: {}.", opt_logl);
         let mut opt_params = start_values.clone();

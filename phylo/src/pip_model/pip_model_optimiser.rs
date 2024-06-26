@@ -5,7 +5,7 @@ use log::{debug, info};
 use crate::evolutionary_models::EvolutionaryModelParameters;
 use crate::pip_model::PIPLikelihoodCost;
 use crate::pip_model::PIPModel;
-use crate::substitution_models::dna_models::{gtr, Parameter, NUCLEOTIDE_INDEX};
+use crate::substitution_models::dna_models::{make_dna_model, Parameter, NUCLEOTIDE_INDEX};
 use crate::Result;
 
 use super::PIPDNAParams;
@@ -26,7 +26,7 @@ impl CostFunction for PIPDNAParamOptimiser<'_> {
             params.set_value(param_name, *value);
         }
 
-        let subst_model = gtr(params.subst_params.clone());
+        let subst_model = make_dna_model(params.subst_params.clone());
         let index = *NUCLEOTIDE_INDEX;
         let model = PIPModel::make_pip(index, subst_model, params.mu, params.lambda);
         Ok(-self.likelihood_cost.compute_log_likelihood(&model).0)
@@ -109,7 +109,7 @@ impl<'a> PIPDNAModelOptimiser<'a> {
         info!("Optimising PIP parameters.");
         let pip = PIPModel::<4>::make_pip(
             *NUCLEOTIDE_INDEX,
-            gtr(start_values.subst_params.clone()),
+            make_dna_model(start_values.subst_params.clone()),
             start_values.mu,
             start_values.lambda,
         );

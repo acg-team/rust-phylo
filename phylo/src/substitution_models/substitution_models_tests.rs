@@ -12,8 +12,8 @@ use crate::evolutionary_models::EvolutionaryModel;
 use crate::sequences::AMINOACIDS_STR;
 use crate::substitution_models::{
     dna_models::{
-        parse_gtr_parameters, parse_hky_parameters, parse_jc69_parameters, parse_k80_parameters,
-        parse_tn93_parameters, DNASubstModel, DNA_SETS,
+        common_dna_models::{gtr_params, hky_params, jc69_params, k80_params, tn93_params},
+        DNASubstModel, DNA_SETS,
     },
     protein_models::{
         ProteinSubstArray, ProteinSubstModel, BLOSUM_PI_ARR, HIVB_PI_ARR, PROTEIN_SETS, WAG_PI_ARR,
@@ -111,7 +111,7 @@ fn dna_jc69_correct() {
 
 #[test]
 fn dna_j69_params() {
-    let params = parse_jc69_parameters(&[0.1, 0.4, 0.75, 1.5]).unwrap();
+    let params = jc69_params(&[0.1, 0.4, 0.75, 1.5]).unwrap();
     assert_relative_eq!(params.pi, dvector![0.25, 0.25, 0.25, 0.25]);
     assert_eq!(params.print_as_jc69(), format!("[lambda = {}]", 1.0));
 }
@@ -137,7 +137,7 @@ fn dna_k80_correct() {
 
 #[test]
 fn dna_k80_params() {
-    let params = parse_k80_parameters(&[0.75, 1.5]).unwrap();
+    let params = k80_params(&[0.75, 1.5]).unwrap();
     assert_relative_eq!(params.pi, dvector![0.25, 0.25, 0.25, 0.25]);
     assert_eq!(
         params.print_as_k80(),
@@ -182,7 +182,7 @@ fn dna_hky_correct() {
 
 #[test]
 fn dna_hky_params() {
-    let params = parse_hky_parameters(&[0.22, 0.26, 0.33, 0.19, 0.75, 1.5]).unwrap();
+    let params = hky_params(&[0.22, 0.26, 0.33, 0.19, 0.75, 1.5]).unwrap();
     assert_relative_eq!(params.pi, dvector![0.22, 0.26, 0.33, 0.19]);
     assert_eq!(
         params.print_as_hky(),
@@ -256,8 +256,7 @@ fn dna_gtr_incorrect() {
 
 #[test]
 fn dna_gtr_params() {
-    let params =
-        parse_gtr_parameters(&[0.22, 0.26, 0.33, 0.19, 0.75, 1.5, 3.0, 1.25, 0.45, 0.1]).unwrap();
+    let params = gtr_params(&[0.22, 0.26, 0.33, 0.19, 0.75, 1.5, 3.0, 1.25, 0.45, 0.1]).unwrap();
     assert_relative_eq!(params.pi, dvector![0.22, 0.26, 0.33, 0.19]);
     assert_eq!(
         params.print_as_gtr(),
@@ -342,7 +341,7 @@ fn dna_tn93_incorrect() {
 
 #[test]
 fn dna_tn93_params() {
-    let params = parse_tn93_parameters(&[0.22, 0.26, 0.33, 0.19, 0.75, 1.5, 3.0]).unwrap();
+    let params = tn93_params(&[0.22, 0.26, 0.33, 0.19, 0.75, 1.5, 3.0]).unwrap();
     assert_relative_eq!(params.pi, dvector![0.22, 0.26, 0.33, 0.19]);
     assert_eq!(
         params.print_as_tn93(),

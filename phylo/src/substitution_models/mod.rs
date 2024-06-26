@@ -19,6 +19,13 @@ pub mod protein_models;
 pub type SubstMatrix = DMatrix<f64>;
 pub type FreqVector = DVector<f64>;
 
+#[macro_export]
+macro_rules! make_freqs {
+    ($slice:expr) => {
+        FreqVector::from_column_slice($slice)
+    };
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum SubstParams {
     DNA(dna_models::DNASubstParams),

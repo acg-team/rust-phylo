@@ -24,13 +24,11 @@ pub enum Parameter {
 }
 use Parameter::*;
 
-use super::{
-    parse_gtr_parameters, parse_hky_parameters, parse_jc69_parameters, parse_k80_parameters,
-    parse_tn93_parameters,
-};
+use super::{gtr_params, hky_params, jc69_params, k80_params, tn93_params};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DNASubstParams {
+    pub(crate) model_type: DNAModelType,
     pub pi: FreqVector,
     pub rtc: f64,
     pub rta: f64,
@@ -41,13 +39,13 @@ pub struct DNASubstParams {
 }
 
 impl EvolutionaryModelParameters for DNASubstParams {
-    fn new(model_type: &DNAModelType, model_params: &[f64]) -> Result<Self> {
+    fn new(model_type: &DNAModelType, params: &[f64]) -> Result<Self> {
         match model_type {
-            DNAModelType::JC69 => parse_jc69_parameters(model_params),
-            DNAModelType::K80 => parse_k80_parameters(model_params),
-            DNAModelType::HKY => parse_hky_parameters(model_params),
-            DNAModelType::TN93 => parse_tn93_parameters(model_params),
-            DNAModelType::GTR => parse_gtr_parameters(model_params),
+            DNAModelType::JC69 => jc69_params(params),
+            DNAModelType::K80 => k80_params(params),
+            DNAModelType::HKY => hky_params(params),
+            DNAModelType::TN93 => tn93_params(params),
+            DNAModelType::GTR => gtr_params(params),
         }
     }
 
