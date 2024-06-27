@@ -11,7 +11,7 @@ use crate::likelihood::LikelihoodCostFunction;
 use crate::make_freqs;
 use crate::phylo_info::{GapHandling, PhyloInfo};
 use crate::pip_model::{PIPLikelihoodCost, PIPModel, PIPModelInfo};
-use crate::sequences::{charify, AMINOACIDS_STR, NUCLEOTIDES_STR};
+use crate::sequences::{AMINOACIDS, GAP, NUCLEOTIDES};
 use crate::substitution_models::dna_models::DNA_GAP_SETS;
 use crate::substitution_models::protein_models::PROTEIN_GAP_SETS;
 use crate::substitution_models::{
@@ -38,23 +38,20 @@ fn tree_newick(newick: &str) -> Tree {
 
 #[cfg(test)]
 fn compare_pip_subst_rates<const N: usize>(
-    chars: &str,
+    chars: &[u8],
     pip_model: &PIPModel<N>,
     subst_model: &SubstitutionModel<N>,
 ) where
     Const<N>: DimMin<Const<N>, Output = Const<N>>,
 {
-    for char in charify(chars) {
+    for &char in chars {
         assert!(pip_model.get_rate(char, char) < 0.0);
         assert_relative_eq!(
-            pip_model
-                .q
-                .row(pip_model.index[char as usize] as usize)
-                .sum(),
+            pip_model.q.row(pip_model.index[char as usize]).sum(),
             0.0,
             epsilon = 1e-10
         );
-        for other_char in charify(chars) {
+        for &other_char in chars {
             if char == other_char {
                 continue;
             }
@@ -64,7 +61,7 @@ fn compare_pip_subst_rates<const N: usize>(
             );
         }
         assert_relative_eq!(pip_model.get_rate(char, b'-'), pip_model.mu);
-        assert_relative_eq!(pip_model.get_rate(b'-', char), 0.0);
+        assert_relative_eq!(pip_model.get_rate(GAP, char), 0.0);
     }
 }
 
@@ -86,7 +83,7 @@ fn protein_pip_correct(
         &frequencies
     );
     let subst_model = ProteinSubstModel::new(model_name, &[]).unwrap();
-    compare_pip_subst_rates(AMINOACIDS_STR, &pip_model, &subst_model);
+    compare_pip_subst_rates(AMINOACIDS, &pip_model, &subst_model);
 }
 
 #[test]
@@ -99,7 +96,7 @@ fn pip_dna_jc69_correct() {
         &dvector![0.25, 0.25, 0.25, 0.25, 0.0]
     );
     let jc96 = DNASubstModel::new("jc69", &[]).unwrap();
-    compare_pip_subst_rates(NUCLEOTIDES_STR, &pip_jc69, &jc96);
+    compare_pip_subst_rates(NUCLEOTIDES, &pip_jc69, &jc96);
 }
 
 #[test]
@@ -111,15 +108,12 @@ fn pip_dna_jc69_normalised() {
         EvolutionaryModel::get_stationary_distribution(&pip_jc69),
         &dvector![0.25, 0.25, 0.25, 0.25, 0.0]
     );
-    for char in charify(NUCLEOTIDES_STR) {
+    for &char in NUCLEOTIDES {
         assert_eq!(
             EvolutionaryModel::get_rate(&pip_jc69, char, char),
             -1.0 - 0.4
         );
-        assert_relative_eq!(
-            pip_jc69.q.row(pip_jc69.index[char as usize] as usize).sum(),
-            0.0,
-        );
+        assert_relative_eq!(pip_jc69.q.row(pip_jc69.index[char as usize]).sum(), 0.0,);
         assert_relative_eq!(EvolutionaryModel::get_rate(&pip_jc69, char, b'-'), 0.4);
         assert_relative_eq!(EvolutionaryModel::get_rate(&pip_jc69, b'-', char), 0.0);
     }
@@ -136,11 +130,8 @@ fn pip_protein_wag_normalised() {
         &stat_dist
     );
     assert_relative_eq!(pip_wag.q.sum(), 0.0, epsilon = 1e-10);
-    for char in charify(NUCLEOTIDES_STR) {
-        assert_relative_eq!(
-            pip_wag.q.row(pip_wag.index[char as usize] as usize).sum(),
-            0.0,
-        );
+    for &char in NUCLEOTIDES {
+        assert_relative_eq!(pip_wag.q.row(pip_wag.index[char as usize]).sum(), 0.0,);
         assert_relative_eq!(
             EvolutionaryModel::get_rate(&pip_wag, char, b'-'),
             0.4,
@@ -261,10 +252,10 @@ fn pip_rates(#[case] model_name: &str, #[case] model_params: &[f64]) {
     let pip_params = [0.2, 0.15];
     let pip_model = PIPModel::<4>::new(model_name, &[&pip_params, model_params].concat()).unwrap();
     let subst_model = DNASubstModel::new(model_name, model_params).unwrap();
-    compare_pip_subst_rates(NUCLEOTIDES_STR, &pip_model, &subst_model);
+    compare_pip_subst_rates(NUCLEOTIDES, &pip_model, &subst_model);
     let pip_model = PIPModel::<4>::new(model_name, &[&pip_params, model_params].concat()).unwrap();
     let subst_model = DNASubstModel::new(model_name, model_params).unwrap();
-    compare_pip_subst_rates(NUCLEOTIDES_STR, &pip_model, &subst_model);
+    compare_pip_subst_rates(NUCLEOTIDES, &pip_model, &subst_model);
 }
 
 #[rstest]

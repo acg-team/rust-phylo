@@ -9,10 +9,10 @@ use nalgebra::dvector;
 use rand::Rng;
 
 use crate::evolutionary_models::EvolutionaryModel;
-use crate::sequences::AMINOACIDS_STR;
+use crate::sequences::AMINOACIDS;
 use crate::substitution_models::{
     dna_models::{
-        common_dna_models::{gtr_params, hky_params, jc69_params, k80_params, tn93_params},
+        dna_model_generics::{gtr_params, hky_params, jc69_params, k80_params, tn93_params},
         DNASubstModel, DNA_SETS,
     },
     protein_models::{
@@ -65,26 +65,25 @@ pub(crate) fn gtr_char_probs_data() -> (Vec<f64>, HashMap<u8, FreqVector>) {
 #[cfg(test)]
 pub(crate) fn protein_char_probs_data(pi: &[f64]) -> HashMap<u8, FreqVector> {
     HashMap::from([
-        (b'A', compile_aa_probability(&['A'], pi)),
-        (b'R', compile_aa_probability(&['R'], pi)),
-        (b'W', compile_aa_probability(&['W'], pi)),
-        (b'B', compile_aa_probability(&['D', 'N'], pi)),
-        (b'Z', compile_aa_probability(&['E', 'Q'], pi)),
-        (b'J', compile_aa_probability(&['I', 'L'], pi)),
+        (b'A', compile_aa_probability(&[b'A'], pi)),
+        (b'R', compile_aa_probability(&[b'R'], pi)),
+        (b'W', compile_aa_probability(&[b'W'], pi)),
+        (b'B', compile_aa_probability(&[b'D', b'N'], pi)),
+        (b'Z', compile_aa_probability(&[b'E', b'Q'], pi)),
+        (b'J', compile_aa_probability(&[b'I', b'L'], pi)),
         (b'X', make_freqs!(pi)),
     ])
 }
 
 #[cfg(test)]
-fn compile_aa_probability(chars: &[char], pi: &[f64]) -> FreqVector {
+fn compile_aa_probability(chars: &[u8], pi: &[f64]) -> FreqVector {
     let mut char_probs = make_freqs!(&[0.0; 20]);
     if chars.len() == 1 {
-        let position = AMINOACIDS_STR.find(chars[0]).unwrap();
-        char_probs[position] = 1.0;
+        char_probs[AMINOACIDS.iter().position(|&x| x == chars[0]).unwrap()] = 1.0;
         char_probs
     } else {
         for c in chars {
-            let position = AMINOACIDS_STR.find(*c).unwrap();
+            let position = AMINOACIDS.iter().position(|&x| x == *c).unwrap();
             char_probs[position] = pi[position];
         }
         char_probs.scale_mut(1.0 / char_probs.sum());
@@ -468,10 +467,9 @@ fn protein_model_correct(#[case] model_name: &str, #[case] epsilon: f64) {
     let input = capitalize_random_letters(model_name);
     let model_2 = ProteinSubstModel::new(&input, &[]).unwrap();
     assert_relative_eq!(model_1.q, model_2.q);
-    let aminoacids = AMINOACIDS_STR.as_bytes();
     for _ in 0..10 {
-        let query1 = aminoacids[rng.gen_range(0..aminoacids.len())];
-        let query2 = aminoacids[rng.gen_range(0..aminoacids.len())];
+        let query1 = AMINOACIDS[rng.gen_range(0..AMINOACIDS.len())];
+        let query2 = AMINOACIDS[rng.gen_range(0..AMINOACIDS.len())];
         EvolutionaryModel::get_rate(&model_1, query1, query2);
     }
     assert_relative_eq!(

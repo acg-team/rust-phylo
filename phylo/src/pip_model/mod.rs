@@ -19,7 +19,7 @@ pub use dna_pip_parameters::*;
 
 #[derive(Clone, Debug)]
 pub struct PIPModel<const N: usize> {
-    pub index: [i32; 255],
+    pub index: [usize; 255],
     pub subst_model: SubstitutionModel<N>,
     pub lambda: f64,
     pub mu: f64,
@@ -37,10 +37,7 @@ where
     }
 
     fn get_rate(&self, i: u8, j: u8) -> f64 {
-        self.q[(
-            self.index[i as usize] as usize,
-            self.index[j as usize] as usize,
-        )]
+        self.q[(self.index[i as usize], self.index[j as usize])]
     }
 
     fn get_stationary_distribution(&self) -> &FreqVector {
@@ -48,13 +45,13 @@ where
     }
 
     fn make_pip(
-        index: [i32; 255],
+        index: [usize; 255],
         subst_model: SubstitutionModel<N>,
         mu: f64,
         lambda: f64,
     ) -> PIPModel<N> {
         let mut index = index;
-        index[b'-' as usize] = N as i32;
+        index[b'-' as usize] = N;
         let mut q = subst_model
             .q
             .clone()

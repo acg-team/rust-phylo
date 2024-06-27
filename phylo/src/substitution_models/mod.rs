@@ -34,7 +34,7 @@ pub enum SubstParams {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SubstitutionModel<const N: usize> {
-    index: [i32; 255],
+    index: [usize; 255],
     pub params: SubstParams,
     pub(crate) q: SubstMatrix,
     pub(crate) pi: FreqVector,
@@ -59,14 +59,7 @@ where
     }
 
     pub(crate) fn get_rate(&self, i: u8, j: u8) -> f64 {
-        assert!(
-            self.index[i as usize] >= 0 && self.index[j as usize] >= 0,
-            "Invalid rate requested."
-        );
-        self.q[(
-            self.index[i as usize] as usize,
-            self.index[j as usize] as usize,
-        )]
+        self.q[(self.index[i as usize], self.index[j as usize])]
     }
 
     pub fn generate_scorings(

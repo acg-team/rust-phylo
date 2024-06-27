@@ -6,7 +6,7 @@ use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::EvolutionaryModel;
 use crate::likelihood::LikelihoodCostFunction;
-use crate::sequences::{charify, AMINOACIDS_STR, GAP};
+use crate::sequences::{AMINOACIDS, GAP};
 use crate::substitution_models::{
     FreqVector, ParsimonyModel, SubstMatrix, SubstParams, SubstitutionLikelihoodCost,
     SubstitutionModel, SubstitutionModelInfo,
@@ -21,104 +21,61 @@ pub type ProteinLikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 20>;
 pub type ProteinSubstModelInfo = SubstitutionModelInfo<20>;
 
 lazy_static! {
-    pub static ref AMINOACID_INDEX: [i32; 255] = {
-        let mut index = [-1_i32; 255];
-        for (i, char) in charify(AMINOACIDS_STR).into_iter().enumerate() {
-            index[char as usize] = i as i32;
-            index[char.to_ascii_lowercase() as usize] = i as i32;
+    pub static ref AMINOACID_INDEX: [usize; 255] = {
+        let mut index = [0; 255];
+        for (i, &char) in AMINOACIDS.iter().enumerate() {
+            index[char as usize] = i;
+            index[char.to_ascii_lowercase() as usize] = i;
         }
         index[GAP as usize] = 20;
         index
     };
     pub static ref PROTEIN_GAP_SETS: Vec<FreqVector> = {
-        let index = &AMINOACID_INDEX;
-        let mut map = Vec::<FreqVector>::new();
-        let mut x_set = make_freqs!(&[1.0 / 20.0; 21]);
-        x_set.fill_row(20, 0.0);
-        map.resize(255, x_set.clone());
+        let mut map: Vec<FreqVector> = vec![make_freqs!(&[0.0; 21]); 255];
         for (i, elem) in map.iter_mut().enumerate() {
-            let char = i as u8 as char;
-            elem.set_column(
-                0,
-                &match char {
-                    'A' | 'a' | 'R' | 'r' | 'N' | 'n' | 'D' | 'd' | 'C' | 'c' | 'Q' | 'q' | 'E'
-                    | 'e' | 'G' | 'g' | 'H' | 'h' | 'I' | 'i' | 'L' | 'l' | 'K' | 'k' | 'M'
-                    | 'm' | 'F' | 'f' | 'P' | 'p' | 'S' | 's' | 'T' | 't' | 'W' | 'w' | 'Y'
-                    | 'y' | 'V' | 'v' => {
-                        let mut set = FreqVector::zeros(21);
-                        set.fill_row(index[char as usize] as usize, 1.0);
-                        set
-                    }
-                    'B' | 'b' => {
-                        let mut set = FreqVector::zeros(21);
-                        set.fill_row(index['D' as usize] as usize, 0.5);
-                        set.fill_row(index['N' as usize] as usize, 0.5);
-                        set
-                    }
-                    'Z' | 'z' => {
-                        let mut set = FreqVector::zeros(21);
-                        set.fill_row(index['E' as usize] as usize, 0.5);
-                        set.fill_row(index['Q' as usize] as usize, 0.5);
-                        set
-                    }
-                    'J' | 'j' => {
-                        let mut set = FreqVector::zeros(21);
-                        set.fill_row(index['I' as usize] as usize, 0.5);
-                        set.fill_row(index['L' as usize] as usize, 0.5);
-                        set
-                    }
-                    '-' => {
-                        let mut set = FreqVector::zeros(21);
-                        set.fill_row(index[GAP as usize] as usize, 1.0);
-                        set
-                    }
-                    _ => continue,
-                },
-            );
+            let char = i as u8;
+            if char == GAP {
+                elem.set_column(0, &make_freqs!(&[0.0; 20]).resize_vertically(21, 1.0));
+            } else {
+                elem.set_column(0, &generic_protein_sets(char).resize_vertically(21, 0.0));
+            }
         }
         map
     };
     pub static ref PROTEIN_SETS: Vec<FreqVector> = {
-        let index = &AMINOACID_INDEX;
-        let mut map = Vec::<FreqVector>::new();
-        map.resize(255, make_freqs!(&[1.0 / 20.0; 20]));
+        let mut map: Vec<FreqVector> = vec![make_freqs!(&[0.0; 20]); 255];
         for (i, elem) in map.iter_mut().enumerate() {
-            let char = i as u8 as char;
-            elem.set_column(
-                0,
-                &match char {
-                    'A' | 'a' | 'R' | 'r' | 'N' | 'n' | 'D' | 'd' | 'C' | 'c' | 'Q' | 'q' | 'E'
-                    | 'e' | 'G' | 'g' | 'H' | 'h' | 'I' | 'i' | 'L' | 'l' | 'K' | 'k' | 'M'
-                    | 'm' | 'F' | 'f' | 'P' | 'p' | 'S' | 's' | 'T' | 't' | 'W' | 'w' | 'Y'
-                    | 'y' | 'V' | 'v' => {
-                        let mut set = FreqVector::zeros(20);
-                        set.fill_row(index[char as usize] as usize, 1.0);
-                        set
-                    }
-                    'B' | 'b' => {
-                        let mut set = FreqVector::zeros(20);
-                        set.fill_row(index['D' as usize] as usize, 0.5);
-                        set.fill_row(index['N' as usize] as usize, 0.5);
-                        set
-                    }
-                    'Z' | 'z' => {
-                        let mut set = FreqVector::zeros(20);
-                        set.fill_row(index['E' as usize] as usize, 0.5);
-                        set.fill_row(index['Q' as usize] as usize, 0.5);
-                        set
-                    }
-                    'J' | 'j' => {
-                        let mut set = FreqVector::zeros(20);
-                        set.fill_row(index['I' as usize] as usize, 0.5);
-                        set.fill_row(index['L' as usize] as usize, 0.5);
-                        set
-                    }
-                    _ => continue,
-                },
-            );
+            let char = i as u8;
+            elem.set_column(0, &generic_protein_sets(char));
         }
         map
     };
+}
+
+fn generic_protein_sets(char: u8) -> FreqVector {
+    let index = &AMINOACID_INDEX;
+    if AMINOACIDS.contains(&char.to_ascii_uppercase()) {
+        let mut set = FreqVector::zeros(20);
+        set.fill_row(index[char as usize], 1.0);
+        set
+    } else if char.to_ascii_uppercase() == b'B' {
+        let mut set = FreqVector::zeros(20);
+        set.fill_row(index['D' as usize], 0.5);
+        set.fill_row(index['N' as usize], 0.5);
+        set
+    } else if char.to_ascii_uppercase() == b'Z' {
+        let mut set = FreqVector::zeros(20);
+        set.fill_row(index['E' as usize], 0.5);
+        set.fill_row(index['Q' as usize], 0.5);
+        set
+    } else if char.to_ascii_uppercase() == b'J' {
+        let mut set = FreqVector::zeros(20);
+        set.fill_row(index['I' as usize], 0.5);
+        set.fill_row(index['L' as usize], 0.5);
+        set
+    } else {
+        make_freqs!(&[1.0 / 20.0; 20])
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
