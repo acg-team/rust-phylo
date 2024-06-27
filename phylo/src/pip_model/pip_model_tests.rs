@@ -69,14 +69,10 @@ fn compare_pip_subst_rates<const N: usize>(
 #[case::wag("wag", &[0.1, 0.4], &WAG_PI_ARR)]
 #[case::blosum("blosum", &[0.8, 0.25], &BLOSUM_PI_ARR)]
 #[case::hivb("hivb", &[1.1, 12.4], &HIVB_PI_ARR)]
-fn protein_pip_correct(
-    #[case] model_name: &str,
-    #[case] model_params: &[f64],
-    #[case] pi_array: &[f64],
-) {
-    let pip_model = PIPModel::<20>::new(model_name, model_params).unwrap();
-    assert_eq!(pip_model.lambda, model_params[0]);
-    assert_eq!(pip_model.mu, model_params[1]);
+fn protein_pip_correct(#[case] model_name: &str, #[case] params: &[f64], #[case] pi_array: &[f64]) {
+    let pip_model = PIPModel::<20>::new(model_name, params).unwrap();
+    assert_eq!(pip_model.lambda, params[0]);
+    assert_eq!(pip_model.mu, params[1]);
     let frequencies = make_freqs!(pi_array).insert_row(20, 0.0);
     assert_eq!(
         EvolutionaryModel::get_stationary_distribution(&pip_model),
@@ -173,8 +169,8 @@ fn pip_dna_tn93_correct() {
 #[case::tn93_too_few_for_subst("tn93", &[0.2, 0.5, 0.22, 0.26, 0.33, 0.19])]
 #[case::tn93_too_few_for_pip("tn93", &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
 #[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-fn pip_dna_too_few_params(#[case] model_name: &str, #[case] model_params: &[f64]) {
-    let result = PIPModel::<4>::new(model_name, model_params);
+fn pip_dna_too_few_params(#[case] model_name: &str, #[case] params: &[f64]) {
+    let result = PIPModel::<4>::new(model_name, params);
     assert!(result.is_err());
 }
 
@@ -183,8 +179,8 @@ fn pip_dna_too_few_params(#[case] model_name: &str, #[case] model_params: &[f64]
 #[case::blosum("k80", &[0.2])]
 #[case::hivb("hivb", &[0.22])]
 #[case::wag_one_param("wag", &[0.1])]
-fn pip_protein_too_few_params(#[case] model_name: &str, #[case] model_params: &[f64]) {
-    let result = PIPModel::<20>::new(model_name, model_params);
+fn pip_protein_too_few_params(#[case] model_name: &str, #[case] params: &[f64]) {
+    let result = PIPModel::<20>::new(model_name, params);
     assert!(result.is_err());
 }
 
@@ -248,13 +244,13 @@ fn protein_char_probabilities(
 #[case::hky("hky", &[0.22, 0.26, 0.33, 0.19, 0.5])]
 #[case::tn93("tn93", &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
 #[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-fn pip_rates(#[case] model_name: &str, #[case] model_params: &[f64]) {
+fn pip_rates(#[case] model_name: &str, #[case] params: &[f64]) {
     let pip_params = [0.2, 0.15];
-    let pip_model = PIPModel::<4>::new(model_name, &[&pip_params, model_params].concat()).unwrap();
-    let subst_model = DNASubstModel::new(model_name, model_params).unwrap();
+    let pip_model = PIPModel::<4>::new(model_name, &[&pip_params, params].concat()).unwrap();
+    let subst_model = DNASubstModel::new(model_name, params).unwrap();
     compare_pip_subst_rates(NUCLEOTIDES, &pip_model, &subst_model);
-    let pip_model = PIPModel::<4>::new(model_name, &[&pip_params, model_params].concat()).unwrap();
-    let subst_model = DNASubstModel::new(model_name, model_params).unwrap();
+    let pip_model = PIPModel::<4>::new(model_name, &[&pip_params, params].concat()).unwrap();
+    let subst_model = DNASubstModel::new(model_name, params).unwrap();
     compare_pip_subst_rates(NUCLEOTIDES, &pip_model, &subst_model);
 }
 
@@ -264,10 +260,9 @@ fn pip_rates(#[case] model_name: &str, #[case] model_params: &[f64]) {
 #[case::hky("hky", &[0.22, 0.26, 0.33, 0.19, 0.5])]
 #[case::tn93("tn93", &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
 #[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-fn pip_dna_p_matrix_inf(#[case] model_name: &str, #[case] model_params: &[f64]) {
+fn pip_dna_p_matrix_inf(#[case] model_name: &str, #[case] params: &[f64]) {
     let pip_params = vec![0.2, 0.5];
-    let pip: PIPModel<4> =
-        PIPModel::<4>::new(model_name, &[&pip_params, model_params].concat()).unwrap();
+    let pip: PIPModel<4> = PIPModel::<4>::new(model_name, &[&pip_params, params].concat()).unwrap();
     let p = EvolutionaryModel::get_p(&pip, 10000000.0);
     let expected = SubstMatrix::from_row_slice(
         5,
@@ -284,8 +279,8 @@ fn pip_dna_p_matrix_inf(#[case] model_name: &str, #[case] model_params: &[f64]) 
 #[case::wag("wag", &[1.2, 0.95])]
 #[case::blosum("blosum", &[0.2, 0.5])]
 #[case::hivb("hivb", &[0.1, 0.04])]
-fn pip_protein_p_matrix_inf(#[case] model_name: &str, #[case] model_params: &[f64]) {
-    let pip = PIPModel::<20>::new(model_name, model_params).unwrap();
+fn pip_protein_p_matrix_inf(#[case] model_name: &str, #[case] params: &[f64]) {
+    let pip = PIPModel::<20>::new(model_name, params).unwrap();
     let p = EvolutionaryModel::get_p(&pip, 10000000.0);
     let mut expected = SubstMatrix::zeros(21, 21);
     expected.fill_column(20, 1.0);

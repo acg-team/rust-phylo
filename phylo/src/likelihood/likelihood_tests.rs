@@ -239,7 +239,7 @@ fn dna_huelsenbeck_example_likelihood() {
 #[case::blosum("blosum", &[], -4576.40850634098, 1e-5)] // PhyML likelihood under BLOSUM62 is -4587.71053
 fn protein_example_likelihood(
     #[case] model_name: &str,
-    #[case] model_params: &[f64],
+    #[case] params: &[f64],
     #[case] expected_llik: f64,
     #[case] epsilon: f64,
 ) {
@@ -249,7 +249,7 @@ fn protein_example_likelihood(
         &GapHandling::Ambiguous,
     )
     .unwrap();
-    let model = ProteinSubstModel::new(model_name, model_params).unwrap();
+    let model = ProteinSubstModel::new(model_name, params).unwrap();
     let likelihood = ProteinLikelihoodCost { info: &info };
     assert_relative_eq!(
         LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model),
@@ -291,9 +291,9 @@ fn setup_simple_reversibility() -> Vec<PhyloInfo> {
 #[case::hky("hky", &[0.22, 0.26, 0.33, 0.19, 0.5])]
 #[case::tn93("tn93", &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
 #[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-fn simple_dna_likelihood_reversibility(#[case] model_name: &str, #[case] model_params: &[f64]) {
+fn simple_dna_likelihood_reversibility(#[case] model_name: &str, #[case] params: &[f64]) {
     let info = setup_simple_reversibility();
-    let model = DNASubstModel::new(model_name, model_params).unwrap();
+    let model = DNASubstModel::new(model_name, params).unwrap();
     let likelihood = DNALikelihoodCost { info: &info[0] };
     let likelihood_rerooted = DNALikelihoodCost { info: &info[1] };
     assert_relative_eq!(
@@ -336,11 +336,11 @@ fn setup_simple_protein_reversibility() -> Vec<PhyloInfo> {
 #[case::blosum("blosum", &[], 1e-3)]
 fn simple_protein_likelihood_reversibility(
     #[case] model_name: &str,
-    #[case] model_params: &[f64],
+    #[case] params: &[f64],
     #[case] epsilon: f64,
 ) {
     let info = setup_simple_protein_reversibility();
-    let model = ProteinSubstModel::new(model_name, model_params).unwrap();
+    let model = ProteinSubstModel::new(model_name, params).unwrap();
     let likelihood = ProteinLikelihoodCost { info: &info[0] };
     let likelihood_rerooted = ProteinLikelihoodCost { info: &info[1] };
     assert_relative_eq!(
@@ -358,7 +358,7 @@ fn simple_protein_likelihood_reversibility(
 #[case::gtr("gtr", &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
 fn huelsenbeck_example_dna_reversibility_likelihood(
     #[case] model_name: &str,
-    #[case] model_params: &[f64],
+    #[case] params: &[f64],
 ) {
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
     let info1 = PhyloInfo::from_files(
@@ -374,7 +374,7 @@ fn huelsenbeck_example_dna_reversibility_likelihood(
     )
     .unwrap();
 
-    let model = DNASubstModel::new(model_name, model_params).unwrap();
+    let model = DNASubstModel::new(model_name, params).unwrap();
     let likelihood = DNALikelihoodCost { info: &info1 };
     let likelihood_rerooted = DNALikelihoodCost { info: &info2 };
     assert_relative_eq!(

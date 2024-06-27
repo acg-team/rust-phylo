@@ -72,24 +72,24 @@ where
         }
     }
 
-    fn check_pip_params(model_params: &[f64]) -> Result<(f64, f64)> {
-        if model_params.len() < 2 {
+    fn check_pip_params(params: &[f64]) -> Result<(f64, f64)> {
+        if params.len() < 2 {
             bail!("Too few values provided for PIP, required 2 values, lambda and mu.");
         }
-        let lambda = model_params[0];
-        let mu = model_params[1];
+        let lambda = params[0];
+        let mu = params[1];
         Ok((lambda, mu))
     }
 }
 
 // TODO: Make sure Q matrix makes sense like this ALL the time.
 impl EvolutionaryModel<4> for PIPModel<4> {
-    fn new(model_name: &str, model_params: &[f64]) -> Result<Self>
+    fn new(model_name: &str, params: &[f64]) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
-        let (lambda, mu) = PIPModel::<4>::check_pip_params(model_params)?;
-        let subst_model = DNASubstModel::new(model_name, &model_params[2..])?;
+        let (lambda, mu) = PIPModel::<4>::check_pip_params(params)?;
+        let subst_model = DNASubstModel::new(model_name, &params[2..])?;
         let index = *NUCLEOTIDE_INDEX;
         Ok(PIPModel::make_pip(index, subst_model, mu, lambda))
     }
@@ -121,12 +121,12 @@ impl EvolutionaryModel<4> for PIPModel<4> {
 }
 
 impl EvolutionaryModel<20> for PIPModel<20> {
-    fn new(model_name: &str, model_params: &[f64]) -> Result<Self>
+    fn new(model_name: &str, params: &[f64]) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
-        let (lambda, mu) = PIPModel::<20>::check_pip_params(model_params)?;
-        let subst_model = ProteinSubstModel::new(model_name, &model_params[2..])?;
+        let (lambda, mu) = PIPModel::<20>::check_pip_params(params)?;
+        let subst_model = ProteinSubstModel::new(model_name, &params[2..])?;
         let index = *AMINOACID_INDEX;
         Ok(PIPModel::make_pip(index, subst_model, mu, lambda))
     }
