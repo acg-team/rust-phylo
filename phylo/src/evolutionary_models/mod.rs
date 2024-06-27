@@ -1,6 +1,6 @@
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::{DNAModelType, Parameter};
-use crate::substitution_models::{FreqVector, SubstMatrix};
+use crate::substitution_models::{FreqVector, ModelType, SubstMatrix};
 use crate::Result;
 
 pub enum FrequencyOptimisation {
@@ -12,7 +12,7 @@ pub enum FrequencyOptimisation {
 pub trait EvolutionaryModelParameters {
     fn new(model_type: &DNAModelType, params: &[f64]) -> Result<Self>
     where
-        Self: std::marker::Sized;
+        Self: Sized;
     fn get_value(&self, param_name: &Parameter) -> f64;
     fn set_value(&mut self, param_name: &Parameter, value: f64);
     fn set_pi(&mut self, pi: FreqVector);
@@ -25,7 +25,7 @@ impl<const N: usize> std::fmt::Debug for dyn EvolutionaryModel<N> {
 }
 // TODO: change pi to a row vector
 pub trait EvolutionaryModel<const N: usize> {
-    fn new(model_name: &str, params: &[f64]) -> Result<Self>
+    fn new(model_type: ModelType, params: &[f64]) -> Result<Self>
     where
         Self: std::marker::Sized;
     fn get_p(&self, time: f64) -> SubstMatrix;

@@ -9,7 +9,7 @@ use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::{DNASubstModel, NUCLEOTIDE_INDEX};
 use crate::substitution_models::protein_models::{ProteinSubstModel, AMINOACID_INDEX};
-use crate::substitution_models::{FreqVector, SubstMatrix, SubstitutionModel};
+use crate::substitution_models::{FreqVector, ModelType, SubstMatrix, SubstitutionModel};
 use crate::tree::NodeIdx::{self, Internal as Int, Leaf};
 use crate::Result;
 
@@ -84,12 +84,12 @@ where
 
 // TODO: Make sure Q matrix makes sense like this ALL the time.
 impl EvolutionaryModel<4> for PIPModel<4> {
-    fn new(model_name: &str, params: &[f64]) -> Result<Self>
+    fn new(model_type: ModelType, params: &[f64]) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
         let (lambda, mu) = PIPModel::<4>::check_pip_params(params)?;
-        let subst_model = DNASubstModel::new(model_name, &params[2..])?;
+        let subst_model = DNASubstModel::new(model_type, &params[2..])?;
         let index = *NUCLEOTIDE_INDEX;
         Ok(PIPModel::make_pip(index, subst_model, mu, lambda))
     }
@@ -121,12 +121,12 @@ impl EvolutionaryModel<4> for PIPModel<4> {
 }
 
 impl EvolutionaryModel<20> for PIPModel<20> {
-    fn new(model_name: &str, params: &[f64]) -> Result<Self>
+    fn new(model_type: ModelType, params: &[f64]) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
         let (lambda, mu) = PIPModel::<20>::check_pip_params(params)?;
-        let subst_model = ProteinSubstModel::new(model_name, &params[2..])?;
+        let subst_model = ProteinSubstModel::new(model_type, &params[2..])?;
         let index = *AMINOACID_INDEX;
         Ok(PIPModel::make_pip(index, subst_model, mu, lambda))
     }

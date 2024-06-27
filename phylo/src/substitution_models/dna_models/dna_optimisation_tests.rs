@@ -8,9 +8,10 @@ use crate::evolutionary_models::{
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::{GapHandling, PhyloInfo};
 use crate::substitution_models::dna_models::{
-    dna_model_optimiser::DNAModelOptimiser, DNALikelihoodCost, DNASubstModel, DNASubstParams,
+    dna_model_optimiser::DNAModelOptimiser, make_dna_model, DNALikelihoodCost, DNAModelType::*,
+    DNASubstModel, DNASubstParams,
 };
-use crate::substitution_models::dna_models::{make_dna_model, DNAModelType};
+use crate::substitution_models::ModelType::DNA;
 
 #[test]
 fn check_likelihood_opt_k80() {
@@ -22,17 +23,17 @@ fn check_likelihood_opt_k80() {
     .unwrap();
 
     let likelihood = DNALikelihoodCost { info: &info };
-    let model = DNASubstModel::new("k80", &[4.0, 1.0]).unwrap();
+    let model = DNASubstModel::new(DNA(JC69), &[4.0, 1.0]).unwrap();
 
-    let params = DNASubstParams::new(&DNAModelType::K80, &[4.0, 1.0]).unwrap();
+    let params = DNASubstParams::new(&K80, &[4.0, 1.0]).unwrap();
     let unopt_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
 
     let (_, _, logl) = DNAModelOptimiser::new(&likelihood)
-        .optimise_parameters(&params, DNAModelType::K80, FrequencyOptimisation::Fixed)
+        .optimise_parameters(&params, K80, FrequencyOptimisation::Fixed)
         .unwrap();
     assert!(logl > unopt_logl);
 
-    let model = DNASubstModel::new("k80", &[1.884815, 1.0]).unwrap();
+    let model = DNASubstModel::new(DNA(K80), &[1.884815, 1.0]).unwrap();
     let expected_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
 
     assert_relative_eq!(logl, expected_logl, epsilon = 1e-6);
@@ -49,7 +50,7 @@ fn check_parameter_optimisation_gtr() {
     .unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
     let phyml_params = DNASubstParams::new(
-        &DNAModelType::GTR,
+        &GTR,
         &[
             0.24720,
             0.35320,
@@ -71,7 +72,7 @@ fn check_parameter_optimisation_gtr() {
     assert_relative_eq!(phyml_logl, -3474.48083, epsilon = 1.0e-5);
 
     let paml_params = DNASubstParams::new(
-        &DNAModelType::GTR,
+        &GTR,
         &[
             0.25318, 0.32894, 0.31196, 0.10592, 0.88892, 0.03190, 0.00001, 0.07102, 0.02418, 1.0,
         ],
@@ -82,20 +83,20 @@ fn check_parameter_optimisation_gtr() {
     assert!(phyml_logl > paml_logl);
 
     let params = DNASubstParams::new(
-        &DNAModelType::GTR,
+        &GTR,
         &[
             0.24720, 0.35320, 0.29540, 0.10420, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
         ],
     )
     .unwrap();
     let (_, _, logl) = DNAModelOptimiser::new(&likelihood)
-        .optimise_parameters(&params, DNAModelType::GTR, FrequencyOptimisation::Fixed)
+        .optimise_parameters(&params, GTR, FrequencyOptimisation::Fixed)
         .unwrap();
     assert!(logl > phyml_logl);
     assert!(logl > paml_logl);
 
     let (iters, _, double_opt_logl) = DNAModelOptimiser::new(&likelihood)
-        .optimise_parameters(&params, DNAModelType::GTR, FrequencyOptimisation::Fixed)
+        .optimise_parameters(&params, GTR, FrequencyOptimisation::Fixed)
         .unwrap();
     assert!(double_opt_logl >= logl);
     assert!(iters < 10);

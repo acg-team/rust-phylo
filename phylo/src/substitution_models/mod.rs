@@ -26,6 +26,13 @@ macro_rules! make_freqs {
     };
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
+pub enum ModelType {
+    DNA(dna_models::DNAModelType),
+    Protein(protein_models::ProteinModelType),
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum SubstParams {
     DNA(dna_models::DNASubstParams),

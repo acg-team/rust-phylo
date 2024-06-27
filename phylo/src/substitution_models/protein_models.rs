@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Display;
 
 use anyhow::bail;
 use lazy_static::lazy_static;
@@ -8,8 +9,8 @@ use crate::evolutionary_models::EvolutionaryModel;
 use crate::likelihood::LikelihoodCostFunction;
 use crate::sequences::{AMINOACIDS, GAP};
 use crate::substitution_models::{
-    FreqVector, ParsimonyModel, SubstMatrix, SubstParams, SubstitutionLikelihoodCost,
-    SubstitutionModel, SubstitutionModelInfo,
+    FreqVector, ModelType, ModelType::Protein, ParsimonyModel, SubstMatrix, SubstParams,
+    SubstitutionLikelihoodCost, SubstitutionModel, SubstitutionModelInfo,
 };
 use crate::{make_freqs, Result, Rounding};
 
@@ -19,6 +20,24 @@ pub(crate) type ProteinFrequencyArray = [f64; 20];
 pub type ProteinSubstModel = SubstitutionModel<20>;
 pub type ProteinLikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 20>;
 pub type ProteinSubstModelInfo = SubstitutionModelInfo<20>;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
+pub enum ProteinModelType {
+    WAG,
+    BLOSUM,
+    HIVB,
+}
+
+impl Display for ProteinModelType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProteinModelType::WAG => write!(f, "WAG"),
+            ProteinModelType::BLOSUM => write!(f, "BLOSUM"),
+            ProteinModelType::HIVB => write!(f, "HIVB"),
+        }
+    }
+}
 
 lazy_static! {
     pub static ref AMINOACID_INDEX: [usize; 255] = {
@@ -90,25 +109,41 @@ impl ProteinSubstModel {
     }
 }
 
+impl ProteinSubstModel {
+    pub fn get_model_type(model_name: &str) -> Result<ModelType> {
+        match model_name.to_uppercase().as_str() {
+            "WAG" => Ok(Protein(ProteinModelType::WAG)),
+            "BLOSUM" => Ok(Protein(ProteinModelType::BLOSUM)),
+            "HIVB" => Ok(Protein(ProteinModelType::HIVB)),
+            _ => bail!("Unknown protein model requested."),
+        }
+    }
+}
+
 impl EvolutionaryModel<20> for ProteinSubstModel {
-    fn new(model_name: &str, _: &[f64]) -> Result<Self>
+    fn new(generic_model: ModelType, _: &[f64]) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
-        let (q, pi) = match model_name.to_uppercase().as_str() {
-            "WAG" => wag()?,
-            "BLOSUM" => blosum()?,
-            "HIVB" => hivb()?,
-            _ => bail!("Unknown protein model requested."),
-        };
-        let mut model = ProteinSubstModel {
-            params: SubstParams::Protein(ProteinSubstParams { pi: pi.clone() }),
-            index: *AMINOACID_INDEX,
-            q,
-            pi,
-        };
-        model.normalise();
-        Ok(model)
+        {
+            if let Protein(model_type) = generic_model {
+                let (q, pi) = match model_type {
+                    ProteinModelType::WAG => wag()?,
+                    ProteinModelType::BLOSUM => blosum()?,
+                    ProteinModelType::HIVB => hivb()?,
+                };
+                let mut model = ProteinSubstModel {
+                    params: SubstParams::Protein(ProteinSubstParams { pi: pi.clone() }),
+                    index: *AMINOACID_INDEX,
+                    q,
+                    pi,
+                };
+                model.normalise();
+                Ok(model)
+            } else {
+                bail!("Invalid protein model requested.")
+            }
+        }
     }
 
     fn get_p(&self, time: f64) -> SubstMatrix {

@@ -8,8 +8,8 @@ use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelParameters}
 use crate::likelihood::LikelihoodCostFunction;
 use crate::sequences::NUCLEOTIDES;
 use crate::substitution_models::{
-    FreqVector, ParsimonyModel, SubstMatrix, SubstParams, SubstitutionLikelihoodCost,
-    SubstitutionModel, SubstitutionModelInfo,
+    FreqVector, ModelType::DNA, ParsimonyModel, SubstMatrix, SubstParams,
+    SubstitutionLikelihoodCost, SubstitutionModel, SubstitutionModelInfo,
 };
 use crate::{Result, Rounding};
 
@@ -20,6 +20,8 @@ pub mod dna_model_optimiser;
 
 pub(crate) mod dna_model_generics;
 pub(crate) use dna_model_generics::*;
+
+use super::ModelType;
 
 pub type DNASubstModel = SubstitutionModel<4>;
 pub type DNALikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 4>;
@@ -32,8 +34,8 @@ pub(crate) fn make_dna_model(params: DNASubstParams) -> DNASubstModel {
     );
     let pi = params.pi.clone();
     let q = match params.model_type {
-        DNAModelType::JC69 => dna_model_generics::jc69_q(),
-        DNAModelType::K80 => dna_model_generics::k80_q(&params),
+        DNAModelType::JC69 => jc69_q(),
+        DNAModelType::K80 => k80_q(&params),
         DNAModelType::HKY => tn93_q(&params),
         DNAModelType::TN93 => tn93_q(&params),
         DNAModelType::GTR => gtr_q(&params),
@@ -46,21 +48,30 @@ pub(crate) fn make_dna_model(params: DNASubstParams) -> DNASubstModel {
     }
 }
 
+impl DNASubstModel {
+    pub fn get_model_type(model_name: &str) -> Result<ModelType> {
+        match model_name.to_uppercase().as_str() {
+            "JC69" => Ok(ModelType::DNA(DNAModelType::JC69)),
+            "K80" => Ok(ModelType::DNA(DNAModelType::K80)),
+            "HKY" => Ok(ModelType::DNA(DNAModelType::HKY)),
+            "TN93" => Ok(ModelType::DNA(DNAModelType::TN93)),
+            "GTR" => Ok(ModelType::DNA(DNAModelType::GTR)),
+            _ => bail!("Unknown DNA model requested."),
+        }
+    }
+}
+
 impl EvolutionaryModel<4> for DNASubstModel {
-    fn new(model_name: &str, params: &[f64]) -> Result<Self>
+    fn new(generic_model: ModelType, params: &[f64]) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
-        let model_type = match model_name.to_uppercase().as_str() {
-            "JC69" => DNAModelType::JC69,
-            "K80" => DNAModelType::K80,
-            "HKY" => DNAModelType::HKY,
-            "TN93" => DNAModelType::TN93,
-            "GTR" => DNAModelType::GTR,
-            _ => bail!("Unknown DNA model requested."),
-        };
-        let params = DNASubstParams::new(&model_type, params)?;
-        Ok(make_dna_model(params))
+        if let DNA(model_type) = generic_model {
+            let params = DNASubstParams::new(&model_type, params)?;
+            Ok(make_dna_model(params))
+        } else {
+            bail!("Invalid DNA model requested.")
+        }
     }
 
     fn get_p(&self, time: f64) -> SubstMatrix {
