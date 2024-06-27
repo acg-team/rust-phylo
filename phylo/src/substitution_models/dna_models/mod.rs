@@ -49,7 +49,7 @@ lazy_static! {
     pub static ref DNA_GAP_SETS: Vec<FreqVector> = {
         let index = &NUCLEOTIDE_INDEX;
         let mut map = Vec::<FreqVector>::new();
-        let mut x_set = FreqVector::from_element(5, 1.0 / 4.0);
+        let mut x_set = make_freqs!(&[1.0 / 4.0; 5]);
         x_set.fill_row(4, 0.0);
         map.resize(255, x_set.clone());
         for (i, elem) in map.iter_mut().enumerate() {
@@ -102,7 +102,7 @@ lazy_static! {
     pub static ref DNA_SETS: Vec<FreqVector> = {
         let index = &NUCLEOTIDE_INDEX;
         let mut map = Vec::<FreqVector>::new();
-        map.resize(255, FreqVector::from_element(4, 1.0 / 4.0));
+        map.resize(255, make_freqs!(&[1.0 / 4.0; 4]));
         for (i, elem) in map.iter_mut().enumerate() {
             let char = i as u8 as char;
             elem.set_column(
@@ -113,6 +113,12 @@ lazy_static! {
                         set.fill_row(index[char as usize] as usize, 1.0);
                         set
                     }
+                    'M' | 'm' => make_freqs!(&[0.0, 1.0 / 2.0, 1.0 / 2.0, 0.0]),
+                    'R' | 'r' => make_freqs!(&[0.0, 0.0, 1.0 / 2.0, 1.0 / 2.0]),
+                    'W' | 'w' => make_freqs!(&[1.0 / 2.0, 0.0, 1.0 / 2.0, 0.0]),
+                    'S' | 's' => make_freqs!(&[0.0, 1.0 / 2.0, 0.0, 1.0 / 2.0]),
+                    'Y' | 'y' => make_freqs!(&[1.0 / 2.0, 1.0 / 2.0, 0.0, 0.0]),
+                    'K' | 'k' => make_freqs!(&[1.0 / 2.0, 0.0, 0.0, 1.0 / 2.0]),
                     'V' | 'v' => {
                         make_freqs!(&[0.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0])
                     }
@@ -125,21 +131,13 @@ lazy_static! {
                     'H' | 'h' => {
                         make_freqs!(&[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 0.0])
                     }
-                    'M' | 'm' => make_freqs!(&[0.0, 1.0 / 2.0, 1.0 / 2.0, 0.0]),
-                    'R' | 'r' => make_freqs!(&[0.0, 0.0, 1.0 / 2.0, 1.0 / 2.0]),
-                    'W' | 'w' => make_freqs!(&[1.0 / 2.0, 0.0, 1.0 / 2.0, 0.0]),
-                    'S' | 's' => make_freqs!(&[0.0, 1.0 / 2.0, 0.0, 1.0 / 2.0]),
-                    'Y' | 'y' => make_freqs!(&[1.0 / 2.0, 1.0 / 2.0, 0.0, 0.0]),
-                    'K' | 'k' => make_freqs!(&[1.0 / 2.0, 0.0, 0.0, 1.0 / 2.0]),
+
                     _ => continue,
                 },
             );
         }
         map
     };
-}
-
-lazy_static! {
     pub static ref NUCLEOTIDE_INDEX: [i32; 255] = {
         let mut index = [-1_i32; 255];
         for (i, char) in charify(NUCLEOTIDES_STR).into_iter().enumerate() {

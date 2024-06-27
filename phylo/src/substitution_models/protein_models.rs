@@ -11,7 +11,7 @@ use crate::substitution_models::{
     FreqVector, ParsimonyModel, SubstMatrix, SubstParams, SubstitutionLikelihoodCost,
     SubstitutionModel, SubstitutionModelInfo,
 };
-use crate::{Result, Rounding};
+use crate::{make_freqs, Result, Rounding};
 
 pub(crate) type ProteinSubstArray = [f64; 400];
 pub(crate) type ProteinFrequencyArray = [f64; 20];
@@ -33,7 +33,7 @@ lazy_static! {
     pub static ref PROTEIN_GAP_SETS: Vec<FreqVector> = {
         let index = &AMINOACID_INDEX;
         let mut map = Vec::<FreqVector>::new();
-        let mut x_set = FreqVector::from_element(21, 1.0 / 20.0);
+        let mut x_set = make_freqs!(&[1.0 / 20.0; 21]);
         x_set.fill_row(20, 0.0);
         map.resize(255, x_set.clone());
         for (i, elem) in map.iter_mut().enumerate() {
@@ -81,7 +81,7 @@ lazy_static! {
     pub static ref PROTEIN_SETS: Vec<FreqVector> = {
         let index = &AMINOACID_INDEX;
         let mut map = Vec::<FreqVector>::new();
-        map.resize(255, FreqVector::from_element(20, 1.0 / 20.0));
+        map.resize(255, make_freqs!(&[1.0 / 20.0; 20]));
         for (i, elem) in map.iter_mut().enumerate() {
             let char = i as u8 as char;
             elem.set_column(
@@ -207,21 +207,21 @@ impl<'a> LikelihoodCostFunction<'a, 20> for SubstitutionLikelihoodCost<'a, 20> {
 pub fn wag() -> Result<(SubstMatrix, FreqVector)> {
     Ok((
         SubstMatrix::from_row_slice(20, 20, &WAG_ARR),
-        FreqVector::from_column_slice(&WAG_PI_ARR),
+        make_freqs!(&WAG_PI_ARR),
     ))
 }
 
 pub fn blosum() -> Result<(SubstMatrix, FreqVector)> {
     Ok((
         SubstMatrix::from_row_slice(20, 20, &BLOSUM_ARR),
-        FreqVector::from_column_slice(&BLOSUM_PI_ARR),
+        make_freqs!(&BLOSUM_PI_ARR),
     ))
 }
 
 pub fn hivb() -> Result<(SubstMatrix, FreqVector)> {
     Ok((
         SubstMatrix::from_row_slice(20, 20, &HIVB_ARR),
-        FreqVector::from_column_slice(&HIVB_PI_ARR),
+        make_freqs!(&HIVB_PI_ARR),
     ))
 }
 

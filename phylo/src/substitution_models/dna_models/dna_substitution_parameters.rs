@@ -5,7 +5,7 @@ use log::warn;
 use crate::evolutionary_models::EvolutionaryModelParameters;
 use crate::substitution_models::dna_models::DNAModelType;
 use crate::substitution_models::FreqVector;
-use crate::Result;
+use crate::{make_freqs, Result};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Parameter {
@@ -144,7 +144,7 @@ impl DNASubstParams {
                 && self.rcg == 1.0
                 && self.rag == 1.0
         );
-        debug_assert_eq!(self.pi, FreqVector::from_column_slice(&[0.25; 4]));
+        debug_assert_eq!(self.pi, make_freqs!(&[0.25; 4]));
         format!("[lambda = {}]", self.rtc)
     }
 
@@ -155,7 +155,7 @@ impl DNASubstParams {
                 && self.rta == self.rca
                 && self.rta == self.rcg
         );
-        debug_assert_eq!(self.pi, FreqVector::from_column_slice(&[0.25; 4]));
+        debug_assert_eq!(self.pi, make_freqs!(&[0.25; 4]));
         format!("[alpha = {}, beta = {}]", self.rtc, self.rta)
     }
 

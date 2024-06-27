@@ -8,6 +8,7 @@ use nalgebra::{dvector, Const, DMatrix, DVector, DimMin};
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::likelihood::LikelihoodCostFunction;
+use crate::make_freqs;
 use crate::phylo_info::{GapHandling, PhyloInfo};
 use crate::pip_model::{PIPLikelihoodCost, PIPModel, PIPModelInfo};
 use crate::sequences::{charify, AMINOACIDS_STR, NUCLEOTIDES_STR};
@@ -79,7 +80,7 @@ fn protein_pip_correct(
     let pip_model = PIPModel::<20>::new(model_name, model_params).unwrap();
     assert_eq!(pip_model.lambda, model_params[0]);
     assert_eq!(pip_model.mu, model_params[1]);
-    let frequencies = FreqVector::from_column_slice(pi_array).insert_row(20, 0.0);
+    let frequencies = make_freqs!(pi_array).insert_row(20, 0.0);
     assert_eq!(
         EvolutionaryModel::get_stationary_distribution(&pip_model),
         &frequencies
@@ -247,10 +248,7 @@ fn protein_char_probabilities(
     let actual = pip.get_char_probability(&PROTEIN_GAP_SETS[b'-' as usize]);
     assert_eq!(actual.len(), 21);
     assert_relative_eq!(actual.sum(), 1.0);
-    assert_relative_eq!(
-        actual,
-        FreqVector::from_column_slice(&[0.0; 20]).insert_row(20, 1.0)
-    );
+    assert_relative_eq!(actual, make_freqs!(&[0.0; 20]).insert_row(20, 1.0));
 }
 
 #[rstest]
