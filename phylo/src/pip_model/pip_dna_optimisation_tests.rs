@@ -2,13 +2,15 @@ use std::path::PathBuf;
 
 use approx::assert_relative_eq;
 
-use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelParameters};
+use crate::evolutionary_models::{
+    DNAModelType::{self, *},
+    EvolutionaryModel, EvolutionaryModelParameters,
+    ModelType::DNA,
+};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::{GapHandling, PhyloInfo};
 use crate::pip_model::pip_model_optimiser::PIPDNAModelOptimiser;
 use crate::pip_model::{PIPDNAParams, PIPLikelihoodCost, PIPModel};
-use crate::substitution_models::dna_models::DNAModelType::{self, *};
-use crate::substitution_models::ModelType::DNA;
 
 #[test]
 fn check_parameter_optimisation_pip_arpiptest() {

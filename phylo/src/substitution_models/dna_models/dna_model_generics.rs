@@ -1,35 +1,13 @@
-use std::fmt::Display;
 use std::ops::Div;
 
 use anyhow::bail;
 use lazy_static::lazy_static;
 use log::warn;
 
+use crate::evolutionary_models::DNAModelType;
 use crate::sequences::{GAP, NUCLEOTIDES};
 use crate::substitution_models::{dna_models::DNASubstParams, FreqVector, SubstMatrix};
 use crate::{make_freqs, Result};
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[allow(clippy::upper_case_acronyms)]
-pub enum DNAModelType {
-    JC69,
-    K80,
-    HKY,
-    TN93,
-    GTR,
-}
-
-impl Display for DNAModelType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DNAModelType::JC69 => write!(f, "JC69"),
-            DNAModelType::K80 => write!(f, "K80"),
-            DNAModelType::HKY => write!(f, "HKY"),
-            DNAModelType::TN93 => write!(f, "TN93"),
-            DNAModelType::GTR => write!(f, "GTR"),
-        }
-    }
-}
 
 fn make_pi(pi_array: &[f64]) -> Result<FreqVector> {
     let pi = make_freqs!(pi_array);

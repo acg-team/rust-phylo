@@ -4,12 +4,12 @@ use std::vec;
 use anyhow::bail;
 use nalgebra::{Const, DMatrix, DVector, DimMin};
 
-use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
+use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo, ModelType};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::{DNASubstModel, NUCLEOTIDE_INDEX};
 use crate::substitution_models::protein_models::{ProteinSubstModel, AMINOACID_INDEX};
-use crate::substitution_models::{FreqVector, ModelType, SubstMatrix, SubstitutionModel};
+use crate::substitution_models::{FreqVector, SubstMatrix, SubstitutionModel};
 use crate::tree::NodeIdx::{self, Internal as Int, Leaf};
 use crate::Result;
 

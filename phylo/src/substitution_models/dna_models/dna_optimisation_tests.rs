@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use approx::assert_relative_eq;
 
 use crate::evolutionary_models::{
-    EvolutionaryModel, EvolutionaryModelParameters, FrequencyOptimisation,
+    EvolutionaryModel, EvolutionaryModelParameters, FrequencyOptimisation, ModelType::DNA,
 };
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::{GapHandling, PhyloInfo};
@@ -11,7 +11,6 @@ use crate::substitution_models::dna_models::{
     dna_model_optimiser::DNAModelOptimiser, make_dna_model, DNALikelihoodCost, DNAModelType::*,
     DNASubstModel, DNASubstParams,
 };
-use crate::substitution_models::ModelType::DNA;
 
 #[test]
 fn check_likelihood_opt_k80() {

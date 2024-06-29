@@ -1,6 +1,8 @@
+use std::fmt::Display;
+
 use crate::phylo_info::PhyloInfo;
-use crate::substitution_models::dna_models::{DNAModelType, Parameter};
-use crate::substitution_models::{FreqVector, ModelType, SubstMatrix};
+use crate::substitution_models::dna_models::Parameter;
+use crate::substitution_models::{FreqVector, SubstMatrix};
 use crate::Result;
 
 pub enum FrequencyOptimisation {
@@ -9,8 +11,54 @@ pub enum FrequencyOptimisation {
     Fixed,
 }
 
-pub trait EvolutionaryModelParameters {
-    fn new(model_type: &DNAModelType, params: &[f64]) -> Result<Self>
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
+pub enum ModelType {
+    DNA(DNAModelType),
+    Protein(ProteinModelType),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
+pub enum DNAModelType {
+    JC69,
+    K80,
+    HKY,
+    TN93,
+    GTR,
+}
+impl Display for DNAModelType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DNAModelType::JC69 => write!(f, "JC69"),
+            DNAModelType::K80 => write!(f, "K80"),
+            DNAModelType::HKY => write!(f, "HKY"),
+            DNAModelType::TN93 => write!(f, "TN93"),
+            DNAModelType::GTR => write!(f, "GTR"),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
+pub enum ProteinModelType {
+    WAG,
+    BLOSUM,
+    HIVB,
+}
+
+impl Display for ProteinModelType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProteinModelType::WAG => write!(f, "WAG"),
+            ProteinModelType::BLOSUM => write!(f, "BLOSUM"),
+            ProteinModelType::HIVB => write!(f, "HIVB"),
+        }
+    }
+}
+
+pub trait EvolutionaryModelParameters<T> {
+    fn new(model_type: &T, params: &[f64]) -> Result<Self>
     where
         Self: Sized;
     fn get_value(&self, param_name: &Parameter) -> f64;

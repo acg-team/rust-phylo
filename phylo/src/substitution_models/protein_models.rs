@@ -1,16 +1,19 @@
 use std::collections::HashMap;
-use std::fmt::Display;
 
 use anyhow::bail;
 use lazy_static::lazy_static;
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::EvolutionaryModel;
+use crate::evolutionary_models::{
+    EvolutionaryModel,
+    ModelType::{self, Protein},
+    ProteinModelType,
+};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::sequences::{AMINOACIDS, GAP};
 use crate::substitution_models::{
-    FreqVector, ModelType, ModelType::Protein, ParsimonyModel, SubstMatrix, SubstParams,
-    SubstitutionLikelihoodCost, SubstitutionModel, SubstitutionModelInfo,
+    FreqVector, ParsimonyModel, SubstMatrix, SubstParams, SubstitutionLikelihoodCost,
+    SubstitutionModel, SubstitutionModelInfo,
 };
 use crate::{make_freqs, Result, Rounding};
 
@@ -20,24 +23,6 @@ pub(crate) type ProteinFrequencyArray = [f64; 20];
 pub type ProteinSubstModel = SubstitutionModel<20>;
 pub type ProteinLikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 20>;
 pub type ProteinSubstModelInfo = SubstitutionModelInfo<20>;
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[allow(clippy::upper_case_acronyms)]
-pub enum ProteinModelType {
-    WAG,
-    BLOSUM,
-    HIVB,
-}
-
-impl Display for ProteinModelType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ProteinModelType::WAG => write!(f, "WAG"),
-            ProteinModelType::BLOSUM => write!(f, "BLOSUM"),
-            ProteinModelType::HIVB => write!(f, "HIVB"),
-        }
-    }
-}
 
 lazy_static! {
     pub static ref AMINOACID_INDEX: [usize; 255] = {

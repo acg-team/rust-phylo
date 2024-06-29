@@ -1,15 +1,12 @@
 use std::fmt::Display;
 
-use crate::substitution_models::dna_models::DNAModelType;
+use crate::evolutionary_models::{DNAModelType, EvolutionaryModelParameters};
+use crate::substitution_models::dna_models::{
+    DNASubstParams,
+    Parameter::{self, *},
+};
 use crate::substitution_models::FreqVector;
 use crate::Result;
-use crate::{
-    evolutionary_models::EvolutionaryModelParameters,
-    substitution_models::dna_models::{
-        DNASubstParams,
-        Parameter::{self, *},
-    },
-};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PIPDNAParams {
@@ -19,7 +16,7 @@ pub struct PIPDNAParams {
     pub mu: f64,
 }
 
-impl EvolutionaryModelParameters for PIPDNAParams {
+impl EvolutionaryModelParameters<DNAModelType> for PIPDNAParams {
     fn new(model_type: &DNAModelType, params: &[f64]) -> Result<Self> {
         let lambda = params[0];
         let mu = params[1];

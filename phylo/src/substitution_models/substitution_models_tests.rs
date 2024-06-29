@@ -8,21 +8,21 @@ use approx::assert_relative_eq;
 use nalgebra::dvector;
 use rand::Rng;
 
-use crate::evolutionary_models::EvolutionaryModel;
+use crate::evolutionary_models::{
+    DNAModelType::*,
+    EvolutionaryModel,
+    ModelType::{self, *},
+    ProteinModelType::*,
+};
 use crate::sequences::AMINOACIDS;
 use crate::substitution_models::dna_models::dna_model_generics::{
     gtr_params, hky_params, jc69_params, k80_params, tn93_params,
 };
-use crate::substitution_models::dna_models::{DNAModelType::*, DNASubstModel, DNA_SETS};
+use crate::substitution_models::dna_models::{DNASubstModel, DNA_SETS};
 use crate::substitution_models::protein_models::{
-    ProteinModelType::*, ProteinSubstArray, ProteinSubstModel, BLOSUM_PI_ARR, HIVB_PI_ARR,
-    PROTEIN_SETS, WAG_PI_ARR,
+    ProteinSubstArray, ProteinSubstModel, BLOSUM_PI_ARR, HIVB_PI_ARR, PROTEIN_SETS, WAG_PI_ARR,
 };
-use crate::substitution_models::{
-    FreqVector,
-    ModelType::{self, *},
-    ParsimonyModel, SubstMatrix,
-};
+use crate::substitution_models::{FreqVector, ParsimonyModel, SubstMatrix};
 use crate::Rounding as R;
 
 #[cfg(test)]

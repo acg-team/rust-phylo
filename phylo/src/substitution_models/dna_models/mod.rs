@@ -4,12 +4,15 @@ use anyhow::bail;
 use log::info;
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelParameters};
+use crate::evolutionary_models::{
+    DNAModelType, EvolutionaryModel, EvolutionaryModelParameters,
+    ModelType::{self, DNA},
+};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::sequences::NUCLEOTIDES;
 use crate::substitution_models::{
-    FreqVector, ModelType::DNA, ParsimonyModel, SubstMatrix, SubstParams,
-    SubstitutionLikelihoodCost, SubstitutionModel, SubstitutionModelInfo,
+    FreqVector, ParsimonyModel, SubstMatrix, SubstParams, SubstitutionLikelihoodCost,
+    SubstitutionModel, SubstitutionModelInfo,
 };
 use crate::{Result, Rounding};
 
@@ -20,8 +23,6 @@ pub mod dna_model_optimiser;
 
 pub(crate) mod dna_model_generics;
 pub(crate) use dna_model_generics::*;
-
-use super::ModelType;
 
 pub type DNASubstModel = SubstitutionModel<4>;
 pub type DNALikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 4>;
@@ -51,11 +52,11 @@ pub(crate) fn make_dna_model(params: DNASubstParams) -> DNASubstModel {
 impl DNASubstModel {
     pub fn get_model_type(model_name: &str) -> Result<ModelType> {
         match model_name.to_uppercase().as_str() {
-            "JC69" => Ok(ModelType::DNA(DNAModelType::JC69)),
-            "K80" => Ok(ModelType::DNA(DNAModelType::K80)),
-            "HKY" => Ok(ModelType::DNA(DNAModelType::HKY)),
-            "TN93" => Ok(ModelType::DNA(DNAModelType::TN93)),
-            "GTR" => Ok(ModelType::DNA(DNAModelType::GTR)),
+            "JC69" => Ok(DNA(DNAModelType::JC69)),
+            "K80" => Ok(DNA(DNAModelType::K80)),
+            "HKY" => Ok(DNA(DNAModelType::HKY)),
+            "TN93" => Ok(DNA(DNAModelType::TN93)),
+            "GTR" => Ok(DNA(DNAModelType::GTR)),
             _ => bail!("Unknown DNA model requested."),
         }
     }

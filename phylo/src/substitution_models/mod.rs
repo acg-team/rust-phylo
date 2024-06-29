@@ -4,14 +4,13 @@ use std::ops::Mul;
 use anyhow::bail;
 use nalgebra::{Const, DMatrix, DVector, DimMin};
 use ordered_float::OrderedFloat;
+use protein_models::ProteinSubstModel;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::DNASubstModel;
 use crate::tree::NodeIdx;
 use crate::{f64_h, Result, Rounding};
-
-use self::protein_models::ProteinSubstModel;
 
 pub mod dna_models;
 pub mod protein_models;
@@ -24,13 +23,6 @@ macro_rules! make_freqs {
     ($slice:expr) => {
         FreqVector::from_column_slice($slice)
     };
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[allow(clippy::upper_case_acronyms)]
-pub enum ModelType {
-    DNA(dna_models::DNAModelType),
-    Protein(protein_models::ProteinModelType),
 }
 
 #[derive(Clone, Debug, PartialEq)]

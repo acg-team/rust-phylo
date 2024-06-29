@@ -5,21 +5,18 @@ use std::path::PathBuf;
 use approx::assert_relative_eq;
 use bio::io::fasta::Record;
 
-use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
+use crate::evolutionary_models::{
+    DNAModelType::*,
+    EvolutionaryModel, EvolutionaryModelInfo,
+    ModelType::{self, *},
+    ProteinModelType::*,
+};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::make_freqs;
 use crate::phylo_info::{GapHandling, PhyloInfo};
-use crate::substitution_models::dna_models::{
-    DNALikelihoodCost, DNAModelType::*, DNASubstModel, DNASubstModelInfo,
-};
-use crate::substitution_models::protein_models::{
-    ProteinLikelihoodCost, ProteinModelType::*, ProteinSubstModel,
-};
-use crate::substitution_models::{
-    FreqVector,
-    ModelType::{self, *},
-    SubstMatrix,
-};
+use crate::substitution_models::dna_models::{DNALikelihoodCost, DNASubstModel, DNASubstModelInfo};
+use crate::substitution_models::protein_models::{ProteinLikelihoodCost, ProteinSubstModel};
+use crate::substitution_models::{FreqVector, SubstMatrix};
 use crate::tree::{tree_parser, NodeIdx::Leaf as L, Tree};
 
 #[cfg(test)]

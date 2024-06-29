@@ -3,8 +3,7 @@ use std::fmt::Display;
 use log::warn;
 
 use crate::evolutionary_models::EvolutionaryModelParameters;
-use crate::substitution_models::dna_models::DNAModelType;
-use crate::substitution_models::FreqVector;
+use crate::substitution_models::{dna_models::DNAModelType, FreqVector};
 use crate::{make_freqs, Result};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -38,8 +37,11 @@ pub struct DNASubstParams {
     pub rag: f64,
 }
 
-impl EvolutionaryModelParameters for DNASubstParams {
-    fn new(model_type: &DNAModelType, params: &[f64]) -> Result<Self> {
+impl EvolutionaryModelParameters<DNAModelType> for DNASubstParams {
+    fn new(model_type: &DNAModelType, params: &[f64]) -> Result<Self>
+    where
+        Self: Sized,
+    {
         match model_type {
             DNAModelType::JC69 => jc69_params(params),
             DNAModelType::K80 => k80_params(params),

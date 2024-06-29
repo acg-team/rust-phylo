@@ -6,25 +6,25 @@ use approx::assert_relative_eq;
 use bio::io::fasta::Record;
 use nalgebra::{dvector, Const, DMatrix, DVector, DimMin};
 
-use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
+use crate::evolutionary_models::{
+    DNAModelType::*,
+    EvolutionaryModel, EvolutionaryModelInfo,
+    ModelType::{self, *},
+    ProteinModelType::*,
+};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::make_freqs;
 use crate::phylo_info::{GapHandling, PhyloInfo};
 use crate::pip_model::{PIPLikelihoodCost, PIPModel, PIPModelInfo};
 use crate::sequences::{AMINOACIDS, GAP, NUCLEOTIDES};
-use crate::substitution_models::dna_models::{DNAModelType::*, DNASubstModel, DNA_GAP_SETS};
+use crate::substitution_models::dna_models::{DNASubstModel, DNA_GAP_SETS};
 use crate::substitution_models::protein_models::{
-    ProteinModelType::*, ProteinSubstModel, BLOSUM_PI_ARR, HIVB_PI_ARR, PROTEIN_GAP_SETS,
-    WAG_PI_ARR,
+    ProteinSubstModel, BLOSUM_PI_ARR, HIVB_PI_ARR, PROTEIN_GAP_SETS, WAG_PI_ARR,
 };
 use crate::substitution_models::substitution_models_tests::{
     gtr_char_probs_data, protein_char_probs_data,
 };
-use crate::substitution_models::{
-    FreqVector,
-    ModelType::{self, *},
-    SubstMatrix, SubstitutionModel,
-};
+use crate::substitution_models::{FreqVector, SubstMatrix, SubstitutionModel};
 use crate::tree::{tree_parser, Tree};
 
 const UNNORMALIZED_PIP_HKY_Q: [f64; 25] = [
