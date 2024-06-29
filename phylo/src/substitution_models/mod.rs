@@ -4,11 +4,11 @@ use std::ops::Mul;
 use anyhow::bail;
 use nalgebra::{Const, DMatrix, DVector, DimMin};
 use ordered_float::OrderedFloat;
-use protein_models::ProteinSubstModel;
 
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::DNASubstModel;
+use crate::substitution_models::protein_models::ProteinSubstModel;
 use crate::tree::NodeIdx;
 use crate::{f64_h, Result, Rounding};
 

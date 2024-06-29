@@ -26,6 +26,7 @@ pub enum DNAModelType {
     HKY,
     TN93,
     GTR,
+    UNDEF,
 }
 impl Display for DNAModelType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -35,6 +36,7 @@ impl Display for DNAModelType {
             DNAModelType::HKY => write!(f, "HKY"),
             DNAModelType::TN93 => write!(f, "TN93"),
             DNAModelType::GTR => write!(f, "GTR"),
+            DNAModelType::UNDEF => write!(f, "Undefined"),
         }
     }
 }
@@ -45,6 +47,7 @@ pub enum ProteinModelType {
     WAG,
     BLOSUM,
     HIVB,
+    UNDEF,
 }
 
 impl Display for ProteinModelType {
@@ -53,6 +56,7 @@ impl Display for ProteinModelType {
             ProteinModelType::WAG => write!(f, "WAG"),
             ProteinModelType::BLOSUM => write!(f, "BLOSUM"),
             ProteinModelType::HIVB => write!(f, "HIVB"),
+            ProteinModelType::UNDEF => write!(f, "UNDEF"),
         }
     }
 }

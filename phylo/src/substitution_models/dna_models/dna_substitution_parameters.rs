@@ -48,6 +48,7 @@ impl EvolutionaryModelParameters<DNAModelType> for DNASubstParams {
             DNAModelType::HKY => hky_params(params),
             DNAModelType::TN93 => tn93_params(params),
             DNAModelType::GTR => gtr_params(params),
+            _ => unreachable!(),
         }
     }
 
@@ -126,7 +127,6 @@ impl DNASubstParams {
                 ("alpha2", vec![Rag]),
                 ("beta", vec![Rta, Rtg, Rca, Rcg]),
             ],
-
             DNAModelType::GTR => vec![
                 ("rca", vec![Rca]),
                 ("rcg", vec![Rcg]),
@@ -134,6 +134,7 @@ impl DNASubstParams {
                 ("rtc", vec![Rtc]),
                 ("rtg", vec![Rtg]),
             ],
+            _ => unreachable!(),
         }
     }
 

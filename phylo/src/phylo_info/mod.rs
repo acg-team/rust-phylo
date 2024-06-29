@@ -6,8 +6,9 @@ use bio::io::fasta::Record;
 use log::{info, warn};
 use nalgebra::{DMatrix, DVector};
 
+use crate::evolutionary_models::ModelType;
 use crate::io::{self, DataError};
-use crate::sequences::{dna_alphabet, get_sequence_type, protein_alphabet, SequenceType};
+use crate::sequences::{dna_alphabet, get_sequence_type, protein_alphabet};
 use crate::substitution_models::dna_models::{DNA_GAP_SETS, DNA_SETS};
 use crate::substitution_models::protein_models::{PROTEIN_GAP_SETS, PROTEIN_SETS};
 use crate::tree::{build_nj_tree, Tree};
@@ -29,7 +30,7 @@ pub enum GapHandling {
 pub struct PhyloInfo {
     /// Unaligned phylogenetic sequences.
     pub sequences: Vec<Record>,
-    pub sequence_type: SequenceType,
+    pub sequence_type: ModelType,
     /// Multiple sequence alignment of the sequences, if they are aligned.
     pub msa: Option<Vec<Record>>,
     /// Phylogenetic tree.
@@ -73,8 +74,8 @@ impl PhyloInfo {
     pub fn get_counts(&self) -> HashMap<u8, f64> {
         let mut freqs = HashMap::new();
         for char in match self.sequence_type {
-            SequenceType::DNA => dna_alphabet(),
-            SequenceType::Protein => protein_alphabet(),
+            ModelType::DNA(_) => dna_alphabet(),
+            ModelType::Protein(_) => protein_alphabet(),
         }
         .symbols
         .iter()
@@ -97,7 +98,7 @@ impl PhyloInfo {
     /// from scratch every time the likelihood is optimised.
     fn create_leaf_encoding(
         msa: &Option<Vec<Record>>,
-        sequence_type: &SequenceType,
+        sequence_type: &ModelType,
         gap_handling: &GapHandling,
     ) -> Vec<DMatrix<f64>> {
         match msa {
@@ -124,15 +125,15 @@ impl PhyloInfo {
     /// Returns the character encoding for the given character.
     fn get_leaf_encoding(
         char: u8,
-        sequence_type: &SequenceType,
+        sequence_type: &ModelType,
         gap_handling: &GapHandling,
     ) -> DVector<f64> {
         match sequence_type {
-            SequenceType::DNA => match gap_handling {
+            ModelType::DNA(_) => match gap_handling {
                 GapHandling::Ambiguous => DNA_SETS[char as usize].clone(),
                 GapHandling::Proper => DNA_GAP_SETS[char as usize].clone(),
             },
-            SequenceType::Protein => match gap_handling {
+            ModelType::Protein(_) => match gap_handling {
                 GapHandling::Ambiguous => PROTEIN_SETS[char as usize].clone(),
                 GapHandling::Proper => PROTEIN_GAP_SETS[char as usize].clone(),
             },

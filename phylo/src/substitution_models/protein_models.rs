@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::bail;
 use lazy_static::lazy_static;
+use log::warn;
 use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::{
@@ -106,29 +107,34 @@ impl ProteinSubstModel {
 }
 
 impl EvolutionaryModel<20> for ProteinSubstModel {
-    fn new(generic_model: ModelType, _: &[f64]) -> Result<Self>
+    fn new(generic_model_type: ModelType, _: &[f64]) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
-        {
-            if let Protein(model_type) = generic_model {
-                let (q, pi) = match model_type {
-                    ProteinModelType::WAG => wag()?,
-                    ProteinModelType::BLOSUM => blosum()?,
-                    ProteinModelType::HIVB => hivb()?,
-                };
-                let mut model = ProteinSubstModel {
-                    params: SubstParams::Protein(ProteinSubstParams { pi: pi.clone() }),
-                    index: *AMINOACID_INDEX,
-                    q,
-                    pi,
-                };
-                model.normalise();
-                Ok(model)
+        let model_type = if let Protein(model_type) = generic_model_type {
+            if model_type == ProteinModelType::UNDEF {
+                warn!("No model provided, defaulting to WAG.");
+                ProteinModelType::WAG
             } else {
-                bail!("Invalid protein model requested.")
+                model_type
             }
-        }
+        } else {
+            bail!("Invalid model requested");
+        };
+        let (q, pi) = match model_type {
+            ProteinModelType::WAG => wag()?,
+            ProteinModelType::BLOSUM => blosum()?,
+            ProteinModelType::HIVB => hivb()?,
+            _ => unreachable!(),
+        };
+        let mut model = ProteinSubstModel {
+            params: SubstParams::Protein(ProteinSubstParams { pi: pi.clone() }),
+            index: *AMINOACID_INDEX,
+            q,
+            pi,
+        };
+        model.normalise();
+        Ok(model)
     }
 
     fn get_p(&self, time: f64) -> SubstMatrix {

@@ -1,11 +1,16 @@
 use bio::alphabets::Alphabet;
 use bio::io::fasta::Record;
 
-#[derive(PartialEq, Eq, Debug)]
-pub enum SequenceType {
-    DNA,
-    Protein,
-}
+use crate::evolutionary_models::{
+    DNAModelType,
+    ModelType::{self, *},
+    ProteinModelType,
+};
+// #[derive(PartialEq, Eq, Debug)]
+// pub enum SequenceType {
+//     DNA,
+//     Protein,
+// }
 
 pub static AMINOACIDS: &[u8] = b"ARNDCQEGHILKMFPSTWYV";
 pub static AMB_AMINOACIDS: &[u8] = b"BJZX";
@@ -29,14 +34,14 @@ pub fn protein_alphabet() -> Alphabet {
     Alphabet::new(aminoacids)
 }
 
-pub fn get_sequence_type(sequences: &[Record]) -> SequenceType {
+pub fn get_sequence_type(sequences: &[Record]) -> ModelType {
     let dna_alphabet = dna_alphabet();
     for record in sequences {
         if !dna_alphabet.is_word(record.seq()) {
-            return SequenceType::Protein;
+            return Protein(ProteinModelType::UNDEF);
         }
     }
-    SequenceType::DNA
+    DNA(DNAModelType::UNDEF)
 }
 
 #[cfg(test)]

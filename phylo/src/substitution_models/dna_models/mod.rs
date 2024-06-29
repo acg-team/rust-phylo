@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::bail;
-use log::info;
+use log::{info, warn};
 use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::{
@@ -40,6 +40,9 @@ pub(crate) fn make_dna_model(params: DNASubstParams) -> DNASubstModel {
         DNAModelType::HKY => tn93_q(&params),
         DNAModelType::TN93 => tn93_q(&params),
         DNAModelType::GTR => gtr_q(&params),
+        DNAModelType::UNDEF => {
+            unreachable!("DNA substitution model should have been defined by now.")
+        }
     };
     DNASubstModel {
         params: SubstParams::DNA(params),
@@ -63,16 +66,25 @@ impl DNASubstModel {
 }
 
 impl EvolutionaryModel<4> for DNASubstModel {
-    fn new(generic_model: ModelType, params: &[f64]) -> Result<Self>
+    fn new(generic_model_type: ModelType, params: &[f64]) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
-        if let DNA(model_type) = generic_model {
-            let params = DNASubstParams::new(&model_type, params)?;
-            Ok(make_dna_model(params))
+        let (model_type, params) = if let DNA(model_type) = generic_model_type {
+            if model_type == DNAModelType::UNDEF {
+                warn!("No model provided, defaulting to GTR.");
+                (
+                    DNAModelType::GTR,
+                    [0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0].as_slice(),
+                )
+            } else {
+                (model_type, params)
+            }
         } else {
-            bail!("Invalid DNA model requested.")
-        }
+            bail!("Invalid model requested.");
+        };
+        let params = DNASubstParams::new(&model_type, params)?;
+        Ok(make_dna_model(params))
     }
 
     fn get_p(&self, time: f64) -> SubstMatrix {
