@@ -13,6 +13,43 @@ use crate::substitution_models::dna_models::{
     DNASubstParams,
 };
 
+// TODO: add tests to ensure model parameters are still valid after optimisation (e.g. K80 has equal frequencies)
+
+// fn check_as_jc69(&self) {
+//     debug_assert!(
+//         self.rtc == 1.0
+//             && self.rta == 1.0
+//             && self.rtg == 1.0
+//             && self.rca == 1.0
+//             && self.rcg == 1.0
+//             && self.rag == 1.0
+//     );
+//     debug_assert_eq!(self.pi, frequencies!(&[0.25; 4]));
+// }
+
+// fn check_as_k80(&self) {
+//     debug_assert!(
+//         self.rtc == self.rag
+//             && self.rta == self.rtg
+//             && self.rta == self.rca
+//             && self.rta == self.rcg
+//     );
+//     debug_assert_eq!(self.pi, frequencies!(&[0.25; 4]));
+// }
+
+// fn check_as_hky(&self) {
+//     debug_assert!(
+//         self.rtc == self.rag
+//             && self.rta == self.rtg
+//             && self.rta == self.rca
+//             && self.rta == self.rcg
+//     );
+// }
+
+// fn check_as_tn93(&self) {
+//     debug_assert!(self.rta == self.rtg && self.rta == self.rca && self.rta == self.rcg);
+// }
+
 #[test]
 fn check_likelihood_opt_k80() {
     let info = PhyloInfo::from_files(
