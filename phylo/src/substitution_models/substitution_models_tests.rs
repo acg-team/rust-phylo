@@ -74,13 +74,13 @@ pub(crate) fn protein_char_probs_data(pi: &[f64]) -> HashMap<u8, FreqVector> {
         (b'B', compile_aa_probability(&[b'D', b'N'], pi)),
         (b'Z', compile_aa_probability(&[b'E', b'Q'], pi)),
         (b'J', compile_aa_probability(&[b'I', b'L'], pi)),
-        (b'X', make_freqs!(pi)),
+        (b'X', frequencies!(pi)),
     ])
 }
 
 #[cfg(test)]
 fn compile_aa_probability(chars: &[u8], pi: &[f64]) -> FreqVector {
-    let mut char_probs = make_freqs!(&[0.0; 20]);
+    let mut char_probs = frequencies!(&[0.0; 20]);
     if chars.len() == 1 {
         char_probs[AMINOACIDS.iter().position(|&x| x == chars[0]).unwrap()] = 1.0;
         char_probs

@@ -11,8 +11,8 @@ use crate::evolutionary_models::{
     ModelType::{self, *},
     ProteinModelType::*,
 };
+use crate::frequencies;
 use crate::likelihood::LikelihoodCostFunction;
-use crate::make_freqs;
 use crate::phylo_info::{GapHandling, PhyloInfo};
 use crate::substitution_models::dna_models::{DNALikelihoodCost, DNASubstModel, DNASubstModelInfo};
 use crate::substitution_models::protein_models::{ProteinLikelihoodCost, ProteinSubstModel};
@@ -406,7 +406,7 @@ fn empirical_frequencies_no_ambigs() {
             .unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
     let freqs = likelihood.get_empirical_frequencies();
-    assert_relative_eq!(freqs, make_freqs!(&[0.25; 4]), epsilon = 1e-6);
+    assert_relative_eq!(freqs, frequencies!(&[0.25; 4]), epsilon = 1e-6);
 }
 
 #[test]
@@ -423,7 +423,7 @@ fn empirical_frequencies_ambig_x_or_n() {
             .unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
     let freqs = likelihood.get_empirical_frequencies();
-    assert_relative_eq!(freqs, make_freqs!(&[0.25; 4]), epsilon = 1e-6);
+    assert_relative_eq!(freqs, frequencies!(&[0.25; 4]), epsilon = 1e-6);
     let sequences = vec![
         Record::with_attrs("on", None, b"AAAAAAAAAA"),
         Record::with_attrs("tw", None, b"XXXXXXXXXX"),
@@ -438,7 +438,7 @@ fn empirical_frequencies_ambig_x_or_n() {
     let freqs = likelihood.get_empirical_frequencies();
     assert_relative_eq!(
         freqs,
-        make_freqs!(&[0.125, 0.375, 0.375, 0.125]),
+        frequencies!(&[0.125, 0.375, 0.375, 0.125]),
         epsilon = 1e-6
     );
 }
@@ -455,7 +455,7 @@ fn empirical_frequencies_ambig() {
             .unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
     let freqs = likelihood.get_empirical_frequencies();
-    assert_relative_eq!(freqs, make_freqs!(&[0.25; 4]), epsilon = 1e-6);
+    assert_relative_eq!(freqs, frequencies!(&[0.25; 4]), epsilon = 1e-6);
     let sequences = vec![
         Record::with_attrs("A", None, b"SSSSSSSSSSSSSSSSSSSS"),
         Record::with_attrs("B", None, b"WWWWWWWWWWWWWWWWWWWW"),
@@ -465,7 +465,7 @@ fn empirical_frequencies_ambig() {
             .unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
     let freqs = likelihood.get_empirical_frequencies();
-    assert_relative_eq!(freqs, make_freqs!(&[0.25; 4]), epsilon = 1e-6);
+    assert_relative_eq!(freqs, frequencies!(&[0.25; 4]), epsilon = 1e-6);
 }
 
 #[test]
@@ -480,7 +480,7 @@ fn empirical_frequencies_no_aas() {
 
     assert_relative_eq!(
         freqs,
-        make_freqs!(&[3.0 / 10.0, 3.0 / 10.0, 1.0 / 10.0, 3.0 / 10.0]),
+        frequencies!(&[3.0 / 10.0, 3.0 / 10.0, 1.0 / 10.0, 3.0 / 10.0]),
         epsilon = 1e-6
     );
 }

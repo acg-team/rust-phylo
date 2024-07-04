@@ -7,10 +7,10 @@ use log::warn;
 use crate::evolutionary_models::DNAModelType;
 use crate::sequences::{GAP, NUCLEOTIDES};
 use crate::substitution_models::{dna_models::DNASubstParams, FreqVector, SubstMatrix};
-use crate::{make_freqs, Result};
+use crate::{frequencies, Result};
 
 fn make_pi(pi_array: &[f64]) -> Result<FreqVector> {
-    let pi = make_freqs!(pi_array);
+    let pi = frequencies!(pi_array);
     debug_assert!(
         pi.len() == 4,
         "There have to be 4 equilibrium frequencies for DNA models."
@@ -242,11 +242,11 @@ lazy_static! {
         index
     };
     pub static ref DNA_GAP_SETS: Vec<FreqVector> = {
-        let mut map = vec![make_freqs!(&[0.0; 5]); 255];
+        let mut map = vec![frequencies!(&[0.0; 5]); 255];
         for (i, elem) in map.iter_mut().enumerate() {
             let char = i as u8;
             if char == GAP {
-                elem.set_column(0, &make_freqs!(&[0.0, 0.0, 0.0, 0.0, 1.0]));
+                elem.set_column(0, &frequencies!(&[0.0, 0.0, 0.0, 0.0, 1.0]));
             } else {
                 elem.set_column(0, &generic_dna_sets(char).resize_vertically(5, 0.0));
             }
@@ -254,7 +254,7 @@ lazy_static! {
         map
     };
     pub static ref DNA_SETS: Vec<FreqVector> = {
-        let mut map = vec![make_freqs!(&[0.0; 4]); 255];
+        let mut map = vec![frequencies!(&[0.0; 4]); 255];
         for (i, elem) in map.iter_mut().enumerate() {
             let char = i as u8;
             elem.set_column(0, &generic_dna_sets(char));
@@ -264,28 +264,28 @@ lazy_static! {
 }
 fn generic_dna_sets(char: u8) -> FreqVector {
     match char {
-        b'T' | b't' => make_freqs!(&[1.0, 0.0, 0.0, 0.0]),
-        b'C' | b'c' => make_freqs!(&[0.0, 1.0, 0.0, 0.0]),
-        b'A' | b'a' => make_freqs!(&[0.0, 0.0, 1.0, 0.0]),
-        b'G' | b'g' => make_freqs!(&[0.0, 0.0, 0.0, 1.0]),
-        b'M' | b'm' => make_freqs!(&[0.0, 1.0 / 2.0, 1.0 / 2.0, 0.0]),
-        b'R' | b'r' => make_freqs!(&[0.0, 0.0, 1.0 / 2.0, 1.0 / 2.0]),
-        b'W' | b'w' => make_freqs!(&[1.0 / 2.0, 0.0, 1.0 / 2.0, 0.0]),
-        b'S' | b's' => make_freqs!(&[0.0, 1.0 / 2.0, 0.0, 1.0 / 2.0]),
-        b'Y' | b'y' => make_freqs!(&[1.0 / 2.0, 1.0 / 2.0, 0.0, 0.0]),
-        b'K' | b'k' => make_freqs!(&[1.0 / 2.0, 0.0, 0.0, 1.0 / 2.0]),
+        b'T' | b't' => frequencies!(&[1.0, 0.0, 0.0, 0.0]),
+        b'C' | b'c' => frequencies!(&[0.0, 1.0, 0.0, 0.0]),
+        b'A' | b'a' => frequencies!(&[0.0, 0.0, 1.0, 0.0]),
+        b'G' | b'g' => frequencies!(&[0.0, 0.0, 0.0, 1.0]),
+        b'M' | b'm' => frequencies!(&[0.0, 1.0 / 2.0, 1.0 / 2.0, 0.0]),
+        b'R' | b'r' => frequencies!(&[0.0, 0.0, 1.0 / 2.0, 1.0 / 2.0]),
+        b'W' | b'w' => frequencies!(&[1.0 / 2.0, 0.0, 1.0 / 2.0, 0.0]),
+        b'S' | b's' => frequencies!(&[0.0, 1.0 / 2.0, 0.0, 1.0 / 2.0]),
+        b'Y' | b'y' => frequencies!(&[1.0 / 2.0, 1.0 / 2.0, 0.0, 0.0]),
+        b'K' | b'k' => frequencies!(&[1.0 / 2.0, 0.0, 0.0, 1.0 / 2.0]),
         b'V' | b'v' => {
-            make_freqs!(&[0.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0])
+            frequencies!(&[0.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0])
         }
         b'D' | b'd' => {
-            make_freqs!(&[1.0 / 3.0, 0.0, 1.0 / 3.0, 1.0 / 3.0])
+            frequencies!(&[1.0 / 3.0, 0.0, 1.0 / 3.0, 1.0 / 3.0])
         }
         b'B' | b'b' => {
-            make_freqs!(&[1.0 / 3.0, 1.0 / 3.0, 0.0, 1.0 / 3.0])
+            frequencies!(&[1.0 / 3.0, 1.0 / 3.0, 0.0, 1.0 / 3.0])
         }
         b'H' | b'h' => {
-            make_freqs!(&[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 0.0])
+            frequencies!(&[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 0.0])
         }
-        _ => make_freqs!(&[1.0 / 4.0; 4]),
+        _ => frequencies!(&[1.0 / 4.0; 4]),
     }
 }

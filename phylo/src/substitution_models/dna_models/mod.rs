@@ -14,7 +14,7 @@ use crate::substitution_models::{
     FreqVector, ParsimonyModel, SubstMatrix, SubstParams, SubstitutionLikelihoodCost,
     SubstitutionModel, SubstitutionModelInfo,
 };
-use crate::{Result, Rounding};
+use crate::{frequencies, Result, Rounding};
 
 mod dna_substitution_parameters;
 pub use dna_substitution_parameters::*;
@@ -136,7 +136,7 @@ impl<'a> LikelihoodCostFunction<'a, 4> for DNALikelihoodCost<'a> {
         let all_counts = self.info.get_counts();
         let mut total = all_counts.values().sum::<f64>();
         let index = &NUCLEOTIDE_INDEX;
-        let mut freqs = FreqVector::zeros(4);
+        let mut freqs = frequencies!(&[0.0; 4]);
         for (&char, &count) in all_counts.iter() {
             freqs += &DNA_SETS[char as usize].scale(count);
         }

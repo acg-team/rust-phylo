@@ -19,7 +19,7 @@ fn main() {
     .unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
     let phyml_params = DNASubstParams {
-        pi: FreqVector::from_column_slice(&[0.24720, 0.35320, 0.29540, 0.10420]),
+        pi: frequencies!(&[0.24720, 0.35320, 0.29540, 0.10420]),
         rtc: 1.0,
         rta: 0.031184397,
         rtg: 0.000100000,
@@ -32,7 +32,7 @@ fn main() {
     assert_relative_eq!(phyml_logl, -3474.48083, epsilon = 1.0e-5);
 
     let paml_params = DNASubstParams {
-        pi: FreqVector::from_column_slice(&[0.25318, 0.32894, 0.31196, 0.10592]),
+        pi: frequencies!(&[0.25318, 0.32894, 0.31196, 0.10592]),
         rtc: 0.88892,
         rta: 0.03190,
         rtg: 0.00001,
@@ -45,7 +45,7 @@ fn main() {
     assert!(phyml_logl > paml_logl);
 
     let params = DNASubstParams {
-        pi: FreqVector::from_column_slice(&[0.24720, 0.35320, 0.29540, 0.10420]),
+        pi: frequencies!(&[0.24720, 0.35320, 0.29540, 0.10420]),
         rtc: 1.0,
         rta: 1.0,
         rtg: 1.0,

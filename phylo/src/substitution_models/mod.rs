@@ -19,7 +19,7 @@ pub type SubstMatrix = DMatrix<f64>;
 pub type FreqVector = DVector<f64>;
 
 #[macro_export]
-macro_rules! make_freqs {
+macro_rules! frequencies {
     ($slice:expr) => {
         FreqVector::from_column_slice($slice)
     };

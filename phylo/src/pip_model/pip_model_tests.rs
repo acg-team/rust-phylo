@@ -12,8 +12,8 @@ use crate::evolutionary_models::{
     ModelType::{self, *},
     ProteinModelType::*,
 };
+use crate::frequencies;
 use crate::likelihood::LikelihoodCostFunction;
-use crate::make_freqs;
 use crate::phylo_info::{GapHandling, PhyloInfo};
 use crate::pip_model::{PIPLikelihoodCost, PIPModel, PIPModelInfo};
 use crate::sequences::{AMINOACIDS, GAP, NUCLEOTIDES};
@@ -82,7 +82,7 @@ fn protein_pip_correct(
     let pip_model = PIPModel::<20>::new(model_type, params).unwrap();
     assert_eq!(pip_model.lambda, params[0]);
     assert_eq!(pip_model.mu, params[1]);
-    let frequencies = make_freqs!(pi_array).insert_row(20, 0.0);
+    let frequencies = frequencies!(pi_array).insert_row(20, 0.0);
     assert_eq!(
         EvolutionaryModel::get_stationary_distribution(&pip_model),
         &frequencies
@@ -129,7 +129,7 @@ fn pip_protein_wag_normalised() {
     let pip_wag = PIPModel::<20>::new(Protein(WAG), &[0.1, 0.4]).unwrap();
     assert_eq!(pip_wag.lambda, 0.1);
     assert_eq!(pip_wag.mu, 0.4);
-    let stat_dist = DVector::from_column_slice(&WAG_PI_ARR).insert_row(20, 0.0);
+    let stat_dist = frequencies!(&WAG_PI_ARR).insert_row(20, 0.0);
     assert_relative_eq!(
         EvolutionaryModel::get_stationary_distribution(&pip_wag),
         &stat_dist
@@ -242,7 +242,7 @@ fn protein_char_probabilities(
     let actual = pip.get_char_probability(&PROTEIN_GAP_SETS[b'-' as usize]);
     assert_eq!(actual.len(), 21);
     assert_relative_eq!(actual.sum(), 1.0);
-    assert_relative_eq!(actual, make_freqs!(&[0.0; 20]).insert_row(20, 1.0));
+    assert_relative_eq!(actual, frequencies!(&[0.0; 20]).insert_row(20, 1.0));
 }
 
 #[rstest]

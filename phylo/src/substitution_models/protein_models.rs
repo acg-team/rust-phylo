@@ -16,7 +16,7 @@ use crate::substitution_models::{
     FreqVector, ParsimonyModel, SubstMatrix, SubstParams, SubstitutionLikelihoodCost,
     SubstitutionModel, SubstitutionModelInfo,
 };
-use crate::{make_freqs, Result, Rounding};
+use crate::{frequencies, Result, Rounding};
 
 pub(crate) type ProteinSubstArray = [f64; 400];
 pub(crate) type ProteinFrequencyArray = [f64; 20];
@@ -36,11 +36,11 @@ lazy_static! {
         index
     };
     pub static ref PROTEIN_GAP_SETS: Vec<FreqVector> = {
-        let mut map: Vec<FreqVector> = vec![make_freqs!(&[0.0; 21]); 255];
+        let mut map: Vec<FreqVector> = vec![frequencies!(&[0.0; 21]); 255];
         for (i, elem) in map.iter_mut().enumerate() {
             let char = i as u8;
             if char == GAP {
-                elem.set_column(0, &make_freqs!(&[0.0; 20]).resize_vertically(21, 1.0));
+                elem.set_column(0, &frequencies!(&[0.0; 20]).resize_vertically(21, 1.0));
             } else {
                 elem.set_column(0, &generic_protein_sets(char).resize_vertically(21, 0.0));
             }
@@ -48,7 +48,7 @@ lazy_static! {
         map
     };
     pub static ref PROTEIN_SETS: Vec<FreqVector> = {
-        let mut map: Vec<FreqVector> = vec![make_freqs!(&[0.0; 20]); 255];
+        let mut map: Vec<FreqVector> = vec![frequencies!(&[0.0; 20]); 255];
         for (i, elem) in map.iter_mut().enumerate() {
             let char = i as u8;
             elem.set_column(0, &generic_protein_sets(char));
@@ -60,26 +60,26 @@ lazy_static! {
 fn generic_protein_sets(char: u8) -> FreqVector {
     let index = &AMINOACID_INDEX;
     if AMINOACIDS.contains(&char.to_ascii_uppercase()) {
-        let mut set = FreqVector::zeros(20);
+        let mut set = frequencies!(&[0.0; 20]);
         set.fill_row(index[char as usize], 1.0);
         set
     } else if char.to_ascii_uppercase() == b'B' {
-        let mut set = FreqVector::zeros(20);
+        let mut set = frequencies!(&[0.0; 20]);
         set.fill_row(index['D' as usize], 0.5);
         set.fill_row(index['N' as usize], 0.5);
         set
     } else if char.to_ascii_uppercase() == b'Z' {
-        let mut set = FreqVector::zeros(20);
+        let mut set = frequencies!(&[0.0; 20]);
         set.fill_row(index['E' as usize], 0.5);
         set.fill_row(index['Q' as usize], 0.5);
         set
     } else if char.to_ascii_uppercase() == b'J' {
-        let mut set = FreqVector::zeros(20);
+        let mut set = frequencies!(&[0.0; 20]);
         set.fill_row(index['I' as usize], 0.5);
         set.fill_row(index['L' as usize], 0.5);
         set
     } else {
-        make_freqs!(&[1.0 / 20.0; 20])
+        frequencies!(&[1.0 / 20.0; 20])
     }
 }
 
@@ -190,21 +190,21 @@ impl<'a> LikelihoodCostFunction<'a, 20> for SubstitutionLikelihoodCost<'a, 20> {
 pub fn wag() -> Result<(SubstMatrix, FreqVector)> {
     Ok((
         SubstMatrix::from_row_slice(20, 20, &WAG_ARR),
-        make_freqs!(&WAG_PI_ARR),
+        frequencies!(&WAG_PI_ARR),
     ))
 }
 
 pub fn blosum() -> Result<(SubstMatrix, FreqVector)> {
     Ok((
         SubstMatrix::from_row_slice(20, 20, &BLOSUM_ARR),
-        make_freqs!(&BLOSUM_PI_ARR),
+        frequencies!(&BLOSUM_PI_ARR),
     ))
 }
 
 pub fn hivb() -> Result<(SubstMatrix, FreqVector)> {
     Ok((
         SubstMatrix::from_row_slice(20, 20, &HIVB_ARR),
-        make_freqs!(&HIVB_PI_ARR),
+        frequencies!(&HIVB_PI_ARR),
     ))
 }
 
