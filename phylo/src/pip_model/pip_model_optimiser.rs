@@ -50,6 +50,7 @@ impl<'a> PIPDNAModelOptimiser<'a> {
         }
     }
 
+    // TODO: Remove redundant code for parameter definition, use functions for DNA substitution parameters
     pub fn optimise_gtr_parameters(
         &self,
         start_values: &PIPDNAParams,
