@@ -111,7 +111,7 @@ impl<'a> DNAModelOptimiser<'a> {
                     "Optimised parameter {:?} to value {} with logl {}",
                     param_name, value, opt_logl
                 );
-                debug!("New parameters: {}\n", opt_params.print_as_gtr());
+                debug!("New parameters: {}\n", opt_params);
             }
             iters += 1;
         }

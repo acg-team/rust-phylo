@@ -195,7 +195,7 @@ fn dna_jc69_correct() {
 fn dna_j69_param_print() {
     let params = jc69_params(&[0.1, 0.4, 0.75, 1.5]).unwrap();
     assert_relative_eq!(params.pi, dvector![0.25, 0.25, 0.25, 0.25]);
-    assert_eq!(params.print_as_jc69(), format!("[lambda = {}]", 1.0));
+    assert_eq!(format!("{}", params), format!("[lambda = {}]", 1.0));
 }
 
 #[test]
@@ -222,7 +222,7 @@ fn dna_k80_params() {
     let params = k80_params(&[0.75, 1.5]).unwrap();
     assert_relative_eq!(params.pi, dvector![0.25, 0.25, 0.25, 0.25]);
     assert_eq!(
-        params.print_as_k80(),
+        format!("{}", params),
         format!("[alpha = {}, beta = {}]", 0.75, 1.5)
     );
 }
@@ -267,7 +267,7 @@ fn dna_hky_params() {
     let params = hky_params(&[0.22, 0.26, 0.33, 0.19, 0.75, 1.5]).unwrap();
     assert_relative_eq!(params.pi, dvector![0.22, 0.26, 0.33, 0.19]);
     assert_eq!(
-        params.print_as_hky(),
+        format!("{}", params),
         format!(
             "[pi = [{}, {}, {}, {}], alpha = {}, beta = {}]",
             0.22, 0.26, 0.33, 0.19, 0.75, 1.5
@@ -341,7 +341,7 @@ fn dna_gtr_params() {
     let params = gtr_params(&[0.22, 0.26, 0.33, 0.19, 0.75, 1.5, 3.0, 1.25, 0.45, 0.1]).unwrap();
     assert_relative_eq!(params.pi, dvector![0.22, 0.26, 0.33, 0.19]);
     assert_eq!(
-        params.print_as_gtr(),
+        format!("{}", params),
         format!(
             "[pi = [{}, {}, {}, {}], rtc = {}, rta = {}, rtg = {}, rca = {}, rcg = {}, rag = {}]",
             0.22, 0.26, 0.33, 0.19, 0.75, 1.5, 3.0, 1.25, 0.45, 0.1
@@ -426,7 +426,7 @@ fn dna_tn93_params() {
     let params = tn93_params(&[0.22, 0.26, 0.33, 0.19, 0.75, 1.5, 3.0]).unwrap();
     assert_relative_eq!(params.pi, dvector![0.22, 0.26, 0.33, 0.19]);
     assert_eq!(
-        params.print_as_tn93(),
+        format!("{}", params),
         format!(
             "[pi = [{}, {}, {}, {}], alpha1 = {}, alpha2 = {}, beta = {}]",
             0.22, 0.26, 0.33, 0.19, 0.75, 1.5, 3.0

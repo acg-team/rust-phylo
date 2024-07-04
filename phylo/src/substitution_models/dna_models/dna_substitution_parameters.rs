@@ -4,7 +4,7 @@ use log::warn;
 
 use crate::evolutionary_models::EvolutionaryModelParameters;
 use crate::substitution_models::{dna_models::DNAModelType, FreqVector};
-use crate::{frequencies, Result};
+use crate::Result;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Parameter {
@@ -94,17 +94,7 @@ impl EvolutionaryModelParameters<DNAModelType> for DNASubstParams {
 
 impl Display for DNASubstParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "[pi = {:?}, rtc = {}, rta = {}, rtg = {}, rca = {}, rcg = {}, rag = {}]",
-            self.pi.as_slice(),
-            self.rtc,
-            self.rta,
-            self.rtg,
-            self.rca,
-            self.rcg,
-            self.rag
-        )
+        write!(f, "{}", self.print_as(self.model_type))
     }
 }
 
@@ -138,58 +128,35 @@ impl DNASubstParams {
         }
     }
 
-    pub fn print_as_jc69(&self) -> String {
-        debug_assert!(
-            self.rtc == 1.0
-                && self.rta == 1.0
-                && self.rtg == 1.0
-                && self.rca == 1.0
-                && self.rcg == 1.0
-                && self.rag == 1.0
-        );
-        debug_assert_eq!(self.pi, frequencies!(&[0.25; 4]));
-        format!("[lambda = {}]", self.rtc)
-    }
-
-    pub fn print_as_k80(&self) -> String {
-        debug_assert!(
-            self.rtc == self.rag
-                && self.rta == self.rtg
-                && self.rta == self.rca
-                && self.rta == self.rcg
-        );
-        debug_assert_eq!(self.pi, frequencies!(&[0.25; 4]));
-        format!("[alpha = {}, beta = {}]", self.rtc, self.rta)
-    }
-
-    pub fn print_as_hky(&self) -> String {
-        debug_assert!(
-            self.rtc == self.rag
-                && self.rta == self.rtg
-                && self.rta == self.rca
-                && self.rta == self.rcg
-        );
-        format!(
-            "[pi = {:?}, alpha = {}, beta = {}]",
-            self.pi.as_slice(),
-            self.rtc,
-            self.rta
-        )
-    }
-
-    pub fn print_as_tn93(&self) -> String {
-        debug_assert!(self.rta == self.rtg && self.rta == self.rca && self.rta == self.rcg);
-        format!(
-            "[pi = {:?}, alpha1 = {}, alpha2 = {}, beta = {}]",
-            self.pi.as_slice(),
-            self.rtc,
-            self.rag,
-            self.rta
-        )
-    }
-
-    pub fn print_as_gtr(&self) -> String {
-        format!("{}", self)
+    fn print_as(&self, model_type: DNAModelType) -> String {
+        match model_type {
+            DNAModelType::JC69 => format!("[lambda = {}]", self.rtc),
+            DNAModelType::K80 => format!("[alpha = {}, beta = {}]", self.rtc, self.rta),
+            DNAModelType::HKY => format!(
+                "[pi = {:?}, alpha = {}, beta = {}]",
+                self.pi.as_slice(),
+                self.rtc,
+                self.rta
+            ),
+            DNAModelType::TN93 => format!(
+                "[pi = {:?}, alpha1 = {}, alpha2 = {}, beta = {}]",
+                self.pi.as_slice(),
+                self.rtc,
+                self.rag,
+                self.rta
+            ),
+            DNAModelType::GTR => format!(
+                "[pi = {:?}, rtc = {}, rta = {}, rtg = {}, rca = {}, rcg = {}, rag = {}]",
+                self.pi.as_slice(),
+                self.rtc,
+                self.rta,
+                self.rtg,
+                self.rca,
+                self.rcg,
+                self.rag
+            ),
+            _ => unreachable!(),
+        }
     }
 }
 
