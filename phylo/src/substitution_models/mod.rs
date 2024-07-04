@@ -25,6 +25,7 @@ macro_rules! make_freqs {
     };
 }
 
+// TODO: remove this enum
 #[derive(Clone, Debug, PartialEq)]
 pub enum SubstParams {
     DNA(dna_models::DNASubstParams),
