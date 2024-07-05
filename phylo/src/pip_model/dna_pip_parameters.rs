@@ -10,7 +10,7 @@ use crate::Result;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PIPDNAParams {
-    model_type: DNAModelType,
+    pub(crate) model_type: DNAModelType,
     pub subst_params: DNASubstParams,
     pub lambda: f64,
     pub mu: f64,
@@ -57,6 +57,20 @@ impl Display for PIPDNAParams {
             "[lambda = {:.5},\nmu = {:.5},\nsubst model parameters = \n{}]",
             self.lambda, self.mu, self.subst_params
         )
+    }
+}
+
+impl PIPDNAParams {
+    pub(crate) fn parameter_definition(
+        model_type: DNAModelType,
+    ) -> Vec<(&'static str, Vec<Parameter>)> {
+        DNASubstParams::parameter_definition(model_type)
+            .into_iter()
+            .chain([
+                ("mu", vec![Parameter::Mu]),
+                ("lambda", vec![Parameter::Lambda]),
+            ])
+            .collect()
     }
 }
 

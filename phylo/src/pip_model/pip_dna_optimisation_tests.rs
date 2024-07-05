@@ -31,7 +31,7 @@ fn check_parameter_optimisation_pip_arpiptest() {
     let model = PIPModel::new(DNA(GTR), &Vec::<f64>::from(pip_params.clone())).unwrap();
     let initial_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
     let (_, _, logl) = PIPDNAModelOptimiser::new(&likelihood)
-        .optimise_gtr_parameters(&pip_params)
+        .optimise_parameters(&pip_params)
         .unwrap();
     assert!(logl > initial_logl);
 }
@@ -50,7 +50,7 @@ fn test_optimisation_pip_propip_example() {
     let initial_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
     assert_relative_eq!(initial_logl, -1241.9944955187807, epsilon = 1e-3);
     let (_, optimised_params, logl) = PIPDNAModelOptimiser::new(&likelihood)
-        .optimise_jc69_parameters(&pip_params)
+        .optimise_parameters(&pip_params)
         .unwrap();
     assert!(logl > initial_logl);
     assert_relative_eq!(logl, -1136.3884248861254, epsilon = 1e-5);
@@ -80,7 +80,7 @@ fn check_example_against_python_no_gaps() {
         epsilon = 1e-1
     );
     let (_, opt_params, logl) = PIPDNAModelOptimiser::new(&cost)
-        .optimise_hky_parameters(&pip_params)
+        .optimise_parameters(&pip_params)
         .unwrap();
     assert_eq!(opt_params.subst_params.rtc, opt_params.subst_params.rag);
     assert_eq!(opt_params.subst_params.rca, opt_params.subst_params.rta);
@@ -115,7 +115,7 @@ fn check_parameter_optimisation_pip_gtr() {
     let model = PIPModel::new(DNA(GTR), &Vec::<f64>::from(pip_params.clone())).unwrap();
     let initial_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
     let (_, opt_params, optimised_logl) = PIPDNAModelOptimiser::new(&likelihood)
-        .optimise_gtr_parameters(&pip_params)
+        .optimise_parameters(&pip_params)
         .unwrap();
     assert_relative_eq!(initial_logl, -9988.486546494, epsilon = 1e0); // value from the python script
     assert!(optimised_logl > initial_logl);

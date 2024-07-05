@@ -50,64 +50,15 @@ impl<'a> PIPDNAModelOptimiser<'a> {
         }
     }
 
-    // TODO: Remove redundant code for parameter definition, use functions for DNA substitution parameters
-    pub fn optimise_gtr_parameters(
+    pub fn optimise_parameters(
         &self,
         start_values: &PIPDNAParams,
     ) -> Result<(u32, PIPDNAParams, f64)> {
-        info!("Optimising PIP with GTR parameters.");
-        let param_sets = [
-            ("rca", vec![Parameter::Rca]),
-            ("rcg", vec![Parameter::Rcg]),
-            ("rta", vec![Parameter::Rta]),
-            ("rtc", vec![Parameter::Rtc]),
-            ("rtg", vec![Parameter::Rtg]),
-            ("mu", vec![Parameter::Mu]),
-            ("lambda", vec![Parameter::Lambda]),
-        ];
-        self.optimise_parameters(start_values, &param_sets)
-    }
-
-    pub fn optimise_jc69_parameters(
-        &self,
-        start_values: &PIPDNAParams,
-    ) -> Result<(u32, PIPDNAParams, f64)> {
-        info!("Optimising PIP with JC69 parameters.");
-        let param_sets = [
-            ("mu", vec![Parameter::Mu]),
-            ("lambda", vec![Parameter::Lambda]),
-        ];
-        self.optimise_parameters(start_values, &param_sets)
-    }
-
-    pub fn optimise_hky_parameters(
-        &self,
-        start_values: &PIPDNAParams,
-    ) -> Result<(u32, PIPDNAParams, f64)> {
-        info!("Optimising HKY parameters.");
-        let param_sets = [
-            ("alpha", vec![Parameter::Rtc, Parameter::Rag]),
-            (
-                "beta",
-                vec![
-                    Parameter::Rta,
-                    Parameter::Rtg,
-                    Parameter::Rca,
-                    Parameter::Rcg,
-                ],
-            ),
-            ("mu", vec![Parameter::Mu]),
-            ("lambda", vec![Parameter::Lambda]),
-        ];
-        self.optimise_parameters(start_values, &param_sets)
-    }
-
-    pub(crate) fn optimise_parameters(
-        &self,
-        start_values: &PIPDNAParams,
-        param_sets: &[(&str, Vec<Parameter>)],
-    ) -> Result<(u32, PIPDNAParams, f64)> {
-        info!("Optimising PIP parameters.");
+        info!(
+            "Optimising PIP with {} parameters.",
+            start_values.model_type
+        );
+        let param_sets = &PIPDNAParams::parameter_definition(start_values.model_type);
         let pip = PIPModel::<4>::make_pip(
             *NUCLEOTIDE_INDEX,
             make_dna_model(start_values.subst_params.clone()),
