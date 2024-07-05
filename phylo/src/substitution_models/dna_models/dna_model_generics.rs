@@ -15,7 +15,7 @@ fn make_pi(pi_array: &[f64]) -> Result<FreqVector> {
         pi.len() == 4,
         "There have to be 4 equilibrium frequencies for DNA models."
     );
-    if pi.sum() != 1.0 {
+    if pi.sum() - 1.0 > f64::EPSILON {
         bail!("The equilibrium frequencies provided do not sum up to 1.");
     }
     Ok(pi)

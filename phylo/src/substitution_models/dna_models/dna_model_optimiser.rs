@@ -2,12 +2,13 @@ use argmin::core::{CostFunction, Executor, IterState, State};
 use argmin::solver::brent::BrentOpt;
 use log::{debug, info, warn};
 
-use crate::evolutionary_models::EvolutionaryModelParameters;
-use crate::evolutionary_models::FrequencyOptimisation::{self, *};
-use crate::likelihood::LikelihoodCostFunction;
-use crate::substitution_models::dna_models::{
-    make_dna_model, DNAModelType, DNASubstParams, Parameter,
+use crate::evolutionary_models::{
+    DNAModelType::*,
+    EvolutionaryModelParameters,
+    FrequencyOptimisation::{self, *},
 };
+use crate::likelihood::LikelihoodCostFunction;
+use crate::substitution_models::dna_models::{make_dna_model, DNASubstParams, Parameter};
 use crate::substitution_models::SubstitutionLikelihoodCost;
 use crate::Result;
 
@@ -58,17 +59,22 @@ impl<'a> DNAModelOptimiser<'a> {
     pub fn optimise_parameters(
         &self,
         start_values: &DNASubstParams,
-        model_type: DNAModelType,
         optimise_freqs: FrequencyOptimisation,
     ) -> Result<(u32, DNASubstParams, f64)> {
+        let model_type = start_values.model_type;
         info!("Optimising {} parameters.", model_type);
         let param_sets = DNASubstParams::parameter_definition(model_type);
-        let start_values = match optimise_freqs {
-            Fixed => start_values,
-            Empirical => &self.set_empirical_frequencies(start_values),
-            Estimated => {
-                warn!("Stationary frequency estimation not available, falling back on empirical.");
-                &self.set_empirical_frequencies(start_values)
+        let start_values = match model_type {
+            JC69 | K80 => start_values,
+            _ => {
+                match optimise_freqs {
+                    Fixed => start_values,
+                    Empirical => &self.set_empirical_frequencies(start_values),
+                    Estimated => {
+                        warn!("Stationary frequency estimation not available, falling back on empirical.");
+                        &self.set_empirical_frequencies(start_values)
+                    }
+                }
             }
         };
         self.run_parameter_brent(start_values, param_sets)

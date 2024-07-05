@@ -13,43 +13,6 @@ use crate::substitution_models::dna_models::{
     DNASubstParams,
 };
 
-// TODO: add tests to ensure model parameters are still valid after optimisation (e.g. K80 has equal frequencies)
-
-// fn check_as_jc69(&self) {
-//     debug_assert!(
-//         self.rtc == 1.0
-//             && self.rta == 1.0
-//             && self.rtg == 1.0
-//             && self.rca == 1.0
-//             && self.rcg == 1.0
-//             && self.rag == 1.0
-//     );
-//     debug_assert_eq!(self.pi, frequencies!(&[0.25; 4]));
-// }
-
-// fn check_as_k80(&self) {
-//     debug_assert!(
-//         self.rtc == self.rag
-//             && self.rta == self.rtg
-//             && self.rta == self.rca
-//             && self.rta == self.rcg
-//     );
-//     debug_assert_eq!(self.pi, frequencies!(&[0.25; 4]));
-// }
-
-// fn check_as_hky(&self) {
-//     debug_assert!(
-//         self.rtc == self.rag
-//             && self.rta == self.rtg
-//             && self.rta == self.rca
-//             && self.rta == self.rcg
-//     );
-// }
-
-// fn check_as_tn93(&self) {
-//     debug_assert!(self.rta == self.rtg && self.rta == self.rca && self.rta == self.rcg);
-// }
-
 #[test]
 fn check_likelihood_opt_k80() {
     let info = PhyloInfo::from_files(
@@ -66,7 +29,7 @@ fn check_likelihood_opt_k80() {
     let unopt_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
 
     let (_, _, logl) = DNAModelOptimiser::new(&likelihood)
-        .optimise_parameters(&params, K80, FrequencyOptimisation::Fixed)
+        .optimise_parameters(&params, FrequencyOptimisation::Fixed)
         .unwrap();
     assert!(logl > unopt_logl);
 
@@ -75,6 +38,115 @@ fn check_likelihood_opt_k80() {
 
     assert_relative_eq!(logl, expected_logl, epsilon = 1e-6);
     assert_relative_eq!(logl, -4034.5008033, epsilon = 1e-6);
+}
+
+#[test]
+fn frequencies_unchanged_opt_k80() {
+    let info = PhyloInfo::from_files(
+        PathBuf::from("./data/sim/K80/K80.fasta"),
+        PathBuf::from("./data/sim/tree.newick"),
+        &GapHandling::Ambiguous,
+    )
+    .unwrap();
+
+    let likelihood = DNALikelihoodCost { info: &info };
+    let params = DNASubstParams::new(&K80, &[4.0, 1.0]).unwrap();
+
+    let (_, optim_params, _) = DNAModelOptimiser::new(&likelihood)
+        .optimise_parameters(&params, FrequencyOptimisation::Empirical)
+        .unwrap();
+    assert!(optim_params.pi.iter().all(|&x| x == 0.25));
+}
+
+#[test]
+fn parameter_definition_after_optim_k80() {
+    let info = PhyloInfo::from_files(
+        PathBuf::from("./data/sim/K80/K80.fasta"),
+        PathBuf::from("./data/sim/tree.newick"),
+        &GapHandling::Ambiguous,
+    )
+    .unwrap();
+
+    let likelihood = DNALikelihoodCost { info: &info };
+    let params = DNASubstParams::new(&K80, &[4.0, 1.0]).unwrap();
+
+    let (_, optim_parameters, _) = DNAModelOptimiser::new(&likelihood)
+        .optimise_parameters(&params, FrequencyOptimisation::Fixed)
+        .unwrap();
+    assert_eq!(optim_parameters.rtc, optim_parameters.rag);
+    assert_eq!(optim_parameters.rta, optim_parameters.rtg);
+    assert_eq!(optim_parameters.rta, optim_parameters.rca);
+    assert_eq!(optim_parameters.rta, optim_parameters.rcg);
+    assert!(optim_parameters.pi.iter().all(|&x| x == 0.25));
+}
+
+#[test]
+fn gtr_on_k80_data() {
+    let info = PhyloInfo::from_files(
+        PathBuf::from("./data/sim/K80/K80.fasta"),
+        PathBuf::from("./data/sim/tree.newick"),
+        &GapHandling::Ambiguous,
+    )
+    .unwrap();
+
+    let likelihood = DNALikelihoodCost { info: &info };
+    let params = DNASubstParams::new(
+        &GTR,
+        &[0.25, 0.35, 0.3, 0.1, 0.88, 0.03, 0.00001, 0.07, 0.02, 1.0],
+    )
+    .unwrap();
+
+    let (_, optim_parameters, _) = DNAModelOptimiser::new(&likelihood)
+        .optimise_parameters(&params, FrequencyOptimisation::Empirical)
+        .unwrap();
+    assert_relative_eq!(optim_parameters.rta, optim_parameters.rtg, epsilon = 1e-1);
+    assert_relative_eq!(optim_parameters.rta, optim_parameters.rca, epsilon = 1e-1);
+    assert_relative_eq!(optim_parameters.rta, optim_parameters.rcg, epsilon = 1e-1);
+    assert!(optim_parameters.pi.iter().all(|&x| x - 0.25 < 1e-2));
+}
+
+#[test]
+fn parameter_definition_after_optim_hky() {
+    let info = PhyloInfo::from_files(
+        PathBuf::from("./data/sim/GTR/gtr.fasta"),
+        PathBuf::from("./data/sim/tree.newick"),
+        &GapHandling::Ambiguous,
+    )
+    .unwrap();
+
+    let likelihood = DNALikelihoodCost { info: &info };
+    let params = DNASubstParams::new(&TN93, &[0.26, 0.2, 0.4, 0.14, 4.0, 1.0]).unwrap();
+
+    let (_, optim_parameters, _) = DNAModelOptimiser::new(&likelihood)
+        .optimise_parameters(&params, FrequencyOptimisation::Empirical)
+        .unwrap();
+    assert_eq!(optim_parameters.rtc, optim_parameters.rag);
+    assert_eq!(optim_parameters.rta, optim_parameters.rtg);
+    assert_eq!(optim_parameters.rta, optim_parameters.rca);
+    assert_eq!(optim_parameters.rta, optim_parameters.rcg);
+    assert!(optim_parameters.pi.iter().all(|&x| x != 0.25));
+}
+
+#[test]
+fn parameter_definition_after_optim_tn93() {
+    let info = PhyloInfo::from_files(
+        PathBuf::from("./data/sim/GTR/gtr.fasta"),
+        PathBuf::from("./data/sim/tree.newick"),
+        &GapHandling::Ambiguous,
+    )
+    .unwrap();
+
+    let likelihood = DNALikelihoodCost { info: &info };
+    let params = DNASubstParams::new(&TN93, &[0.26, 0.2, 0.4, 0.14, 4.0, 2.0, 1.0]).unwrap();
+
+    let (_, optim_parameters, _) = DNAModelOptimiser::new(&likelihood)
+        .optimise_parameters(&params, FrequencyOptimisation::Empirical)
+        .unwrap();
+    assert_ne!(optim_parameters.rtc, optim_parameters.rag);
+    assert_eq!(optim_parameters.rta, optim_parameters.rtg);
+    assert_eq!(optim_parameters.rta, optim_parameters.rca);
+    assert_eq!(optim_parameters.rta, optim_parameters.rcg);
+    assert!(optim_parameters.pi.iter().all(|&x| x != 0.25));
 }
 
 #[test]
@@ -127,14 +199,33 @@ fn check_parameter_optimisation_gtr() {
     )
     .unwrap();
     let (_, _, logl) = DNAModelOptimiser::new(&likelihood)
-        .optimise_parameters(&params, GTR, FrequencyOptimisation::Fixed)
+        .optimise_parameters(&params, FrequencyOptimisation::Fixed)
         .unwrap();
     assert!(logl > phyml_logl);
     assert!(logl > paml_logl);
 
     let (iters, _, double_opt_logl) = DNAModelOptimiser::new(&likelihood)
-        .optimise_parameters(&params, GTR, FrequencyOptimisation::Fixed)
+        .optimise_parameters(&params, FrequencyOptimisation::Fixed)
         .unwrap();
     assert!(double_opt_logl >= logl);
     assert!(iters < 10);
+}
+
+#[test]
+fn frequencies_fixed_opt_gtr() {
+    let info = PhyloInfo::from_files(
+        PathBuf::from("./data/sim/GTR/gtr.fasta"),
+        PathBuf::from("./data/sim/tree.newick"),
+        &GapHandling::Ambiguous,
+    )
+    .unwrap();
+    let likelihood = DNALikelihoodCost { info: &info };
+
+    let params =
+        DNASubstParams::new(&GTR, &[0.25, 0.35, 0.3, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
+
+    let (_, optim_params, _) = DNAModelOptimiser::new(&likelihood)
+        .optimise_parameters(&params, FrequencyOptimisation::Fixed)
+        .unwrap();
+    assert!(optim_params.pi.as_slice() == [0.25, 0.35, 0.3, 0.1]);
 }
