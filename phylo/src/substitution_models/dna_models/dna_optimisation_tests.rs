@@ -115,7 +115,7 @@ fn parameter_definition_after_optim_hky() {
     .unwrap();
 
     let likelihood = DNALikelihoodCost { info: &info };
-    let params = DNASubstParams::new(&TN93, &[0.26, 0.2, 0.4, 0.14, 4.0, 1.0]).unwrap();
+    let params = DNASubstParams::new(&HKY, &[0.26, 0.2, 0.4, 0.14, 4.0, 1.0]).unwrap();
 
     let (_, optim_parameters, _) = DNAModelOptimiser::new(&likelihood)
         .optimise_parameters(&params, FrequencyOptimisation::Empirical)
