@@ -2,9 +2,10 @@ use argmin::core::{CostFunction, Executor, IterState, State};
 use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
+use crate::evolutionary_models::EvolutionaryModelParameters;
 use crate::pip_model::PIPLikelihoodCost;
 use crate::pip_model::PIPModel;
-use crate::substitution_models::dna_models::{gtr, ParamEnum, NUCLEOTIDE_INDEX};
+use crate::substitution_models::dna_models::{make_dna_model, Parameter, NUCLEOTIDE_INDEX};
 use crate::Result;
 
 use super::PIPDNAParams;
@@ -12,7 +13,7 @@ use super::PIPDNAParams;
 pub(crate) struct PIPDNAParamOptimiser<'a> {
     pub(crate) likelihood_cost: &'a PIPLikelihoodCost<'a, 4>,
     pub(crate) params: PIPDNAParams,
-    pub(crate) parameter: &'a [ParamEnum],
+    pub(crate) parameter: &'a [Parameter],
 }
 
 impl CostFunction for PIPDNAParamOptimiser<'_> {
@@ -25,7 +26,7 @@ impl CostFunction for PIPDNAParamOptimiser<'_> {
             params.set_value(param_name, *value);
         }
 
-        let subst_model = gtr(params.subst_params.clone());
+        let subst_model = make_dna_model(params.subst_params.clone());
         let index = *NUCLEOTIDE_INDEX;
         let model = PIPModel::make_pip(index, subst_model, params.mu, params.lambda);
         Ok(-self.likelihood_cost.compute_log_likelihood(&model).0)
@@ -49,66 +50,18 @@ impl<'a> PIPDNAModelOptimiser<'a> {
         }
     }
 
-    pub fn optimise_gtr_parameters(
+    pub fn optimise_parameters(
         &self,
         start_values: &PIPDNAParams,
     ) -> Result<(u32, PIPDNAParams, f64)> {
-        info!("Optimising PIP with GTR parameters.");
-        let param_sets = [
-            ("rca", vec![ParamEnum::Rca]),
-            ("rcg", vec![ParamEnum::Rcg]),
-            ("rta", vec![ParamEnum::Rta]),
-            ("rtc", vec![ParamEnum::Rtc]),
-            ("rtg", vec![ParamEnum::Rtg]),
-            ("mu", vec![ParamEnum::Mu]),
-            ("lambda", vec![ParamEnum::Lambda]),
-        ];
-        self.optimise_parameters(start_values, &param_sets)
-    }
-
-    pub fn optimise_jc69_parameters(
-        &self,
-        start_values: &PIPDNAParams,
-    ) -> Result<(u32, PIPDNAParams, f64)> {
-        info!("Optimising PIP with JC69 parameters.");
-        let param_sets = [
-            ("mu", vec![ParamEnum::Mu]),
-            ("lambda", vec![ParamEnum::Lambda]),
-        ];
-        self.optimise_parameters(start_values, &param_sets)
-    }
-
-    pub fn optimise_hky_parameters(
-        &self,
-        start_values: &PIPDNAParams,
-    ) -> Result<(u32, PIPDNAParams, f64)> {
-        info!("Optimising HKY parameters.");
-        let param_sets = [
-            ("alpha", vec![ParamEnum::Rtc, ParamEnum::Rag]),
-            (
-                "beta",
-                vec![
-                    ParamEnum::Rta,
-                    ParamEnum::Rtg,
-                    ParamEnum::Rca,
-                    ParamEnum::Rcg,
-                ],
-            ),
-            ("mu", vec![ParamEnum::Mu]),
-            ("lambda", vec![ParamEnum::Lambda]),
-        ];
-        self.optimise_parameters(start_values, &param_sets)
-    }
-
-    pub(crate) fn optimise_parameters(
-        &self,
-        start_values: &PIPDNAParams,
-        param_sets: &[(&str, Vec<ParamEnum>)],
-    ) -> Result<(u32, PIPDNAParams, f64)> {
-        info!("Optimising PIP parameters.");
+        info!(
+            "Optimising PIP with {} parameters.",
+            start_values.model_type
+        );
+        let param_sets = &PIPDNAParams::parameter_definition(start_values.model_type);
         let pip = PIPModel::<4>::make_pip(
             *NUCLEOTIDE_INDEX,
-            gtr(start_values.subst_params.clone()),
+            make_dna_model(start_values.subst_params.clone()),
             start_values.mu,
             start_values.lambda,
         );

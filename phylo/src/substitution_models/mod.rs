@@ -8,10 +8,9 @@ use ordered_float::OrderedFloat;
 use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::DNASubstModel;
+use crate::substitution_models::protein_models::ProteinSubstModel;
 use crate::tree::NodeIdx;
 use crate::{f64_h, Result, Rounding};
-
-use self::protein_models::ProteinSubstModel;
 
 pub mod dna_models;
 pub mod protein_models;
@@ -19,6 +18,14 @@ pub mod protein_models;
 pub type SubstMatrix = DMatrix<f64>;
 pub type FreqVector = DVector<f64>;
 
+#[macro_export]
+macro_rules! frequencies {
+    ($slice:expr) => {
+        FreqVector::from_column_slice($slice)
+    };
+}
+
+// TODO: remove this enum
 #[derive(Clone, Debug, PartialEq)]
 pub enum SubstParams {
     DNA(dna_models::DNASubstParams),
@@ -27,7 +34,7 @@ pub enum SubstParams {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SubstitutionModel<const N: usize> {
-    index: [i32; 255],
+    index: [usize; 255],
     pub params: SubstParams,
     pub(crate) q: SubstMatrix,
     pub(crate) pi: FreqVector,
@@ -52,14 +59,7 @@ where
     }
 
     pub(crate) fn get_rate(&self, i: u8, j: u8) -> f64 {
-        assert!(
-            self.index[i as usize] >= 0 && self.index[j as usize] >= 0,
-            "Invalid rate requested."
-        );
-        self.q[(
-            self.index[i as usize] as usize,
-            self.index[j as usize] as usize,
-        )]
+        self.q[(self.index[i as usize], self.index[j as usize])]
     }
 
     pub fn generate_scorings(

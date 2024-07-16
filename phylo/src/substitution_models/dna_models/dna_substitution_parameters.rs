@@ -1,13 +1,13 @@
 use std::fmt::Display;
 
-use anyhow::bail;
 use log::warn;
 
-use crate::substitution_models::FreqVector;
+use crate::evolutionary_models::EvolutionaryModelParameters;
+use crate::substitution_models::{dna_models::DNAModelType, FreqVector};
 use crate::Result;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum ParamEnum {
+pub enum Parameter {
     Pit,
     Pic,
     Pia,
@@ -21,9 +21,13 @@ pub enum ParamEnum {
     Mu,
     Lambda,
 }
+use Parameter::*;
+
+use super::{gtr_params, hky_params, jc69_params, k80_params, tn93_params};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DNASubstParams {
+    pub(crate) model_type: DNAModelType,
     pub pi: FreqVector,
     pub rtc: f64,
     pub rta: f64,
@@ -33,135 +37,126 @@ pub struct DNASubstParams {
     pub rag: f64,
 }
 
-impl DNASubstParams {
-    pub fn new(
-        pi: FreqVector,
-        rtc: f64,
-        rta: f64,
-        rtg: f64,
-        rca: f64,
-        rcg: f64,
-        rag: f64,
-    ) -> Result<Self> {
-        if pi.sum() != 1.0 {
-            bail!("Frequencies must sum to 1.0.");
+impl EvolutionaryModelParameters<DNAModelType> for DNASubstParams {
+    fn new(model_type: &DNAModelType, params: &[f64]) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        match model_type {
+            DNAModelType::JC69 => jc69_params(params),
+            DNAModelType::K80 => k80_params(params),
+            DNAModelType::HKY => hky_params(params),
+            DNAModelType::TN93 => tn93_params(params),
+            DNAModelType::GTR => gtr_params(params),
+            _ => unreachable!(),
         }
-        Ok(Self {
-            pi,
-            rtc,
-            rta,
-            rtg,
-            rca,
-            rcg,
-            rag,
-        })
     }
 
-    pub fn get_value(&self, param_name: &ParamEnum) -> f64 {
+    fn get_value(&self, param_name: &Parameter) -> f64 {
         match param_name {
-            ParamEnum::Pit => self.pi[0],
-            ParamEnum::Pic => self.pi[1],
-            ParamEnum::Pia => self.pi[2],
-            ParamEnum::Pig => self.pi[3],
-            ParamEnum::Rtc => self.rtc,
-            ParamEnum::Rta => self.rta,
-            ParamEnum::Rtg => self.rtg,
-            ParamEnum::Rca => self.rca,
-            ParamEnum::Rcg => self.rcg,
-            ParamEnum::Rag => self.rag,
+            Pit => self.pi[0],
+            Pic => self.pi[1],
+            Pia => self.pi[2],
+            Pig => self.pi[3],
+            Rtc => self.rtc,
+            Rta => self.rta,
+            Rtg => self.rtg,
+            Rca => self.rca,
+            Rcg => self.rcg,
+            Rag => self.rag,
             _ => panic!("Invalid parameter name."),
         }
     }
 
-    pub fn set_value(&mut self, param_name: &ParamEnum, value: f64) {
+    fn set_value(&mut self, param_name: &Parameter, value: f64) {
         match param_name {
-            ParamEnum::Pit | ParamEnum::Pic | ParamEnum::Pia | ParamEnum::Pig => {
+            Pit | Pic | Pia | Pig => {
                 warn!("Cannot set frequencies individually. Use set_pi() instead.")
             }
-            ParamEnum::Rtc => self.rtc = value,
-            ParamEnum::Rta => self.rta = value,
-            ParamEnum::Rtg => self.rtg = value,
-            ParamEnum::Rca => self.rca = value,
-            ParamEnum::Rcg => self.rcg = value,
-            ParamEnum::Rag => self.rag = value,
+            Rtc => self.rtc = value,
+            Rta => self.rta = value,
+            Rtg => self.rtg = value,
+            Rca => self.rca = value,
+            Rcg => self.rcg = value,
+            Rag => self.rag = value,
             _ => panic!("Invalid parameter name."),
         }
     }
 
-    pub fn set_pi(&mut self, pi: FreqVector) {
-        self.pi = pi;
+    fn set_pi(&mut self, pi: FreqVector) {
+        if pi.sum() != 1.0 {
+            warn!("Frequencies must sum to 1.0, not setting values");
+        } else {
+            self.pi = pi;
+        }
     }
 }
 
 impl Display for DNASubstParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "[pi = {:?}, rtc = {}, rta = {}, rtg = {}, rca = {}, rcg = {}, rag = {}]",
-            self.pi.as_slice(),
-            self.rtc,
-            self.rta,
-            self.rtg,
-            self.rca,
-            self.rcg,
-            self.rag
-        )
+        write!(f, "{}", self.print_as(self.model_type))
     }
 }
 
 impl DNASubstParams {
-    pub fn print_as_jc69(&self) -> String {
-        debug_assert!(
-            self.rtc == 1.0
-                && self.rta == 1.0
-                && self.rtg == 1.0
-                && self.rca == 1.0
-                && self.rcg == 1.0
-                && self.rag == 1.0
-        );
-        debug_assert_eq!(self.pi, FreqVector::from_column_slice(&[0.25; 4]));
-        format!("[lambda = {}]", self.rtc)
+    pub(crate) fn parameter_definition(
+        model_type: DNAModelType,
+    ) -> Vec<(&'static str, Vec<Parameter>)> {
+        match model_type {
+            DNAModelType::JC69 => vec![],
+            DNAModelType::K80 => vec![
+                ("alpha", vec![Rtc, Rag]),
+                ("beta", vec![Rta, Rtg, Rca, Rcg]),
+            ],
+            DNAModelType::HKY => vec![
+                ("alpha", vec![Rtc, Rag]),
+                ("beta", vec![Rta, Rtg, Rca, Rcg]),
+            ],
+            DNAModelType::TN93 => vec![
+                ("alpha1", vec![Rtc]),
+                ("alpha2", vec![Rag]),
+                ("beta", vec![Rta, Rtg, Rca, Rcg]),
+            ],
+            DNAModelType::GTR => vec![
+                ("rca", vec![Rca]),
+                ("rcg", vec![Rcg]),
+                ("rta", vec![Rta]),
+                ("rtc", vec![Rtc]),
+                ("rtg", vec![Rtg]),
+            ],
+            _ => unreachable!(),
+        }
     }
 
-    pub fn print_as_k80(&self) -> String {
-        debug_assert!(
-            self.rtc == self.rag
-                && self.rta == self.rtg
-                && self.rta == self.rca
-                && self.rta == self.rcg
-        );
-        debug_assert_eq!(self.pi, FreqVector::from_column_slice(&[0.25; 4]));
-        format!("[alpha = {}, beta = {}]", self.rtc, self.rta)
-    }
-
-    pub fn print_as_hky(&self) -> String {
-        debug_assert!(
-            self.rtc == self.rag
-                && self.rta == self.rtg
-                && self.rta == self.rca
-                && self.rta == self.rcg
-        );
-        format!(
-            "[pi = {:?}, alpha = {}, beta = {}]",
-            self.pi.as_slice(),
-            self.rtc,
-            self.rta
-        )
-    }
-
-    pub fn print_as_tn93(&self) -> String {
-        debug_assert!(self.rta == self.rtg && self.rta == self.rca && self.rta == self.rcg);
-        format!(
-            "[pi = {:?}, alpha1 = {}, alpha2 = {}, beta = {}]",
-            self.pi.as_slice(),
-            self.rtc,
-            self.rag,
-            self.rta
-        )
-    }
-
-    pub fn print_as_gtr(&self) -> String {
-        format!("{}", self)
+    fn print_as(&self, model_type: DNAModelType) -> String {
+        match model_type {
+            DNAModelType::JC69 => format!("[lambda = {}]", self.rtc),
+            DNAModelType::K80 => format!("[alpha = {}, beta = {}]", self.rtc, self.rta),
+            DNAModelType::HKY => format!(
+                "[pi = {:?}, alpha = {}, beta = {}]",
+                self.pi.as_slice(),
+                self.rtc,
+                self.rta
+            ),
+            DNAModelType::TN93 => format!(
+                "[pi = {:?}, alpha1 = {}, alpha2 = {}, beta = {}]",
+                self.pi.as_slice(),
+                self.rtc,
+                self.rag,
+                self.rta
+            ),
+            DNAModelType::GTR => format!(
+                "[pi = {:?}, rtc = {}, rta = {}, rtg = {}, rca = {}, rcg = {}, rag = {}]",
+                self.pi.as_slice(),
+                self.rtc,
+                self.rta,
+                self.rtg,
+                self.rca,
+                self.rcg,
+                self.rag
+            ),
+            _ => unreachable!(),
+        }
     }
 }
 
