@@ -7,10 +7,10 @@ use crate::evolutionary_models::{
     ModelType::DNA,
 };
 use crate::likelihood::LikelihoodCostFunction;
+use crate::optimisers::dna_model_optimiser::DNAModelOptimiser;
 use crate::phylo_info::{GapHandling, PhyloInfo};
 use crate::substitution_models::dna_models::{
-    dna_model_optimiser::DNAModelOptimiser, make_dna_model, DNALikelihoodCost, DNASubstModel,
-    DNASubstParams,
+    make_dna_model, DNALikelihoodCost, DNASubstModel, DNASubstParams,
 };
 
 #[test]

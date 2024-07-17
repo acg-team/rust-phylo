@@ -8,8 +8,8 @@ use crate::evolutionary_models::{
     ModelType::DNA,
 };
 use crate::likelihood::LikelihoodCostFunction;
+use crate::optimisers::pip_model_optimiser::PIPDNAModelOptimiser;
 use crate::phylo_info::{GapHandling, PhyloInfo};
-use crate::pip_model::pip_model_optimiser::PIPDNAModelOptimiser;
 use crate::pip_model::{PIPDNAParams, PIPLikelihoodCost, PIPModel};
 
 #[test]

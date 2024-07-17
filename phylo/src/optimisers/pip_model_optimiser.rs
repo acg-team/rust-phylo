@@ -3,12 +3,9 @@ use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
 use crate::evolutionary_models::EvolutionaryModelParameters;
-use crate::pip_model::PIPLikelihoodCost;
-use crate::pip_model::PIPModel;
+use crate::pip_model::{PIPDNAParams, PIPLikelihoodCost, PIPModel};
 use crate::substitution_models::dna_models::{make_dna_model, Parameter, NUCLEOTIDE_INDEX};
 use crate::Result;
-
-use super::PIPDNAParams;
 
 pub(crate) struct PIPDNAParamOptimiser<'a> {
     pub(crate) likelihood_cost: &'a PIPLikelihoodCost<'a, 4>,

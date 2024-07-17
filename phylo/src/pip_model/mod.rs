@@ -14,7 +14,6 @@ use crate::tree::NodeIdx::{self, Internal as Int, Leaf};
 use crate::Result;
 
 mod dna_pip_parameters;
-pub mod pip_model_optimiser;
 pub use dna_pip_parameters::*;
 
 #[derive(Clone, Debug)]
@@ -44,7 +43,7 @@ where
         &self.pi
     }
 
-    fn make_pip(
+    pub(crate) fn make_pip(
         index: [usize; 255],
         subst_model: SubstitutionModel<N>,
         mu: f64,
@@ -467,7 +466,5 @@ where
     }
 }
 
-#[cfg(test)]
-mod pip_dna_optimisation_tests;
 #[cfg(test)]
 mod pip_model_tests;

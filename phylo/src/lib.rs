@@ -4,6 +4,7 @@ pub mod alignment;
 pub mod evolutionary_models;
 pub mod io;
 pub mod likelihood;
+pub mod optimisers;
 pub mod phylo_info;
 pub mod pip_model;
 pub mod sequences;

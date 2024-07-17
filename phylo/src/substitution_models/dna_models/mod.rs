@@ -19,8 +19,6 @@ use crate::{frequencies, Result, Rounding};
 mod dna_substitution_parameters;
 pub use dna_substitution_parameters::*;
 
-pub mod dna_model_optimiser;
-
 pub(crate) mod dna_model_generics;
 pub(crate) use dna_model_generics::*;
 
@@ -149,6 +147,3 @@ impl<'a> LikelihoodCostFunction<'a, 4> for DNALikelihoodCost<'a> {
         freqs.map(|x| x / total)
     }
 }
-
-#[cfg(test)]
-mod dna_optimisation_tests;
