@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::ops::Mul;
 
 use anyhow::bail;
-use nalgebra::{Const, DMatrix, DVector, DimMin};
+use nalgebra::{Const, DMatrix, DVector, DimMin, ToTypenum};
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo};
+use crate::evolutionary_models::EvolutionaryModelInfo;
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::DNASubstModel;
 use crate::substitution_models::protein_models::ProteinSubstModel;
@@ -131,7 +131,7 @@ impl<'a> SubstitutionLikelihoodCost<'a, 20> {
 
 impl<'a, const N: usize> SubstitutionLikelihoodCost<'a, N>
 where
-    Const<N>: DimMin<Const<N>, Output = Const<N>>,
+    Const<N>: DimMin<Const<N>, Output = Const<N>> + ToTypenum,
 {
     fn compute_log_likelihood_with_tmp(
         &self,
@@ -231,8 +231,13 @@ pub struct SubstitutionModelInfo<const N: usize> {
     leaf_sequence_info: Vec<DMatrix<f64>>,
 }
 
-impl<const N: usize> EvolutionaryModelInfo<N> for SubstitutionModelInfo<N> {
-    fn new(info: &PhyloInfo, model: &dyn EvolutionaryModel<N>) -> Result<Self> {
+impl<const N: usize> EvolutionaryModelInfo<N> for SubstitutionModelInfo<N>
+where
+    Const<N>: DimMin<Const<N>, Output = Const<N>>,
+{
+    type Model = SubstitutionModel<N>;
+
+    fn new(info: &PhyloInfo, model: &Self::Model) -> Result<Self> {
         if info.msa.is_none() {
             bail!("An MSA is required to set up the likelihood computation.");
         }

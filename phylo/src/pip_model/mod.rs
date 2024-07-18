@@ -174,8 +174,13 @@ pub struct PIPModelInfo<const N: usize> {
     models_valid: Vec<bool>,
 }
 
-impl<const N: usize> EvolutionaryModelInfo<N> for PIPModelInfo<N> {
-    fn new(info: &PhyloInfo, model: &dyn EvolutionaryModel<N>) -> Result<Self> {
+impl<const N: usize> EvolutionaryModelInfo<N> for PIPModelInfo<N>
+where
+    Const<N>: DimMin<Const<N>, Output = Const<N>>,
+{
+    type Model = PIPModel<N>;
+
+    fn new(info: &PhyloInfo, model: &Self::Model) -> Result<Self> {
         if info.msa.is_none() {
             bail!("An MSA is required to set up the likelihood computation.");
         }

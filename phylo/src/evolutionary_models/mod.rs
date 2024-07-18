@@ -79,7 +79,7 @@ impl<const N: usize> std::fmt::Debug for dyn EvolutionaryModel<N> {
 pub trait EvolutionaryModel<const N: usize> {
     fn new(model_type: ModelType, params: &[f64]) -> Result<Self>
     where
-        Self: std::marker::Sized;
+        Self: Sized;
     fn get_p(&self, time: f64) -> SubstMatrix;
     fn get_rate(&self, i: u8, j: u8) -> f64;
     fn get_stationary_distribution(&self) -> &FreqVector;
@@ -87,8 +87,9 @@ pub trait EvolutionaryModel<const N: usize> {
 }
 
 pub trait EvolutionaryModelInfo<const N: usize> {
-    fn new(info: &PhyloInfo, model: &dyn EvolutionaryModel<N>) -> Result<Self>
+    type Model;
+    fn new(info: &PhyloInfo, model: &Self::Model) -> Result<Self>
     where
-        Self: std::marker::Sized;
+        Self: Sized;
     fn reset(&mut self);
 }
