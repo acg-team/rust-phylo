@@ -16,8 +16,10 @@ pub struct PIPDNAParams {
     pub mu: f64,
 }
 
-impl EvolutionaryModelParameters<DNAModelType> for PIPDNAParams {
-    fn new(model_type: &DNAModelType, params: &[f64]) -> Result<Self> {
+impl EvolutionaryModelParameters for PIPDNAParams {
+    type Model = DNAModelType;
+
+    fn new(model_type: &Self::Model, params: &[f64]) -> Result<Self> {
         let lambda = params[0];
         let mu = params[1];
         let subst_params = DNASubstParams::new(model_type, &params[2..])?;

@@ -7,8 +7,8 @@ use crate::evolutionary_models::{DNAModelType, EvolutionaryModel, EvolutionaryMo
 use crate::likelihood::LikelihoodCostFunction;
 use crate::sequences::NUCLEOTIDES;
 use crate::substitution_models::{
-    FreqVector, ParsimonyModel, SubstMatrix, SubstParams, SubstitutionLikelihoodCost,
-    SubstitutionModel, SubstitutionModelInfo,
+    FreqVector, ParsimonyModel, SubstMatrix, SubstitutionLikelihoodCost, SubstitutionModel,
+    SubstitutionModelInfo,
 };
 use crate::{frequencies, Result, Rounding};
 
@@ -39,7 +39,6 @@ pub(crate) fn make_dna_model(params: DNASubstParams) -> DNASubstModel {
         }
     };
     DNASubstModel {
-        params: SubstParams::DNA(params),
         index: *NUCLEOTIDE_INDEX,
         q,
         pi,

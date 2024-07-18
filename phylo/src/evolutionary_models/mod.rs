@@ -94,8 +94,9 @@ impl ProteinModelType {
     }
 }
 
-pub trait EvolutionaryModelParameters<T> {
-    fn new(model_type: &T, params: &[f64]) -> Result<Self>
+pub trait EvolutionaryModelParameters {
+    type Model;
+    fn new(model: &Self::Model, params: &[f64]) -> Result<Self>
     where
         Self: Sized;
     fn get_value(&self, param_name: &Parameter) -> f64;

@@ -7,8 +7,8 @@ use crate::evolutionary_models::{EvolutionaryModel, ProteinModelType};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::sequences::{AMINOACIDS, GAP};
 use crate::substitution_models::{
-    FreqVector, ParsimonyModel, SubstMatrix, SubstParams, SubstitutionLikelihoodCost,
-    SubstitutionModel, SubstitutionModelInfo,
+    FreqVector, ParsimonyModel, SubstMatrix, SubstitutionLikelihoodCost, SubstitutionModel,
+    SubstitutionModelInfo,
 };
 use crate::{frequencies, Result, Rounding};
 
@@ -103,7 +103,6 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
             _ => unreachable!(),
         };
         let mut model = ProteinSubstModel {
-            params: SubstParams::Protein(ProteinSubstParams { pi: pi.clone() }),
             index: *AMINOACID_INDEX,
             q,
             pi,
