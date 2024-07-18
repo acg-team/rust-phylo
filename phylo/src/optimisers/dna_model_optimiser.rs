@@ -8,14 +8,14 @@ use crate::evolutionary_models::{
     FrequencyOptimisation::{self, *},
 };
 use crate::likelihood::LikelihoodCostFunction;
-use crate::substitution_models::dna_models::{make_dna_model, DNASubstParams, Parameter};
+use crate::substitution_models::dna_models::{make_dna_model, DNAParameter, DNASubstParams};
 use crate::substitution_models::SubstitutionLikelihoodCost;
 use crate::Result;
 
 pub(crate) struct DNAParamOptimiser<'a> {
     pub(crate) likelihood_cost: &'a SubstitutionLikelihoodCost<'a, 4>,
     pub(crate) params: DNASubstParams,
-    pub(crate) parameter: &'a [Parameter],
+    pub(crate) parameter: &'a [DNAParameter],
 }
 
 impl CostFunction for DNAParamOptimiser<'_> {
@@ -63,7 +63,7 @@ impl<'a> DNAModelOptimiser<'a> {
     ) -> Result<(u32, DNASubstParams, f64)> {
         let model_type = start_values.model_type;
         info!("Optimising {} parameters.", model_type);
-        let param_sets = DNASubstParams::parameter_definition(model_type);
+        let param_sets = DNASubstParams::parameter_definition(&model_type);
         let start_values = match model_type {
             JC69 | K80 => start_values,
             _ => {
@@ -83,7 +83,7 @@ impl<'a> DNAModelOptimiser<'a> {
     fn run_parameter_brent(
         &self,
         start_values: &DNASubstParams,
-        param_sets: Vec<(&str, Vec<Parameter>)>,
+        param_sets: Vec<(&str, Vec<DNAParameter>)>,
     ) -> Result<(u32, DNASubstParams, f64)> {
         let mut prev_logl = f64::NEG_INFINITY;
         let mut opt_logl = self

@@ -19,6 +19,13 @@ pub type ProteinSubstModel = SubstitutionModel<20>;
 pub type ProteinLikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 20>;
 pub type ProteinSubstModelInfo = SubstitutionModelInfo<20>;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ProteinParameter {
+    Pi,
+    Mu,
+    Lambda,
+}
+
 lazy_static! {
     pub static ref AMINOACID_INDEX: [usize; 255] = {
         let mut index = [0; 255];
@@ -91,6 +98,7 @@ impl ProteinSubstModel {
 
 impl EvolutionaryModel<20> for ProteinSubstModel {
     type Model = ProteinModelType;
+    type ModelParameters = ProteinSubstParams;
 
     fn new(model_type: Self::Model, _: &[f64]) -> Result<Self>
     where

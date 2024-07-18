@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::ops::Mul;
 use std::vec;
 
@@ -10,7 +11,9 @@ use crate::evolutionary_models::{
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::{DNASubstModel, NUCLEOTIDE_INDEX};
-use crate::substitution_models::protein_models::{ProteinSubstModel, AMINOACID_INDEX};
+use crate::substitution_models::protein_models::{
+    ProteinSubstModel, ProteinSubstParams, AMINOACID_INDEX,
+};
 use crate::substitution_models::{FreqVector, SubstMatrix, SubstitutionModel};
 use crate::tree::NodeIdx::{self, Internal as Int, Leaf};
 use crate::Result;
@@ -86,6 +89,7 @@ where
 // TODO: Make sure Q matrix makes sense like this ALL the time.
 impl EvolutionaryModel<4> for PIPModel<4> {
     type Model = DNAModelType;
+    type ModelParameters = PIPDNAParams;
 
     fn new(model_type: Self::Model, params: &[f64]) -> Result<Self>
     where
@@ -127,8 +131,27 @@ impl EvolutionaryModel<4> for PIPModel<4> {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct PIPProteinParams {
+    pub(crate) model_type: ProteinModelType,
+    pub subst_params: ProteinSubstParams,
+    pub lambda: f64,
+    pub mu: f64,
+}
+
+impl Display for PIPProteinParams {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "[lambda = {:.5},\nmu = {:.5},\nsubst model parameters = \n{:?}]",
+            self.lambda, self.mu, self.subst_params
+        )
+    }
+}
+
 impl EvolutionaryModel<20> for PIPModel<20> {
     type Model = ProteinModelType;
+    type ModelParameters = PIPProteinParams;
 
     fn new(model_type: Self::Model, params: &[f64]) -> Result<Self>
     where

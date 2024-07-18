@@ -229,7 +229,7 @@ where
 {
     type Model = SubstitutionModel<N>;
 
-    fn new(info: &PhyloInfo, model: &Self::Model) -> Result<Self> {
+    fn new(info: &PhyloInfo, model: &SubstitutionModel<N>) -> Result<Self> {
         if info.msa.is_none() {
             bail!("An MSA is required to set up the likelihood computation.");
         }

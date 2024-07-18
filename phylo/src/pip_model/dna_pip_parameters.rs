@@ -2,8 +2,8 @@ use std::fmt::Display;
 
 use crate::evolutionary_models::{DNAModelType, EvolutionaryModelParameters};
 use crate::substitution_models::dna_models::{
+    DNAParameter::{self, *},
     DNASubstParams,
-    Parameter::{self, *},
 };
 use crate::substitution_models::FreqVector;
 use crate::Result;
@@ -18,8 +18,9 @@ pub struct PIPDNAParams {
 
 impl EvolutionaryModelParameters for PIPDNAParams {
     type Model = DNAModelType;
+    type Parameter = DNAParameter;
 
-    fn new(model_type: &Self::Model, params: &[f64]) -> Result<Self> {
+    fn new(model_type: &DNAModelType, params: &[f64]) -> Result<Self> {
         let lambda = params[0];
         let mu = params[1];
         let subst_params = DNASubstParams::new(model_type, &params[2..])?;
@@ -31,7 +32,7 @@ impl EvolutionaryModelParameters for PIPDNAParams {
         })
     }
 
-    fn get_value(&self, param_name: &Parameter) -> f64 {
+    fn get_value(&self, param_name: &DNAParameter) -> f64 {
         match param_name {
             Lambda => self.lambda,
             Mu => self.mu,
@@ -39,7 +40,7 @@ impl EvolutionaryModelParameters for PIPDNAParams {
         }
     }
 
-    fn set_value(&mut self, param_name: &Parameter, value: f64) {
+    fn set_value(&mut self, param_name: &DNAParameter, value: f64) {
         match param_name {
             Lambda => self.lambda = value,
             Mu => self.mu = value,
@@ -50,6 +51,16 @@ impl EvolutionaryModelParameters for PIPDNAParams {
     fn set_pi(&mut self, pi: FreqVector) {
         self.subst_params.set_pi(pi);
     }
+
+    fn parameter_definition(model_type: &DNAModelType) -> Vec<(&'static str, Vec<DNAParameter>)> {
+        DNASubstParams::parameter_definition(model_type)
+            .into_iter()
+            .chain([
+                ("mu", vec![DNAParameter::Mu]),
+                ("lambda", vec![DNAParameter::Lambda]),
+            ])
+            .collect()
+    }
 }
 
 impl Display for PIPDNAParams {
@@ -59,20 +70,6 @@ impl Display for PIPDNAParams {
             "[lambda = {:.5},\nmu = {:.5},\nsubst model parameters = \n{}]",
             self.lambda, self.mu, self.subst_params
         )
-    }
-}
-
-impl PIPDNAParams {
-    pub(crate) fn parameter_definition(
-        model_type: DNAModelType,
-    ) -> Vec<(&'static str, Vec<Parameter>)> {
-        DNASubstParams::parameter_definition(model_type)
-            .into_iter()
-            .chain([
-                ("mu", vec![Parameter::Mu]),
-                ("lambda", vec![Parameter::Lambda]),
-            ])
-            .collect()
     }
 }
 

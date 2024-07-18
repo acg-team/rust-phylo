@@ -45,10 +45,9 @@ pub(crate) fn make_dna_model(params: DNASubstParams) -> DNASubstModel {
     }
 }
 
-impl DNASubstModel {}
-
 impl EvolutionaryModel<4> for DNASubstModel {
     type Model = DNAModelType;
+    type ModelParameters = DNASubstParams;
 
     fn new(model_type: Self::Model, params: &[f64]) -> Result<Self>
     where

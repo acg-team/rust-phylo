@@ -3,7 +3,6 @@ use std::fmt::Display;
 use log::warn;
 
 use crate::phylo_info::PhyloInfo;
-use crate::substitution_models::dna_models::Parameter;
 use crate::substitution_models::{FreqVector, SubstMatrix};
 use crate::Result;
 
@@ -96,17 +95,20 @@ impl ProteinModelType {
 
 pub trait EvolutionaryModelParameters {
     type Model;
+    type Parameter;
     fn new(model: &Self::Model, params: &[f64]) -> Result<Self>
     where
         Self: Sized;
-    fn get_value(&self, param_name: &Parameter) -> f64;
-    fn set_value(&mut self, param_name: &Parameter, value: f64);
+    fn parameter_definition(model_type: &Self::Model) -> Vec<(&'static str, Vec<Self::Parameter>)>;
+    fn get_value(&self, param_name: &Self::Parameter) -> f64;
+    fn set_value(&mut self, param_name: &Self::Parameter, value: f64);
     fn set_pi(&mut self, pi: FreqVector);
 }
 
 // TODO: change pi to a row vector
 pub trait EvolutionaryModel<const N: usize> {
     type Model;
+    type ModelParameters;
     fn new(model: Self::Model, params: &[f64]) -> Result<Self>
     where
         Self: Sized;
