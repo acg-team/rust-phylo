@@ -4,7 +4,9 @@ use std::vec;
 use anyhow::bail;
 use nalgebra::{Const, DMatrix, DVector, DimMin};
 
-use crate::evolutionary_models::{EvolutionaryModel, EvolutionaryModelInfo, ModelType};
+use crate::evolutionary_models::{
+    DNAModelType, EvolutionaryModel, EvolutionaryModelInfo, ProteinModelType,
+};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::{DNASubstModel, NUCLEOTIDE_INDEX};
@@ -83,7 +85,9 @@ where
 
 // TODO: Make sure Q matrix makes sense like this ALL the time.
 impl EvolutionaryModel<4> for PIPModel<4> {
-    fn new(model_type: ModelType, params: &[f64]) -> Result<Self>
+    type Model = DNAModelType;
+
+    fn new(model_type: Self::Model, params: &[f64]) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
@@ -117,10 +121,16 @@ impl EvolutionaryModel<4> for PIPModel<4> {
         }
         probs
     }
+
+    fn index() -> &'static [usize; 255] {
+        todo!()
+    }
 }
 
 impl EvolutionaryModel<20> for PIPModel<20> {
-    fn new(model_type: ModelType, params: &[f64]) -> Result<Self>
+    type Model = ProteinModelType;
+
+    fn new(model_type: Self::Model, params: &[f64]) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
@@ -153,6 +163,10 @@ impl EvolutionaryModel<20> for PIPModel<20> {
             probs.scale_mut(1.0 / probs.sum());
         }
         probs
+    }
+
+    fn index() -> &'static [usize; 255] {
+        &AMINOACID_INDEX
     }
 }
 

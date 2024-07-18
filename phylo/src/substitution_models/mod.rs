@@ -62,7 +62,11 @@ where
         self.q[(self.index[i as usize], self.index[j as usize])]
     }
 
-    pub fn generate_scorings(
+    fn get_stationary_distribution(&self) -> &FreqVector {
+        &self.pi
+    }
+
+    fn generate_scorings(
         &self,
         times: &[f64],
         zero_diag: bool,
@@ -78,10 +82,6 @@ where
 
     fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
         self.get_scoring_matrix_corrected(time, false, rounding)
-    }
-
-    fn get_stationary_distribution(&self) -> &FreqVector {
-        &self.pi
     }
 
     fn get_scoring_matrix_corrected(

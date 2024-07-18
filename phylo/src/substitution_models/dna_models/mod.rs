@@ -1,13 +1,9 @@
 use std::collections::HashMap;
 
-use anyhow::bail;
 use log::{info, warn};
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::{
-    DNAModelType, EvolutionaryModel, EvolutionaryModelParameters,
-    ModelType::{self, DNA},
-};
+use crate::evolutionary_models::{DNAModelType, EvolutionaryModel, EvolutionaryModelParameters};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::sequences::NUCLEOTIDES;
 use crate::substitution_models::{
@@ -50,38 +46,24 @@ pub(crate) fn make_dna_model(params: DNASubstParams) -> DNASubstModel {
     }
 }
 
-impl DNASubstModel {
-    pub fn get_model_type(model_name: &str) -> Result<ModelType> {
-        match model_name.to_uppercase().as_str() {
-            "JC69" => Ok(DNA(DNAModelType::JC69)),
-            "K80" => Ok(DNA(DNAModelType::K80)),
-            "HKY" => Ok(DNA(DNAModelType::HKY)),
-            "TN93" => Ok(DNA(DNAModelType::TN93)),
-            "GTR" => Ok(DNA(DNAModelType::GTR)),
-            _ => bail!("Unknown DNA model requested."),
-        }
-    }
-}
+impl DNASubstModel {}
 
 impl EvolutionaryModel<4> for DNASubstModel {
-    fn new(generic_model_type: ModelType, params: &[f64]) -> Result<Self>
+    type Model = DNAModelType;
+
+    fn new(model_type: Self::Model, params: &[f64]) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
-        let (model_type, params) = if let DNA(model_type) = generic_model_type {
-            if model_type == DNAModelType::UNDEF {
-                warn!("No model provided, defaulting to GTR.");
-                (
-                    DNAModelType::GTR,
-                    [0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0].as_slice(),
-                )
-            } else {
-                (model_type, params)
-            }
+        let params = if model_type == DNAModelType::UNDEF {
+            warn!("No model provided, defaulting to GTR.");
+            DNASubstParams::new(
+                &DNAModelType::GTR,
+                [0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0].as_slice(),
+            )?
         } else {
-            bail!("Invalid model requested.");
+            DNASubstParams::new(&model_type, params)?
         };
-        let params = DNASubstParams::new(&model_type, params)?;
         Ok(make_dna_model(params))
     }
 
@@ -104,6 +86,10 @@ impl EvolutionaryModel<4> for DNASubstModel {
             .component_mul(char_encoding);
         probs.scale_mut(1.0 / probs.sum());
         probs
+    }
+
+    fn index() -> &'static [usize; 255] {
+        &NUCLEOTIDE_INDEX
     }
 }
 

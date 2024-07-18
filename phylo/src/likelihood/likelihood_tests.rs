@@ -6,10 +6,9 @@ use approx::assert_relative_eq;
 use bio::io::fasta::Record;
 
 use crate::evolutionary_models::{
-    DNAModelType::*,
+    DNAModelType::{self, *},
     EvolutionaryModel, EvolutionaryModelInfo,
-    ModelType::{self, *},
-    ProteinModelType::*,
+    ProteinModelType::{self, *},
 };
 use crate::frequencies;
 use crate::likelihood::LikelihoodCostFunction;
@@ -44,7 +43,7 @@ fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
 #[test]
 fn dna_simple_likelihood() {
     let info = setup_simple_phylo_info(1.0, 1.0);
-    let model = DNASubstModel::new(DNA(JC69), &[]).unwrap();
+    let model = DNASubstModel::new(JC69, &[]).unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
 
     assert_relative_eq!(
@@ -78,7 +77,7 @@ fn setup_simple_phylo_info_no_alignment() -> PhyloInfo {
 #[test]
 fn dna_likelihood_no_msa() {
     let info = setup_simple_phylo_info_no_alignment();
-    let model = DNASubstModel::new(DNA(JC69), &[]).unwrap();
+    let model = DNASubstModel::new(JC69, &[]).unwrap();
     let tmp = DNASubstModelInfo::new(&info, &model);
     assert!(tmp.is_err());
 }
@@ -97,7 +96,7 @@ fn setup_phylo_info_single_leaf() -> PhyloInfo {
 fn dna_likelihood_one_node() {
     let info = setup_phylo_info_single_leaf();
     let likelihood = DNALikelihoodCost { info: &info };
-    let model = DNASubstModel::new(DNA(JC69), &[]).unwrap();
+    let model = DNASubstModel::new(JC69, &[]).unwrap();
     assert!(LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model) < 0.0);
 }
 
@@ -119,7 +118,7 @@ fn dna_cb_example_likelihood() {
     let info = setup_cb_example_phylo_info();
     let likelihood = DNALikelihoodCost { info: &info };
     let mut model = DNASubstModel::new(
-        DNA(TN93),
+        TN93,
         &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
     )
     .unwrap();
@@ -170,7 +169,7 @@ fn setup_mol_evo_example_phylo_info() -> PhyloInfo {
 fn dna_mol_evo_example_likelihood() {
     let info = setup_mol_evo_example_phylo_info();
     let likelihood = DNALikelihoodCost { info: &info };
-    let model = DNASubstModel::new(DNA(K80), &[]).unwrap();
+    let model = DNASubstModel::new(K80, &[]).unwrap();
     assert_relative_eq!(
         LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model),
         -7.581408,
@@ -181,7 +180,7 @@ fn dna_mol_evo_example_likelihood() {
 #[test]
 fn dna_ambig_example_likelihood() {
     let model = DNASubstModel::new(
-        DNA(TN93),
+        TN93,
         &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
     )
     .unwrap();
@@ -227,11 +226,8 @@ fn dna_huelsenbeck_example_likelihood() {
         &GapHandling::Ambiguous,
     )
     .unwrap();
-    let model = DNASubstModel::new(
-        DNA(GTR),
-        &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0],
-    )
-    .unwrap();
+    let model =
+        DNASubstModel::new(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0]).unwrap();
     let likelihood = DNALikelihoodCost { info: &info };
 
     assert_relative_eq!(
@@ -242,11 +238,11 @@ fn dna_huelsenbeck_example_likelihood() {
 }
 
 #[rstest]
-#[case::wag(Protein(WAG), &[], -4505.736814460457, 1e-4)]
-#[case::hivb(Protein(HIVB), &[], -4407.989226397638, 1e-5)]
-#[case::blosum(Protein(BLOSUM), &[], -4576.40850634098, 1e-5)] // PhyML likelihood under BLOSUM62 is -4587.71053
+#[case::wag(WAG, &[], -4505.736814460457, 1e-4)]
+#[case::hivb(HIVB, &[], -4407.989226397638, 1e-5)]
+#[case::blosum(BLOSUM, &[], -4576.40850634098, 1e-5)] // PhyML likelihood under BLOSUM62 is -4587.71053
 fn protein_example_likelihood(
-    #[case] model_type: ModelType,
+    #[case] model_type: ProteinModelType,
     #[case] params: &[f64],
     #[case] expected_llik: f64,
     #[case] epsilon: f64,
@@ -294,12 +290,12 @@ fn setup_simple_reversibility() -> Vec<PhyloInfo> {
 }
 
 #[rstest]
-#[case::jc69(DNA(JC69), &[])]
-#[case::k80(DNA(K80), &[])]
-#[case::hky(DNA(HKY), &[0.22, 0.26, 0.33, 0.19, 0.5])]
-#[case::tn93(DNA(TN93), &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
-#[case::gtr(DNA(GTR), &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-fn simple_dna_likelihood_reversibility(#[case] model_type: ModelType, #[case] params: &[f64]) {
+#[case::jc69(JC69, &[])]
+#[case::k80(K80, &[])]
+#[case::hky(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5])]
+#[case::tn93(TN93, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
+#[case::gtr(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
+fn simple_dna_likelihood_reversibility(#[case] model_type: DNAModelType, #[case] params: &[f64]) {
     let info = setup_simple_reversibility();
     let model = DNASubstModel::new(model_type, params).unwrap();
     let likelihood = DNALikelihoodCost { info: &info[0] };
@@ -339,11 +335,11 @@ fn setup_simple_protein_reversibility() -> Vec<PhyloInfo> {
 }
 
 #[rstest]
-#[case::wag(Protein(WAG), &[], 1e-8)]
-#[case::hivb(Protein(HIVB), &[], 1e-8)]
-#[case::blosum(Protein(BLOSUM), &[], 1e-3)]
+#[case::wag(WAG, &[], 1e-8)]
+#[case::hivb(HIVB, &[], 1e-8)]
+#[case::blosum(BLOSUM, &[], 1e-3)]
 fn simple_protein_likelihood_reversibility(
-    #[case] model_type: ModelType,
+    #[case] model_type: ProteinModelType,
     #[case] params: &[f64],
     #[case] epsilon: f64,
 ) {
@@ -359,13 +355,13 @@ fn simple_protein_likelihood_reversibility(
 }
 
 #[rstest]
-#[case::jc69(DNA(JC69), &[])]
-#[case::k80(DNA(K80), &[])]
-#[case::hky(DNA(HKY), &[0.22, 0.26, 0.33, 0.19, 0.5])]
-#[case::tn93(DNA(TN93), &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
-#[case::gtr(DNA(GTR), &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
+#[case::jc69(JC69, &[])]
+#[case::k80(K80, &[])]
+#[case::hky(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5])]
+#[case::tn93(TN93, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
+#[case::gtr(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
 fn huelsenbeck_example_dna_reversibility_likelihood(
-    #[case] model_type: ModelType,
+    #[case] model_type: DNAModelType,
     #[case] params: &[f64],
 ) {
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf

@@ -4,7 +4,6 @@ use approx::assert_relative_eq;
 
 use crate::evolutionary_models::{
     DNAModelType::*, EvolutionaryModel, EvolutionaryModelParameters, FrequencyOptimisation,
-    ModelType::DNA,
 };
 use crate::likelihood::LikelihoodCostFunction;
 use crate::optimisers::dna_model_optimiser::DNAModelOptimiser;
@@ -23,7 +22,7 @@ fn check_likelihood_opt_k80() {
     .unwrap();
 
     let likelihood = DNALikelihoodCost { info: &info };
-    let model = DNASubstModel::new(DNA(JC69), &[4.0, 1.0]).unwrap();
+    let model = DNASubstModel::new(JC69, &[4.0, 1.0]).unwrap();
 
     let params = DNASubstParams::new(&K80, &[4.0, 1.0]).unwrap();
     let unopt_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
@@ -33,7 +32,7 @@ fn check_likelihood_opt_k80() {
         .unwrap();
     assert!(logl > unopt_logl);
 
-    let model = DNASubstModel::new(DNA(K80), &[1.884815, 1.0]).unwrap();
+    let model = DNASubstModel::new(K80, &[1.884815, 1.0]).unwrap();
     let expected_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood, &model);
 
     assert_relative_eq!(logl, expected_logl, epsilon = 1e-6);

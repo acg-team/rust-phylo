@@ -1,15 +1,9 @@
 use std::collections::HashMap;
 
-use anyhow::bail;
 use lazy_static::lazy_static;
-use log::warn;
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::{
-    EvolutionaryModel,
-    ModelType::{self, Protein},
-    ProteinModelType,
-};
+use crate::evolutionary_models::{EvolutionaryModel, ProteinModelType};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::sequences::{AMINOACIDS, GAP};
 use crate::substitution_models::{
@@ -95,32 +89,13 @@ impl ProteinSubstModel {
     }
 }
 
-impl ProteinSubstModel {
-    pub fn get_model_type(model_name: &str) -> Result<ModelType> {
-        match model_name.to_uppercase().as_str() {
-            "WAG" => Ok(Protein(ProteinModelType::WAG)),
-            "BLOSUM" => Ok(Protein(ProteinModelType::BLOSUM)),
-            "HIVB" => Ok(Protein(ProteinModelType::HIVB)),
-            _ => bail!("Unknown protein model requested."),
-        }
-    }
-}
-
 impl EvolutionaryModel<20> for ProteinSubstModel {
-    fn new(generic_model_type: ModelType, _: &[f64]) -> Result<Self>
+    type Model = ProteinModelType;
+
+    fn new(model_type: Self::Model, _: &[f64]) -> Result<Self>
     where
         Self: std::marker::Sized,
     {
-        let model_type = if let Protein(model_type) = generic_model_type {
-            if model_type == ProteinModelType::UNDEF {
-                warn!("No model provided, defaulting to WAG.");
-                ProteinModelType::WAG
-            } else {
-                model_type
-            }
-        } else {
-            bail!("Invalid model requested");
-        };
         let (q, pi) = match model_type {
             ProteinModelType::WAG => wag()?,
             ProteinModelType::BLOSUM => blosum()?,
@@ -156,6 +131,10 @@ impl EvolutionaryModel<20> for ProteinSubstModel {
             .component_mul(char_encoding);
         probs.scale_mut(1.0 / probs.sum());
         probs
+    }
+
+    fn index() -> &'static [usize; 255] {
+        &AMINOACID_INDEX
     }
 }
 

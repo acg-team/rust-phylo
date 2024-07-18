@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use log::warn;
+
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::Parameter;
 use crate::substitution_models::{FreqVector, SubstMatrix};
@@ -28,6 +30,7 @@ pub enum DNAModelType {
     GTR,
     UNDEF,
 }
+
 impl Display for DNAModelType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -37,6 +40,22 @@ impl Display for DNAModelType {
             DNAModelType::TN93 => write!(f, "TN93"),
             DNAModelType::GTR => write!(f, "GTR"),
             DNAModelType::UNDEF => write!(f, "Undefined"),
+        }
+    }
+}
+
+impl DNAModelType {
+    pub fn get_model_type(model_name: &str) -> Self {
+        match model_name.to_uppercase().as_str() {
+            "JC69" => DNAModelType::JC69,
+            "K80" => DNAModelType::K80,
+            "HKY" => DNAModelType::HKY,
+            "TN93" => DNAModelType::TN93,
+            "GTR" => DNAModelType::GTR,
+            _ => {
+                warn!("Unknown DNA model requested, defaulting to GTR.");
+                DNAModelType::GTR
+            }
         }
     }
 }
@@ -61,6 +80,20 @@ impl Display for ProteinModelType {
     }
 }
 
+impl ProteinModelType {
+    pub fn get_model_type(model_name: &str) -> Self {
+        match model_name.to_uppercase().as_str() {
+            "WAG" => ProteinModelType::WAG,
+            "BLOSUM" => ProteinModelType::BLOSUM,
+            "HIVB" => ProteinModelType::HIVB,
+            _ => {
+                warn!("Unknown DNA model requested, defaulting to WAG.");
+                ProteinModelType::WAG
+            }
+        }
+    }
+}
+
 pub trait EvolutionaryModelParameters<T> {
     fn new(model_type: &T, params: &[f64]) -> Result<Self>
     where
@@ -70,20 +103,17 @@ pub trait EvolutionaryModelParameters<T> {
     fn set_pi(&mut self, pi: FreqVector);
 }
 
-impl<const N: usize> std::fmt::Debug for dyn EvolutionaryModel<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "EvolutionaryModel with {} states", N)
-    }
-}
 // TODO: change pi to a row vector
 pub trait EvolutionaryModel<const N: usize> {
-    fn new(model_type: ModelType, params: &[f64]) -> Result<Self>
+    type Model;
+    fn new(model: Self::Model, params: &[f64]) -> Result<Self>
     where
         Self: Sized;
     fn get_p(&self, time: f64) -> SubstMatrix;
     fn get_rate(&self, i: u8, j: u8) -> f64;
     fn get_stationary_distribution(&self) -> &FreqVector;
     fn get_char_probability(&self, char_encoding: &FreqVector) -> FreqVector;
+    fn index() -> &'static [usize; 255];
 }
 
 pub trait EvolutionaryModelInfo<const N: usize> {
