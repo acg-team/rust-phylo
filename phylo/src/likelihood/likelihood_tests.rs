@@ -15,7 +15,7 @@ use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::{GapHandling, PhyloInfo};
 use crate::substitution_models::dna_models::{DNASubstModel, DNASubstModelInfo};
 use crate::substitution_models::protein_models::{ProteinLikelihoodCost, ProteinSubstModel};
-use crate::substitution_models::{FreqVector, SubstitutionLikelihoodCost, SubstMatrix};
+use crate::substitution_models::{FreqVector, SubstMatrix, SubstitutionLikelihoodCost};
 use crate::tree::{tree_parser, NodeIdx::Leaf as L, Tree};
 
 #[cfg(test)]
