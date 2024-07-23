@@ -6,11 +6,6 @@ use crate::evolutionary_models::{
     ModelType::{self, *},
     ProteinModelType,
 };
-// #[derive(PartialEq, Eq, Debug)]
-// pub enum SequenceType {
-//     DNA,
-//     Protein,
-// }
 
 pub static AMINOACIDS: &[u8] = b"ARNDCQEGHILKMFPSTWYV";
 pub static AMB_AMINOACIDS: &[u8] = b"BJZX";

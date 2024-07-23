@@ -6,7 +6,8 @@ use anyhow::bail;
 use nalgebra::{DMatrix, DVector};
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::EvoModelParams;
+use crate::evolutionary_models::{EvoModelInfo, EvoModelParams, EvolutionaryModel};
+use crate::likelihood::LikelihoodCostFunction;
 use crate::tree::NodeIdx;
 use crate::{f64_h, phylo_info::PhyloInfo, Result, Rounding};
 
@@ -27,7 +28,9 @@ pub trait SubstitutionModel {
     type ModelType;
     type Params: EvoModelParams<ModelType = Self::ModelType>;
     const N: usize;
+    const ALPHABET: &'static [u8];
 
+    fn char_sets() -> &'static [FreqVector];
     fn create(params: &Self::Params) -> Self;
     fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
     where
@@ -90,13 +93,84 @@ pub trait ParsimonyModel {
     fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64);
 }
 
-#[derive(Clone)]
-pub struct SubstitutionLikelihoodCost<'a, T: SubstitutionModel> {
-    pub(crate) info: &'a PhyloInfo,
-    pub(crate) model: &'a T,
+#[derive(Debug, Clone, PartialEq)]
+pub struct SubstModel<Params: EvoModelParams> {
+    pub(crate) params: Params,
+    pub(crate) q: SubstMatrix,
 }
 
-impl<'a, SubstModel: SubstitutionModel> SubstitutionLikelihoodCost<'a, SubstModel> {
+impl<Params: EvoModelParams> EvolutionaryModel for SubstModel<Params>
+where
+    SubstModel<Params>: SubstitutionModel,
+{
+    type ModelType = <SubstModel<Params> as SubstitutionModel>::ModelType;
+    type Params = Params;
+
+    fn new(model: Self::ModelType, params: &[f64]) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        SubstitutionModel::new(model, params)
+    }
+
+    fn get_p(&self, time: f64) -> SubstMatrix {
+        SubstitutionModel::get_p(self, time)
+    }
+
+    fn get_q(&self) -> &SubstMatrix {
+        SubstitutionModel::get_q(self)
+    }
+
+    fn get_rate(&self, i: u8, j: u8) -> f64 {
+        SubstitutionModel::get_rate(self, i, j)
+    }
+
+    fn get_stationary_distribution(&self) -> &FreqVector {
+        SubstitutionModel::get_stationary_distribution(self)
+    }
+
+    fn get_char_probability(&self, char_encoding: &FreqVector) -> FreqVector {
+        let mut probs = SubstitutionModel::get_stationary_distribution(self)
+            .clone()
+            .component_mul(char_encoding);
+        probs.scale_mut(1.0 / probs.sum());
+        probs
+    }
+
+    fn index(&self) -> &[usize; 255] {
+        SubstitutionModel::index(self)
+    }
+
+    fn get_params(&self) -> &Self::Params {
+        &self.params
+    }
+}
+
+impl<Params: EvoModelParams> ParsimonyModel for SubstModel<Params>
+where
+    SubstModel<Params>: SubstitutionModel,
+{
+    fn generate_scorings(
+        &self,
+        times: &[f64],
+        zero_diag: bool,
+        rounding: &Rounding,
+    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)> {
+        SubstitutionModel::generate_scorings(self, times, zero_diag, rounding)
+    }
+
+    fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
+        SubstitutionModel::get_scoring_matrix(self, time, rounding)
+    }
+}
+
+#[derive(Clone)]
+pub struct SubstitutionLikelihoodCost<'a, SubstModel: SubstitutionModel + 'a> {
+    pub(crate) info: &'a PhyloInfo,
+    pub(crate) model: &'a SubstModel,
+}
+
+impl<'a, SubstModel: SubstitutionModel + 'a> SubstitutionLikelihoodCost<'a, SubstModel> {
     pub fn new(info: &'a PhyloInfo, model: &'a SubstModel) -> Self {
         SubstitutionLikelihoodCost { info, model }
     }
@@ -107,11 +181,39 @@ impl<'a, SubstModel: SubstitutionModel> SubstitutionLikelihoodCost<'a, SubstMode
     }
 }
 
-impl<'a, T: SubstitutionModel> SubstitutionLikelihoodCost<'a, T> {
+impl<'a, SubstModel: SubstitutionModel + 'a> LikelihoodCostFunction<'a>
+    for SubstitutionLikelihoodCost<'a, SubstModel>
+{
+    type Model = SubstModel;
+    type Info = SubstModelInfo<SubstModel>;
+
+    fn compute_log_likelihood(&self) -> f64 {
+        self.compute_log_likelihood().0
+    }
+
+    fn get_empirical_frequencies(&self) -> FreqVector {
+        let all_counts = self.info.get_counts();
+        let mut total = all_counts.values().sum::<f64>();
+        let index = SubstitutionModel::index(self.model);
+        let mut freqs = FreqVector::from_column_slice(&vec![0.0; Self::Model::N]);
+        for (&char, &count) in all_counts.iter() {
+            freqs += &Self::Model::char_sets()[char as usize].scale(count);
+        }
+        for &char in Self::Model::ALPHABET {
+            if freqs[index[char as usize]] == 0.0 {
+                freqs[index[char as usize]] += 1.0;
+                total += 1.0;
+            }
+        }
+        freqs.map(|x| x / total)
+    }
+}
+
+impl<'a, SubstModel: SubstitutionModel> SubstitutionLikelihoodCost<'a, SubstModel> {
     fn compute_log_likelihood_with_tmp(
         &self,
-        model: &T,
-        tmp_values: &mut SubstModelInfo<T>,
+        model: &SubstModel,
+        tmp_values: &mut SubstModelInfo<SubstModel>,
     ) -> f64 {
         debug_assert_eq!(
             self.info.tree.internals.len(),
@@ -148,7 +250,12 @@ impl<'a, T: SubstitutionModel> SubstitutionLikelihoodCost<'a, T> {
         likelihood.map(|x| x.ln()).sum()
     }
 
-    fn set_internal_values(&self, idx: &usize, model: &T, tmp_values: &mut SubstModelInfo<T>) {
+    fn set_internal_values(
+        &self,
+        idx: &usize,
+        model: &SubstModel,
+        tmp_values: &mut SubstModelInfo<SubstModel>,
+    ) {
         let node = &self.info.tree.internals[*idx];
         if !tmp_values.internal_models_valid[*idx] {
             tmp_values.internal_models[*idx] = SubstitutionModel::get_p(model, node.blen);
@@ -163,7 +270,12 @@ impl<'a, T: SubstitutionModel> SubstitutionLikelihoodCost<'a, T> {
         tmp_values.internal_info_valid[*idx] = true;
     }
 
-    fn set_leaf_values(&self, idx: &usize, model: &T, tmp_values: &mut SubstModelInfo<T>) {
+    fn set_leaf_values(
+        &self,
+        idx: &usize,
+        model: &SubstModel,
+        tmp_values: &mut SubstModelInfo<SubstModel>,
+    ) {
         if !tmp_values.leaf_models_valid[*idx] {
             tmp_values.leaf_models[*idx] =
                 SubstitutionModel::get_p(model, self.info.tree.leaves[*idx].blen);
@@ -176,7 +288,11 @@ impl<'a, T: SubstitutionModel> SubstitutionLikelihoodCost<'a, T> {
         tmp_values.leaf_info_valid[*idx] = true;
     }
 
-    fn child_info(&self, child: &NodeIdx, tmp_values: &mut SubstModelInfo<T>) -> DMatrix<f64> {
+    fn child_info(
+        &self,
+        child: &NodeIdx,
+        tmp_values: &mut SubstModelInfo<SubstModel>,
+    ) -> DMatrix<f64> {
         match child {
             NodeIdx::Internal(idx) => tmp_values.internal_info[*idx].clone(),
             NodeIdx::Leaf(idx) => tmp_values.leaf_info[*idx].clone(),
@@ -186,8 +302,8 @@ impl<'a, T: SubstitutionModel> SubstitutionLikelihoodCost<'a, T> {
 
 #[derive(Clone)]
 
-pub struct SubstModelInfo<T: SubstitutionModel> {
-    phantom: PhantomData<T>,
+pub struct SubstModelInfo<SubstModel: SubstitutionModel> {
+    phantom: PhantomData<SubstModel>,
     internal_info: Vec<DMatrix<f64>>,
     internal_info_valid: Vec<bool>,
     internal_models: Vec<SubstMatrix>,
@@ -197,6 +313,21 @@ pub struct SubstModelInfo<T: SubstitutionModel> {
     leaf_models: Vec<SubstMatrix>,
     leaf_models_valid: Vec<bool>,
     leaf_sequence_info: Vec<DMatrix<f64>>,
+}
+
+impl<SubstModel: SubstitutionModel> EvoModelInfo for SubstModelInfo<SubstModel> {
+    type Model = SubstModel;
+
+    fn new(info: &PhyloInfo, model: &SubstModel) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Self::new(info, model)
+    }
+
+    fn reset(&mut self) {
+        self.reset();
+    }
 }
 
 impl<SubstModel: SubstitutionModel> SubstModelInfo<SubstModel> {

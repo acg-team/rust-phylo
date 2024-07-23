@@ -262,6 +262,7 @@ lazy_static! {
         map
     };
 }
+
 fn generic_dna_sets(char: u8) -> FreqVector {
     match char {
         b'T' | b't' => frequencies!(&[1.0, 0.0, 0.0, 0.0]),
