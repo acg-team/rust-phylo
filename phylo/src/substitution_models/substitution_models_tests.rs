@@ -187,7 +187,7 @@ fn dna_jc69_correct() {
     );
     let jc69_3 = DNASubstModel::new(JC69, &[4.0]).unwrap();
     assert_eq!(jc69.q, jc69_3.q);
-    assert_eq!(jc69.pi, jc69_3.pi);
+    assert_eq!(jc69.params.pi, jc69_3.params.pi);
 }
 
 #[test]
@@ -284,7 +284,7 @@ fn dna_gtr_correct() {
             .collect::<Vec<f64>>(),
     )
     .unwrap();
-    assert_eq!(gtr.pi, dvector![0.25, 0.25, 0.25, 0.25]);
+    assert_eq!(gtr.params.pi, dvector![0.25, 0.25, 0.25, 0.25]);
     assert_eq!(gtr.q[(0, 0)], -1.0);
     let gtr2 = DNASubstModel::new(
         GTR,
@@ -440,28 +440,27 @@ fn dna_incorrect_gtr_params() {
     assert!(DNASubstModel::new(GTR, &repeat(0.4).take(10).collect::<Vec<f64>>()).is_err());
 }
 
-// #[test]
-// fn dna_given_protein_type() {
-//     assert!(DNASubstModel::new(WAG, &[]).is_err());
-//     assert!(DNASubstModel::new(BLOSUM, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435]).is_err());
-//     assert!(DNASubstModel::new(HIVB, &[0.26, 0.4]).is_err());
-// }
-
 #[test]
 fn dna_p_matrix() {
     let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
     let p_inf = EvolutionaryModel::get_p(&jc69, 200000.0);
     assert_eq!(p_inf.nrows(), 4);
     assert_eq!(p_inf.ncols(), 4);
-    check_pi_convergence(p_inf, &jc69.pi, 1e-5);
+    check_pi_convergence(p_inf, &jc69.params.pi, 1e-5);
 }
 
 #[test]
 fn dna_normalisation() {
     let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
-    assert_eq!((jc69.q.diagonal().transpose().mul(jc69.pi))[(0, 0)], -1.0);
+    assert_eq!(
+        (jc69.q.diagonal().transpose().mul(jc69.params.pi))[(0, 0)],
+        -1.0
+    );
     let k80 = DNASubstModel::new(K80, &[3.0, 1.5]).unwrap();
-    assert_eq!((k80.q.diagonal().transpose().mul(k80.pi))[(0, 0)], -1.0);
+    assert_eq!(
+        (k80.q.diagonal().transpose().mul(k80.params.pi))[(0, 0)],
+        -1.0
+    );
     let gtr = DNASubstModel::new(
         GTR,
         &[0.22, 0.26, 0.33, 0.19]
@@ -470,13 +469,19 @@ fn dna_normalisation() {
             .collect::<Vec<f64>>(),
     )
     .unwrap();
-    assert_eq!((gtr.q.diagonal().transpose().mul(gtr.pi))[(0, 0)], -1.0);
+    assert_eq!(
+        (gtr.q.diagonal().transpose().mul(gtr.params.pi))[(0, 0)],
+        -1.0
+    );
     let tn93 = DNASubstModel::new(
         TN93,
         &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
     )
     .unwrap();
-    assert_relative_eq!((tn93.q.diagonal().transpose().mul(tn93.pi))[(0, 0)], -1.0);
+    assert_relative_eq!(
+        (tn93.q.diagonal().transpose().mul(tn93.params.pi))[(0, 0)],
+        -1.0
+    );
 }
 
 #[test]
@@ -592,7 +597,7 @@ fn protein_p_matrix(#[case] model_type: ProteinModelType, #[case] epsilon: f64) 
     let p_inf = EvolutionaryModel::get_p(&model, 1000000.0);
     assert_eq!(p_inf.nrows(), 20);
     assert_eq!(p_inf.ncols(), 20);
-    check_pi_convergence(p_inf, &model.pi, epsilon);
+    check_pi_convergence(p_inf, &model.params.pi, epsilon);
 }
 
 #[rstest]
@@ -602,7 +607,7 @@ fn protein_p_matrix(#[case] model_type: ProteinModelType, #[case] epsilon: f64) 
 fn protein_normalisation(#[case] model_type: ProteinModelType, #[case] epsilon: f64) {
     let model = ProteinSubstModel::new(model_type, &[]).unwrap();
     assert_relative_eq!(
-        (model.q.diagonal().transpose().mul(model.pi))[(0, 0)],
+        (model.q.diagonal().transpose().mul(model.params.pi))[(0, 0)],
         -1.0,
         epsilon = epsilon
     );
@@ -692,7 +697,8 @@ fn generate_protein_scorings() {
 
 #[test]
 fn matrix_entry_rounding() {
-    let model = DNASubstModel::new(K80, &[1.0, 2.0]).unwrap();
+    use crate::substitution_models::SubstitutionModel;
+    let model = <DNASubstModel as SubstitutionModel>::new(K80, &[1.0, 2.0]).unwrap();
     let (mat_round, avg_round) = model.get_scoring_matrix_corrected(0.1, true, &R::zero());
     let (mat, avg) = model.get_scoring_matrix_corrected(0.1, true, &R::none());
     assert_ne!(avg_round, avg);
@@ -700,7 +706,7 @@ fn matrix_entry_rounding() {
     for &element in mat_round.as_slice() {
         assert_eq!(element.round(), element);
     }
-    let model = ProteinSubstModel::new(HIVB, &[]).unwrap();
+    let model = <ProteinSubstModel as SubstitutionModel>::new(HIVB, &[]).unwrap();
     let (mat_round, avg_round) = model.get_scoring_matrix_corrected(0.1, true, &R::zero());
     let (mat, avg) = model.get_scoring_matrix_corrected(0.1, true, &R::none());
     assert_ne!(avg_round, avg);
@@ -712,7 +718,8 @@ fn matrix_entry_rounding() {
 
 #[test]
 fn matrix_zero_diagonals() {
-    let model = ProteinSubstModel::new(HIVB, &[]).unwrap();
+    use crate::substitution_models::SubstitutionModel;
+    let model = <ProteinSubstModel as SubstitutionModel>::new(HIVB, &[]).unwrap();
     let (mat_zeros, avg_zeros) = model.get_scoring_matrix_corrected(0.5, true, &R::zero());
     let (mat, avg) = model.get_scoring_matrix_corrected(0.5, false, &R::zero());
     assert_ne!(avg_zeros, avg);

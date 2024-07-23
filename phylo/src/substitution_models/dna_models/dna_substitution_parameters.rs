@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use log::warn;
 
-use crate::evolutionary_models::EvolutionaryModelParameters;
+use crate::evolutionary_models::EvoModelParams;
 use crate::substitution_models::{
     dna_models::DNAModelType::{self, *},
     FreqVector,
@@ -31,17 +31,17 @@ use super::{gtr_params, hky_params, jc69_params, k80_params, tn93_params};
 #[derive(Clone, Debug, PartialEq)]
 pub struct DNASubstParams {
     pub(crate) model_type: DNAModelType,
-    pub pi: FreqVector,
-    pub rtc: f64,
-    pub rta: f64,
-    pub rtg: f64,
-    pub rca: f64,
-    pub rcg: f64,
-    pub rag: f64,
+    pub(crate) pi: FreqVector,
+    pub(crate) rtc: f64,
+    pub(crate) rta: f64,
+    pub(crate) rtg: f64,
+    pub(crate) rca: f64,
+    pub(crate) rcg: f64,
+    pub(crate) rag: f64,
 }
 
-impl EvolutionaryModelParameters for DNASubstParams {
-    type Model = DNAModelType;
+impl EvoModelParams for DNASubstParams {
+    type ModelType = DNAModelType;
     type Parameter = DNAParameter;
 
     fn new(model_type: &DNAModelType, params: &[f64]) -> Result<Self>
@@ -87,6 +87,10 @@ impl EvolutionaryModelParameters for DNASubstParams {
             Rag => self.rag = value,
             _ => panic!("Invalid parameter name."),
         }
+    }
+
+    fn get_pi(&self) -> &FreqVector {
+        &self.pi
     }
 
     fn set_pi(&mut self, pi: FreqVector) {

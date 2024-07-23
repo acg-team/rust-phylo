@@ -93,33 +93,38 @@ impl ProteinModelType {
     }
 }
 
-pub trait EvolutionaryModelParameters {
-    type Model;
+pub trait EvoModelParams {
+    type ModelType;
     type Parameter;
-    fn new(model: &Self::Model, params: &[f64]) -> Result<Self>
+    fn new(model: &Self::ModelType, params: &[f64]) -> Result<Self>
     where
         Self: Sized;
-    fn parameter_definition(model_type: &Self::Model) -> Vec<(&'static str, Vec<Self::Parameter>)>;
+    fn parameter_definition(
+        model_type: &Self::ModelType,
+    ) -> Vec<(&'static str, Vec<Self::Parameter>)>;
     fn get_value(&self, param_name: &Self::Parameter) -> f64;
     fn set_value(&mut self, param_name: &Self::Parameter, value: f64);
+    fn get_pi(&self) -> &FreqVector;
     fn set_pi(&mut self, pi: FreqVector);
 }
 
 // TODO: change pi to a row vector
-pub trait EvolutionaryModel<const N: usize> {
-    type Model;
-    type ModelParameters;
-    fn new(model: Self::Model, params: &[f64]) -> Result<Self>
+pub trait EvolutionaryModel {
+    type ModelType;
+    type Params;
+    fn new(model: Self::ModelType, params: &[f64]) -> Result<Self>
     where
         Self: Sized;
     fn get_p(&self, time: f64) -> SubstMatrix;
+    fn get_q(&self) -> &SubstMatrix;
     fn get_rate(&self, i: u8, j: u8) -> f64;
     fn get_stationary_distribution(&self) -> &FreqVector;
     fn get_char_probability(&self, char_encoding: &FreqVector) -> FreqVector;
-    fn index() -> &'static [usize; 255];
+    fn index(&self) -> &[usize; 255];
+    fn get_params(&self) -> &Self::Params;
 }
 
-pub trait EvolutionaryModelInfo<const N: usize> {
+pub trait EvoModelInfo {
     type Model;
     fn new(info: &PhyloInfo, model: &Self::Model) -> Result<Self>
     where
