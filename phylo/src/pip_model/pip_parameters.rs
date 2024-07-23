@@ -22,8 +22,9 @@ pub struct PIPParams<SubstModel: SubstitutionModel> {
     pub mu: f64,
     pub(crate) pi: FreqVector,
 }
-pub(crate) type PIPDNAParams = PIPParams<DNASubstModel>;
-pub(crate) type PIPProteinParams = PIPParams<ProteinSubstModel>;
+
+pub type PIPDNAParams = PIPParams<DNASubstModel>;
+pub type PIPProteinParams = PIPParams<ProteinSubstModel>;
 
 fn check_pip_params(params: &[f64]) -> Result<(f64, f64)> {
     if params.len() < 2 {
@@ -49,6 +50,16 @@ where
             subst_params,
             pi,
         })
+    }
+
+    fn get_pi(&self) -> &FreqVector {
+        &self.pi
+    }
+
+    fn set_pi(&mut self, pi: FreqVector) {
+        self.pi = pi.clone();
+        self.subst_params
+            .set_pi(pi.clone().remove_row(SubstModel::N));
     }
 }
 
@@ -77,12 +88,11 @@ impl EvoModelParams for PIPDNAParams {
     }
 
     fn get_pi(&self) -> &FreqVector {
-        &self.pi
+        self.get_pi()
     }
 
     fn set_pi(&mut self, pi: FreqVector) {
-        self.pi = pi.clone();
-        self.subst_params.set_pi(pi.clone().remove_row(4));
+        self.set_pi(pi)
     }
 
     fn parameter_definition(model_type: &DNAModelType) -> Vec<(&'static str, Vec<DNAParameter>)> {
@@ -93,17 +103,6 @@ impl EvoModelParams for PIPDNAParams {
                 ("lambda", vec![DNAParameter::Lambda]),
             ])
             .collect()
-    }
-}
-
-impl<SubstModel: SubstitutionModel> From<PIPParams<SubstModel>> for Vec<f64>
-where
-    SubstModel::Params: Into<Vec<f64>>,
-{
-    fn from(val: PIPParams<SubstModel>) -> Self {
-        let mut params = vec![val.lambda, val.mu];
-        params.extend(val.subst_params.into());
-        params
     }
 }
 
@@ -132,12 +131,11 @@ impl EvoModelParams for PIPProteinParams {
     }
 
     fn get_pi(&self) -> &FreqVector {
-        &self.pi
+        self.get_pi()
     }
 
     fn set_pi(&mut self, pi: FreqVector) {
-        self.pi = pi.clone();
-        self.subst_params.set_pi(pi.clone().remove_row(20));
+        self.set_pi(pi)
     }
 
     fn parameter_definition(
@@ -150,6 +148,17 @@ impl EvoModelParams for PIPProteinParams {
                 ("lambda", vec![ProteinParameter::Lambda]),
             ])
             .collect()
+    }
+}
+
+impl<SubstModel: SubstitutionModel> From<PIPParams<SubstModel>> for Vec<f64>
+where
+    SubstModel::Params: Into<Vec<f64>>,
+{
+    fn from(val: PIPParams<SubstModel>) -> Self {
+        let mut params = vec![val.lambda, val.mu];
+        params.extend(val.subst_params.into());
+        params
     }
 }
 
