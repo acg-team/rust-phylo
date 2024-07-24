@@ -42,7 +42,7 @@ impl From<NodeIdx> for usize {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Node {
     #[allow(dead_code)]
     pub idx: NodeIdx,
@@ -50,6 +50,15 @@ pub struct Node {
     pub children: Vec<NodeIdx>,
     pub blen: f64,
     pub id: String,
+}
+
+impl Display for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.idx {
+            Int(idx) => write!(f, "Internal node {}", idx),
+            Leaf(idx) => write!(f, "Leaf node {}", idx),
+        }
+    }
 }
 
 impl PartialEq for Node {
@@ -99,7 +108,7 @@ impl Node {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Tree {
     pub root: NodeIdx,
     pub leaves: Vec<Node>,
@@ -285,6 +294,21 @@ impl Tree {
             return Ok(NodeIdx::Internal(idx));
         }
         bail!("No node with id {} found in the tree", id);
+    }
+
+    pub fn set_branch_length(&mut self, node_idx: NodeIdx, blen: f64) {
+        debug_assert!(blen >= 0.0);
+        match node_idx {
+            Int(idx) => self.internals[idx].blen = blen,
+            Leaf(idx) => self.leaves[idx].blen = blen,
+        }
+    }
+
+    pub fn get_branch_length(&self, node_idx: NodeIdx) -> f64 {
+        match node_idx {
+            Int(idx) => self.internals[idx].blen,
+            Leaf(idx) => self.leaves[idx].blen,
+        }
     }
 }
 

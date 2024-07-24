@@ -181,7 +181,7 @@ impl<'a, SubstModel: SubstitutionModel + 'a> SubstitutionLikelihoodCost<'a, Subs
     }
 }
 
-impl<'a, SubstModel: SubstitutionModel + 'a> LikelihoodCostFunction<'a>
+impl<'a, SubstModel: SubstitutionModel + 'a> LikelihoodCostFunction
     for SubstitutionLikelihoodCost<'a, SubstModel>
 {
     type Model = SubstModel;

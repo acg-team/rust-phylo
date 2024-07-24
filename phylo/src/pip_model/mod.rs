@@ -224,12 +224,11 @@ where
 
 #[derive(Clone)]
 pub struct PIPLikelihoodCost<'a, SubstModel: SubstitutionModel> {
-    pub(crate) info: &'a PhyloInfo,
+    pub(crate) info: PhyloInfo,
     pub(crate) model: &'a PIPModel<SubstModel>,
 }
 
-impl<'a, SubstModel: SubstitutionModel> LikelihoodCostFunction<'a>
-    for PIPLikelihoodCost<'a, SubstModel>
+impl<'a, SubstModel: SubstitutionModel> LikelihoodCostFunction for PIPLikelihoodCost<'a, SubstModel>
 where
     SubstModel: Clone,
     SubstModel::Params: Clone,
@@ -254,7 +253,7 @@ where
     SubstModel::Params: Clone,
 {
     pub(crate) fn compute_log_likelihood(&self) -> (f64, PIPModelInfo<SubstModel>) {
-        let mut tmp_info = PIPModelInfo::<SubstModel>::new(self.info, self.model).unwrap();
+        let mut tmp_info = PIPModelInfo::<SubstModel>::new(&self.info, self.model).unwrap();
         (
             self.compute_log_likelihood_with_tmp(&mut tmp_info),
             tmp_info,

@@ -26,7 +26,8 @@ pub enum GapHandling {
 /// # TODO:
 /// * Add getters/setters for the fields, make the fields private.
 /// * Add methods to protein alignments.
-#[derive(Debug)]
+/// * Enure encoding matches model.
+#[derive(Debug, Clone)]
 pub struct PhyloInfo {
     /// Unaligned phylogenetic sequences.
     pub sequences: Vec<Record>,

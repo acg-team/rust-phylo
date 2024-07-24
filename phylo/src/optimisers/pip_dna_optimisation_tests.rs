@@ -28,7 +28,7 @@ fn check_parameter_optimisation_pip_arpiptest() {
     )
     .unwrap();
     let likelihood = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model,
     };
 
@@ -57,7 +57,7 @@ fn test_optimisation_pip_propip_example() {
     .unwrap();
 
     let likelihood = PIPLikelihoodCost {
-        info: &info,
+        info: info.clone(),
         model: &model,
     };
     let initial_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood);
@@ -70,7 +70,7 @@ fn test_optimisation_pip_propip_example() {
     let model = PIPModel::create(&optimised_params);
 
     let likelihood = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model,
     };
     let recomp_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood);
@@ -93,7 +93,7 @@ fn check_example_against_python_no_gaps() {
     .unwrap();
     let model = PIPModel::new(HKY, &Vec::<f64>::from(pip_params.clone())).unwrap();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model,
     };
 
@@ -137,7 +137,7 @@ fn check_parameter_optimisation_pip_gtr() {
     .unwrap();
     let model = PIPModel::new(GTR, &Vec::<f64>::from(pip_params.clone())).unwrap();
     let likelihood = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model,
     };
     let initial_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood);

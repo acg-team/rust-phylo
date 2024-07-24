@@ -1,6 +1,6 @@
 use crate::substitution_models::FreqVector;
 
-pub trait LikelihoodCostFunction<'a> {
+pub trait LikelihoodCostFunction {
     type Model;
     type Info;
     fn compute_log_likelihood(&self) -> f64;

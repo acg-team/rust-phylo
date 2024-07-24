@@ -356,7 +356,7 @@ fn pip_hky_likelihood_example_leaf_values() {
 
     let mut temp_values = PIPModelInfo::<DNASubstModel>::new(&info, &model).unwrap();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model,
     };
 
@@ -434,7 +434,7 @@ fn pip_hky_likelihood_example_internals() {
     let info = setup_example_phylo_info();
     let mut temp_values = PIPModelInfo::<DNASubstModel>::new(&info, &model).unwrap();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model,
     };
     for i in 0..4 {
@@ -539,7 +539,7 @@ fn pip_hky_likelihood_example_c0() {
     let info = setup_example_phylo_info();
     let mut tmp = PIPModelInfo::<DNASubstModel>::new(&info, &model).unwrap();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model,
     };
     cost.set_leaf_values(
@@ -645,7 +645,7 @@ fn pip_hky_likelihood_example_final() {
     let info = setup_example_phylo_info();
     let mut tmp = PIPModelInfo::<DNASubstModel>::new(&info, &model).unwrap();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model,
     };
     for i in 0..4 {
@@ -694,7 +694,7 @@ fn pip_hky_likelihood_example_2() {
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
     let info = setup_example_phylo_info_2();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model,
     };
     assert_relative_eq!(
@@ -714,7 +714,7 @@ fn pip_likelihood_huelsenbeck_example() {
     .unwrap();
     let model = PIPDNAModel::new(HKY, &PIP_HKY_PARAMS).unwrap();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info: info.clone(),
         model: &model,
     };
     assert_relative_eq!(
@@ -725,7 +725,7 @@ fn pip_likelihood_huelsenbeck_example() {
 
     let model = PIPDNAModel::new(HKY, &[1.2, 0.45, 0.25, 0.25, 0.25, 0.25, 1.0]).unwrap();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info: info.clone(),
         model: &model,
     };
     assert_relative_eq!(
@@ -742,7 +742,7 @@ fn pip_likelihood_huelsenbeck_example() {
     )
     .unwrap();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model,
     };
     assert_relative_eq!(
@@ -763,12 +763,12 @@ fn pip_likelihood_huelsenbeck_example_model_comp() {
     let model_hky_as_jc69 =
         PIPDNAModel::new(HKY, &[1.1, 0.55, 0.25, 0.25, 0.25, 0.25, 1.0]).unwrap();
     let cost_1 = PIPLikelihoodCost {
-        info: &info,
+        info: info.clone(),
         model: &model_hky_as_jc69,
     };
     let model_jc69 = PIPDNAModel::new(JC69, &[1.1, 0.55]).unwrap();
     let cost_2 = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model_jc69,
     };
     assert_relative_eq!(
@@ -793,7 +793,7 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
     )
     .unwrap();
     let cost_1 = PIPLikelihoodCost {
-        info: &info_1,
+        info: info_1,
         model: &model_gtr,
     };
 
@@ -804,7 +804,7 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
     )
     .unwrap();
     let cost_2 = PIPLikelihoodCost {
-        info: &info_2,
+        info: info_2,
         model: &model_gtr,
     };
 
@@ -829,7 +829,7 @@ fn pip_likelihood_protein_example() {
     .unwrap();
     let model_wag = PIPProteinModel::new(WAG, &[0.5, 0.25]).unwrap();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model_wag,
     };
     assert!(LikelihoodCostFunction::compute_log_likelihood(&cost) <= 0.0);
