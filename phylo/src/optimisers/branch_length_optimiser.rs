@@ -5,13 +5,13 @@ use log::{debug, info};
 use crate::phylo_info::PhyloInfo;
 use crate::pip_model::{PIPLikelihoodCost, PIPModel};
 use crate::substitution_models::SubstitutionModel;
-use crate::tree::{Node, NodeIdx, Tree};
+use crate::tree::{NodeIdx, Tree};
 use crate::Result;
 
 pub(crate) struct SingleBranchOptimiser<'a, SubstModel: SubstitutionModel> {
     pub(crate) model: &'a PIPModel<SubstModel>,
     pub(crate) phylo_info: &'a PhyloInfo,
-    pub(crate) branch: NodeIdx,
+    pub(crate) branch: &'a NodeIdx,
 }
 
 impl<'a, SubstModel: SubstitutionModel + Clone> CostFunction
@@ -71,24 +71,17 @@ where
         let mut prev_logl = f64::NEG_INFINITY;
         let mut iters = 0;
 
-        let nodes = lc
-            .info
-            .tree
-            .leaves
-            .clone()
-            .into_iter()
-            .chain(lc.info.tree.internals.clone())
-            .collect::<Vec<Node>>();
+        let nodes: Vec<NodeIdx> = lc.info.tree.nodes.iter().map(|node| node.idx).collect();
         while (prev_logl - opt_logl).abs() > self.epsilon {
             debug!("Iteration: {}", iters);
             prev_logl = opt_logl;
             for branch in &nodes {
-                let result = self.fun_name(&lc, branch)?;
-                opt_logl = result.1;
-                lc.info.tree.set_branch_length(branch.idx, result.0);
+                let (logl, length) = self.optimise_branch(&lc, branch)?;
+                opt_logl = logl;
+                lc.info.tree.set_branch_length(branch, length);
                 debug!(
                     "Optimised branch length {} to value {} with logl {}",
-                    branch, result.0, opt_logl
+                    branch, length, opt_logl
                 );
             }
             iters += 1;
@@ -100,17 +93,21 @@ where
         Ok((iters, lc.info.tree.clone(), init_logl, opt_logl))
     }
 
-    fn fun_name(&self, lc: &PIPLikelihoodCost<SubstModel>, branch: &Node) -> Result<(f64, f64)> {
+    fn optimise_branch(
+        &self,
+        lc: &PIPLikelihoodCost<SubstModel>,
+        branch: &NodeIdx,
+    ) -> Result<(f64, f64)> {
         let optimiser = SingleBranchOptimiser {
             model: self.model,
             phylo_info: &lc.info,
-            branch: branch.idx,
+            branch,
         };
         let gss = BrentOpt::new(1e-10, 100.0);
         let res = Executor::new(optimiser, gss)
-            .configure(|_| IterState::new().param(lc.info.tree.get_branch_length(branch.idx)))
+            .configure(|_| IterState::new().param(lc.info.tree.get_branch_length(branch)))
             .run()?;
         let state = res.state();
-        Ok((state.best_param.unwrap(), -state.best_cost))
+        Ok((-state.best_cost, state.best_param.unwrap()))
     }
 }

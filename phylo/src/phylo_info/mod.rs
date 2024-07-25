@@ -33,11 +33,11 @@ pub struct PhyloInfo {
     pub sequences: Vec<Record>,
     pub sequence_type: ModelType,
     /// Multiple sequence alignment of the sequences, if they are aligned.
-    pub msa: Option<Vec<Record>>,
+    msa: Option<Vec<Record>>,
     /// Phylogenetic tree.
     pub tree: Tree,
     /// Leaf sequences as probability vectors for characters in the alphabet.
-    pub leaf_encoding: Vec<DMatrix<f64>>,
+    pub leaf_encoding: HashMap<String, DMatrix<f64>>,
 }
 
 /// Converts the given sequences to uppercase and returns a new vector.
@@ -49,6 +49,24 @@ fn make_sequences_uppercase(sequences: &[Record]) -> Vec<Record> {
 }
 
 impl PhyloInfo {
+    pub fn get_aligned_sequence(&self, id: &str) -> Option<&Record> {
+        self.msa
+            .as_ref()
+            .and_then(|msa| msa.iter().find(|rec| rec.id() == id))
+    }
+
+    pub fn get_sequence(&self, id: &str) -> Option<&Record> {
+        self.sequences.iter().find(|rec| rec.id() == id)
+    }
+
+    pub fn has_msa(&self) -> bool {
+        self.msa.is_some()
+    }
+
+    pub fn msa_length(&self) -> usize {
+        self.msa.as_ref().map(|msa| msa[0].seq().len()).unwrap_or(0)
+    }
+
     /// Returns the empirical frequencies of the symbols in the sequences.
     /// The frequencies are calculated from the unaligned sequences.
     ///
@@ -101,22 +119,25 @@ impl PhyloInfo {
         msa: &Option<Vec<Record>>,
         sequence_type: &ModelType,
         gap_handling: &GapHandling,
-    ) -> Vec<DMatrix<f64>> {
+    ) -> HashMap<String, DMatrix<f64>> {
         match msa {
             None => {
                 warn!("No MSA provided, leaf encoding will be empty.");
-                Vec::new()
+                HashMap::new()
             }
             Some(msa) => {
-                let mut leaf_encoding = Vec::with_capacity(msa.len());
+                let mut leaf_encoding = HashMap::with_capacity(msa.len());
                 for seq in msa.iter() {
-                    leaf_encoding.push(DMatrix::from_columns(
-                        seq.seq()
-                            .iter()
-                            .map(|&c| Self::get_leaf_encoding(c, sequence_type, gap_handling))
-                            .collect::<Vec<_>>()
-                            .as_slice(),
-                    ));
+                    leaf_encoding.insert(
+                        seq.id().to_string(),
+                        DMatrix::from_columns(
+                            seq.seq()
+                                .iter()
+                                .map(|&c| Self::get_leaf_encoding(c, sequence_type, gap_handling))
+                                .collect::<Vec<_>>()
+                                .as_slice(),
+                        ),
+                    );
                 }
                 leaf_encoding
             }
@@ -222,8 +243,8 @@ impl PhyloInfo {
     /// # let (sequences, tree) = make_test_data();
     /// use phylo::phylo_info::{GapHandling, PhyloInfo};
     /// let info = PhyloInfo::from_sequences_tree(sequences, tree, &GapHandling::Ambiguous).unwrap();
-    /// assert!(info.msa.is_none());
-    /// for (i, node) in info.tree.leaves.iter().enumerate() {
+    /// assert!(!info.has_msa());
+    /// for (i, node) in info.tree.get_leaves().iter().enumerate() {
     ///     assert!(info.sequences[i].id() == node.id);
     /// }
     /// for rec in info.sequences.iter() {
@@ -272,8 +293,8 @@ impl PhyloInfo {
     /// let info = PhyloInfo::from_files(
     ///     PathBuf::from("./data/sequences_DNA_small.fasta"),
     ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"), &GapHandling::Ambiguous).unwrap();
-    /// assert!(info.msa.is_some());
-    /// for (i, node) in info.tree.leaves.iter().enumerate() {
+    /// assert!(info.has_msa());
+    /// for (i, node) in info.tree.get_leaves().iter().enumerate() {
     ///     assert!(info.sequences[i].id() == node.id);
     /// }
     /// for rec in info.sequences.iter() {
@@ -332,7 +353,7 @@ impl PhyloInfo {
     /// Sorts sequences in the vector to match the order of the leaves in the tree.
     fn sort_sequences_by_leaf_ids(tree: &Tree, sequences: &mut [Record]) {
         let id_index: HashMap<&str, usize> = tree
-            .leaves
+            .nodes
             .iter()
             .enumerate()
             .map(|(index, leaf)| (leaf.id.as_str(), index))

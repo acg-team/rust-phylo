@@ -133,7 +133,7 @@ pub fn write_sequences_to_file(sequences: &[Record], path: PathBuf) -> Result<()
 /// use std::path::PathBuf;
 /// let trees = read_newick_from_file(PathBuf::from("./data/tree.newick")).unwrap();
 /// # assert_eq!(trees.len(), 1);
-/// # assert_eq!(trees[0].leaves.len(), 4);
+/// # assert_eq!(trees[0].get_leaves().len(), 4);
 /// ```
 pub fn read_newick_from_file(path: PathBuf) -> Result<Vec<Tree>> {
     info!("Reading newick trees from file {}.", path.display());

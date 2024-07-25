@@ -33,18 +33,17 @@ impl Display for NodeIdx {
     }
 }
 
-impl From<NodeIdx> for usize {
-    fn from(node_idx: NodeIdx) -> usize {
+impl From<&NodeIdx> for usize {
+    fn from(node_idx: &NodeIdx) -> usize {
         match node_idx {
-            Int(idx) => idx,
-            Leaf(idx) => idx,
+            Int(idx) => *idx,
+            Leaf(idx) => *idx,
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Node {
-    #[allow(dead_code)]
     pub idx: NodeIdx,
     pub parent: Option<NodeIdx>,
     pub children: Vec<NodeIdx>,
@@ -102,20 +101,20 @@ impl Node {
         Self::new_internal(node_idx, None, Vec::new(), 0.0, "".to_string())
     }
 
-    fn add_parent(&mut self, parent_idx: NodeIdx) {
+    fn add_parent(&mut self, parent_idx: &NodeIdx) {
         debug_assert!(matches!(parent_idx, Int(_)));
-        self.parent = Some(parent_idx);
+        self.parent = Some(*parent_idx);
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Tree {
     pub root: NodeIdx,
-    pub leaves: Vec<Node>,
-    pub internals: Vec<Node>,
+    pub nodes: Vec<Node>,
     pub postorder: Vec<NodeIdx>,
     pub preorder: Vec<NodeIdx>,
     pub complete: bool,
+    pub n: usize,
 }
 
 impl Tree {
@@ -129,21 +128,21 @@ impl Tree {
                 root: Leaf(0),
                 postorder: vec![Leaf(0)],
                 preorder: vec![Leaf(0)],
-                leaves: vec![Node::new_leaf(0, None, 0.0, sequences[0].id().to_string())],
-                internals: Vec::new(),
+                nodes: vec![Node::new_leaf(0, None, 0.0, sequences[0].id().to_string())],
                 complete: true,
+                n: 1,
             })
         } else {
             Ok(Self {
-                root: Int(n - 2),
+                root: Int(2 * n - 2),
                 postorder: Vec::new(),
                 preorder: Vec::new(),
-                leaves: (0..n)
+                nodes: (0..n)
                     .zip(sequences.iter().map(|seq| seq.id().to_string()))
                     .map(|(idx, id)| Node::new_leaf(idx, None, 0.0, id))
                     .collect(),
-                internals: Vec::with_capacity(n - 1),
                 complete: false,
+                n,
             })
         }
     }
@@ -155,11 +154,11 @@ impl Tree {
     fn _to_newick(&self, node_idx: NodeIdx) -> String {
         match node_idx {
             NodeIdx::Leaf(idx) => {
-                let node = &self.leaves[idx];
+                let node = &self.nodes[idx];
                 format!("{}:{}", node.id, node.blen)
             }
             NodeIdx::Internal(idx) => {
-                let node = &self.internals[idx];
+                let node = &self.nodes[idx];
                 let children_newick: Vec<String> = node
                     .children
                     .iter()
@@ -171,10 +170,7 @@ impl Tree {
     }
 
     pub fn get_node_id_string(&self, node_idx: &NodeIdx) -> String {
-        let id = match node_idx {
-            Int(idx) => &self.internals[*idx].id,
-            Leaf(idx) => &self.leaves[*idx].id,
-        };
+        let id = &self.nodes[usize::from(node_idx)].id;
         if id.is_empty() {
             String::new()
         } else {
@@ -185,55 +181,44 @@ impl Tree {
     pub(crate) fn add_parent(
         &mut self,
         parent_idx: usize,
-        idx_i: NodeIdx,
-        idx_j: NodeIdx,
+        idx_i: &NodeIdx,
+        idx_j: &NodeIdx,
         blen_i: f64,
         blen_j: f64,
     ) {
-        self.internals.push(Node::new_internal(
+        self.nodes.push(Node::new_internal(
             parent_idx,
             None,
-            vec![idx_i, idx_j],
+            vec![*idx_i, *idx_j],
             0.0,
             "".to_string(),
         ));
-        self.add_parent_to_child(idx_i, Int(parent_idx), blen_i);
-        self.add_parent_to_child(idx_j, Int(parent_idx), blen_j);
+        self.add_parent_to_child(idx_i, &Int(parent_idx), blen_i);
+        self.add_parent_to_child(idx_j, &Int(parent_idx), blen_j);
     }
 
-    pub(crate) fn add_parent_to_child(&mut self, idx: NodeIdx, parent_idx: NodeIdx, blen: f64) {
-        match idx {
-            Int(idx) => {
-                self.internals[idx].add_parent(parent_idx);
-                self.internals[idx].blen = blen;
-            }
-            Leaf(idx) => {
-                self.leaves[idx].add_parent(parent_idx);
-                self.leaves[idx].blen = blen;
-            }
-        }
+    pub(crate) fn add_parent_to_child(&mut self, idx: &NodeIdx, parent_idx: &NodeIdx, blen: f64) {
+        self.nodes[usize::from(idx)].add_parent(parent_idx);
+        self.nodes[usize::from(idx)].blen = blen;
     }
 
-    pub fn add_parent_to_child_no_blen(&mut self, idx: NodeIdx, parent_idx: NodeIdx) {
-        match idx {
-            Int(idx) => self.internals[idx].add_parent(parent_idx),
-            Leaf(idx) => self.leaves[idx].add_parent(parent_idx),
-        }
+    pub fn add_parent_to_child_no_blen(&mut self, idx: &NodeIdx, parent_idx: &NodeIdx) {
+        self.nodes[usize::from(idx)].add_parent(parent_idx);
     }
 
     pub fn create_postorder(&mut self) {
         debug_assert!(self.complete);
         if self.postorder.is_empty() {
-            let mut order = Vec::<NodeIdx>::with_capacity(self.leaves.len() + self.internals.len());
-            let mut stack = Vec::<NodeIdx>::with_capacity(self.internals.len());
+            let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
+            let mut stack = Vec::<NodeIdx>::with_capacity(self.nodes.len());
             let mut cur_root = self.root;
             stack.push(cur_root);
             while !stack.is_empty() {
                 cur_root = stack.pop().unwrap();
                 order.push(cur_root);
                 if let Int(idx) = cur_root {
-                    stack.push(self.internals[idx].children[0]);
-                    stack.push(self.internals[idx].children[1]);
+                    stack.push(self.nodes[idx].children[0]);
+                    stack.push(self.nodes[idx].children[1]);
                 }
             }
             order.reverse();
@@ -250,15 +235,15 @@ impl Tree {
 
     pub fn preorder_subroot(&self, subroot_idx: NodeIdx) -> Vec<NodeIdx> {
         debug_assert!(self.complete);
-        let mut order = Vec::<NodeIdx>::with_capacity(self.leaves.len() + self.internals.len());
-        let mut stack = Vec::<NodeIdx>::with_capacity(self.internals.len());
+        let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
+        let mut stack = Vec::<NodeIdx>::with_capacity(self.nodes.len());
         let mut cur_root = subroot_idx;
         stack.push(cur_root);
         while !stack.is_empty() {
             cur_root = stack.pop().unwrap();
             order.push(cur_root);
             if let Int(idx) = cur_root {
-                for child in self.internals[idx].children.iter().rev() {
+                for child in self.nodes[idx].children.iter().rev() {
                     stack.push(*child);
                 }
             }
@@ -268,47 +253,43 @@ impl Tree {
 
     pub fn get_leaf_ids(&self) -> Vec<String> {
         debug_assert!(self.complete);
-        self.leaves.iter().map(|node| node.id.clone()).collect()
+        self.get_leaves()
+            .iter()
+            .map(|node| node.id.clone())
+            .collect()
     }
 
     pub fn get_all_branch_lengths(&self) -> Vec<f64> {
         debug_assert!(self.complete);
-        let lengths = self
-            .leaves
-            .iter()
-            .map(|n| n.blen)
-            .chain(self.internals.iter().map(|n| n.blen))
-            .collect();
+        let lengths = self.nodes.iter().map(|n| n.blen).collect();
         info!("Branch lengths are: {:?}", lengths);
         lengths
     }
 
-    pub fn get_idx_by_id(&self, id: &str) -> Result<NodeIdx> {
+    pub fn get_idx_by_id(&self, id: &str) -> Result<usize> {
         debug_assert!(self.complete);
-        let idx = self.leaves.iter().position(|node| node.id == id);
+        let idx = self.nodes.iter().position(|node| node.id == id);
         if let Some(idx) = idx {
-            return Ok(NodeIdx::Leaf(idx));
-        }
-        let idx = self.internals.iter().position(|node| node.id == id);
-        if let Some(idx) = idx {
-            return Ok(NodeIdx::Internal(idx));
+            return Ok((&self.nodes[idx].idx).into());
         }
         bail!("No node with id {} found in the tree", id);
     }
 
-    pub fn set_branch_length(&mut self, node_idx: NodeIdx, blen: f64) {
+    pub fn set_branch_length(&mut self, node_idx: &NodeIdx, blen: f64) {
         debug_assert!(blen >= 0.0);
-        match node_idx {
-            Int(idx) => self.internals[idx].blen = blen,
-            Leaf(idx) => self.leaves[idx].blen = blen,
-        }
+        self.nodes[usize::from(node_idx)].blen = blen;
     }
 
-    pub fn get_branch_length(&self, node_idx: NodeIdx) -> f64 {
-        match node_idx {
-            Int(idx) => self.internals[idx].blen,
-            Leaf(idx) => self.leaves[idx].blen,
-        }
+    pub fn get_branch_length(&self, node_idx: &NodeIdx) -> f64 {
+        self.nodes[usize::from(node_idx)].blen
+    }
+
+    pub fn get_leaves(&self) -> Vec<&Node> {
+        debug_assert!(self.complete);
+        self.nodes
+            .iter()
+            .filter(|&x| matches!(x.idx, Leaf(_)))
+            .collect()
     }
 }
 
@@ -335,7 +316,7 @@ pub fn get_percentiles_rounded(lengths: &[f64], categories: u32, rounding: &Roun
     }
 }
 
-#[allow(dead_code)]
+// #[allow(dead_code)]
 fn argmin_wo_diagonal(q: Mat, rng: fn(usize) -> usize) -> (usize, usize) {
     debug_assert!(!q.is_empty(), "The input matrix must not be empty.");
     debug_assert!(
@@ -368,19 +349,20 @@ fn build_nj_tree_w_rng_from_matrix(
     rng: fn(usize) -> usize,
 ) -> Result<Tree> {
     let n = nj_data.distances.ncols();
-    let root_idx = n - 2;
     let mut tree = Tree::new(sequences)?;
-    for cur_idx in 0..=root_idx {
+    let root_idx = usize::from(&tree.root);
+    for cur_idx in n..=root_idx {
         let q = nj_data.compute_nj_q();
         let (i, j) = argmin_wo_diagonal(q, rng);
         let idx_new = cur_idx;
         let (blen_i, blen_j) = nj_data.branch_lengths(i, j, cur_idx == root_idx);
-        tree.add_parent(idx_new, nj_data.idx[i], nj_data.idx[j], blen_i, blen_j);
+        tree.add_parent(idx_new, &nj_data.idx[i], &nj_data.idx[j], blen_i, blen_j);
         nj_data = nj_data
             .add_merge_node(idx_new)
             .recompute_new_node_distances(i, j)
             .remove_merged_nodes(i, j);
     }
+    tree.n = n;
     tree.complete = true;
     tree.create_postorder();
     tree.create_preorder();

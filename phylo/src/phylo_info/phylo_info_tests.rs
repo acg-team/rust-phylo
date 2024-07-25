@@ -25,10 +25,12 @@ fn setup_info_correct() {
         &GapHandling::Ambiguous,
     )
     .unwrap();
-    assert_eq!(res_info.tree.leaves.len(), 4);
+    assert_eq!(res_info.tree.nodes.len(), 4 + 3);
     assert_eq!(res_info.sequences.len(), 4);
-    for (i, node) in res_info.tree.leaves.iter().enumerate() {
-        assert!(res_info.sequences[i].id() == node.id);
+    for (i, node) in res_info.tree.get_leaves().iter().enumerate() {
+        if let L(_) = node.idx {
+            assert!(res_info.sequences[i].id() == node.id);
+        }
     }
     for rec in res_info.sequences.iter() {
         assert!(!rec.seq().is_empty());
@@ -109,7 +111,15 @@ fn setup_info_multiple_trees() {
         &GapHandling::Ambiguous,
     )
     .unwrap();
-    assert_eq!(res_info.tree.leaves.len(), 4);
+    assert_eq!(
+        res_info
+            .tree
+            .nodes
+            .iter()
+            .filter(|&x| matches!(x.idx, L(_)))
+            .count(),
+        4
+    );
     assert_eq!(res_info.sequences.len(), 4);
 }
 
@@ -127,10 +137,11 @@ fn info_check_sequence_order() {
         &GapHandling::Ambiguous,
     )
     .unwrap();
+
     for i in 0..info.sequences.len() {
         assert_eq!(
             info.sequences[i].id(),
-            info.tree.leaves[i].id,
+            info.tree.get_leaves()[i].id,
             "Sequences and tree leaves are not in the same order"
         );
     }
@@ -209,7 +220,7 @@ fn check_phyloinfo_creation_tree_no_msa() {
     );
     let res_info = info.unwrap();
     assert!(res_info.msa.is_none());
-    for (i, node) in res_info.tree.leaves.iter().enumerate() {
+    for (i, node) in res_info.tree.get_leaves().iter().enumerate() {
         assert!(res_info.sequences[i].id() == node.id);
     }
     for rec in res_info.sequences.iter() {
@@ -258,9 +269,9 @@ fn make_test_tree() -> Tree {
         Record::with_attrs("D", None, b""),
     ];
     let mut tree = Tree::new(&sequences).unwrap();
-    tree.add_parent(0, L(0), L(1), 2.0, 2.0);
-    tree.add_parent(1, I(0), L(2), 1.0, 2.0);
-    tree.add_parent(2, I(1), L(3), 1.0, 2.0);
+    tree.add_parent(4, &L(0), &L(1), 2.0, 2.0);
+    tree.add_parent(5, &I(4), &L(2), 1.0, 2.0);
+    tree.add_parent(6, &I(5), &L(3), 1.0, 2.0);
     tree.complete = true;
     tree.create_postorder();
     tree.create_preorder();
@@ -281,7 +292,7 @@ fn check_phyloinfo_creation_tree_correct_no_msa() {
     );
     let res_info = info.unwrap();
     assert!(res_info.msa.is_none());
-    for (i, node) in res_info.tree.leaves.iter().enumerate() {
+    for (i, node) in res_info.tree.get_leaves().iter().enumerate() {
         assert!(res_info.sequences[i].id() == node.id);
     }
     for rec in res_info.sequences.iter() {
@@ -359,7 +370,7 @@ fn check_phyloinfo_creation_sequences() {
             .map(|rec| rec.id())
             .collect::<Vec<_>>(),
         info.tree
-            .leaves
+            .get_leaves()
             .iter()
             .map(|node| node.id.clone())
             .collect::<Vec<_>>(),

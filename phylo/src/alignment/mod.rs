@@ -1,6 +1,11 @@
+use std::collections::HashMap;
+
+use anyhow::bail;
+use bio::io::fasta::Record;
+
 use crate::phylo_info::PhyloInfo;
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf};
-use bio::io::fasta::Record;
+use crate::Result;
 
 pub type Mapping = Vec<Option<usize>>;
 
@@ -30,12 +35,11 @@ pub(crate) fn sequence_idx(sequences: &[Record], search: &Record) -> usize {
         .unwrap()
 }
 
-// TODO: ensure that the alignment is valid
 pub fn compile_alignment_representation(
     info: &PhyloInfo,
-    alignment: &[Alignment],
+    alignment: &HashMap<usize, Alignment>,
     subroot: Option<NodeIdx>,
-) -> Vec<Record> {
+) -> Result<Vec<Record>> {
     let tree = &info.tree;
     let sequences = &info.sequences;
     let subroot_idx = match subroot {
@@ -43,59 +47,64 @@ pub fn compile_alignment_representation(
         None => tree.root,
     };
     let order = tree.preorder_subroot(subroot_idx);
-    let mut alignment_stack =
-        vec![Vec::<Option<usize>>::new(); tree.internals.len() + tree.leaves.len()];
+    let mut alignment_stack = HashMap::<usize, Vec<Option<usize>>>::new();
 
     match subroot_idx {
-        Int(idx) => alignment_stack[idx] = (0..alignment[idx].map_x.len()).map(Some).collect(),
-        Leaf(idx) => return vec![sequences[idx].clone()],
+        Int(idx) => {
+            let align = get_alignment_at_int_node(alignment, idx)?;
+            alignment_stack.insert(idx, (0..align.map_x.len()).map(Some).collect());
+        }
+        Leaf(idx) => return Ok(vec![sequences[idx].clone()]),
     }
 
-    let mut msa = Vec::<Record>::with_capacity(tree.leaves.len());
+    let mut msa = Vec::<Record>::with_capacity(tree.n);
     for node_idx in order {
         match node_idx {
             Int(idx) => {
-                let mut padded_map_x = vec![None; alignment_stack[idx].len()];
-                let mut padded_map_y = vec![None; alignment_stack[idx].len()];
-                for (mapping_index, site) in alignment_stack[idx].iter().enumerate() {
+                let mut padded_map_x = vec![None; alignment_stack[&idx].len()];
+                let mut padded_map_y = vec![None; alignment_stack[&idx].len()];
+                for (mapping_index, site) in alignment_stack[&idx].iter().enumerate() {
+                    let align = get_alignment_at_int_node(alignment, idx)?;
                     if let Some(index) = site {
-                        padded_map_x[mapping_index] = alignment[idx].map_x[*index];
-                        padded_map_y[mapping_index] = alignment[idx].map_y[*index];
+                        padded_map_x[mapping_index] = align.map_x[*index];
+                        padded_map_y[mapping_index] = align.map_y[*index];
                     }
                 }
-                match tree.internals[idx].children[0] {
-                    Int(child_idx) => alignment_stack[child_idx] = padded_map_x,
-                    Leaf(child_idx) => {
-                        alignment_stack[tree.internals.len() + child_idx] = padded_map_x
-                    }
-                }
-                match tree.internals[idx].children[1] {
-                    Int(child_idx) => alignment_stack[child_idx] = padded_map_y,
-                    Leaf(child_idx) => {
-                        alignment_stack[tree.internals.len() + child_idx] = padded_map_y
-                    }
-                }
+                alignment_stack.insert(usize::from(&tree.nodes[idx].children[0]), padded_map_x);
+                alignment_stack.insert(usize::from(&tree.nodes[idx].children[1]), padded_map_y);
             }
             Leaf(idx) => {
-                let mut sequence = vec![b'-'; alignment_stack[tree.internals.len() + idx].len()];
-                for (alignment_index, site) in alignment_stack[tree.internals.len() + idx]
+                let sequence = sequences
                     .iter()
-                    .enumerate()
-                {
+                    .find(|r| r.id() == tree.nodes[idx].id)
+                    .unwrap();
+                let mut aligned_seq = vec![b'-'; alignment_stack[&idx].len()];
+                for (alignment_index, site) in alignment_stack[&idx].iter().enumerate() {
                     if let Some(index) = site {
-                        sequence[alignment_index] = sequences[idx].seq()[*index]
+                        aligned_seq[alignment_index] = sequence.seq()[*index]
                     }
                 }
                 msa.push(Record::with_attrs(
-                    sequences[idx].id(),
-                    sequences[idx].desc(),
-                    &sequence,
+                    sequence.id(),
+                    sequence.desc(),
+                    &aligned_seq,
                 ));
             }
         }
     }
     msa.sort_by_key(|record| sequence_idx(sequences, record));
-    msa
+    Ok(msa)
+}
+
+fn get_alignment_at_int_node(
+    alignment: &HashMap<usize, Alignment>,
+    idx: usize,
+) -> Result<&Alignment> {
+    if let Some(align) = alignment.get(&idx) {
+        Ok(align)
+    } else {
+        bail!("Alignment doesn't match tree structure.");
+    }
 }
 
 #[cfg(test)]
