@@ -269,30 +269,25 @@ fn protein_example_likelihood(
 }
 
 #[cfg(test)]
-fn setup_simple_reversibility() -> Vec<PhyloInfo> {
-    let mut res = Vec::<PhyloInfo>::new();
+fn simple_dna_reroot_info() -> (PhyloInfo, PhyloInfo) {
     let sequences = vec![
         Record::with_attrs("A", None, b"CTATATATAC"),
         Record::with_attrs("B", None, b"ATATATATAA"),
         Record::with_attrs("C", None, b"TTATATATAT"),
     ];
-    res.push(
-        PhyloInfo::from_sequences_tree(
-            sequences.clone(),
-            tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
-            &GapHandling::Ambiguous,
-        )
-        .unwrap(),
-    );
-    res.push(
-        PhyloInfo::from_sequences_tree(
-            sequences,
-            tree_newick("(A:1.0,(B:2.0,C:3.0):1.0):0.0;"),
-            &GapHandling::Ambiguous,
-        )
-        .unwrap(),
-    );
-    res
+    let info = PhyloInfo::from_sequences_tree(
+        sequences.clone(),
+        tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
+        &GapHandling::Ambiguous,
+    )
+    .unwrap();
+    let info_rerooted = PhyloInfo::from_sequences_tree(
+        sequences,
+        tree_newick("(A:1.0,(B:2.0,C:3.0):1.0):0.0;"),
+        &GapHandling::Ambiguous,
+    )
+    .unwrap();
+    (info, info_rerooted)
 }
 
 #[rstest]
@@ -302,10 +297,10 @@ fn setup_simple_reversibility() -> Vec<PhyloInfo> {
 #[case::tn93(TN93, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
 #[case::gtr(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
 fn simple_dna_likelihood_reversibility(#[case] model_type: DNAModelType, #[case] params: &[f64]) {
-    let info = setup_simple_reversibility();
+    let (info, info_rerooted) = simple_dna_reroot_info();
     let model = DNASubstModel::new(model_type, params).unwrap();
-    let likelihood = SubstitutionLikelihoodCost::new(&info[0], &model);
-    let likelihood_rerooted = SubstitutionLikelihoodCost::new(&info[1], &model);
+    let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
+    let likelihood_rerooted = SubstitutionLikelihoodCost::new(&info_rerooted, &model);
     assert_relative_eq!(
         LikelihoodCostFunction::compute_logl(&likelihood),
         LikelihoodCostFunction::compute_logl(&likelihood_rerooted),
@@ -314,30 +309,25 @@ fn simple_dna_likelihood_reversibility(#[case] model_type: DNAModelType, #[case]
 }
 
 #[cfg(test)]
-fn setup_simple_protein_reversibility() -> Vec<PhyloInfo> {
-    let mut res = Vec::<PhyloInfo>::new();
+fn simple_protein_reroot_info() -> (PhyloInfo, PhyloInfo) {
     let sequences = vec![
         Record::with_attrs("A", None, b"CTATATATACIJL"),
         Record::with_attrs("B", None, b"ATATATATAAIHL"),
         Record::with_attrs("C", None, b"TTATATATATIJL"),
     ];
-    res.push(
-        PhyloInfo::from_sequences_tree(
-            sequences.clone(),
-            tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
-            &GapHandling::Ambiguous,
-        )
-        .unwrap(),
-    );
-    res.push(
-        PhyloInfo::from_sequences_tree(
-            sequences,
-            tree_newick("(A:1.0,(B:2.0,C:3.0):1.0):0.0;"),
-            &GapHandling::Ambiguous,
-        )
-        .unwrap(),
-    );
-    res
+    let info = PhyloInfo::from_sequences_tree(
+        sequences.clone(),
+        tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
+        &GapHandling::Ambiguous,
+    )
+    .unwrap();
+    let info_rerooted = PhyloInfo::from_sequences_tree(
+        sequences,
+        tree_newick("(A:1.0,(B:2.0,C:3.0):1.0):0.0;"),
+        &GapHandling::Ambiguous,
+    )
+    .unwrap();
+    (info, info_rerooted)
 }
 
 #[rstest]
@@ -349,10 +339,10 @@ fn simple_protein_likelihood_reversibility(
     #[case] params: &[f64],
     #[case] epsilon: f64,
 ) {
-    let info = setup_simple_protein_reversibility();
+    let (info, info_rerooted) = simple_protein_reroot_info();
     let model = ProteinSubstModel::new(model_type, params).unwrap();
-    let likelihood = ProteinLikelihoodCost::new(&info[0], &model);
-    let likelihood_rerooted = ProteinLikelihoodCost::new(&info[1], &model);
+    let likelihood = ProteinLikelihoodCost::new(&info, &model);
+    let likelihood_rerooted = ProteinLikelihoodCost::new(&info_rerooted, &model);
     assert_relative_eq!(
         LikelihoodCostFunction::compute_logl(&likelihood),
         LikelihoodCostFunction::compute_logl(&likelihood_rerooted),
@@ -371,13 +361,13 @@ fn huelsenbeck_example_dna_reversibility_likelihood(
     #[case] params: &[f64],
 ) {
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
-    let info1 = PhyloInfo::from_files(
+    let info = PhyloInfo::from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
         &GapHandling::Ambiguous,
     )
     .unwrap();
-    let info2 = PhyloInfo::from_files(
+    let info_rerooted = PhyloInfo::from_files(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example_reroot.newick"),
         &GapHandling::Ambiguous,
@@ -385,8 +375,8 @@ fn huelsenbeck_example_dna_reversibility_likelihood(
     .unwrap();
 
     let model = DNASubstModel::new(model_type, params).unwrap();
-    let likelihood = SubstitutionLikelihoodCost::new(&info1, &model);
-    let likelihood_rerooted = SubstitutionLikelihoodCost::new(&info2, &model);
+    let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
+    let likelihood_rerooted = SubstitutionLikelihoodCost::new(&info_rerooted, &model);
     assert_relative_eq!(
         LikelihoodCostFunction::compute_logl(&likelihood),
         LikelihoodCostFunction::compute_logl(&likelihood_rerooted),
