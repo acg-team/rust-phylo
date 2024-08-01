@@ -18,7 +18,7 @@ fn check_likelihood_opt_k80() {
     .unwrap();
     let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
     let likelihood = DNALikelihoodCost::new(&info, &model);
-    let unopt_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood);
+    let unopt_logl = LikelihoodCostFunction::compute_logl(&likelihood);
     let (_, _, logl) = DNAModelOptimiser::new(&likelihood)
         .optimise_parameters(FrequencyOptimisation::Fixed)
         .unwrap();
@@ -26,7 +26,7 @@ fn check_likelihood_opt_k80() {
 
     let model = DNASubstModel::new(K80, &[1.884815, 1.0]).unwrap();
     let likelihood = DNALikelihoodCost::new(&info, &model);
-    let expected_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood);
+    let expected_logl = LikelihoodCostFunction::compute_logl(&likelihood);
 
     assert_relative_eq!(logl, expected_logl, epsilon = 1e-6);
     assert_relative_eq!(logl, -4034.5008033, epsilon = 1e-6);
@@ -166,7 +166,7 @@ fn check_parameter_optimisation_gtr() {
     )
     .unwrap();
     let plyml_likelihood = DNALikelihoodCost::new(&info, &phyml_model);
-    let phyml_logl = LikelihoodCostFunction::compute_log_likelihood(&plyml_likelihood);
+    let phyml_logl = LikelihoodCostFunction::compute_logl(&plyml_likelihood);
     assert_relative_eq!(phyml_logl, -3474.48083, epsilon = 1.0e-5);
 
     let paml_model = DNASubstModel::new(
@@ -177,7 +177,7 @@ fn check_parameter_optimisation_gtr() {
     )
     .unwrap(); // Original input to paml
     let paml_likelihood = DNALikelihoodCost::new(&info, &paml_model);
-    let paml_logl = LikelihoodCostFunction::compute_log_likelihood(&paml_likelihood);
+    let paml_logl = LikelihoodCostFunction::compute_logl(&paml_likelihood);
     assert!(phyml_logl > paml_logl);
 
     let model = DNASubstModel::new(

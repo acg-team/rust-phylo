@@ -53,7 +53,7 @@ impl<'a> DNAModelOptimiser<'a> {
 
     fn set_empirical_frequencies(&self, start_values: &DNASubstParams) -> DNASubstParams {
         let mut start_values = start_values.clone();
-        start_values.set_pi(self.likelihood_cost.get_empirical_frequencies());
+        start_values.set_freqs(self.likelihood_cost.empirical_frequencies());
         info!("Set stationary frequencies to empirical.");
         start_values
     }
@@ -106,7 +106,7 @@ impl<'a> DNAModelOptimiser<'a> {
                 let gss = BrentOpt::new(1e-10, 100.0);
                 let res = Executor::new(optimiser, gss)
                     .configure(|_| {
-                        IterState::new().param(opt_params.get_value(param_set.first().unwrap()))
+                        IterState::new().param(opt_params.value(param_set.first().unwrap()))
                     })
                     .run()?;
                 let value = res.state().best_param.unwrap();

@@ -161,7 +161,7 @@ impl Tree {
         }
     }
 
-    pub fn get_node_id_string(&self, node_idx: &NodeIdx) -> String {
+    pub fn node_id(&self, node_idx: &NodeIdx) -> String {
         let id = match node_idx {
             Int(idx) => &self.internals[*idx].id,
             Leaf(idx) => &self.leaves[*idx].id,
@@ -257,12 +257,12 @@ impl Tree {
         order
     }
 
-    pub fn get_leaf_ids(&self) -> Vec<String> {
+    pub fn leaf_ids(&self) -> Vec<String> {
         debug_assert!(self.complete);
         self.leaves.iter().map(|node| node.id.clone()).collect()
     }
 
-    pub fn get_all_branch_lengths(&self) -> Vec<f64> {
+    pub fn all_branch_lengths(&self) -> Vec<f64> {
         debug_assert!(self.complete);
         let lengths = self
             .leaves
@@ -274,7 +274,7 @@ impl Tree {
         lengths
     }
 
-    pub fn get_idx_by_id(&self, id: &str) -> Result<NodeIdx> {
+    pub fn idx_by_id(&self, id: &str) -> Result<NodeIdx> {
         debug_assert!(self.complete);
         let idx = self.leaves.iter().position(|node| node.id == id);
         if let Some(idx) = idx {
@@ -288,11 +288,11 @@ impl Tree {
     }
 }
 
-pub fn get_percentiles(lengths: &[f64], categories: u32) -> Vec<f64> {
-    get_percentiles_rounded(lengths, categories, &Rounding::none())
+pub fn percentiles(lengths: &[f64], categories: u32) -> Vec<f64> {
+    percentiles_rounded(lengths, categories, &Rounding::none())
 }
 
-pub fn get_percentiles_rounded(lengths: &[f64], categories: u32, rounding: &Rounding) -> Vec<f64> {
+pub fn percentiles_rounded(lengths: &[f64], categories: u32, rounding: &Rounding) -> Vec<f64> {
     let lengths: Percentiles<f64> = lengths.iter().collect();
     let percentiles: Vec<f64> = (1..(categories + 1))
         .map(|cat| 1.0 / ((categories + 1) as f64) * (cat as f64))

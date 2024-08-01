@@ -7,7 +7,7 @@ use bio::alphabets::Alphabet;
 
 use crate::evolutionary_models::ModelType;
 use crate::io::read_sequences_from_file;
-use crate::sequences::{dna_alphabet, get_sequence_type, protein_alphabet};
+use crate::sequences::{dna_alphabet, sequence_type, protein_alphabet};
 
 #[test]
 fn alphabets() {
@@ -26,7 +26,7 @@ fn alphabets() {
 #[case::unaligned("./data/sequences_DNA2_unaligned.fasta")]
 #[case::long("./data/sequences_long.fasta")]
 fn dna_type_test(#[case] input: &str) {
-    let alphabet = get_sequence_type(&read_sequences_from_file(PathBuf::from(input)).unwrap());
+    let alphabet = sequence_type(&read_sequences_from_file(PathBuf::from(input)).unwrap());
     assert_matches!(alphabet, ModelType::DNA(_));
 }
 
@@ -34,6 +34,6 @@ fn dna_type_test(#[case] input: &str) {
 #[case("./data/sequences_protein1.fasta")]
 #[case("./data/sequences_protein2.fasta")]
 fn protein_type_test(#[case] input: &str) {
-    let alphabet = get_sequence_type(&read_sequences_from_file(PathBuf::from(input)).unwrap());
+    let alphabet = sequence_type(&read_sequences_from_file(PathBuf::from(input)).unwrap());
     assert_matches!(alphabet, ModelType::Protein(_));
 }

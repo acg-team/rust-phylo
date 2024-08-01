@@ -39,9 +39,9 @@ impl EvoModelParams for ProteinSubstParams {
         Ok(Self {
             model_type: *model_type,
             pi: match model_type {
-                ProteinModelType::WAG => wag_pi(),
-                ProteinModelType::HIVB => hivb_pi(),
-                ProteinModelType::BLOSUM => blosum_pi(),
+                ProteinModelType::WAG => wag_freqs(),
+                ProteinModelType::HIVB => hivb_freqs(),
+                ProteinModelType::BLOSUM => blosum_freqs(),
                 _ => unreachable!(),
             },
         })
@@ -51,16 +51,16 @@ impl EvoModelParams for ProteinSubstParams {
     ) -> Vec<(&'static str, Vec<ProteinParameter>)> {
         todo!()
     }
-    fn get_value(&self, _param_name: &ProteinParameter) -> f64 {
+    fn value(&self, _param_name: &ProteinParameter) -> f64 {
         todo!()
     }
     fn set_value(&mut self, _param_name: &ProteinParameter, _value: f64) {
         todo!()
     }
-    fn get_pi(&self) -> &FreqVector {
+    fn freqs(&self) -> &FreqVector {
         &self.pi
     }
-    fn set_pi(&mut self, _pi: FreqVector) {
+    fn set_freqs(&mut self, _pi: FreqVector) {
         todo!()
     }
 }
@@ -116,25 +116,25 @@ impl SubstitutionModel for ProteinSubstModel {
         &AMINOACID_INDEX
     }
 
-    fn get_q(&self) -> &SubstMatrix {
+    fn q(&self) -> &SubstMatrix {
         &self.q
     }
 
-    fn get_stationary_distribution(&self) -> &FreqVector {
+    fn freqs(&self) -> &FreqVector {
         &self.params.pi
     }
 
     fn normalise(&mut self) {
-        let factor = -(self.params.get_pi().transpose() * self.q.diagonal())[(0, 0)];
+        let factor = -(self.params.freqs().transpose() * self.q.diagonal())[(0, 0)];
         self.q /= factor;
     }
 
-    fn get_p(&self, time: f64) -> SubstMatrix {
-        (self.get_q().clone() * time).exp()
+    fn p(&self, time: f64) -> SubstMatrix {
+        (self.q().clone() * time).exp()
     }
 
-    fn get_rate(&self, i: u8, j: u8) -> f64 {
-        self.get_q()[(self.index()[i as usize], self.index()[j as usize])]
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q()[(self.index()[i as usize], self.index()[j as usize])]
     }
 
     fn generate_scorings(
@@ -147,23 +147,23 @@ impl SubstitutionModel for ProteinSubstModel {
             |&time| {
                 (
                     crate::f64_h::from(time),
-                    self.get_scoring_matrix_corrected(time, zero_diag, rounding),
+                    self.scoring_matrix_corrected(time, zero_diag, rounding),
                 )
             },
         ))
     }
 
-    fn get_scoring_matrix(&self, time: f64, rounding: &crate::Rounding) -> (SubstMatrix, f64) {
-        self.get_scoring_matrix_corrected(time, false, rounding)
+    fn scoring_matrix(&self, time: f64, rounding: &crate::Rounding) -> (SubstMatrix, f64) {
+        self.scoring_matrix_corrected(time, false, rounding)
     }
 
-    fn get_scoring_matrix_corrected(
+    fn scoring_matrix_corrected(
         &self,
         time: f64,
         zero_diag: bool,
         rounding: &crate::Rounding,
     ) -> (SubstMatrix, f64) {
-        let p = self.get_p(time);
+        let p = self.p(time);
         let mut scores = p.map(|x| -x.ln());
         if rounding.round {
             scores = scores.map(|x| {

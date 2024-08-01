@@ -36,14 +36,14 @@ pub trait SubstitutionModel {
     where
         Self: Sized;
     fn index(&self) -> &[usize; 255];
-    fn get_q(&self) -> &SubstMatrix;
-    fn get_p(&self, time: f64) -> SubstMatrix {
-        (self.get_q().clone() * time).exp()
+    fn q(&self) -> &SubstMatrix;
+    fn p(&self, time: f64) -> SubstMatrix {
+        (self.q().clone() * time).exp()
     }
-    fn get_rate(&self, i: u8, j: u8) -> f64 {
-        self.get_q()[(self.index()[i as usize], self.index()[j as usize])]
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q()[(self.index()[i as usize], self.index()[j as usize])]
     }
-    fn get_stationary_distribution(&self) -> &FreqVector;
+    fn freqs(&self) -> &FreqVector;
     fn generate_scorings(
         &self,
         times: &[f64],
@@ -53,20 +53,20 @@ pub trait SubstitutionModel {
         HashMap::<f64_h, (SubstMatrix, f64)>::from_iter(times.iter().map(|&time| {
             (
                 f64_h::from(time),
-                self.get_scoring_matrix_corrected(time, zero_diag, rounding),
+                self.scoring_matrix_corrected(time, zero_diag, rounding),
             )
         }))
     }
-    fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
-        self.get_scoring_matrix_corrected(time, false, rounding)
+    fn scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
+        self.scoring_matrix_corrected(time, false, rounding)
     }
-    fn get_scoring_matrix_corrected(
+    fn scoring_matrix_corrected(
         &self,
         time: f64,
         zero_diag: bool,
         rounding: &Rounding,
     ) -> (SubstMatrix, f64) {
-        let p = self.get_p(time);
+        let p = self.p(time);
         let mut scores = p.map(|x| -x.ln());
         if rounding.round {
             scores = scores.map(|x| {
@@ -90,7 +90,7 @@ pub trait ParsimonyModel {
         zero_diag: bool,
         rounding: &Rounding,
     ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)>;
-    fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64);
+    fn scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64);
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -113,24 +113,24 @@ where
         SubstitutionModel::new(model, params)
     }
 
-    fn get_p(&self, time: f64) -> SubstMatrix {
-        SubstitutionModel::get_p(self, time)
+    fn p(&self, time: f64) -> SubstMatrix {
+        SubstitutionModel::p(self, time)
     }
 
-    fn get_q(&self) -> &SubstMatrix {
-        SubstitutionModel::get_q(self)
+    fn q(&self) -> &SubstMatrix {
+        SubstitutionModel::q(self)
     }
 
-    fn get_rate(&self, i: u8, j: u8) -> f64 {
-        SubstitutionModel::get_rate(self, i, j)
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        SubstitutionModel::rate(self, i, j)
     }
 
-    fn get_stationary_distribution(&self) -> &FreqVector {
-        SubstitutionModel::get_stationary_distribution(self)
+    fn freqs(&self) -> &FreqVector {
+        SubstitutionModel::freqs(self)
     }
 
-    fn get_char_probability(&self, char_encoding: &FreqVector) -> FreqVector {
-        let mut probs = SubstitutionModel::get_stationary_distribution(self)
+    fn char_probability(&self, char_encoding: &FreqVector) -> FreqVector {
+        let mut probs = SubstitutionModel::freqs(self)
             .clone()
             .component_mul(char_encoding);
         probs.scale_mut(1.0 / probs.sum());
@@ -141,7 +141,7 @@ where
         SubstitutionModel::index(self)
     }
 
-    fn get_params(&self) -> &Self::Params {
+    fn params(&self) -> &Self::Params {
         &self.params
     }
 }
@@ -159,8 +159,8 @@ where
         SubstitutionModel::generate_scorings(self, times, zero_diag, rounding)
     }
 
-    fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
-        SubstitutionModel::get_scoring_matrix(self, time, rounding)
+    fn scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
+        SubstitutionModel::scoring_matrix(self, time, rounding)
     }
 }
 
@@ -187,12 +187,12 @@ impl<'a, SubstModel: SubstitutionModel + 'a> LikelihoodCostFunction<'a>
     type Model = SubstModel;
     type Info = SubstModelInfo<SubstModel>;
 
-    fn compute_log_likelihood(&self) -> f64 {
+    fn compute_logl(&self) -> f64 {
         self.compute_log_likelihood().0
     }
 
-    fn get_empirical_frequencies(&self) -> FreqVector {
-        let all_counts = self.info.get_counts();
+    fn empirical_frequencies(&self) -> FreqVector {
+        let all_counts = self.info.counts();
         let mut total = all_counts.values().sum::<f64>();
         let index = SubstitutionModel::index(self.model);
         let mut freqs = FreqVector::from_column_slice(&vec![0.0; Self::Model::N]);
@@ -238,10 +238,7 @@ impl<'a, SubstModel: SubstitutionModel> SubstitutionLikelihoodCost<'a, SubstMode
             NodeIdx::Internal(idx) => &tmp_values.internal_info[idx],
             NodeIdx::Leaf(idx) => &tmp_values.leaf_info[idx],
         };
-        let likelihood = model
-            .get_stationary_distribution()
-            .transpose()
-            .mul(root_info);
+        let likelihood = model.freqs().transpose().mul(root_info);
         debug_assert_eq!(
             likelihood.ncols(),
             self.info.msa.as_ref().unwrap()[0].seq().len()
@@ -258,7 +255,7 @@ impl<'a, SubstModel: SubstitutionModel> SubstitutionLikelihoodCost<'a, SubstMode
     ) {
         let node = &self.info.tree.internals[*idx];
         if !tmp_values.internal_models_valid[*idx] {
-            tmp_values.internal_models[*idx] = SubstitutionModel::get_p(model, node.blen);
+            tmp_values.internal_models[*idx] = SubstitutionModel::p(model, node.blen);
             tmp_values.internal_models_valid[*idx] = true;
         }
         let childx_info = self.child_info(&node.children[0], tmp_values);
@@ -278,7 +275,7 @@ impl<'a, SubstModel: SubstitutionModel> SubstitutionLikelihoodCost<'a, SubstMode
     ) {
         if !tmp_values.leaf_models_valid[*idx] {
             tmp_values.leaf_models[*idx] =
-                SubstitutionModel::get_p(model, self.info.tree.leaves[*idx].blen);
+                SubstitutionModel::p(model, self.info.tree.leaves[*idx].blen);
             tmp_values.leaf_models_valid[*idx] = true;
         }
         tmp_values.leaf_models[*idx].mul_to(
@@ -343,7 +340,7 @@ impl<SubstModel: SubstitutionModel> SubstModelInfo<SubstModel> {
         let mut leaf_sequence_info = info.leaf_encoding.clone();
         for leaf_seq in leaf_sequence_info.iter_mut() {
             for mut site_info in leaf_seq.column_iter_mut() {
-                site_info.component_mul_assign(model.get_stationary_distribution());
+                site_info.component_mul_assign(model.freqs());
                 site_info.scale_mut((1.0) / site_info.sum());
             }
         }

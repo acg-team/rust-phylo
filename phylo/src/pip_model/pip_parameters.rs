@@ -42,7 +42,7 @@ where
     pub(crate) fn new(model_type: &SubstModel::ModelType, params: &[f64]) -> Result<Self> {
         let (lambda, mu) = check_pip_params(params)?;
         let subst_params = SubstModel::Params::new(model_type, &params[2..])?;
-        let pi = subst_params.get_pi().clone().insert_row(SubstModel::N, 0.0);
+        let pi = subst_params.freqs().clone().insert_row(SubstModel::N, 0.0);
         Ok(Self {
             model_type: model_type.clone(),
             lambda,
@@ -52,14 +52,14 @@ where
         })
     }
 
-    fn get_pi(&self) -> &FreqVector {
+    fn freqs(&self) -> &FreqVector {
         &self.pi
     }
 
-    fn set_pi(&mut self, pi: FreqVector) {
+    fn set_freqs(&mut self, pi: FreqVector) {
         self.pi = pi.clone();
         self.subst_params
-            .set_pi(pi.clone().remove_row(SubstModel::N));
+            .set_freqs(pi.clone().remove_row(SubstModel::N));
     }
 }
 
@@ -71,11 +71,11 @@ impl EvoModelParams for PIPDNAParams {
         PIPParams::new(model_type, params)
     }
 
-    fn get_value(&self, param_name: &DNAParameter) -> f64 {
+    fn value(&self, param_name: &DNAParameter) -> f64 {
         match param_name {
             Lambda => self.lambda,
             Mu => self.mu,
-            _ => self.subst_params.get_value(param_name),
+            _ => self.subst_params.value(param_name),
         }
     }
 
@@ -87,12 +87,12 @@ impl EvoModelParams for PIPDNAParams {
         }
     }
 
-    fn get_pi(&self) -> &FreqVector {
-        self.get_pi()
+    fn freqs(&self) -> &FreqVector {
+        self.freqs()
     }
 
-    fn set_pi(&mut self, pi: FreqVector) {
-        self.set_pi(pi)
+    fn set_freqs(&mut self, pi: FreqVector) {
+        self.set_freqs(pi)
     }
 
     fn parameter_definition(model_type: &DNAModelType) -> Vec<(&'static str, Vec<DNAParameter>)> {
@@ -114,11 +114,11 @@ impl EvoModelParams for PIPProteinParams {
         PIPParams::new(model_type, params)
     }
 
-    fn get_value(&self, param_name: &ProteinParameter) -> f64 {
+    fn value(&self, param_name: &ProteinParameter) -> f64 {
         match param_name {
             ProteinParameter::Lambda => self.lambda,
             ProteinParameter::Mu => self.mu,
-            _ => self.subst_params.get_value(param_name),
+            _ => self.subst_params.value(param_name),
         }
     }
 
@@ -130,12 +130,12 @@ impl EvoModelParams for PIPProteinParams {
         }
     }
 
-    fn get_pi(&self) -> &FreqVector {
-        self.get_pi()
+    fn freqs(&self) -> &FreqVector {
+        self.freqs()
     }
 
-    fn set_pi(&mut self, pi: FreqVector) {
-        self.set_pi(pi)
+    fn set_freqs(&mut self, pi: FreqVector) {
+        self.set_freqs(pi)
     }
 
     fn parameter_definition(

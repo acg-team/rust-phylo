@@ -53,7 +53,7 @@ fn compare_pip_subst_rates<SubstModel: SubstitutionModel + Clone>(
     SubstModel::Params: Clone,
 {
     for &char in chars {
-        assert!(pip_model.get_rate(char, char) < 0.0);
+        assert!(pip_model.rate(char, char) < 0.0);
         assert_relative_eq!(
             pip_model.q.row(pip_model.index[char as usize]).sum(),
             0.0,
@@ -64,12 +64,12 @@ fn compare_pip_subst_rates<SubstModel: SubstitutionModel + Clone>(
                 continue;
             }
             assert_relative_eq!(
-                pip_model.get_rate(char, other_char),
-                subst_model.get_rate(char, other_char)
+                pip_model.rate(char, other_char),
+                subst_model.rate(char, other_char)
             );
         }
-        assert_relative_eq!(pip_model.get_rate(char, b'-'), pip_model.params.mu);
-        assert_relative_eq!(pip_model.get_rate(GAP, char), 0.0);
+        assert_relative_eq!(pip_model.rate(char, b'-'), pip_model.params.mu);
+        assert_relative_eq!(pip_model.rate(GAP, char), 0.0);
     }
 }
 
@@ -86,10 +86,7 @@ fn protein_pip_correct(
     assert_eq!(pip_model.params.lambda, params[0]);
     assert_eq!(pip_model.params.mu, params[1]);
     let frequencies = frequencies!(pi_array).insert_row(20, 0.0);
-    assert_eq!(
-        EvolutionaryModel::get_stationary_distribution(&pip_model),
-        &frequencies
-    );
+    assert_eq!(EvolutionaryModel::freqs(&pip_model), &frequencies);
     let subst_model = <ProteinSubstModel as SubstitutionModel>::new(model_type, &[]).unwrap();
     compare_pip_subst_rates(AMINOACIDS, &pip_model, &subst_model);
 }
@@ -100,7 +97,7 @@ fn pip_dna_jc69_correct() {
     assert_eq!(pip_jc69.params.lambda, 0.1);
     assert_eq!(pip_jc69.params.mu, 0.4);
     assert_eq!(
-        EvolutionaryModel::get_stationary_distribution(&pip_jc69),
+        EvolutionaryModel::freqs(&pip_jc69),
         &dvector![0.25, 0.25, 0.25, 0.25, 0.0]
     );
     let jc96 = <DNASubstModel as SubstitutionModel>::new(JC69, &[]).unwrap();
@@ -113,17 +110,14 @@ fn pip_dna_jc69_normalised() {
     assert_eq!(pip_jc69.params.lambda, 0.1);
     assert_eq!(pip_jc69.params.mu, 0.4);
     assert_eq!(
-        EvolutionaryModel::get_stationary_distribution(&pip_jc69),
+        EvolutionaryModel::freqs(&pip_jc69),
         &dvector![0.25, 0.25, 0.25, 0.25, 0.0]
     );
     for &char in NUCLEOTIDES {
-        assert_eq!(
-            EvolutionaryModel::get_rate(&pip_jc69, char, char),
-            -1.0 - 0.4
-        );
+        assert_eq!(EvolutionaryModel::rate(&pip_jc69, char, char), -1.0 - 0.4);
         assert_relative_eq!(pip_jc69.q.row(pip_jc69.index[char as usize]).sum(), 0.0,);
-        assert_relative_eq!(EvolutionaryModel::get_rate(&pip_jc69, char, b'-'), 0.4);
-        assert_relative_eq!(EvolutionaryModel::get_rate(&pip_jc69, b'-', char), 0.0);
+        assert_relative_eq!(EvolutionaryModel::rate(&pip_jc69, char, b'-'), 0.4);
+        assert_relative_eq!(EvolutionaryModel::rate(&pip_jc69, b'-', char), 0.0);
     }
 }
 
@@ -133,19 +127,16 @@ fn pip_protein_wag_normalised() {
     assert_eq!(pip_wag.params.lambda, 0.1);
     assert_eq!(pip_wag.params.mu, 0.4);
     let stat_dist = frequencies!(&WAG_PI_ARR).insert_row(20, 0.0);
-    assert_relative_eq!(
-        EvolutionaryModel::get_stationary_distribution(&pip_wag),
-        &stat_dist
-    );
+    assert_relative_eq!(EvolutionaryModel::freqs(&pip_wag), &stat_dist);
     assert_relative_eq!(pip_wag.q.sum(), 0.0, epsilon = 1e-10);
     for &char in NUCLEOTIDES {
         assert_relative_eq!(pip_wag.q.row(pip_wag.index[char as usize]).sum(), 0.0,);
         assert_relative_eq!(
-            EvolutionaryModel::get_rate(&pip_wag, char, b'-'),
+            EvolutionaryModel::rate(&pip_wag, char, b'-'),
             0.4,
             epsilon = 1e-5
         );
-        assert_relative_eq!(EvolutionaryModel::get_rate(&pip_wag, b'-', char), 0.0);
+        assert_relative_eq!(EvolutionaryModel::rate(&pip_wag, b'-', char), 0.0);
     }
 }
 
@@ -169,7 +160,7 @@ fn pip_dna_tn93_correct() {
     let expected_q = tn93.q.insert_column(4, 0.0).insert_row(4, 0.0) + diff;
     assert_relative_eq!(pip_tn93.q, expected_q, epsilon = 1e-10);
     assert_relative_eq!(
-        EvolutionaryModel::get_stationary_distribution(&pip_tn93),
+        EvolutionaryModel::freqs(&pip_tn93),
         &dvector![0.22, 0.26, 0.33, 0.19, 0.0]
     );
 }
@@ -202,12 +193,12 @@ fn pip_dna_char_frequencies() {
     let pip_gtr = PIPDNAModel::new(GTR, &[vec![0.2, 0.4], params].concat()).unwrap();
     for (&char, expected_gtr) in char_probs.iter() {
         let expected_pip = expected_gtr.clone().insert_row(4, 0.0);
-        let actual = pip_gtr.get_char_probability(&DNA_GAP_SETS[char as usize]);
+        let actual = pip_gtr.char_probability(&DNA_GAP_SETS[char as usize]);
         assert_eq!(actual.len(), 5);
         assert_relative_eq!(actual.sum(), 1.0);
         assert_relative_eq!(actual, expected_pip, epsilon = 1e-4);
     }
-    let actual = pip_gtr.get_char_probability(&DNA_GAP_SETS[b'-' as usize]);
+    let actual = pip_gtr.char_probability(&DNA_GAP_SETS[b'-' as usize]);
     assert_eq!(actual.len(), 5);
     assert_relative_eq!(actual.sum(), 1.0);
     assert_relative_eq!(actual, dvector![0.0, 0.0, 0.0, 0.0, 1.0]);
@@ -226,12 +217,12 @@ fn protein_char_probabilities(
     let expected = protein_char_probs_data(pi_array);
     for (char, expected_prot) in expected.into_iter() {
         let expected_pip = expected_prot.clone().insert_row(20, 0.0);
-        let actual = pip.get_char_probability(&PROTEIN_GAP_SETS[char as usize]);
+        let actual = pip.char_probability(&PROTEIN_GAP_SETS[char as usize]);
         assert_eq!(actual.len(), 21);
         assert_relative_eq!(actual.sum(), 1.0, epsilon = epsilon);
         assert_relative_eq!(actual, expected_pip, epsilon = epsilon);
     }
-    let actual = pip.get_char_probability(&PROTEIN_GAP_SETS[b'-' as usize]);
+    let actual = pip.char_probability(&PROTEIN_GAP_SETS[b'-' as usize]);
     assert_eq!(actual.len(), 21);
     assert_relative_eq!(actual.sum(), 1.0);
     assert_relative_eq!(actual, frequencies!(&[0.0; 20]).insert_row(20, 1.0));
@@ -262,7 +253,7 @@ fn pip_rates(#[case] model_type: DNAModelType, #[case] params: &[f64]) {
 fn pip_dna_p_matrix_inf(#[case] model_type: DNAModelType, #[case] params: &[f64]) {
     let pip_params = vec![0.2, 0.5];
     let pip = PIPDNAModel::new(model_type, &[&pip_params, params].concat()).unwrap();
-    let p = EvolutionaryModel::get_p(&pip, 10000000.0);
+    let p = EvolutionaryModel::p(&pip, 10000000.0);
     let expected = SubstMatrix::from_row_slice(
         5,
         5,
@@ -280,7 +271,7 @@ fn pip_dna_p_matrix_inf(#[case] model_type: DNAModelType, #[case] params: &[f64]
 #[case::hivb(HIVB, &[0.1, 0.04])]
 fn pip_protein_p_matrix_inf(#[case] model_type: ProteinModelType, #[case] params: &[f64]) {
     let pip = PIPProteinModel::new(model_type, params).unwrap();
-    let p = EvolutionaryModel::get_p(&pip, 10000000.0);
+    let p = EvolutionaryModel::p(&pip, 10000000.0);
     let mut expected = SubstMatrix::zeros(21, 21);
     expected.fill_column(20, 1.0);
     assert_relative_eq!(p, expected, epsilon = 1e-10);
@@ -301,7 +292,7 @@ fn pip_p_example_matrix() {
         ],
     );
     assert_relative_eq!(
-        EvolutionaryModel::get_p(&pip_hky, 2.0),
+        EvolutionaryModel::p(&pip_hky, 2.0),
         expected_p,
         epsilon = epsilon
     );
@@ -314,7 +305,7 @@ fn pip_p_example_matrix() {
         ],
     );
     assert_relative_eq!(
-        EvolutionaryModel::get_p(&pip_hky, 1.0),
+        EvolutionaryModel::p(&pip_hky, 1.0),
         expected_p,
         epsilon = epsilon
     );
@@ -363,13 +354,13 @@ fn pip_hky_likelihood_example_leaf_values() {
     let iota = 0.133;
     let beta = 0.787;
     cost.set_leaf_values(
-        cost.info.tree.get_idx_by_id("A").unwrap().into(),
+        cost.info.tree.idx_by_id("A").unwrap().into(),
         &model,
         &mut temp_values,
     );
     assert_values(
         &temp_values,
-        cost.info.tree.get_idx_by_id("A").unwrap().into(),
+        cost.info.tree.idx_by_id("A").unwrap().into(),
         iota,
         beta,
         &[[0.0, 1.0, 0.0, 0.0], [0.0; 4], [0.0; 4]].concat(),
@@ -377,13 +368,13 @@ fn pip_hky_likelihood_example_leaf_values() {
         &[0.0, 0.33 * iota * beta, 0.0, 0.0],
     );
     cost.set_leaf_values(
-        cost.info.tree.get_idx_by_id("B").unwrap().into(),
+        cost.info.tree.idx_by_id("B").unwrap().into(),
         &model,
         &mut temp_values,
     );
     assert_values(
         &temp_values,
-        cost.info.tree.get_idx_by_id("B").unwrap().into(),
+        cost.info.tree.idx_by_id("B").unwrap().into(),
         iota,
         beta,
         &[[1.0, 1.0, 0.0, 0.0], [0.0; 4], [0.0; 4]].concat(),
@@ -391,7 +382,7 @@ fn pip_hky_likelihood_example_leaf_values() {
         &[0.26 * iota * beta, 0.33 * iota * beta, 0.0, 0.0],
     );
     cost.set_leaf_values(
-        cost.info.tree.get_idx_by_id("C").unwrap().into(),
+        cost.info.tree.idx_by_id("C").unwrap().into(),
         &model,
         &mut temp_values,
     );
@@ -399,7 +390,7 @@ fn pip_hky_likelihood_example_leaf_values() {
     let beta = 0.885;
     assert_values(
         &temp_values,
-        cost.info.tree.get_idx_by_id("C").unwrap().into(),
+        cost.info.tree.idx_by_id("C").unwrap().into(),
         iota,
         beta,
         &[[0.0, 1.0, 0.0, 1.0], [0.0; 4], [0.0; 4]].concat(),
@@ -407,13 +398,13 @@ fn pip_hky_likelihood_example_leaf_values() {
         &[0.0, 0.33 * iota * beta, 0.0, 0.19 * iota * beta],
     );
     cost.set_leaf_values(
-        cost.info.tree.get_idx_by_id("D").unwrap().into(),
+        cost.info.tree.idx_by_id("D").unwrap().into(),
         &model,
         &mut temp_values,
     );
     assert_values(
         &temp_values,
-        cost.info.tree.get_idx_by_id("D").unwrap().into(),
+        cost.info.tree.idx_by_id("D").unwrap().into(),
         iota,
         beta,
         &[[0.0, 1.0, 1.0, 1.0], [0.0; 4], [0.0; 4]].concat(),
@@ -442,7 +433,7 @@ fn pip_hky_likelihood_example_internals() {
     }
     let iota = 0.133;
     let beta = 0.787;
-    let idx = usize::from(cost.info.tree.get_idx_by_id("E").unwrap());
+    let idx = usize::from(cost.info.tree.idx_by_id("E").unwrap());
     cost.set_internal_values(idx, &model, &mut temp_values);
     assert_values(
         &temp_values,
@@ -458,7 +449,7 @@ fn pip_hky_likelihood_example_internals() {
             0.0,
         ],
     );
-    let idx = usize::from(cost.info.tree.get_idx_by_id("F").unwrap());
+    let idx = usize::from(cost.info.tree.idx_by_id("F").unwrap());
     cost.set_internal_values(idx, &model, &mut temp_values);
     let iota_f = 0.2;
     let beta_f = 0.704;
@@ -483,7 +474,7 @@ fn pip_hky_likelihood_example_internals() {
     let beta = 1.0;
     let iota_e = 0.133;
     let beta_e = 0.787;
-    let idx = usize::from(cost.info.tree.get_idx_by_id("R").unwrap());
+    let idx = usize::from(cost.info.tree.idx_by_id("R").unwrap());
     cost.set_root_values(idx, &model, &mut temp_values);
     assert_values(
         &temp_values,
@@ -543,54 +534,54 @@ fn pip_hky_likelihood_example_c0() {
         model: &model,
     };
     cost.set_leaf_values(
-        cost.info.tree.get_idx_by_id("A").unwrap().into(),
+        cost.info.tree.idx_by_id("A").unwrap().into(),
         &model,
         &mut tmp,
     );
     assert_c0_values(
         &tmp,
-        cost.info.tree.get_idx_by_id("A").unwrap().into(),
+        cost.info.tree.idx_by_id("A").unwrap().into(),
         &[0.0, 0.0, 0.0, 0.0, 1.0],
         0.0,
         0.028329,
     );
     cost.set_leaf_values(
-        cost.info.tree.get_idx_by_id("B").unwrap().into(),
+        cost.info.tree.idx_by_id("B").unwrap().into(),
         &model,
         &mut tmp,
     );
     assert_c0_values(
         &tmp,
-        cost.info.tree.get_idx_by_id("B").unwrap().into(),
+        cost.info.tree.idx_by_id("B").unwrap().into(),
         &[0.0, 0.0, 0.0, 0.0, 1.0],
         0.0,
         0.028329,
     );
     cost.set_leaf_values(
-        cost.info.tree.get_idx_by_id("C").unwrap().into(),
+        cost.info.tree.idx_by_id("C").unwrap().into(),
         &model,
         &mut tmp,
     );
     assert_c0_values(
         &tmp,
-        cost.info.tree.get_idx_by_id("C").unwrap().into(),
+        cost.info.tree.idx_by_id("C").unwrap().into(),
         &[0.0, 0.0, 0.0, 0.0, 1.0],
         0.0,
         0.007705,
     );
     cost.set_leaf_values(
-        cost.info.tree.get_idx_by_id("D").unwrap().into(),
+        cost.info.tree.idx_by_id("D").unwrap().into(),
         &model,
         &mut tmp,
     );
     assert_c0_values(
         &tmp,
-        cost.info.tree.get_idx_by_id("D").unwrap().into(),
+        cost.info.tree.idx_by_id("D").unwrap().into(),
         &[0.0, 0.0, 0.0, 0.0, 1.0],
         0.0,
         0.007705,
     );
-    let idx = usize::from(cost.info.tree.get_idx_by_id("E").unwrap());
+    let idx = usize::from(cost.info.tree.idx_by_id("E").unwrap());
     cost.set_internal_values(idx, &model, &mut tmp);
     assert_c0_values(
         &tmp,
@@ -599,7 +590,7 @@ fn pip_hky_likelihood_example_c0() {
         0.154,
         0.044448334 + 0.028329 * 2.0,
     );
-    let idx = usize::from(cost.info.tree.get_idx_by_id("F").unwrap());
+    let idx = usize::from(cost.info.tree.idx_by_id("F").unwrap());
     cost.set_internal_values(idx, &model, &mut tmp);
     assert_c0_values(
         &tmp,
@@ -608,7 +599,7 @@ fn pip_hky_likelihood_example_c0() {
         0.0488,
         0.06607104 + 0.007705 * 2.0,
     );
-    let idx = usize::from(cost.info.tree.get_idx_by_id("R").unwrap());
+    let idx = usize::from(cost.info.tree.idx_by_id("R").unwrap());
     cost.set_root_values(idx, &model, &mut tmp);
     assert_c0_values(
         &tmp,
@@ -698,7 +689,7 @@ fn pip_hky_likelihood_example_2() {
         model: &model,
     };
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&cost),
+        LikelihoodCostFunction::compute_logl(&cost),
         -24.9549393298,
         epsilon = 1e-2
     );
@@ -718,7 +709,7 @@ fn pip_likelihood_huelsenbeck_example() {
         model: &model,
     };
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&cost),
+        LikelihoodCostFunction::compute_logl(&cost),
         -372.1419415285655,
         epsilon = 1e-4
     );
@@ -729,7 +720,7 @@ fn pip_likelihood_huelsenbeck_example() {
         model: &model,
     };
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&cost),
+        LikelihoodCostFunction::compute_logl(&cost),
         -361.1613531649497, // value from the python script
         epsilon = 1e-1
     );
@@ -746,7 +737,7 @@ fn pip_likelihood_huelsenbeck_example() {
         model: &model,
     };
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&cost),
+        LikelihoodCostFunction::compute_logl(&cost),
         -359.2343309917135,
         epsilon = 1e-4
     );
@@ -772,8 +763,8 @@ fn pip_likelihood_huelsenbeck_example_model_comp() {
         model: &model_jc69,
     };
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&cost_1),
-        LikelihoodCostFunction::compute_log_likelihood(&cost_2),
+        LikelihoodCostFunction::compute_logl(&cost_1),
+        LikelihoodCostFunction::compute_logl(&cost_2),
     );
 }
 
@@ -809,11 +800,11 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
     };
 
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&cost_1),
-        LikelihoodCostFunction::compute_log_likelihood(&cost_2),
+        LikelihoodCostFunction::compute_logl(&cost_1),
+        LikelihoodCostFunction::compute_logl(&cost_2),
     );
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&cost_1),
+        LikelihoodCostFunction::compute_logl(&cost_1),
         -359.2343309917135,
         epsilon = 1e-4
     );
@@ -832,5 +823,5 @@ fn pip_likelihood_protein_example() {
         info: &info,
         model: &model_wag,
     };
-    assert!(LikelihoodCostFunction::compute_log_likelihood(&cost) <= 0.0);
+    assert!(LikelihoodCostFunction::compute_logl(&cost) <= 0.0);
 }

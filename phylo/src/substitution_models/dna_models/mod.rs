@@ -64,7 +64,7 @@ impl SubstitutionModel for DNASubstModel {
         Ok(DNASubstModel::create(&params))
     }
 
-    fn get_stationary_distribution(&self) -> &FreqVector {
+    fn freqs(&self) -> &FreqVector {
         &self.params.pi
     }
 
@@ -72,12 +72,12 @@ impl SubstitutionModel for DNASubstModel {
         &NUCLEOTIDE_INDEX
     }
 
-    fn get_q(&self) -> &SubstMatrix {
+    fn q(&self) -> &SubstMatrix {
         &self.q
     }
 
     fn normalise(&mut self) {
-        let factor = -(self.params.get_pi().transpose() * self.q.diagonal())[(0, 0)];
+        let factor = -(self.params.freqs().transpose() * self.q.diagonal())[(0, 0)];
         self.q /= factor;
     }
 }
