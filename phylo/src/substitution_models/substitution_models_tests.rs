@@ -25,7 +25,6 @@ use crate::substitution_models::{FreqVector, ParsimonyModel, SubstMatrix};
 use crate::Rounding as R;
 
 #[cfg(test)]
-
 fn check_pi_convergence(substmat: SubstMatrix, pi: &FreqVector, epsilon: f64) {
     assert_eq!(substmat.row(0).len(), pi.len());
     for row in substmat.row_iter() {
@@ -91,86 +90,6 @@ fn compile_aa_probability(chars: &[u8], pi: &[f64]) -> FreqVector {
         char_probs.scale_mut(1.0 / char_probs.sum());
         char_probs
     }
-}
-
-#[rstest]
-#[case::jc69("jc69", JC69, &["jc70"])]
-#[case::k80("k80", K80, &["K 80", "k89"])]
-#[case::hky("hky", HKY, &["hkz", "hky3"])]
-#[case::tn93("tn93", TN93, &["TN92", "tn993"])]
-#[case::gtr("gtr", GTR, &["ctr", "GTP", "gtr1"])]
-fn dna_type_by_name(
-    #[case] name: &str,
-    #[case] model_type: DNAModelType,
-    #[case] wrong_name: &[&str],
-) {
-    assert_eq!(DNAModelType::get_model_type(name), model_type);
-    assert_eq!(
-        DNAModelType::get_model_type(&name.to_ascii_uppercase()),
-        model_type
-    );
-    for _ in 0..10 {
-        assert_eq!(
-            DNAModelType::get_model_type(&random_capitalise(name)),
-            model_type
-        );
-    }
-    for name in wrong_name {
-        assert_eq!(DNAModelType::get_model_type(name), GTR);
-    }
-}
-
-#[rstest]
-#[case::wag("wag", WAG, &["weg", "wag1"])]
-#[case::blosum("blosum", BLOSUM, &["BLOS", "blosum1", "blosum62"])]
-#[case::hivb("hivb", HIVB, &["Hiv1", "HIB", "HIVA"])]
-fn protein_type_by_name(
-    #[case] name: &str,
-    #[case] model_type: ProteinModelType,
-    #[case] wrong_name: &[&str],
-) {
-    assert_eq!(ProteinModelType::get_model_type(name), model_type);
-    assert_eq!(
-        ProteinModelType::get_model_type(&name.to_ascii_uppercase()),
-        model_type
-    );
-    for _ in 0..10 {
-        assert_eq!(
-            ProteinModelType::get_model_type(&random_capitalise(name)),
-            model_type
-        );
-    }
-    for name in wrong_name {
-        assert_eq!(ProteinModelType::get_model_type(name), WAG);
-    }
-}
-
-fn random_capitalise(input: &str) -> String {
-    let mut rng = rand::thread_rng();
-    input
-        .chars()
-        .map(|c| {
-            if c.is_alphabetic() && rng.gen_bool(0.5) {
-                c.to_uppercase().collect::<String>()
-            } else {
-                c.to_string()
-            }
-        })
-        .collect()
-}
-
-#[test]
-fn dna_type_by_name_given_protein() {
-    assert_eq!(DNAModelType::get_model_type("wag"), GTR);
-    assert_eq!(DNAModelType::get_model_type("BLOSUM"), GTR);
-    assert_eq!(DNAModelType::get_model_type("HIv"), GTR);
-}
-
-#[test]
-fn protein_type_by_name_given_dna() {
-    assert_eq!(ProteinModelType::get_model_type("k80"), WAG);
-    assert_eq!(ProteinModelType::get_model_type("gtr"), WAG);
-    assert_eq!(ProteinModelType::get_model_type("TN93"), WAG);
 }
 
 #[test]
@@ -579,12 +498,6 @@ fn protein_model_incorrect_access(#[case] model_type: ProteinModelType) {
 fn protein_model_gap(#[case] model_type: ProteinModelType) {
     let wag = ProteinSubstModel::new(model_type, &[]).unwrap();
     EvolutionaryModel::get_rate(&wag, b'-', b'L');
-}
-
-#[test]
-fn protein_model_def_typo() {
-    assert_eq!(ProteinModelType::get_model_type("waq"), WAG);
-    assert_eq!(ProteinModelType::get_model_type("HIV"), WAG);
 }
 
 #[rstest]

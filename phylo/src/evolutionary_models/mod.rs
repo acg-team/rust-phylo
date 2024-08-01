@@ -52,8 +52,8 @@ impl DNAModelType {
             "TN93" => DNAModelType::TN93,
             "GTR" => DNAModelType::GTR,
             _ => {
-                warn!("Unknown DNA model requested, defaulting to GTR.");
-                DNAModelType::GTR
+                warn!("Unknown DNA model {model_name:?} requested");
+                DNAModelType::UNDEF
             }
         }
     }
@@ -86,8 +86,8 @@ impl ProteinModelType {
             "BLOSUM" => ProteinModelType::BLOSUM,
             "HIVB" => ProteinModelType::HIVB,
             _ => {
-                warn!("Unknown DNA model requested, defaulting to WAG.");
-                ProteinModelType::WAG
+                warn!("Unknown protein model {model_name:?} requested");
+                ProteinModelType::UNDEF
             }
         }
     }
@@ -131,3 +131,6 @@ pub trait EvoModelInfo {
         Self: Sized;
     fn reset(&mut self);
 }
+
+#[cfg(test)]
+pub(crate) mod evolutionary_models_tests;
