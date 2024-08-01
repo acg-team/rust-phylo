@@ -43,16 +43,16 @@ impl Display for DNAModelType {
     }
 }
 
-impl DNAModelType {
-    pub fn get_model_type(model_name: &str) -> Self {
-        match model_name.to_uppercase().as_str() {
+impl From<&str> for DNAModelType {
+    fn from(value: &str) -> Self {
+        match value.to_uppercase().as_str() {
             "JC69" => DNAModelType::JC69,
             "K80" => DNAModelType::K80,
             "HKY" => DNAModelType::HKY,
             "TN93" => DNAModelType::TN93,
             "GTR" => DNAModelType::GTR,
             _ => {
-                warn!("Unknown DNA model {model_name:?} requested");
+                warn!("Unknown DNA model {value:?} requested");
                 DNAModelType::UNDEF
             }
         }
@@ -79,14 +79,14 @@ impl Display for ProteinModelType {
     }
 }
 
-impl ProteinModelType {
-    pub fn get_model_type(model_name: &str) -> Self {
-        match model_name.to_uppercase().as_str() {
+impl From<&str> for ProteinModelType {
+    fn from(value: &str) -> Self {
+        match value.to_uppercase().as_str() {
             "WAG" => ProteinModelType::WAG,
             "BLOSUM" => ProteinModelType::BLOSUM,
             "HIVB" => ProteinModelType::HIVB,
             _ => {
-                warn!("Unknown protein model {model_name:?} requested");
+                warn!("Unknown protein model {value:?} requested");
                 ProteinModelType::UNDEF
             }
         }

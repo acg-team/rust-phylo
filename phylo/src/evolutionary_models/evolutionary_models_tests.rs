@@ -31,21 +31,21 @@ fn random_capitalise(input: &str) -> String {
 fn dna_type_by_name(
     #[case] name: &str,
     #[case] model_type: DNAModelType,
-    #[case] wrong_name: &[&str],
+    #[case] wrong_names: &[&str],
 ) {
-    assert_eq!(DNAModelType::get_model_type(name), model_type);
+    assert_eq!(DNAModelType::from(name), model_type);
     assert_eq!(
-        DNAModelType::get_model_type(&name.to_ascii_uppercase()),
+        DNAModelType::from(name.to_ascii_uppercase().as_str()),
         model_type
     );
     for _ in 0..10 {
         assert_eq!(
-            DNAModelType::get_model_type(&random_capitalise(name)),
+            DNAModelType::from(random_capitalise(name).as_str()),
             model_type
         );
     }
-    for name in wrong_name {
-        assert_eq!(DNAModelType::get_model_type(name), DNAUNDEF);
+    for &name in wrong_names {
+        assert_eq!(DNAModelType::from(name), DNAUNDEF);
     }
 }
 
@@ -56,36 +56,36 @@ fn dna_type_by_name(
 fn protein_type_by_name(
     #[case] name: &str,
     #[case] model_type: ProteinModelType,
-    #[case] wrong_name: &[&str],
+    #[case] wrong_names: &[&str],
 ) {
-    assert_eq!(ProteinModelType::get_model_type(name), model_type);
+    assert_eq!(ProteinModelType::from(name), model_type);
     assert_eq!(
-        ProteinModelType::get_model_type(&name.to_ascii_uppercase()),
+        ProteinModelType::from(name.to_ascii_uppercase().as_str()),
         model_type
     );
     for _ in 0..10 {
         assert_eq!(
-            ProteinModelType::get_model_type(&random_capitalise(name)),
+            ProteinModelType::from(random_capitalise(name).as_str()),
             model_type
         );
     }
-    for name in wrong_name {
-        assert_eq!(ProteinModelType::get_model_type(name), ProteinUNDEF);
+    for &name in wrong_names {
+        assert_eq!(ProteinModelType::from(name), ProteinUNDEF);
     }
 }
 
 #[test]
 fn dna_type_by_name_given_protein() {
-    assert_eq!(DNAModelType::get_model_type("wag"), DNAUNDEF);
-    assert_eq!(DNAModelType::get_model_type("BLOSUM"), DNAUNDEF);
-    assert_eq!(DNAModelType::get_model_type("HIv"), DNAUNDEF);
+    assert_eq!(DNAModelType::from("wag"), DNAUNDEF);
+    assert_eq!(DNAModelType::from("BLOSUM"), DNAUNDEF);
+    assert_eq!(DNAModelType::from("HIv"), DNAUNDEF);
 }
 
 #[test]
 fn protein_type_by_name_given_dna() {
-    assert_eq!(ProteinModelType::get_model_type("k80"), ProteinUNDEF);
-    assert_eq!(ProteinModelType::get_model_type("gtr"), ProteinUNDEF);
-    assert_eq!(ProteinModelType::get_model_type("TN93"), ProteinUNDEF);
-    assert_eq!(ProteinModelType::get_model_type("waq"), ProteinUNDEF);
-    assert_eq!(ProteinModelType::get_model_type("HIV"), ProteinUNDEF);
+    assert_eq!(ProteinModelType::from("k80"), ProteinUNDEF);
+    assert_eq!(ProteinModelType::from("gtr"), ProteinUNDEF);
+    assert_eq!(ProteinModelType::from("TN93"), ProteinUNDEF);
+    assert_eq!(ProteinModelType::from("waq"), ProteinUNDEF);
+    assert_eq!(ProteinModelType::from("HIV"), ProteinUNDEF);
 }
