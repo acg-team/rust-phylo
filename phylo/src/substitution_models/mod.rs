@@ -319,16 +319,6 @@ impl<SubstModel: SubstitutionModel> EvoModelInfo for SubstModelInfo<SubstModel> 
     where
         Self: Sized,
     {
-        Self::new(info, model)
-    }
-
-    fn reset(&mut self) {
-        self.reset();
-    }
-}
-
-impl<SubstModel: SubstitutionModel> SubstModelInfo<SubstModel> {
-    fn new(info: &PhyloInfo, model: &SubstModel) -> Result<Self> {
         if info.msa.is_none() {
             bail!("An MSA is required to set up the likelihood computation.");
         }
