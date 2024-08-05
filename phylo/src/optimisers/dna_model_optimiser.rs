@@ -4,18 +4,18 @@ use log::{debug, info, warn};
 
 use crate::evolutionary_models::{
     DNAModelType::*,
-    EvolutionaryModelParameters,
+    EvoModelParams,
     FrequencyOptimisation::{self, *},
 };
 use crate::likelihood::LikelihoodCostFunction;
-use crate::substitution_models::dna_models::{make_dna_model, DNASubstParams, Parameter};
-use crate::substitution_models::SubstitutionLikelihoodCost;
+use crate::substitution_models::dna_models::{DNAParameter, DNASubstModel, DNASubstParams};
+use crate::substitution_models::{SubstitutionLikelihoodCost, SubstitutionModel};
 use crate::Result;
 
 pub(crate) struct DNAParamOptimiser<'a> {
-    pub(crate) likelihood_cost: &'a SubstitutionLikelihoodCost<'a, 4>,
-    pub(crate) params: DNASubstParams,
-    pub(crate) parameter: &'a [Parameter],
+    pub(crate) likelihood_cost: &'a SubstitutionLikelihoodCost<'a, DNASubstModel>,
+    pub(crate) model: &'a DNASubstModel,
+    pub(crate) parameter: &'a [DNAParameter],
 }
 
 impl CostFunction for DNAParamOptimiser<'_> {
@@ -23,12 +23,14 @@ impl CostFunction for DNAParamOptimiser<'_> {
     type Output = f64;
 
     fn cost(&self, value: &Self::Param) -> Result<Self::Output> {
-        let mut gtr_params = self.params.clone();
+        let mut gtr_params = self.model.params.clone();
         for param_name in self.parameter {
             gtr_params.set_value(param_name, *value);
         }
-        let model = make_dna_model(gtr_params);
-        Ok(-self.likelihood_cost.compute_log_likelihood(&model).0)
+        let mut likelihood_cost = self.likelihood_cost.clone();
+        let model = DNASubstModel::create(&gtr_params);
+        likelihood_cost.model = &model;
+        Ok(-likelihood_cost.compute_log_likelihood().0)
     }
 
     fn parallelize(&self) -> bool {
@@ -38,74 +40,73 @@ impl CostFunction for DNAParamOptimiser<'_> {
 
 pub struct DNAModelOptimiser<'a> {
     pub(crate) epsilon: f64,
-    pub(crate) likelihood_cost: &'a SubstitutionLikelihoodCost<'a, 4>,
+    pub(crate) likelihood_cost: &'a SubstitutionLikelihoodCost<'a, DNASubstModel>,
 }
 
 impl<'a> DNAModelOptimiser<'a> {
-    pub fn new(likelihood_cost: &'a SubstitutionLikelihoodCost<'a, 4>) -> Self {
+    pub fn new(likelihood_cost: &'a SubstitutionLikelihoodCost<'a, DNASubstModel>) -> Self {
         DNAModelOptimiser {
             epsilon: 1e-3,
             likelihood_cost,
         }
     }
 
-    fn set_empirical_frequencies(&self, start_values: &DNASubstParams) -> DNASubstParams {
-        let mut start_values = start_values.clone();
-        start_values.set_pi(self.likelihood_cost.get_empirical_frequencies());
+    fn set_empirical_frequencies(&self, start_params: &DNASubstParams) -> DNASubstParams {
+        let mut start_params = start_params.clone();
+        start_params.set_freqs(self.likelihood_cost.empirical_frequencies());
         info!("Set stationary frequencies to empirical.");
-        start_values
+        start_params
     }
 
     pub fn optimise_parameters(
         &self,
-        start_values: &DNASubstParams,
         optimise_freqs: FrequencyOptimisation,
     ) -> Result<(u32, DNASubstParams, f64)> {
-        let model_type = start_values.model_type;
+        let start_params = self.likelihood_cost.model.params.clone();
+        let model_type = start_params.model_type;
         info!("Optimising {} parameters.", model_type);
-        let param_sets = DNASubstParams::parameter_definition(model_type);
-        let start_values = match model_type {
-            JC69 | K80 => start_values,
+        let param_sets = DNASubstParams::parameter_definition(&model_type);
+        let start_params = match model_type {
+            JC69 | K80 => start_params,
             _ => {
                 match optimise_freqs {
-                    Fixed => start_values,
-                    Empirical => &self.set_empirical_frequencies(start_values),
+                    Fixed => start_params,
+                    Empirical => self.set_empirical_frequencies(&start_params),
                     Estimated => {
                         warn!("Stationary frequency estimation not available, falling back on empirical.");
-                        &self.set_empirical_frequencies(start_values)
+                        self.set_empirical_frequencies(&start_params)
                     }
                 }
             }
         };
-        self.run_parameter_brent(start_values, param_sets)
+        self.run_parameter_brent(&start_params, param_sets)
     }
 
     fn run_parameter_brent(
         &self,
-        start_values: &DNASubstParams,
-        param_sets: Vec<(&str, Vec<Parameter>)>,
+        start_params: &DNASubstParams,
+        param_sets: Vec<(&str, Vec<DNAParameter>)>,
     ) -> Result<(u32, DNASubstParams, f64)> {
         let mut prev_logl = f64::NEG_INFINITY;
-        let mut opt_logl = self
-            .likelihood_cost
-            .compute_log_likelihood(&make_dna_model(start_values.clone()))
-            .0;
+        let mut opt_logl = self.likelihood_cost.compute_log_likelihood().0;
         info!("Initial logl: {}.", opt_logl);
-        let mut opt_params = start_values.clone();
+        let mut opt_params = start_params.clone();
+        let mut model = DNASubstModel::create(&opt_params);
         let mut iters = 0;
+
         while (prev_logl - opt_logl).abs() > self.epsilon {
             debug!("Iteration: {}", iters);
             prev_logl = opt_logl;
             for (param_name, param_set) in param_sets.iter() {
                 let optimiser = DNAParamOptimiser {
                     likelihood_cost: self.likelihood_cost,
-                    params: opt_params.clone(),
+                    model: &model,
                     parameter: param_set,
                 };
                 let gss = BrentOpt::new(1e-10, 100.0);
                 let res = Executor::new(optimiser, gss)
                     .configure(|_| {
-                        IterState::new().param(opt_params.get_value(param_set.first().unwrap()))
+                        IterState::new().param(opt_params.value(param_set.first().unwrap()))
                     })
                     .run()?;
                 let value = res.state().best_param.unwrap();
@@ -118,6 +119,7 @@ impl<'a> DNAModelOptimiser<'a> {
                     param_name, value, opt_logl
                 );
                 debug!("New parameters: {}\n", opt_params);
+                model = DNASubstModel::create(&opt_params);
             }
             iters += 1;
         }

@@ -1,10 +1,10 @@
 use crate::substitution_models::FreqVector;
 
-pub trait LikelihoodCostFunction<'a, const N: usize> {
+pub trait LikelihoodCostFunction<'a> {
     type Model;
     type Info;
-    fn compute_log_likelihood(&self, model: &Self::Model) -> f64;
-    fn get_empirical_frequencies(&self) -> FreqVector;
+    fn compute_logl(&self) -> f64;
+    fn empirical_frequencies(&self) -> FreqVector;
 }
 
 #[cfg(test)]

@@ -1,29 +1,10 @@
-use std::collections::HashMap;
-
-use anyhow::bail;
 use lazy_static::lazy_static;
-use log::warn;
-use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::{
-    EvolutionaryModel,
-    ModelType::{self, Protein},
-    ProteinModelType,
-};
-use crate::likelihood::LikelihoodCostFunction;
+use crate::frequencies;
 use crate::sequences::{AMINOACIDS, GAP};
-use crate::substitution_models::{
-    FreqVector, ParsimonyModel, SubstMatrix, SubstParams, SubstitutionLikelihoodCost,
-    SubstitutionModel, SubstitutionModelInfo,
-};
-use crate::{frequencies, Result, Rounding};
+use crate::substitution_models::{FreqVector, SubstMatrix};
 
-pub(crate) type ProteinSubstArray = [f64; 400];
-pub(crate) type ProteinFrequencyArray = [f64; 20];
-
-pub type ProteinSubstModel = SubstitutionModel<20>;
-pub type ProteinLikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, 20>;
-pub type ProteinSubstModelInfo = SubstitutionModelInfo<20>;
+use crate::substitution_models::protein_models::{ProteinFrequencyArray, ProteinSubstArray};
 
 lazy_static! {
     pub static ref AMINOACID_INDEX: [usize; 255] = {
@@ -83,129 +64,27 @@ fn generic_protein_sets(char: u8) -> FreqVector {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct ProteinSubstParams {
-    pub(crate) pi: FreqVector,
+pub fn wag_q() -> SubstMatrix {
+    SubstMatrix::from_row_slice(20, 20, &WAG_ARR)
 }
 
-impl ProteinSubstModel {
-    fn normalise(&mut self) {
-        let factor = -(self.pi.transpose() * self.q.diagonal())[(0, 0)];
-        self.q /= factor;
-    }
+pub fn wag_freqs() -> FreqVector {
+    frequencies!(&WAG_PI_ARR)
 }
 
-impl ProteinSubstModel {
-    pub fn get_model_type(model_name: &str) -> Result<ModelType> {
-        match model_name.to_uppercase().as_str() {
-            "WAG" => Ok(Protein(ProteinModelType::WAG)),
-            "BLOSUM" => Ok(Protein(ProteinModelType::BLOSUM)),
-            "HIVB" => Ok(Protein(ProteinModelType::HIVB)),
-            _ => bail!("Unknown protein model requested."),
-        }
-    }
+pub fn blosum_q() -> SubstMatrix {
+    SubstMatrix::from_row_slice(20, 20, &BLOSUM_ARR)
+}
+pub fn blosum_freqs() -> FreqVector {
+    frequencies!(&BLOSUM_PI_ARR)
 }
 
-impl EvolutionaryModel<20> for ProteinSubstModel {
-    fn new(generic_model_type: ModelType, _: &[f64]) -> Result<Self>
-    where
-        Self: std::marker::Sized,
-    {
-        let model_type = if let Protein(model_type) = generic_model_type {
-            if model_type == ProteinModelType::UNDEF {
-                warn!("No model provided, defaulting to WAG.");
-                ProteinModelType::WAG
-            } else {
-                model_type
-            }
-        } else {
-            bail!("Invalid model requested");
-        };
-        let (q, pi) = match model_type {
-            ProteinModelType::WAG => wag()?,
-            ProteinModelType::BLOSUM => blosum()?,
-            ProteinModelType::HIVB => hivb()?,
-            _ => unreachable!(),
-        };
-        let mut model = ProteinSubstModel {
-            params: SubstParams::Protein(ProteinSubstParams { pi: pi.clone() }),
-            index: *AMINOACID_INDEX,
-            q,
-            pi,
-        };
-        model.normalise();
-        Ok(model)
-    }
-
-    fn get_p(&self, time: f64) -> SubstMatrix {
-        self.get_p(time)
-    }
-
-    fn get_rate(&self, i: u8, j: u8) -> f64 {
-        self.get_rate(i, j)
-    }
-
-    fn get_stationary_distribution(&self) -> &FreqVector {
-        self.get_stationary_distribution()
-    }
-
-    fn get_char_probability(&self, char_encoding: &FreqVector) -> FreqVector {
-        let mut probs = self
-            .get_stationary_distribution()
-            .clone()
-            .component_mul(char_encoding);
-        probs.scale_mut(1.0 / probs.sum());
-        probs
-    }
+pub fn hivb_q() -> SubstMatrix {
+    SubstMatrix::from_row_slice(20, 20, &HIVB_ARR)
 }
 
-impl ParsimonyModel<20> for ProteinSubstModel {
-    fn generate_scorings(
-        &self,
-        times: &[f64],
-        zero_diag: bool,
-        rounding: &Rounding,
-    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)> {
-        self.generate_scorings(times, zero_diag, rounding)
-    }
-
-    fn get_scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
-        self.get_scoring_matrix(time, rounding)
-    }
-}
-
-impl<'a> LikelihoodCostFunction<'a, 20> for SubstitutionLikelihoodCost<'a, 20> {
-    type Model = ProteinSubstModel;
-    type Info = SubstitutionModelInfo<20>;
-
-    fn compute_log_likelihood(&self, model: &Self::Model) -> f64 {
-        self.compute_log_likelihood(model).0
-    }
-
-    fn get_empirical_frequencies(&self) -> FreqVector {
-        todo!()
-    }
-}
-
-pub fn wag() -> Result<(SubstMatrix, FreqVector)> {
-    Ok((
-        SubstMatrix::from_row_slice(20, 20, &WAG_ARR),
-        frequencies!(&WAG_PI_ARR),
-    ))
-}
-
-pub fn blosum() -> Result<(SubstMatrix, FreqVector)> {
-    Ok((
-        SubstMatrix::from_row_slice(20, 20, &BLOSUM_ARR),
-        frequencies!(&BLOSUM_PI_ARR),
-    ))
-}
-
-pub fn hivb() -> Result<(SubstMatrix, FreqVector)> {
-    Ok((
-        SubstMatrix::from_row_slice(20, 20, &HIVB_ARR),
-        frequencies!(&HIVB_PI_ARR),
-    ))
+pub fn hivb_freqs() -> FreqVector {
+    frequencies!(&HIVB_PI_ARR)
 }
 
 const WAG_ARR: ProteinSubstArray = [

@@ -9,7 +9,7 @@ use crate::sequences::{GAP, NUCLEOTIDES};
 use crate::substitution_models::{dna_models::DNASubstParams, FreqVector, SubstMatrix};
 use crate::{frequencies, Result};
 
-fn make_pi(pi_array: &[f64]) -> Result<FreqVector> {
+fn make_freqs(pi_array: &[f64]) -> Result<FreqVector> {
     let pi = frequencies!(pi_array);
     debug_assert!(
         pi.len() == 4,
@@ -31,7 +31,7 @@ pub(crate) fn jc69_params(params: &[f64]) -> Result<DNASubstParams> {
     }
     Ok(DNASubstParams {
         model_type: DNAModelType::JC69,
-        pi: make_pi(&[0.25; 4])?,
+        pi: make_freqs(&[0.25; 4])?,
         rtc: 1.0,
         rta: 1.0,
         rtg: 1.0,
@@ -62,7 +62,7 @@ pub(crate) fn k80_params(params: &[f64]) -> Result<DNASubstParams> {
     };
     Ok(DNASubstParams {
         model_type: DNAModelType::K80,
-        pi: make_pi(&[0.25; 4])?,
+        pi: make_freqs(&[0.25; 4])?,
         rtc: a,
         rta: b,
         rtg: b,
@@ -104,7 +104,7 @@ pub(crate) fn hky_params(params: &[f64]) -> Result<DNASubstParams> {
     };
     Ok(DNASubstParams {
         model_type: DNAModelType::HKY,
-        pi: make_pi(&[params[0], params[1], params[2], params[3]])?,
+        pi: make_freqs(&[params[0], params[1], params[2], params[3]])?,
         rtc: a,
         rta: b,
         rtg: b,
@@ -131,7 +131,7 @@ pub fn tn93_params(params: &[f64]) -> Result<DNASubstParams> {
     let b = params[6];
     Ok(DNASubstParams {
         model_type: DNAModelType::TN93,
-        pi: make_pi(&[params[0], params[1], params[2], params[3]])?,
+        pi: make_freqs(&[params[0], params[1], params[2], params[3]])?,
         rtc: a1,
         rta: b,
         rtg: b,
@@ -189,7 +189,7 @@ pub fn gtr_params(params: &[f64]) -> Result<DNASubstParams> {
 
     let gtr_params = DNASubstParams {
         model_type: DNAModelType::GTR,
-        pi: make_pi(&[params[0], params[1], params[2], params[3]])?,
+        pi: make_freqs(&[params[0], params[1], params[2], params[3]])?,
         rtc: params[4],
         rta: params[5],
         rtg: params[6],
@@ -262,6 +262,7 @@ lazy_static! {
         map
     };
 }
+
 fn generic_dna_sets(char: u8) -> FreqVector {
     match char {
         b'T' | b't' => frequencies!(&[1.0, 0.0, 0.0, 0.0]),

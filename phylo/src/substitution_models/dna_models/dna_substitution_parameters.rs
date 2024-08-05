@@ -2,12 +2,15 @@ use std::fmt::Display;
 
 use log::warn;
 
-use crate::evolutionary_models::EvolutionaryModelParameters;
-use crate::substitution_models::{dna_models::DNAModelType, FreqVector};
+use crate::evolutionary_models::EvoModelParams;
+use crate::substitution_models::{
+    dna_models::DNAModelType::{self, *},
+    FreqVector,
+};
 use crate::Result;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Parameter {
+pub enum DNAParameter {
     Pit,
     Pic,
     Pia,
@@ -21,38 +24,41 @@ pub enum Parameter {
     Mu,
     Lambda,
 }
-use Parameter::*;
+use DNAParameter::*;
 
 use super::{gtr_params, hky_params, jc69_params, k80_params, tn93_params};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DNASubstParams {
     pub(crate) model_type: DNAModelType,
-    pub pi: FreqVector,
-    pub rtc: f64,
-    pub rta: f64,
-    pub rtg: f64,
-    pub rca: f64,
-    pub rcg: f64,
-    pub rag: f64,
+    pub(crate) pi: FreqVector,
+    pub(crate) rtc: f64,
+    pub(crate) rta: f64,
+    pub(crate) rtg: f64,
+    pub(crate) rca: f64,
+    pub(crate) rcg: f64,
+    pub(crate) rag: f64,
 }
 
-impl EvolutionaryModelParameters<DNAModelType> for DNASubstParams {
+impl EvoModelParams for DNASubstParams {
+    type ModelType = DNAModelType;
+    type Parameter = DNAParameter;
+
     fn new(model_type: &DNAModelType, params: &[f64]) -> Result<Self>
     where
         Self: Sized,
     {
         match model_type {
-            DNAModelType::JC69 => jc69_params(params),
-            DNAModelType::K80 => k80_params(params),
-            DNAModelType::HKY => hky_params(params),
-            DNAModelType::TN93 => tn93_params(params),
-            DNAModelType::GTR => gtr_params(params),
+            JC69 => jc69_params(params),
+            K80 => k80_params(params),
+            HKY => hky_params(params),
+            TN93 => tn93_params(params),
+            GTR => gtr_params(params),
             _ => unreachable!(),
         }
     }
 
-    fn get_value(&self, param_name: &Parameter) -> f64 {
+    fn value(&self, param_name: &DNAParameter) -> f64 {
         match param_name {
             Pit => self.pi[0],
             Pic => self.pi[1],
@@ -68,10 +74,10 @@ impl EvolutionaryModelParameters<DNAModelType> for DNASubstParams {
         }
     }
 
-    fn set_value(&mut self, param_name: &Parameter, value: f64) {
+    fn set_value(&mut self, param_name: &DNAParameter, value: f64) {
         match param_name {
             Pit | Pic | Pia | Pig => {
-                warn!("Cannot set frequencies individually. Use set_pi() instead.")
+                warn!("Cannot set frequencies individually. Use set_freqs() instead.")
             }
             Rtc => self.rtc = value,
             Rta => self.rta = value,
@@ -83,25 +89,19 @@ impl EvolutionaryModelParameters<DNAModelType> for DNASubstParams {
         }
     }
 
-    fn set_pi(&mut self, pi: FreqVector) {
+    fn freqs(&self) -> &FreqVector {
+        &self.pi
+    }
+
+    fn set_freqs(&mut self, pi: FreqVector) {
         if pi.sum() != 1.0 {
             warn!("Frequencies must sum to 1.0, not setting values");
         } else {
             self.pi = pi;
         }
     }
-}
 
-impl Display for DNASubstParams {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.print_as(self.model_type))
-    }
-}
-
-impl DNASubstParams {
-    pub(crate) fn parameter_definition(
-        model_type: DNAModelType,
-    ) -> Vec<(&'static str, Vec<Parameter>)> {
+    fn parameter_definition(model_type: &DNAModelType) -> Vec<(&'static str, Vec<DNAParameter>)> {
         match model_type {
             DNAModelType::JC69 => vec![],
             DNAModelType::K80 => vec![
@@ -127,8 +127,16 @@ impl DNASubstParams {
             _ => unreachable!(),
         }
     }
+}
 
-    fn print_as(&self, model_type: DNAModelType) -> String {
+impl Display for DNASubstParams {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.print_as(self.model_type))
+    }
+}
+
+impl DNASubstParams {
+    pub(crate) fn print_as(&self, model_type: DNAModelType) -> String {
         match model_type {
             DNAModelType::JC69 => format!("[lambda = {}]", self.rtc),
             DNAModelType::K80 => format!("[alpha = {}, beta = {}]", self.rtc, self.rta),
@@ -157,14 +165,5 @@ impl DNASubstParams {
             ),
             _ => unreachable!(),
         }
-    }
-}
-
-impl From<DNASubstParams> for Vec<f64> {
-    fn from(val: DNASubstParams) -> Self {
-        vec![
-            val.pi[0], val.pi[1], val.pi[2], val.pi[3], val.rtc, val.rta, val.rtg, val.rca,
-            val.rcg, val.rag,
-        ]
     }
 }
