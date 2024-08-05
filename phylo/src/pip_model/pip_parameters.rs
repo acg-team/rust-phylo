@@ -151,17 +151,6 @@ impl EvoModelParams for PIPProteinParams {
     }
 }
 
-impl<SubstModel: SubstitutionModel> From<PIPParams<SubstModel>> for Vec<f64>
-where
-    SubstModel::Params: Into<Vec<f64>>,
-{
-    fn from(val: PIPParams<SubstModel>) -> Self {
-        let mut params = vec![val.lambda, val.mu];
-        params.extend(val.subst_params.into());
-        params
-    }
-}
-
 impl<SubstModel: SubstitutionModel> Display for PIPParams<SubstModel>
 where
     SubstModel::Params: std::fmt::Debug,

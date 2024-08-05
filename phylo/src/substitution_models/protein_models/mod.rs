@@ -71,12 +71,6 @@ impl Display for ProteinSubstParams {
     }
 }
 
-impl From<ProteinSubstParams> for Vec<f64> {
-    fn from(val: ProteinSubstParams) -> Self {
-        val.pi.as_slice().to_vec()
-    }
-}
-
 impl SubstitutionModel for ProteinSubstModel {
     type ModelType = ProteinModelType;
     type Params = ProteinSubstParams;

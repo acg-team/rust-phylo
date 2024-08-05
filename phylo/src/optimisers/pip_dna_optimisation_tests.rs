@@ -91,7 +91,7 @@ fn check_example_against_python_no_gaps() {
         &[1.2, 0.45, 0.25, 0.25, 0.25, 0.25, 1.0],
     )
     .unwrap();
-    let model = PIPModel::new(HKY, &Vec::<f64>::from(pip_params.clone())).unwrap();
+    let model = PIPModel::create(&pip_params);
     let cost = PIPLikelihoodCost {
         info: &info,
         model: &model,
@@ -135,7 +135,7 @@ fn check_parameter_optimisation_pip_gtr() {
         ],
     )
     .unwrap();
-    let model = PIPModel::new(GTR, &Vec::<f64>::from(pip_params.clone())).unwrap();
+    let model = PIPModel::create(&pip_params);
     let likelihood = PIPLikelihoodCost {
         info: &info,
         model: &model,

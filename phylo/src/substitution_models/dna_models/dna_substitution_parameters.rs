@@ -167,12 +167,3 @@ impl DNASubstParams {
         }
     }
 }
-
-impl From<DNASubstParams> for Vec<f64> {
-    fn from(val: DNASubstParams) -> Self {
-        vec![
-            val.pi[0], val.pi[1], val.pi[2], val.pi[3], val.rtc, val.rta, val.rtg, val.rca,
-            val.rcg, val.rag,
-        ]
-    }
-}
