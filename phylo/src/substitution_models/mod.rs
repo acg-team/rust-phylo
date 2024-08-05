@@ -206,7 +206,8 @@ impl<'a, SubstModel: SubstitutionModel + 'a> LikelihoodCostFunction<'a>
                 total += 1.0;
             }
         }
-        freqs.column_iter_mut().for_each(|mut x| x /= total);
+        let scaler = 1.0 / total;
+        freqs.scale_mut(scaler);
         freqs
     }
 }
