@@ -36,14 +36,16 @@ pub trait SubstitutionModel {
     where
         Self: Sized;
     fn index(&self) -> &[usize; 255];
+    fn freqs(&self) -> &FreqVector;
     fn q(&self) -> &SubstMatrix;
+    fn normalise(&mut self);
+
     fn p(&self, time: f64) -> SubstMatrix {
         (self.q().clone() * time).exp()
     }
     fn rate(&self, i: u8, j: u8) -> f64 {
         self.q()[(self.index()[i as usize], self.index()[j as usize])]
     }
-    fn freqs(&self) -> &FreqVector;
     fn generate_scorings(
         &self,
         times: &[f64],
@@ -80,7 +82,6 @@ pub trait SubstitutionModel {
         let mean = scores.mean();
         (scores, mean)
     }
-    fn normalise(&mut self);
 }
 
 pub trait ParsimonyModel {

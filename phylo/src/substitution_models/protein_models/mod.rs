@@ -110,65 +110,16 @@ impl SubstitutionModel for ProteinSubstModel {
         &AMINOACID_INDEX
     }
 
-    fn q(&self) -> &SubstMatrix {
-        &self.q
-    }
-
     fn freqs(&self) -> &FreqVector {
         &self.params.pi
+    }
+
+    fn q(&self) -> &SubstMatrix {
+        &self.q
     }
 
     fn normalise(&mut self) {
         let factor = -(self.params.freqs().transpose() * self.q.diagonal())[(0, 0)];
         self.q /= factor;
-    }
-
-    fn p(&self, time: f64) -> SubstMatrix {
-        (self.q().clone() * time).exp()
-    }
-
-    fn rate(&self, i: u8, j: u8) -> f64 {
-        self.q()[(self.index()[i as usize], self.index()[j as usize])]
-    }
-
-    fn generate_scorings(
-        &self,
-        times: &[f64],
-        zero_diag: bool,
-        rounding: &crate::Rounding,
-    ) -> std::collections::HashMap<ordered_float::OrderedFloat<f64>, (SubstMatrix, f64)> {
-        std::collections::HashMap::<crate::f64_h, (SubstMatrix, f64)>::from_iter(times.iter().map(
-            |&time| {
-                (
-                    crate::f64_h::from(time),
-                    self.scoring_matrix_corrected(time, zero_diag, rounding),
-                )
-            },
-        ))
-    }
-
-    fn scoring_matrix(&self, time: f64, rounding: &crate::Rounding) -> (SubstMatrix, f64) {
-        self.scoring_matrix_corrected(time, false, rounding)
-    }
-
-    fn scoring_matrix_corrected(
-        &self,
-        time: f64,
-        zero_diag: bool,
-        rounding: &crate::Rounding,
-    ) -> (SubstMatrix, f64) {
-        let p = self.p(time);
-        let mut scores = p.map(|x| -x.ln());
-        if rounding.round {
-            scores = scores.map(|x| {
-                (x * 10.0_f64.powf(rounding.digits as f64)).round()
-                    / 10.0_f64.powf(rounding.digits as f64)
-            });
-        }
-        if zero_diag {
-            scores.fill_diagonal(0.0);
-        }
-        let mean = scores.mean();
-        (scores, mean)
     }
 }
