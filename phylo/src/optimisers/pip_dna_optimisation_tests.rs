@@ -32,7 +32,7 @@ fn check_parameter_optimisation_pip_arpiptest() {
         model: &model,
     };
 
-    let initial_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood);
+    let initial_logl = LikelihoodCostFunction::compute_logl(&likelihood);
     let (_, _, logl) = PIPDNAModelOptimiser::new(&likelihood)
         .optimise_parameters()
         .unwrap();
@@ -60,7 +60,7 @@ fn test_optimisation_pip_propip_example() {
         info: info.clone(),
         model: &model,
     };
-    let initial_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood);
+    let initial_logl = LikelihoodCostFunction::compute_logl(&likelihood);
     assert_relative_eq!(initial_logl, -1241.9944955187807, epsilon = 1e-3);
     let (_, optimised_params, logl) = PIPDNAModelOptimiser::new(&likelihood)
         .optimise_parameters()
@@ -73,7 +73,7 @@ fn test_optimisation_pip_propip_example() {
         info,
         model: &model,
     };
-    let recomp_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood);
+    let recomp_logl = LikelihoodCostFunction::compute_logl(&likelihood);
     assert_eq!(logl, recomp_logl);
 }
 
@@ -91,14 +91,14 @@ fn check_example_against_python_no_gaps() {
         &[1.2, 0.45, 0.25, 0.25, 0.25, 0.25, 1.0],
     )
     .unwrap();
-    let model = PIPModel::new(HKY, &Vec::<f64>::from(pip_params.clone())).unwrap();
+    let model = PIPModel::create(&pip_params);
     let cost = PIPLikelihoodCost {
         info,
         model: &model,
     };
 
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_log_likelihood(&cost),
+        LikelihoodCostFunction::compute_logl(&cost),
         -361.1613531649497, // value from the python script
         epsilon = 1e-1
     );
@@ -135,12 +135,12 @@ fn check_parameter_optimisation_pip_gtr() {
         ],
     )
     .unwrap();
-    let model = PIPModel::new(GTR, &Vec::<f64>::from(pip_params.clone())).unwrap();
+    let model = PIPModel::create(&pip_params);
     let likelihood = PIPLikelihoodCost {
         info,
         model: &model,
     };
-    let initial_logl = LikelihoodCostFunction::compute_log_likelihood(&likelihood);
+    let initial_logl = LikelihoodCostFunction::compute_logl(&likelihood);
     let (_, opt_params, optimised_logl) = PIPDNAModelOptimiser::new(&likelihood)
         .optimise_parameters()
         .unwrap();

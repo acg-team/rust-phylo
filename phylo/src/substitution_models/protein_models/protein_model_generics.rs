@@ -68,14 +68,14 @@ pub fn wag_q() -> SubstMatrix {
     SubstMatrix::from_row_slice(20, 20, &WAG_ARR)
 }
 
-pub fn wag_pi() -> FreqVector {
+pub fn wag_freqs() -> FreqVector {
     frequencies!(&WAG_PI_ARR)
 }
 
 pub fn blosum_q() -> SubstMatrix {
     SubstMatrix::from_row_slice(20, 20, &BLOSUM_ARR)
 }
-pub fn blosum_pi() -> FreqVector {
+pub fn blosum_freqs() -> FreqVector {
     frequencies!(&BLOSUM_PI_ARR)
 }
 
@@ -83,7 +83,7 @@ pub fn hivb_q() -> SubstMatrix {
     SubstMatrix::from_row_slice(20, 20, &HIVB_ARR)
 }
 
-pub fn hivb_pi() -> FreqVector {
+pub fn hivb_freqs() -> FreqVector {
     frequencies!(&HIVB_PI_ARR)
 }
 

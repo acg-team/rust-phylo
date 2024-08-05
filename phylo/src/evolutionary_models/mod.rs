@@ -43,17 +43,17 @@ impl Display for DNAModelType {
     }
 }
 
-impl DNAModelType {
-    pub fn get_model_type(model_name: &str) -> Self {
-        match model_name.to_uppercase().as_str() {
+impl From<&str> for DNAModelType {
+    fn from(value: &str) -> Self {
+        match value.to_uppercase().as_str() {
             "JC69" => DNAModelType::JC69,
             "K80" => DNAModelType::K80,
             "HKY" => DNAModelType::HKY,
             "TN93" => DNAModelType::TN93,
             "GTR" => DNAModelType::GTR,
             _ => {
-                warn!("Unknown DNA model requested, defaulting to GTR.");
-                DNAModelType::GTR
+                warn!("Unknown DNA model {value:?} requested");
+                DNAModelType::UNDEF
             }
         }
     }
@@ -79,15 +79,15 @@ impl Display for ProteinModelType {
     }
 }
 
-impl ProteinModelType {
-    pub fn get_model_type(model_name: &str) -> Self {
-        match model_name.to_uppercase().as_str() {
+impl From<&str> for ProteinModelType {
+    fn from(value: &str) -> Self {
+        match value.to_uppercase().as_str() {
             "WAG" => ProteinModelType::WAG,
             "BLOSUM" => ProteinModelType::BLOSUM,
             "HIVB" => ProteinModelType::HIVB,
             _ => {
-                warn!("Unknown DNA model requested, defaulting to WAG.");
-                ProteinModelType::WAG
+                warn!("Unknown protein model {value:?} requested");
+                ProteinModelType::UNDEF
             }
         }
     }
@@ -102,10 +102,10 @@ pub trait EvoModelParams {
     fn parameter_definition(
         model_type: &Self::ModelType,
     ) -> Vec<(&'static str, Vec<Self::Parameter>)>;
-    fn get_value(&self, param_name: &Self::Parameter) -> f64;
+    fn value(&self, param_name: &Self::Parameter) -> f64;
     fn set_value(&mut self, param_name: &Self::Parameter, value: f64);
-    fn get_pi(&self) -> &FreqVector;
-    fn set_pi(&mut self, pi: FreqVector);
+    fn freqs(&self) -> &FreqVector;
+    fn set_freqs(&mut self, pi: FreqVector);
 }
 
 // TODO: change pi to a row vector
@@ -115,13 +115,13 @@ pub trait EvolutionaryModel {
     fn new(model: Self::ModelType, params: &[f64]) -> Result<Self>
     where
         Self: Sized;
-    fn get_p(&self, time: f64) -> SubstMatrix;
-    fn get_q(&self) -> &SubstMatrix;
-    fn get_rate(&self, i: u8, j: u8) -> f64;
-    fn get_stationary_distribution(&self) -> &FreqVector;
-    fn get_char_probability(&self, char_encoding: &FreqVector) -> FreqVector;
+    fn p(&self, time: f64) -> SubstMatrix;
+    fn q(&self) -> &SubstMatrix;
+    fn rate(&self, i: u8, j: u8) -> f64;
+    fn freqs(&self) -> &FreqVector;
+    fn char_probability(&self, char_encoding: &FreqVector) -> FreqVector;
     fn index(&self) -> &[usize; 255];
-    fn get_params(&self) -> &Self::Params;
+    fn params(&self) -> &Self::Params;
 }
 
 pub trait EvoModelInfo {
@@ -131,3 +131,6 @@ pub trait EvoModelInfo {
         Self: Sized;
     fn reset(&mut self);
 }
+
+#[cfg(test)]
+pub(crate) mod evolutionary_models_tests;

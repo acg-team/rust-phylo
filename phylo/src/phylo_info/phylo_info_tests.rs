@@ -179,7 +179,7 @@ fn test_aligned_check() {
         Record::with_attrs("D3", None, b"A"),
         Record::with_attrs("E4", None, b"AAA"),
     ];
-    assert!(PhyloInfo::get_msa_if_aligned(&sequences).is_none());
+    assert!(PhyloInfo::msa_if_aligned(&sequences).is_none());
     let sequences = vec![
         Record::with_attrs("A0", None, b"AAAAA"),
         Record::with_attrs("B1", None, b"A----"),
@@ -187,7 +187,7 @@ fn test_aligned_check() {
         Record::with_attrs("D3", None, b"AAAAA"),
         Record::with_attrs("E4", None, b"AAATT"),
     ];
-    assert!(PhyloInfo::get_msa_if_aligned(&sequences).is_some());
+    assert!(PhyloInfo::msa_if_aligned(&sequences).is_some());
 }
 
 #[test]
@@ -344,7 +344,7 @@ fn check_empirical_frequencies() {
         &GapHandling::Ambiguous,
     )
     .unwrap();
-    let counts = info.get_counts();
+    let counts = info.counts();
     assert_eq!(counts.clone().into_values().sum::<f64>(), 20.0);
     assert_eq!(counts[&b'A'], 7.0);
     assert_eq!(counts[&b'C'], 5.0);

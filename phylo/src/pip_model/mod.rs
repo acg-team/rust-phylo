@@ -35,7 +35,7 @@ impl<SubstModel: SubstitutionModel> PIPModel<SubstModel> {
     ) -> ([usize; 255], SubstMatrix, FreqVector) {
         let mut index = index;
         index[b'-' as usize] = SubstModel::N;
-        let mut q = SubstitutionModel::get_q(subst_model)
+        let mut q = SubstitutionModel::q(subst_model)
             .clone()
             .insert_column(SubstModel::N, mu)
             .insert_row(SubstModel::N, 0.0);
@@ -43,7 +43,7 @@ impl<SubstModel: SubstitutionModel> PIPModel<SubstModel> {
         for i in 0..(SubstModel::N + 1) {
             q[(i, i)] = -q.row(i).sum();
         }
-        let pi = SubstitutionModel::get_stationary_distribution(subst_model)
+        let pi = SubstitutionModel::freqs(subst_model)
             .clone()
             .insert_row(SubstModel::N, 0.0);
         (index, q, pi)
@@ -90,27 +90,24 @@ where
         Ok(Self::create(&params))
     }
 
-    fn get_p(&self, time: f64) -> SubstMatrix {
+    fn p(&self, time: f64) -> SubstMatrix {
         (self.q.clone() * time).exp()
     }
 
-    fn get_q(&self) -> &SubstMatrix {
+    fn q(&self) -> &SubstMatrix {
         &self.q
     }
 
-    fn get_rate(&self, i: u8, j: u8) -> f64 {
+    fn rate(&self, i: u8, j: u8) -> f64 {
         self.q[(self.index[i as usize], self.index[j as usize])]
     }
 
-    fn get_stationary_distribution(&self) -> &FreqVector {
+    fn freqs(&self) -> &FreqVector {
         &self.params.pi
     }
 
-    fn get_char_probability(&self, char_encoding: &FreqVector) -> FreqVector {
-        let mut probs = self
-            .get_stationary_distribution()
-            .clone()
-            .component_mul(char_encoding);
+    fn char_probability(&self, char_encoding: &FreqVector) -> FreqVector {
+        let mut probs = self.freqs().clone().component_mul(char_encoding);
         if probs.sum() == 0.0 {
             probs.fill_row(SubstModel::N, 1.0);
         } else {
@@ -123,7 +120,7 @@ where
         &self.index
     }
 
-    fn get_params(&self) -> &PIPParams<SubstModel> {
+    fn params(&self) -> &PIPParams<SubstModel> {
         &self.params
     }
 }
@@ -164,7 +161,7 @@ where
         let mut leaf_seq_info = info.leaf_encoding.clone();
         for (_, leaf_seq) in leaf_seq_info.iter_mut() {
             for mut site_info in leaf_seq.column_iter_mut() {
-                site_info.component_mul_assign(model.get_stationary_distribution());
+                site_info.component_mul_assign(model.freqs());
                 if site_info.sum() == 0.0 {
                     site_info.fill_row(SubstModel::N, 1.0);
                 } else {
@@ -183,7 +180,7 @@ where
             .collect();
 
         Ok(PIPModelInfo::<SubstModel> {
-            tree_length: info.tree.get_all_branch_lengths().iter().sum(),
+            tree_length: info.tree.all_branch_lengths().iter().sum(),
             ftilde,
             ins_probs: vec![0.0; node_count],
             surv_probs: vec![0.0; node_count],
@@ -232,11 +229,11 @@ where
     type Model = PIPModel<SubstModel>;
     type Info = PIPModelInfo<SubstModel>;
 
-    fn compute_log_likelihood(&self) -> f64 {
+    fn compute_logl(&self) -> f64 {
         self.compute_log_likelihood().0
     }
 
-    fn get_empirical_frequencies(&self) -> FreqVector {
+    fn empirical_frequencies(&self) -> FreqVector {
         todo!()
     }
 }
@@ -386,7 +383,7 @@ where
         tmp: &mut PIPModelInfo<SubstModel>,
     ) {
         if !tmp.models_valid[idx] {
-            tmp.models[idx] = model.get_p(tmp.branches[idx]);
+            tmp.models[idx] = model.p(tmp.branches[idx]);
             tmp.models_valid[idx] = true;
         }
     }

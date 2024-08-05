@@ -169,7 +169,7 @@ impl Tree {
         }
     }
 
-    pub fn get_node_id_string(&self, node_idx: &NodeIdx) -> String {
+    pub fn node_id(&self, node_idx: &NodeIdx) -> String {
         let id = &self.nodes[usize::from(node_idx)].id;
         if id.is_empty() {
             String::new()
@@ -251,7 +251,7 @@ impl Tree {
         order
     }
 
-    pub fn get_leaf_ids(&self) -> Vec<String> {
+    pub fn leaf_ids(&self) -> Vec<String> {
         debug_assert!(self.complete);
         self.get_leaves()
             .iter()
@@ -259,14 +259,14 @@ impl Tree {
             .collect()
     }
 
-    pub fn get_all_branch_lengths(&self) -> Vec<f64> {
+    pub fn all_branch_lengths(&self) -> Vec<f64> {
         debug_assert!(self.complete);
         let lengths = self.nodes.iter().map(|n| n.blen).collect();
         info!("Branch lengths are: {:?}", lengths);
         lengths
     }
 
-    pub fn get_idx_by_id(&self, id: &str) -> Result<usize> {
+    pub fn idx_by_id(&self, id: &str) -> Result<usize> {
         debug_assert!(self.complete);
         let idx = self.nodes.iter().position(|node| node.id == id);
         if let Some(idx) = idx {
@@ -293,27 +293,23 @@ impl Tree {
     }
 }
 
-pub fn get_percentiles(lengths: &[f64], categories: u32) -> Vec<f64> {
-    get_percentiles_rounded(lengths, categories, &Rounding::none())
+pub fn percentiles(lengths: &[f64], categories: u32) -> Vec<f64> {
+    percentiles_rounded(lengths, categories, &Rounding::none())
 }
 
-pub fn get_percentiles_rounded(lengths: &[f64], categories: u32, rounding: &Rounding) -> Vec<f64> {
+pub fn percentiles_rounded(lengths: &[f64], categories: u32, rounding: &Rounding) -> Vec<f64> {
     let lengths: Percentiles<f64> = lengths.iter().collect();
     let percentiles: Vec<f64> = (1..(categories + 1))
         .map(|cat| 1.0 / ((categories + 1) as f64) * (cat as f64))
         .collect();
-    let values = lengths.percentiles(percentiles).unwrap().unwrap();
+    let mut values = lengths.percentiles(percentiles).unwrap().unwrap();
     if rounding.round {
-        values
-            .iter()
-            .map(|len| {
-                (len * (10.0_f64.powf(rounding.digits as f64))).round()
-                    / (10.0_f64.powf(rounding.digits as f64))
-            })
-            .collect()
-    } else {
-        values
+        values.iter_mut().for_each(|len| {
+            *len = (*len * (10.0_f64.powf(rounding.digits as f64))).round()
+                / (10.0_f64.powf(rounding.digits as f64))
+        });
     }
+    values
 }
 
 // #[allow(dead_code)]

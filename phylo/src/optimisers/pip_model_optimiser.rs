@@ -18,7 +18,7 @@ impl CostFunction for PIPDNAParamOptimiser<'_> {
     type Output = f64;
 
     fn cost(&self, value: &f64) -> Result<f64> {
-        let mut params = self.model.get_params().clone();
+        let mut params = self.model.params().clone();
         for param_name in self.parameter {
             params.set_value(param_name, *value);
         }
@@ -73,7 +73,7 @@ impl<'a> PIPDNAModelOptimiser<'a> {
                 let gss = BrentOpt::new(1e-10, 100.0);
                 let res = Executor::new(optimiser, gss)
                     .configure(|_| {
-                        IterState::new().param(opt_params.get_value(param_set.first().unwrap()))
+                        IterState::new().param(opt_params.value(param_set.first().unwrap()))
                     })
                     .run()?;
                 let value = res.state().best_param.unwrap();

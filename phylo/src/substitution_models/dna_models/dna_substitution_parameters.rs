@@ -58,7 +58,7 @@ impl EvoModelParams for DNASubstParams {
         }
     }
 
-    fn get_value(&self, param_name: &DNAParameter) -> f64 {
+    fn value(&self, param_name: &DNAParameter) -> f64 {
         match param_name {
             Pit => self.pi[0],
             Pic => self.pi[1],
@@ -77,7 +77,7 @@ impl EvoModelParams for DNASubstParams {
     fn set_value(&mut self, param_name: &DNAParameter, value: f64) {
         match param_name {
             Pit | Pic | Pia | Pig => {
-                warn!("Cannot set frequencies individually. Use set_pi() instead.")
+                warn!("Cannot set frequencies individually. Use set_freqs() instead.")
             }
             Rtc => self.rtc = value,
             Rta => self.rta = value,
@@ -89,11 +89,11 @@ impl EvoModelParams for DNASubstParams {
         }
     }
 
-    fn get_pi(&self) -> &FreqVector {
+    fn freqs(&self) -> &FreqVector {
         &self.pi
     }
 
-    fn set_pi(&mut self, pi: FreqVector) {
+    fn set_freqs(&mut self, pi: FreqVector) {
         if pi.sum() != 1.0 {
             warn!("Frequencies must sum to 1.0, not setting values");
         } else {
@@ -165,14 +165,5 @@ impl DNASubstParams {
             ),
             _ => unreachable!(),
         }
-    }
-}
-
-impl From<DNASubstParams> for Vec<f64> {
-    fn from(val: DNASubstParams) -> Self {
-        vec![
-            val.pi[0], val.pi[1], val.pi[2], val.pi[3], val.rtc, val.rta, val.rtg, val.rca,
-            val.rcg, val.rag,
-        ]
     }
 }

@@ -8,7 +8,7 @@ use nalgebra::{DMatrix, DVector};
 
 use crate::evolutionary_models::ModelType;
 use crate::io::{self, DataError};
-use crate::sequences::{dna_alphabet, get_sequence_type, protein_alphabet};
+use crate::sequences::{dna_alphabet, protein_alphabet, sequence_type};
 use crate::substitution_models::dna_models::{DNA_GAP_SETS, DNA_SETS};
 use crate::substitution_models::protein_models::{PROTEIN_GAP_SETS, PROTEIN_SETS};
 use crate::tree::{build_nj_tree, Tree};
@@ -83,14 +83,14 @@ impl PhyloInfo {
     /// ];
     /// let tree = from_newick_string("(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);").unwrap().pop().unwrap();
     /// let info = PhyloInfo::from_sequences_tree(sequences, tree, &GapHandling::Ambiguous).unwrap();
-    /// let freqs = info.get_counts();
+    /// let freqs = info.counts();
     /// assert_eq!(freqs[&b'A'], 5.0);
     /// assert_eq!(freqs[&b'C'], 5.0);
     /// assert_eq!(freqs[&b'G'], 5.0);
     /// assert_eq!(freqs[&b'T'], 5.0);
     /// assert_eq!(freqs.clone().into_values().sum::<f64>(), 20.0);
     /// ```
-    pub fn get_counts(&self) -> HashMap<u8, f64> {
+    pub fn counts(&self) -> HashMap<u8, f64> {
         let mut freqs = HashMap::new();
         for char in match self.sequence_type {
             ModelType::DNA(_) => dna_alphabet(),
@@ -133,7 +133,7 @@ impl PhyloInfo {
                         DMatrix::from_columns(
                             seq.seq()
                                 .iter()
-                                .map(|&c| Self::get_leaf_encoding(c, sequence_type, gap_handling))
+                                .map(|&c| Self::leaf_encoding(c, sequence_type, gap_handling))
                                 .collect::<Vec<_>>()
                                 .as_slice(),
                         ),
@@ -145,7 +145,7 @@ impl PhyloInfo {
     }
 
     /// Returns the character encoding for the given character.
-    fn get_leaf_encoding(
+    fn leaf_encoding(
         char: u8,
         sequence_type: &ModelType,
         gap_handling: &GapHandling,
@@ -263,8 +263,8 @@ impl PhyloInfo {
         PhyloInfo::validate_tree_sequence_ids(&tree, &sequences)?;
         PhyloInfo::sort_sequences_by_leaf_ids(&tree, &mut sequences);
 
-        let msa = PhyloInfo::get_msa_if_aligned(&sequences);
-        let sequence_type = get_sequence_type(&sequences);
+        let msa = PhyloInfo::msa_if_aligned(&sequences);
+        let sequence_type = sequence_type(&sequences);
         let leaf_encoding = PhyloInfo::create_leaf_encoding(&msa, &sequence_type, gap_handling);
         Ok(PhyloInfo {
             sequences,
@@ -326,7 +326,7 @@ impl PhyloInfo {
     ///
     /// # Arguments
     /// * `sequences` - Vector of fasta records.
-    fn get_msa_if_aligned(sequences: &[Record]) -> Option<Vec<Record>> {
+    fn msa_if_aligned(sequences: &[Record]) -> Option<Vec<Record>> {
         let sequence_length = sequences[0].seq().len();
         if sequences
             .iter()
@@ -363,7 +363,7 @@ impl PhyloInfo {
 
     /// Checks that the ids of the tree leaves and the sequences match, bails with an error otherwise.
     fn validate_tree_sequence_ids(tree: &Tree, sequences: &[Record]) -> Result<()> {
-        let tip_ids: HashSet<String> = HashSet::from_iter(tree.get_leaf_ids());
+        let tip_ids: HashSet<String> = HashSet::from_iter(tree.leaf_ids());
         let sequence_ids: HashSet<String> =
             HashSet::from_iter(sequences.iter().map(|rec| rec.id().to_string()));
         info!("Checking that tree tip and sequence IDs match");
