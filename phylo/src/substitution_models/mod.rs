@@ -66,11 +66,11 @@ pub trait SubstitutionModel {
         zero_diag: bool,
         rounding: &Rounding,
     ) -> (SubstMatrix, f64) {
-        let p = self.p(time);
-        let mut scores = p.map(|x| -x.ln());
+        let mut scores = self.p(time);
+        scores.iter_mut().for_each(|x| *x = -(*x).ln());
         if rounding.round {
-            scores = scores.map(|x| {
-                (x * 10.0_f64.powf(rounding.digits as f64)).round()
+            scores.iter_mut().for_each(|x| {
+                *x = (*x * 10.0_f64.powf(rounding.digits as f64)).round()
                     / 10.0_f64.powf(rounding.digits as f64)
             });
         }
@@ -205,7 +205,8 @@ impl<'a, SubstModel: SubstitutionModel + 'a> LikelihoodCostFunction<'a>
                 total += 1.0;
             }
         }
-        freqs.map(|x| x / total)
+        freqs.column_iter_mut().for_each(|mut x| x /= total);
+        freqs
     }
 }
 
