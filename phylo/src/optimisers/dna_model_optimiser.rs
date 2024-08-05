@@ -51,46 +51,46 @@ impl<'a> DNAModelOptimiser<'a> {
         }
     }
 
-    fn set_empirical_frequencies(&self, start_values: &DNASubstParams) -> DNASubstParams {
-        let mut start_values = start_values.clone();
-        start_values.set_freqs(self.likelihood_cost.empirical_frequencies());
+    fn set_empirical_frequencies(&self, start_params: &DNASubstParams) -> DNASubstParams {
+        let mut start_params = start_params.clone();
+        start_params.set_freqs(self.likelihood_cost.empirical_frequencies());
         info!("Set stationary frequencies to empirical.");
-        start_values
+        start_params
     }
 
     pub fn optimise_parameters(
         &self,
         optimise_freqs: FrequencyOptimisation,
     ) -> Result<(u32, DNASubstParams, f64)> {
-        let start_values = self.likelihood_cost.model.params.clone();
-        let model_type = start_values.model_type;
+        let start_params = self.likelihood_cost.model.params.clone();
+        let model_type = start_params.model_type;
         info!("Optimising {} parameters.", model_type);
         let param_sets = DNASubstParams::parameter_definition(&model_type);
-        let start_values = match model_type {
-            JC69 | K80 => start_values,
+        let start_params = match model_type {
+            JC69 | K80 => start_params,
             _ => {
                 match optimise_freqs {
-                    Fixed => start_values,
-                    Empirical => self.set_empirical_frequencies(&start_values),
+                    Fixed => start_params,
+                    Empirical => self.set_empirical_frequencies(&start_params),
                     Estimated => {
                         warn!("Stationary frequency estimation not available, falling back on empirical.");
-                        self.set_empirical_frequencies(&start_values)
+                        self.set_empirical_frequencies(&start_params)
                     }
                 }
             }
         };
-        self.run_parameter_brent(&start_values, param_sets)
+        self.run_parameter_brent(&start_params, param_sets)
     }
 
     fn run_parameter_brent(
         &self,
-        start_values: &DNASubstParams,
+        start_params: &DNASubstParams,
         param_sets: Vec<(&str, Vec<DNAParameter>)>,
     ) -> Result<(u32, DNASubstParams, f64)> {
         let mut prev_logl = f64::NEG_INFINITY;
         let mut opt_logl = self.likelihood_cost.compute_log_likelihood().0;
         info!("Initial logl: {}.", opt_logl);
-        let mut opt_params = start_values.clone();
+        let mut opt_params = start_params.clone();
         let mut model = DNASubstModel::create(&opt_params);
         let mut iters = 0;
 
