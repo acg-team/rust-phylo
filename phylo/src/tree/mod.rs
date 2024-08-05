@@ -253,10 +253,7 @@ impl Tree {
 
     pub fn leaf_ids(&self) -> Vec<String> {
         debug_assert!(self.complete);
-        self.get_leaves()
-            .iter()
-            .map(|node| node.id.clone())
-            .collect()
+        self.leaves().iter().map(|node| node.id.clone()).collect()
     }
 
     pub fn all_branch_lengths(&self) -> Vec<f64> {
@@ -280,11 +277,11 @@ impl Tree {
         self.nodes[usize::from(node_idx)].blen = blen;
     }
 
-    pub fn get_branch_length(&self, node_idx: &NodeIdx) -> f64 {
+    pub fn branch_length(&self, node_idx: &NodeIdx) -> f64 {
         self.nodes[usize::from(node_idx)].blen
     }
 
-    pub fn get_leaves(&self) -> Vec<&Node> {
+    pub fn leaves(&self) -> Vec<&Node> {
         debug_assert!(self.complete);
         self.nodes
             .iter()

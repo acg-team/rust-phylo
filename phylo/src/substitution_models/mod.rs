@@ -234,10 +234,7 @@ impl<'a, SubstModel: SubstitutionModel> SubstitutionLikelihoodCost<'a, SubstMode
             };
         }
         let root_info = &tmp_values.node_info[usize::from(&self.info.tree.root)];
-        let likelihood = model
-            .get_stationary_distribution()
-            .transpose()
-            .mul(root_info);
+        let likelihood = model.freqs().transpose().mul(root_info);
         debug_assert_eq!(likelihood.ncols(), self.info.msa_length());
         debug_assert_eq!(likelihood.nrows(), 1);
         likelihood.map(|x| x.ln()).sum()

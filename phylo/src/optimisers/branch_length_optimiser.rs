@@ -105,7 +105,7 @@ where
         };
         let gss = BrentOpt::new(1e-10, 100.0);
         let res = Executor::new(optimiser, gss)
-            .configure(|_| IterState::new().param(lc.info.tree.get_branch_length(branch)))
+            .configure(|_| IterState::new().param(lc.info.tree.branch_length(branch)))
             .run()?;
         let state = res.state();
         Ok((-state.best_cost, state.best_param.unwrap()))

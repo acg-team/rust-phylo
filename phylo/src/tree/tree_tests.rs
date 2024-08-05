@@ -629,7 +629,7 @@ fn test_node_id_string() {
     ]
     .map(|s| format!("{}{}", " with id ", s));
     for node in &tree.nodes {
-        assert!(ids.contains(&(tree.get_node_id_string(&node.idx))));
+        assert!(ids.contains(&(tree.node_id(&node.idx))));
     }
     let tree =
         tree_parser::from_newick_string("((ant:17,(bat:31, cow:22):7):10,(elk:33,fox:12):40):0;")
@@ -640,10 +640,10 @@ fn test_node_id_string() {
     for node in &tree.nodes {
         match node.idx {
             I(_) => {
-                assert!(tree.get_node_id_string(&node.idx).is_empty());
+                assert!(tree.node_id(&node.idx).is_empty());
             }
             L(_) => {
-                assert!(ids.contains(&(tree.get_node_id_string(&node.idx))));
+                assert!(ids.contains(&(tree.node_id(&node.idx))));
             }
         }
     }

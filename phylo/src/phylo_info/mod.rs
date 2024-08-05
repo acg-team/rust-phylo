@@ -49,13 +49,13 @@ fn make_sequences_uppercase(sequences: &[Record]) -> Vec<Record> {
 }
 
 impl PhyloInfo {
-    pub fn get_aligned_sequence(&self, id: &str) -> Option<&Record> {
+    pub fn aligned_sequence(&self, id: &str) -> Option<&Record> {
         self.msa
             .as_ref()
             .and_then(|msa| msa.iter().find(|rec| rec.id() == id))
     }
 
-    pub fn get_sequence(&self, id: &str) -> Option<&Record> {
+    pub fn sequence(&self, id: &str) -> Option<&Record> {
         self.sequences.iter().find(|rec| rec.id() == id)
     }
 
@@ -244,7 +244,7 @@ impl PhyloInfo {
     /// use phylo::phylo_info::{GapHandling, PhyloInfo};
     /// let info = PhyloInfo::from_sequences_tree(sequences, tree, &GapHandling::Ambiguous).unwrap();
     /// assert!(!info.has_msa());
-    /// for (i, node) in info.tree.get_leaves().iter().enumerate() {
+    /// for (i, node) in info.tree.leaves().iter().enumerate() {
     ///     assert!(info.sequences[i].id() == node.id);
     /// }
     /// for rec in info.sequences.iter() {
@@ -294,7 +294,7 @@ impl PhyloInfo {
     ///     PathBuf::from("./data/sequences_DNA_small.fasta"),
     ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"), &GapHandling::Ambiguous).unwrap();
     /// assert!(info.has_msa());
-    /// for (i, node) in info.tree.get_leaves().iter().enumerate() {
+    /// for (i, node) in info.tree.leaves().iter().enumerate() {
     ///     assert!(info.sequences[i].id() == node.id);
     /// }
     /// for rec in info.sequences.iter() {

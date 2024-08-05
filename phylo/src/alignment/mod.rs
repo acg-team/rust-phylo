@@ -51,7 +51,7 @@ pub fn compile_alignment_representation(
 
     match subroot_idx {
         Int(idx) => {
-            let align = get_alignment_at_int_node(alignment, idx)?;
+            let align = alignment_at_int_node(alignment, idx)?;
             alignment_stack.insert(idx, (0..align.map_x.len()).map(Some).collect());
         }
         Leaf(idx) => return Ok(vec![sequences[idx].clone()]),
@@ -64,7 +64,7 @@ pub fn compile_alignment_representation(
                 let mut padded_map_x = vec![None; alignment_stack[&idx].len()];
                 let mut padded_map_y = vec![None; alignment_stack[&idx].len()];
                 for (mapping_index, site) in alignment_stack[&idx].iter().enumerate() {
-                    let align = get_alignment_at_int_node(alignment, idx)?;
+                    let align = alignment_at_int_node(alignment, idx)?;
                     if let Some(index) = site {
                         padded_map_x[mapping_index] = align.map_x[*index];
                         padded_map_y[mapping_index] = align.map_y[*index];
@@ -96,10 +96,7 @@ pub fn compile_alignment_representation(
     Ok(msa)
 }
 
-fn get_alignment_at_int_node(
-    alignment: &HashMap<usize, Alignment>,
-    idx: usize,
-) -> Result<&Alignment> {
+fn alignment_at_int_node(alignment: &HashMap<usize, Alignment>, idx: usize) -> Result<&Alignment> {
     if let Some(align) = alignment.get(&idx) {
         Ok(align)
     } else {

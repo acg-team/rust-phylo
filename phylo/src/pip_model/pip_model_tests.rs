@@ -428,7 +428,7 @@ fn pip_hky_likelihood_example_internals() {
         info,
         model: &model,
     };
-    for i in cost.info.tree.get_leaves() {
+    for i in cost.info.tree.leaves() {
         cost.set_leaf_values((&i.idx).into(), &model, &mut temp_values);
     }
     let iota = 0.133;
@@ -622,7 +622,7 @@ fn pip_hky_likelihood_example_final() {
         info,
         model: &model,
     };
-    for i in cost.info.tree.get_leaves() {
+    for i in cost.info.tree.leaves() {
         cost.set_leaf_values((&i.idx).into(), &model, &mut tmp);
     }
     cost.set_internal_values(1, &model, &mut tmp);

@@ -330,7 +330,7 @@ where
 
             for (i, c) in self
                 .info
-                .get_aligned_sequence(&self.info.tree.nodes[idx].id)
+                .aligned_sequence(&self.info.tree.nodes[idx].id)
                 .unwrap()
                 .seq()
                 .iter()

@@ -27,7 +27,7 @@ fn setup_info_correct() {
     .unwrap();
     assert_eq!(res_info.tree.nodes.len(), 4 + 3);
     assert_eq!(res_info.sequences.len(), 4);
-    for (i, node) in res_info.tree.get_leaves().iter().enumerate() {
+    for (i, node) in res_info.tree.leaves().iter().enumerate() {
         if let L(_) = node.idx {
             assert!(res_info.sequences[i].id() == node.id);
         }
@@ -141,7 +141,7 @@ fn info_check_sequence_order() {
     for i in 0..info.sequences.len() {
         assert_eq!(
             info.sequences[i].id(),
-            info.tree.get_leaves()[i].id,
+            info.tree.leaves()[i].id,
             "Sequences and tree leaves are not in the same order"
         );
     }
@@ -220,7 +220,7 @@ fn check_phyloinfo_creation_tree_no_msa() {
     );
     let res_info = info.unwrap();
     assert!(res_info.msa.is_none());
-    for (i, node) in res_info.tree.get_leaves().iter().enumerate() {
+    for (i, node) in res_info.tree.leaves().iter().enumerate() {
         assert!(res_info.sequences[i].id() == node.id);
     }
     for rec in res_info.sequences.iter() {
@@ -292,7 +292,7 @@ fn check_phyloinfo_creation_tree_correct_no_msa() {
     );
     let res_info = info.unwrap();
     assert!(res_info.msa.is_none());
-    for (i, node) in res_info.tree.get_leaves().iter().enumerate() {
+    for (i, node) in res_info.tree.leaves().iter().enumerate() {
         assert!(res_info.sequences[i].id() == node.id);
     }
     for rec in res_info.sequences.iter() {
@@ -370,7 +370,7 @@ fn check_phyloinfo_creation_sequences() {
             .map(|rec| rec.id())
             .collect::<Vec<_>>(),
         info.tree
-            .get_leaves()
+            .leaves()
             .iter()
             .map(|node| node.id.clone())
             .collect::<Vec<_>>(),
