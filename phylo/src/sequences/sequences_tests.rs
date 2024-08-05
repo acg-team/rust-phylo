@@ -7,7 +7,7 @@ use bio::alphabets::Alphabet;
 
 use crate::evolutionary_models::ModelType;
 use crate::io::read_sequences_from_file;
-use crate::sequences::{dna_alphabet, sequence_type, protein_alphabet};
+use crate::sequences::{dna_alphabet, protein_alphabet, sequence_type};
 
 #[test]
 fn alphabets() {
