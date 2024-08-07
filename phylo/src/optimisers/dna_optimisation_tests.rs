@@ -5,16 +5,17 @@ use approx::assert_relative_eq;
 use crate::evolutionary_models::{DNAModelType::*, EvolutionaryModel, FrequencyOptimisation};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::optimisers::dna_model_optimiser::DNAModelOptimiser;
-use crate::phylo_info::{GapHandling, PhyloInfo};
+use crate::phylo_info::{GapHandling, PhyloInfoBuilder};
 use crate::substitution_models::dna_models::{DNALikelihoodCost, DNASubstModel};
 
 #[test]
 fn check_likelihood_opt_k80() {
-    let info = PhyloInfo::from_files(
+    let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/K80/K80.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        &GapHandling::Ambiguous,
+        GapHandling::Ambiguous,
     )
+    .build()
     .unwrap();
     let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
     let likelihood = DNALikelihoodCost::new(&info, &model);
@@ -34,13 +35,13 @@ fn check_likelihood_opt_k80() {
 
 #[test]
 fn frequencies_unchanged_opt_k80() {
-    let info = PhyloInfo::from_files(
+    let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/K80/K80.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        &GapHandling::Ambiguous,
+        GapHandling::Ambiguous,
     )
+    .build()
     .unwrap();
-
     let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
     let likelihood = DNALikelihoodCost::new(&info, &model);
 
@@ -52,14 +53,15 @@ fn frequencies_unchanged_opt_k80() {
 
 #[test]
 fn parameter_definition_after_optim_k80() {
-    let info = &PhyloInfo::from_files(
+    let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/K80/K80.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        &GapHandling::Ambiguous,
+        GapHandling::Ambiguous,
     )
+    .build()
     .unwrap();
-    let model = &DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
-    let likelihood = DNALikelihoodCost::new(info, model);
+    let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
+    let likelihood = DNALikelihoodCost::new(&info, &model);
 
     let (_, optim_parameters, _) = DNAModelOptimiser::new(&likelihood)
         .optimise_parameters(FrequencyOptimisation::Fixed)
@@ -73,19 +75,20 @@ fn parameter_definition_after_optim_k80() {
 
 #[test]
 fn gtr_on_k80_data() {
-    let info = &PhyloInfo::from_files(
+    let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/K80/K80.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        &GapHandling::Ambiguous,
+        GapHandling::Ambiguous,
     )
+    .build()
     .unwrap();
-    let model = &DNASubstModel::new(
+    let model = DNASubstModel::new(
         GTR,
         &[0.25, 0.35, 0.3, 0.1, 0.88, 0.03, 0.00001, 0.07, 0.02, 1.0],
     )
     .unwrap();
 
-    let likelihood = DNALikelihoodCost::new(info, model);
+    let likelihood = DNALikelihoodCost::new(&info, &model);
 
     let (_, optim_parameters, _) = DNAModelOptimiser::new(&likelihood)
         .optimise_parameters(FrequencyOptimisation::Empirical)
@@ -98,14 +101,15 @@ fn gtr_on_k80_data() {
 
 #[test]
 fn parameter_definition_after_optim_hky() {
-    let info = &PhyloInfo::from_files(
+    let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/GTR/gtr.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        &GapHandling::Ambiguous,
+        GapHandling::Ambiguous,
     )
+    .build()
     .unwrap();
-    let model = &DNASubstModel::new(HKY, &[0.26, 0.2, 0.4, 0.14, 4.0, 1.0]).unwrap();
-    let likelihood = DNALikelihoodCost::new(info, model);
+    let model = DNASubstModel::new(HKY, &[0.26, 0.2, 0.4, 0.14, 4.0, 1.0]).unwrap();
+    let likelihood = DNALikelihoodCost::new(&info, &model);
     let start_logl = likelihood.compute_log_likelihood().0;
     let (_, optim_parameters, opt_logl) = DNAModelOptimiser::new(&likelihood)
         .optimise_parameters(FrequencyOptimisation::Empirical)
@@ -120,11 +124,12 @@ fn parameter_definition_after_optim_hky() {
 
 #[test]
 fn parameter_definition_after_optim_tn93() {
-    let info = PhyloInfo::from_files(
+    let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/GTR/gtr.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        &GapHandling::Ambiguous,
+        GapHandling::Ambiguous,
     )
+    .build()
     .unwrap();
     let model = DNASubstModel::new(TN93, &[0.26, 0.2, 0.4, 0.14, 4.0, 2.0, 1.0]).unwrap();
     let likelihood = DNALikelihoodCost::new(&info, &model);
@@ -142,11 +147,12 @@ fn parameter_definition_after_optim_tn93() {
 
 #[test]
 fn check_parameter_optimisation_gtr() {
-    let info = PhyloInfo::from_files(
+    let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/GTR/gtr.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        &GapHandling::Ambiguous,
+        GapHandling::Ambiguous,
     )
+    .build()
     .unwrap();
     // Optimized parameters from PhyML
     let phyml_model = DNASubstModel::new(
@@ -202,16 +208,17 @@ fn check_parameter_optimisation_gtr() {
 
 #[test]
 fn frequencies_fixed_opt_gtr() {
-    let info = &PhyloInfo::from_files(
+    let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/GTR/gtr.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        &GapHandling::Ambiguous,
+        GapHandling::Ambiguous,
     )
+    .build()
     .unwrap();
     let model =
-        &DNASubstModel::new(GTR, &[0.25, 0.35, 0.3, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
+        DNASubstModel::new(GTR, &[0.25, 0.35, 0.3, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
 
-    let likelihood = DNALikelihoodCost::new(info, model);
+    let likelihood = DNALikelihoodCost::new(&info, &model);
 
     let (_, optim_params, _) = DNAModelOptimiser::new(&likelihood)
         .optimise_parameters(FrequencyOptimisation::Fixed)

@@ -4,275 +4,55 @@ use std::path::PathBuf;
 use anyhow::bail;
 use bio::io::fasta::Record;
 use log::{info, warn};
-use nalgebra::{DMatrix, DVector};
+use nalgebra::DMatrix;
 
+use crate::alphabets::{alphabet_from_type, sequence_type};
 use crate::evolutionary_models::ModelType;
 use crate::io::{self, DataError};
-use crate::sequences::{dna_alphabet, protein_alphabet, sequence_type};
-use crate::substitution_models::dna_models::{DNA_GAP_SETS, DNA_SETS};
-use crate::substitution_models::protein_models::{PROTEIN_GAP_SETS, PROTEIN_SETS};
+use crate::substitution_models::FreqVector;
 use crate::tree::{build_nj_tree, Tree};
 use crate::Result;
 
 /// Gap handling options. Ambiguous means that gaps are treated as unknown characters (X),
 /// Proper means that the gaps are treated as a separate character.
+#[derive(Debug, Clone, PartialEq)]
 pub enum GapHandling {
     Ambiguous,
     Proper,
+    Undefined,
 }
 
-/// The PhyloInfo struct contains all the information needed to run a phylogenetic analysis.
-///
-/// # TODO:
-/// * Add getters/setters for the fields, make the fields private.
-/// * Add methods to protein alignments.
-/// * Enure encoding matches model.
-#[derive(Debug, Clone)]
-pub struct PhyloInfo {
-    /// Unaligned phylogenetic sequences.
-    pub sequences: Vec<Record>,
-    pub sequence_type: ModelType,
-    /// Multiple sequence alignment of the sequences, if they are aligned.
-    msa: Option<Vec<Record>>,
-    /// Phylogenetic tree.
-    pub tree: Tree,
-    /// Leaf sequences as probability vectors for characters in the alphabet.
-    pub leaf_encoding: HashMap<String, DMatrix<f64>>,
+impl From<String> for GapHandling {
+    fn from(gap_handling: String) -> GapHandling {
+        GapHandling::from(gap_handling.as_str())
+    }
 }
 
-/// Converts the given sequences to uppercase and returns a new vector.
-fn make_sequences_uppercase(sequences: &[Record]) -> Vec<Record> {
-    sequences
-        .iter()
-        .map(|rec| Record::with_attrs(rec.id(), rec.desc(), &rec.seq().to_ascii_uppercase()))
-        .collect()
+impl From<&str> for GapHandling {
+    fn from(gap_handling: &str) -> GapHandling {
+        if gap_handling.to_lowercase().contains("ambig") {
+            GapHandling::Ambiguous
+        } else if gap_handling.to_lowercase().contains("proper") {
+            GapHandling::Proper
+        } else {
+            GapHandling::Undefined
+        }
+    }
 }
 
-impl PhyloInfo {
-    pub fn aligned_sequence(&self, id: &str) -> Option<&Record> {
-        self.msa
-            .as_ref()
-            .and_then(|msa| msa.iter().find(|rec| rec.id() == id))
-    }
+pub struct PhyloInfoBuilder {
+    sequence_file: PathBuf,
+    tree_file: Option<PathBuf>,
+    gap_handling: GapHandling,
+}
 
-    pub fn sequence(&self, id: &str) -> Option<&Record> {
-        self.sequences.iter().find(|rec| rec.id() == id)
-    }
-
-    pub fn has_msa(&self) -> bool {
-        self.msa.is_some()
-    }
-
-    pub fn msa_length(&self) -> usize {
-        self.msa.as_ref().map(|msa| msa[0].seq().len()).unwrap_or(0)
-    }
-
-    /// Returns the empirical frequencies of the symbols in the sequences.
-    /// The frequencies are calculated from the unaligned sequences.
-    ///
-    /// # Example
-    /// ```
-    /// # use bio::io::fasta::Record;
-    /// use phylo::phylo_info::{GapHandling, PhyloInfo};
-    /// use phylo::tree::tree_parser::from_newick_string;
-    /// let sequences = vec![
-    ///     Record::with_attrs("A", None, b"AAAAA"),
-    ///     Record::with_attrs("B", None, b"CCCCC"),
-    ///     Record::with_attrs("C", None, b"GGGGG"),
-    ///     Record::with_attrs("D", None, b"TTTTT"),
-    /// ];
-    /// let tree = from_newick_string("(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);").unwrap().pop().unwrap();
-    /// let info = PhyloInfo::from_sequences_tree(sequences, tree, &GapHandling::Ambiguous).unwrap();
-    /// let freqs = info.counts();
-    /// assert_eq!(freqs[&b'A'], 5.0);
-    /// assert_eq!(freqs[&b'C'], 5.0);
-    /// assert_eq!(freqs[&b'G'], 5.0);
-    /// assert_eq!(freqs[&b'T'], 5.0);
-    /// assert_eq!(freqs.clone().into_values().sum::<f64>(), 20.0);
-    /// ```
-    pub fn counts(&self) -> HashMap<u8, f64> {
-        let mut freqs = HashMap::new();
-        for char in match self.sequence_type {
-            ModelType::DNA(_) => dna_alphabet(),
-            ModelType::Protein(_) => protein_alphabet(),
+impl PhyloInfoBuilder {
+    pub fn new(sequence_file: PathBuf) -> PhyloInfoBuilder {
+        PhyloInfoBuilder {
+            sequence_file,
+            tree_file: None,
+            gap_handling: GapHandling::Undefined,
         }
-        .symbols
-        .iter()
-        .map(|x| x as u8)
-        .collect::<Vec<u8>>()
-        {
-            freqs.insert(
-                char,
-                self.sequences
-                    .iter()
-                    .map(|rec| rec.seq().iter().filter(|&c| c == &char).count())
-                    .sum::<usize>() as f64,
-            );
-        }
-        freqs
-    }
-
-    /// Creates a vector of leaf encodings from the MSA, if it is provided.
-    /// Used for the likelihood calculation to avoid having to get the character encoding
-    /// from scratch every time the likelihood is optimised.
-    fn create_leaf_encoding(
-        msa: &Option<Vec<Record>>,
-        sequence_type: &ModelType,
-        gap_handling: &GapHandling,
-    ) -> HashMap<String, DMatrix<f64>> {
-        match msa {
-            None => {
-                warn!("No MSA provided, leaf encoding will be empty.");
-                HashMap::new()
-            }
-            Some(msa) => {
-                let mut leaf_encoding = HashMap::with_capacity(msa.len());
-                for seq in msa.iter() {
-                    leaf_encoding.insert(
-                        seq.id().to_string(),
-                        DMatrix::from_columns(
-                            seq.seq()
-                                .iter()
-                                .map(|&c| Self::leaf_encoding(c, sequence_type, gap_handling))
-                                .collect::<Vec<_>>()
-                                .as_slice(),
-                        ),
-                    );
-                }
-                leaf_encoding
-            }
-        }
-    }
-
-    /// Returns the character encoding for the given character.
-    fn leaf_encoding(
-        char: u8,
-        sequence_type: &ModelType,
-        gap_handling: &GapHandling,
-    ) -> DVector<f64> {
-        match sequence_type {
-            ModelType::DNA(_) => match gap_handling {
-                GapHandling::Ambiguous => DNA_SETS[char as usize].clone(),
-                GapHandling::Proper => DNA_GAP_SETS[char as usize].clone(),
-            },
-            ModelType::Protein(_) => match gap_handling {
-                GapHandling::Ambiguous => PROTEIN_SETS[char as usize].clone(),
-                GapHandling::Proper => PROTEIN_GAP_SETS[char as usize].clone(),
-            },
-        }
-    }
-
-    /// Creates a PhyloInfo struct from a vector of fasta records.
-    /// The sequences might not be aligned.
-    /// The tree is built using the neighbour-joining algorithm.
-    /// In the output the sequences are sorted by the leaf ids and converted to uppercase.
-    ///
-    /// # Arguments
-    /// * `sequences` - Vector of fasta records.
-    /// * `gap_handling` - Gap handling option -- treat gaps as ambiguous characters or as a separate character.
-    ///
-    /// # Example
-    /// ```
-    /// # use bio::io::fasta::Record;
-    /// # use phylo::tree::Tree;
-    /// # let sequences = vec![
-    /// #     Record::with_attrs("A", None, b"aaaa"),
-    /// #     Record::with_attrs("B", None, b"cccc"),
-    /// #     Record::with_attrs("C", None, b"gg"),
-    /// #     Record::with_attrs("D", None, b"TTTTTTT"),
-    /// # ];
-    /// #
-    /// use phylo::phylo_info::{GapHandling, PhyloInfo};
-    /// let phylo_info = PhyloInfo::from_sequences(sequences, &GapHandling::Ambiguous);
-    /// ```
-    pub fn from_sequences(sequences: Vec<Record>, gap_handling: &GapHandling) -> Result<PhyloInfo> {
-        let tree = build_nj_tree(&sequences)?;
-        PhyloInfo::from_sequences_tree(sequences, tree, gap_handling)
-    }
-
-    /// Creates a PhyloInfo struct from a vector of fasta records.
-    /// The sequences might not be aligned.
-    /// The tree is built using the neighbour-joining algorithm.
-    /// In the output the sequences are sorted by the leaf ids and converted to uppercase.
-    ///
-    /// # Arguments
-    /// * `sequences` - Vector of fasta records.
-    /// * `gap_handling` - Gap handling option -- treat gaps as ambiguous characters or as a separate character.
-    ///
-    /// # Example
-    /// ```
-    /// use std::path::PathBuf;
-    /// use phylo::phylo_info::{GapHandling, PhyloInfo};
-    /// let phylo_info = PhyloInfo::from_sequence_file(PathBuf::from("./data/sequences_DNA_small.fasta"), &GapHandling::Ambiguous);
-    /// ```
-    pub fn from_sequence_file(
-        sequence_file: PathBuf,
-        gap_handling: &GapHandling,
-    ) -> Result<PhyloInfo> {
-        info!("Reading sequences from file {}", sequence_file.display());
-        let sequences = io::read_sequences_from_file(sequence_file)?;
-        info!("{} sequence(s) read successfully", sequences.len());
-        Self::from_sequences(sequences, gap_handling)
-    }
-
-    /// Creates a PhyloInfo struct from a vector of fasta records and a tree.
-    /// The sequences might not be aligned.
-    /// The ids of the tree leaves and provided sequences must match.
-    /// In the output the sequences are sorted by the leaf ids and converted to uppercase.
-    ///
-    /// # Arguments
-    /// * `sequence_file` - File path to the sequence fasta file.
-    /// * `gap_handling` - Gap handling option -- treat gaps as ambiguous characters or as a separate character.
-    ///
-    /// # Example
-    /// ```
-    /// # use bio::io::fasta::Record;
-    /// # use phylo::tree::Tree;
-    /// # use phylo::tree::tree_parser::{self, from_newick_string};
-    /// # fn make_test_data() -> (Vec<Record>, Tree) {
-    /// #   use phylo::tree::NodeIdx::{Internal as I, Leaf as L};
-    /// #   let sequences = vec![
-    /// #       Record::with_attrs("A", None, b"aaaa"),
-    /// #       Record::with_attrs("B", None, b"cccc"),
-    /// #       Record::with_attrs("C", None, b"gg"),
-    /// #       Record::with_attrs("D", None, b"TTTTTTT"),
-    /// #   ];
-    /// #   let tree = from_newick_string("((((A:2,B:2):1,C:2):1,D:2):0);").unwrap().pop().unwrap();
-    /// #   (sequences, tree)
-    /// # }
-    /// # let (sequences, tree) = make_test_data();
-    /// use phylo::phylo_info::{GapHandling, PhyloInfo};
-    /// let info = PhyloInfo::from_sequences_tree(sequences, tree, &GapHandling::Ambiguous).unwrap();
-    /// assert!(!info.has_msa());
-    /// for (i, node) in info.tree.leaves().iter().enumerate() {
-    ///     assert!(info.sequences[i].id() == node.id);
-    /// }
-    /// for rec in info.sequences.iter() {
-    ///     assert!(!rec.seq().is_empty());
-    ///     assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
-    /// }
-    /// ```
-    pub fn from_sequences_tree(
-        mut sequences: Vec<Record>,
-        tree: Tree,
-        gap_handling: &GapHandling,
-    ) -> Result<PhyloInfo> {
-        PhyloInfo::check_sequences_not_empty(&sequences)?;
-        sequences = make_sequences_uppercase(&sequences);
-
-        PhyloInfo::validate_tree_sequence_ids(&tree, &sequences)?;
-        PhyloInfo::sort_sequences_by_leaf_ids(&tree, &mut sequences);
-
-        let msa = PhyloInfo::msa_if_aligned(&sequences);
-        let sequence_type = sequence_type(&sequences);
-        let leaf_encoding = PhyloInfo::create_leaf_encoding(&msa, &sequence_type, gap_handling);
-        Ok(PhyloInfo {
-            sequences,
-            sequence_type,
-            tree,
-            msa,
-            leaf_encoding,
-        })
     }
 
     /// Creates a PhyloInfo struct from a two given files, one containing the sequences in fasta format and
@@ -289,10 +69,13 @@ impl PhyloInfo {
     /// # Example
     /// ```
     /// use std::path::PathBuf;
-    /// use phylo::phylo_info::{GapHandling, PhyloInfo};
-    /// let info = PhyloInfo::from_files(
+    /// use phylo::phylo_info::{GapHandling, PhyloInfoBuilder};
+    /// let info = PhyloInfoBuilder::with_attrs(
     ///     PathBuf::from("./data/sequences_DNA_small.fasta"),
-    ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"), &GapHandling::Ambiguous).unwrap();
+    ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+    ///     GapHandling::Ambiguous)
+    ///     .build()
+    ///     .unwrap();
     /// assert!(info.has_msa());
     /// for (i, node) in info.tree.leaves().iter().enumerate() {
     ///     assert!(info.sequences[i].id() == node.id);
@@ -302,23 +85,76 @@ impl PhyloInfo {
     ///     assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
     /// }
     /// ```
-    pub fn from_files(
+    pub fn with_attrs(
         sequence_file: PathBuf,
         tree_file: PathBuf,
-        gap_handling: &GapHandling,
+        gap_handling: GapHandling,
+    ) -> PhyloInfoBuilder {
+        PhyloInfoBuilder {
+            sequence_file,
+            tree_file: Some(tree_file),
+            gap_handling,
+        }
+    }
+
+    pub fn sequence_file(mut self, path: PathBuf) -> PhyloInfoBuilder {
+        self.sequence_file = path;
+        self
+    }
+
+    pub fn tree_file(mut self, path: PathBuf) -> PhyloInfoBuilder {
+        self.tree_file = Some(path);
+        self
+    }
+
+    pub fn gap_handling(mut self, gap_handling: GapHandling) -> PhyloInfoBuilder {
+        self.gap_handling = gap_handling;
+        self
+    }
+
+    pub(crate) fn build_from_objects(
+        sequences: Vec<Record>,
+        tree: Tree,
+        gap_handling: GapHandling,
     ) -> Result<PhyloInfo> {
-        info!("Reading sequences from file {}", sequence_file.display());
-        let sequences = io::read_sequences_from_file(sequence_file)?;
+        Self::check_sequences_not_empty(&sequences)?;
+        let sequences = make_sequences_uppercase(&sequences);
+
+        Self::validate_tree_sequence_ids(&tree, &sequences)?;
+
+        let msa: Option<Vec<Record>> = Self::msa_if_aligned(&sequences);
+        let model_type = sequence_type(&sequences);
+        Ok(PhyloInfo {
+            sequences,
+            model_type,
+            tree,
+            msa,
+            gap_handling,
+        })
+    }
+
+    pub fn build(self) -> Result<PhyloInfo> {
+        info!(
+            "Reading sequences from file {}",
+            self.sequence_file.display()
+        );
+        let sequences = io::read_sequences_from_file(&self.sequence_file)?;
         info!("{} sequence(s) read successfully", sequences.len());
 
-        info!("Reading trees from file {}", tree_file.display());
-        let mut trees = io::read_newick_from_file(tree_file)?;
-        info!("{} tree(s) read successfully", trees.len());
-
-        Self::check_tree_number(&trees)?;
-        let tree = trees.remove(0);
-
-        PhyloInfo::from_sequences_tree(sequences, tree, gap_handling)
+        let tree = match &self.tree_file {
+            Some(tree_file) => {
+                info!("Reading trees from file {}", tree_file.display());
+                let mut trees = io::read_newick_from_file(tree_file)?;
+                info!("{} tree(s) read successfully", trees.len());
+                Self::check_tree_number(&trees)?;
+                trees.remove(0)
+            }
+            None => {
+                info!("Building NJ tree from sequences");
+                build_nj_tree(&sequences)?
+            }
+        };
+        Self::build_from_objects(sequences, tree, self.gap_handling)
     }
 
     /// Returns a vector of records representing the MSA if all the sequences are of the same length.
@@ -350,17 +186,6 @@ impl PhyloInfo {
         Ok(())
     }
 
-    /// Sorts sequences in the vector to match the order of the leaves in the tree.
-    fn sort_sequences_by_leaf_ids(tree: &Tree, sequences: &mut [Record]) {
-        let id_index: HashMap<&str, usize> = tree
-            .nodes
-            .iter()
-            .enumerate()
-            .map(|(index, leaf)| (leaf.id.as_str(), index))
-            .collect();
-        sequences.sort_by_key(|record| id_index.get(record.id()).cloned().unwrap_or(usize::MAX));
-    }
-
     /// Checks that the ids of the tree leaves and the sequences match, bails with an error otherwise.
     fn validate_tree_sequence_ids(tree: &Tree, sequences: &[Record]) -> Result<()> {
         let tip_ids: HashSet<String> = HashSet::from_iter(tree.leaf_ids());
@@ -384,12 +209,119 @@ impl PhyloInfo {
                 message: String::from("No trees in the tree file, aborting.")
             });
         }
-
         if trees.len() > 1 {
             warn!("More than one tree in the tree file, only the first tree will be processed.");
         }
-
         Ok(())
+    }
+}
+
+/// The PhyloInfo struct contains all the information needed to run a phylogenetic analysis.
+///
+/// # TODO:
+/// * Add methods to protein alignments.
+/// * Enure encoding matches model.
+#[derive(Debug, Clone)]
+pub struct PhyloInfo {
+    /// Type of the sequences (DNA/Protein).
+    pub model_type: ModelType,
+    /// Unaligned sequences.
+    pub sequences: Vec<Record>,
+    /// Multiple sequence alignment of the sequences, if they are aligned.
+    msa: Option<Vec<Record>>,
+    /// Phylogenetic tree.
+    pub tree: Tree,
+    // pub leaf_encoding: HashMap<String, DMatrix<f64>>,
+    gap_handling: GapHandling,
+}
+
+/// Converts the given sequences to uppercase and returns a new vector.
+fn make_sequences_uppercase(sequences: &[Record]) -> Vec<Record> {
+    sequences
+        .iter()
+        .map(|rec| Record::with_attrs(rec.id(), rec.desc(), &rec.seq().to_ascii_uppercase()))
+        .collect()
+}
+
+impl PhyloInfo {
+    pub fn aligned_sequence(&self, id: &str) -> Option<&Record> {
+        self.msa
+            .as_ref()
+            .and_then(|msa| msa.iter().find(|rec| rec.id() == id))
+    }
+
+    pub fn sequence(&self, id: &str) -> Option<&Record> {
+        self.sequences.iter().find(|rec| rec.id() == id)
+    }
+
+    pub fn has_msa(&self) -> bool {
+        self.msa.is_some()
+    }
+
+    pub fn msa_length(&self) -> usize {
+        self.msa.as_ref().map(|msa| msa[0].seq().len()).unwrap_or(0)
+    }
+
+    /// Returns the empirical frequencies of the symbols in the sequences.
+    /// The frequencies are calculated from the unaligned sequences.
+    /// If an unambiguous character is not present in the sequences, its frequency is artificially
+    /// set to at least one.
+    ///
+    /// # Example
+    /// ```
+    /// use std::path::PathBuf;
+    /// use phylo::frequencies;
+    /// use phylo::phylo_info::{GapHandling, PhyloInfoBuilder};
+    /// use phylo::substitution_models::FreqVector;
+    /// let info = PhyloInfoBuilder::with_attrs(
+    ///     PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
+    ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+    ///     GapHandling::Proper)
+    /// .build()
+    /// .unwrap();
+    /// let freqs = info.freqs();
+    /// assert_eq!(freqs, frequencies!(&[1.0, 2.0, 5.0, 1.0]).scale(1.0 / 9.0));
+    /// assert_eq!(freqs.sum(), 1.0);
+    /// ```
+    pub fn freqs(&self) -> FreqVector {
+        let alphabet = alphabet_from_type(self.model_type, &self.gap_handling);
+        let mut freqs = alphabet.empty_freqs();
+        for char in alphabet.all_symbols().into_iter() {
+            let count = self
+                .sequences
+                .iter()
+                .map(|rec| rec.seq().iter().filter(|&c| c == &char).count())
+                .sum::<usize>() as f64;
+            freqs += alphabet.char_encoding(char).scale(count);
+        }
+        for char in alphabet.symbols().into_iter() {
+            if freqs[alphabet.index()[char as usize]] == 0.0 {
+                freqs[alphabet.index()[char as usize]] = 1.0;
+            }
+        }
+        freqs.scale_mut(1.0 / freqs.sum());
+        freqs
+    }
+
+    /// Creates a vector of leaf encodings for the ungapped sequences.
+    /// Used for the likelihood calculation to avoid having to get the character encoding
+    /// from scratch every time the likelihood is optimised.
+    pub fn leaf_encoding(&self) -> HashMap<String, DMatrix<f64>> {
+        let alphabet = alphabet_from_type(self.model_type, &self.gap_handling);
+        let mut leaf_encoding = HashMap::with_capacity(self.sequences.len());
+        for seq in self.sequences.iter() {
+            leaf_encoding.insert(
+                seq.id().to_string(),
+                DMatrix::from_columns(
+                    seq.seq()
+                        .iter()
+                        .map(|&c| alphabet.char_encoding(c))
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                ),
+            );
+        }
+        leaf_encoding
     }
 }
 

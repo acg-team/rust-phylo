@@ -14,6 +14,8 @@ macro_rules! align {
 
 #[cfg(test)]
 fn setup_test_tree() -> (PhyloInfo, HashMap<usize, Alignment>) {
+    use crate::phylo_info::PhyloInfoBuilder;
+
     let sequences = vec![
         Record::with_attrs("A0", None, b"AAAAA"),
         Record::with_attrs("B1", None, b"A"),
@@ -31,7 +33,8 @@ fn setup_test_tree() -> (PhyloInfo, HashMap<usize, Alignment>) {
     tree.create_postorder();
     tree.create_preorder();
 
-    let info = PhyloInfo::from_sequences_tree(sequences, tree, &GapHandling::Ambiguous).unwrap();
+    let info =
+        PhyloInfoBuilder::build_from_objects(sequences, tree, GapHandling::Ambiguous).unwrap();
     // ((0:1.0, 1:1.0)5:1.0,(2:1.0,(3:1.0, 4:1.0)6:1.0)7:1.0)8:1.0;
     let alignment = HashMap::<usize, Alignment>::from([
         (5, Alignment::new(align!(0 1 2 3 4), align!(- - - 0 -))),

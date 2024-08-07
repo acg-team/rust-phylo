@@ -13,7 +13,8 @@ use crate::{
 
 #[test]
 fn reading_correct_fasta() {
-    let sequences = read_sequences_from_file(PathBuf::from("./data/sequences_DNA1.fasta")).unwrap();
+    let sequences =
+        read_sequences_from_file(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap();
     assert_eq!(sequences.len(), 4);
     for seq in sequences {
         assert_eq!(seq.seq().len(), 5);
@@ -21,7 +22,7 @@ fn reading_correct_fasta() {
 
     let corr_lengths = [1, 2, 2, 4];
     let sequences =
-        read_sequences_from_file(PathBuf::from("./data/sequences_DNA2_unaligned.fasta")).unwrap();
+        read_sequences_from_file(&PathBuf::from("./data/sequences_DNA2_unaligned.fasta")).unwrap();
     assert_eq!(sequences.len(), 4);
     for (i, seq) in sequences.into_iter().enumerate() {
         assert_eq!(seq.seq().len(), corr_lengths[i]);
@@ -33,12 +34,14 @@ fn reading_correct_fasta() {
 #[case::garbage_sequence("./data/sequences_garbage_non-ascii.fasta")]
 #[case::weird_chars("./data/sequences_garbage_weird_symbols.fasta")]
 fn reading_incorrect_fasta(#[case] input: &str) {
-    assert!(read_sequences_from_file(PathBuf::from(input)).is_err());
+    assert!(read_sequences_from_file(&PathBuf::from(input)).is_err());
 }
 
 #[test]
 fn reading_nonexistent_fasta() {
-    assert!(read_sequences_from_file(PathBuf::from("./data/sequences_nonexistent.fasta")).is_err());
+    assert!(
+        read_sequences_from_file(&PathBuf::from("./data/sequences_nonexistent.fasta")).is_err()
+    );
 }
 
 #[test]

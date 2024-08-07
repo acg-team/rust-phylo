@@ -119,7 +119,6 @@ pub trait EvolutionaryModel {
     fn q(&self) -> &SubstMatrix;
     fn rate(&self, i: u8, j: u8) -> f64;
     fn freqs(&self) -> &FreqVector;
-    fn char_probability(&self, char_encoding: &FreqVector) -> FreqVector;
     fn index(&self) -> &[usize; 255];
     fn params(&self) -> &Self::Params;
 }

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::ops::Mul;
 use std::vec;
@@ -106,16 +107,6 @@ where
         &self.params.pi
     }
 
-    fn char_probability(&self, char_encoding: &FreqVector) -> FreqVector {
-        let mut probs = self.freqs().clone().component_mul(char_encoding);
-        if probs.sum() == 0.0 {
-            probs.fill_row(SubstModel::N, 1.0);
-        } else {
-            probs.scale_mut(1.0 / probs.sum());
-        }
-        probs
-    }
-
     fn index(&self) -> &[usize; 255] {
         &self.index
     }
@@ -144,9 +135,8 @@ pub struct PIPModelInfo<SubstModel: SubstitutionModel> {
     models_valid: Vec<bool>,
 }
 
-impl<SubstModel: SubstitutionModel> EvoModelInfo for PIPModelInfo<SubstModel>
+impl<SubstModel: SubstitutionModel + Clone> EvoModelInfo for PIPModelInfo<SubstModel>
 where
-    SubstModel: Clone,
     SubstModel::Params: Clone,
     SubstModel::ModelType: Clone,
 {
@@ -158,9 +148,11 @@ where
         }
         let node_count = info.tree.nodes.len();
         let msa_length = info.msa_length();
-        let mut leaf_seq_info = info.leaf_encoding.clone();
-        for (_, leaf_seq) in leaf_seq_info.iter_mut() {
-            for mut site_info in leaf_seq.column_iter_mut() {
+        let mut leaf_seq_info: HashMap<String, DMatrix<f64>> = HashMap::new();
+        for (id, leaf_seq) in info.leaf_encoding().iter() {
+            let mut leaf_seq_w_gaps = leaf_seq.clone().insert_row(SubstModel::N, 0.0);
+            println!("{:?}", leaf_seq_w_gaps);
+            for mut site_info in leaf_seq_w_gaps.column_iter_mut() {
                 site_info.component_mul_assign(model.freqs());
                 if site_info.sum() == 0.0 {
                     site_info.fill_row(SubstModel::N, 1.0);
@@ -168,7 +160,9 @@ where
                     site_info.scale_mut((1.0) / site_info.sum());
                 }
             }
+            leaf_seq_info.insert(id.clone(), leaf_seq_w_gaps);
         }
+
         let ftilde = info
             .tree
             .nodes

@@ -8,16 +8,17 @@ use crate::evolutionary_models::{
 };
 use crate::likelihood::LikelihoodCostFunction;
 use crate::optimisers::pip_model_optimiser::PIPDNAModelOptimiser;
-use crate::phylo_info::{GapHandling, PhyloInfo};
+use crate::phylo_info::{GapHandling, PhyloInfoBuilder};
 use crate::pip_model::{PIPDNAParams, PIPLikelihoodCost, PIPModel};
 
 #[test]
 fn check_parameter_optimisation_pip_arpiptest() {
-    let info = PhyloInfo::from_files(
+    let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/pip/arpip/msa.fasta"),
         PathBuf::from("./data/pip/arpip/tree.nwk"),
-        &GapHandling::Proper,
+        GapHandling::Proper,
     )
+    .build()
     .unwrap();
 
     let model = PIPModel::new(
@@ -41,11 +42,12 @@ fn check_parameter_optimisation_pip_arpiptest() {
 
 #[test]
 fn test_optimisation_pip_propip_example() {
-    let info = PhyloInfo::from_files(
+    let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/pip/propip/msa.initial.fasta"),
         PathBuf::from("./data/pip/propip/tree.nwk"),
-        &GapHandling::Proper,
+        GapHandling::Proper,
     )
+    .build()
     .unwrap();
 
     let model = PIPModel::new(
@@ -79,11 +81,12 @@ fn test_optimisation_pip_propip_example() {
 
 #[test]
 fn check_example_against_python_no_gaps() {
-    let info = PhyloInfo::from_files(
+    let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
-        &GapHandling::Proper,
+        GapHandling::Proper,
     )
+    .build()
     .unwrap();
 
     let pip_params = PIPDNAParams::new(
@@ -121,11 +124,12 @@ fn check_example_against_python_no_gaps() {
 
 #[test]
 fn check_parameter_optimisation_pip_gtr() {
-    let info = PhyloInfo::from_files(
+    let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/GTR/gtr.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        &GapHandling::Proper,
+        GapHandling::Proper,
     )
+    .build()
     .unwrap();
 
     let pip_params = PIPDNAParams::new(

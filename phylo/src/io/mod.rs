@@ -40,13 +40,13 @@ impl Error for DataError {}
 /// ```
 /// use phylo::io::read_sequences_from_file;
 /// use std::path::PathBuf;
-/// let records = read_sequences_from_file(PathBuf::from("./data/sequences_DNA_small.fasta")).unwrap();
+/// let records = read_sequences_from_file(&PathBuf::from("./data/sequences_DNA_small.fasta")).unwrap();
 /// # assert_eq!(records.len(), 4);
 /// # for rec in records {
 /// #    assert_eq!(rec.seq().len(), 7);
 /// # }
 /// ```
-pub fn read_sequences_from_file(path: PathBuf) -> Result<Vec<Record>> {
+pub fn read_sequences_from_file(path: &PathBuf) -> Result<Vec<Record>> {
     info!("Reading sequences from file {}.", path.display());
     let reader = Reader::from_file(path)?;
     let mut sequences = Vec::new();
@@ -131,11 +131,11 @@ pub fn write_sequences_to_file(sequences: &[Record], path: PathBuf) -> Result<()
 /// ```
 /// use phylo::io::read_newick_from_file;
 /// use std::path::PathBuf;
-/// let trees = read_newick_from_file(PathBuf::from("./data/tree.newick")).unwrap();
+/// let trees = read_newick_from_file(&PathBuf::from("./data/tree.newick")).unwrap();
 /// # assert_eq!(trees.len(), 1);
 /// # assert_eq!(trees[0].leaves().len(), 4);
 /// ```
-pub fn read_newick_from_file(path: PathBuf) -> Result<Vec<Tree>> {
+pub fn read_newick_from_file(path: &PathBuf) -> Result<Vec<Tree>> {
     info!("Reading newick trees from file {}.", path.display());
     let newick = fs::read_to_string(path)?;
     info!("Read file successfully.");

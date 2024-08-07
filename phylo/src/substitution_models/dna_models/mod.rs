@@ -1,5 +1,6 @@
 use log::{info, warn};
 
+use crate::alphabets::NUCLEOTIDE_INDEX;
 use crate::evolutionary_models::{DNAModelType, EvoModelParams};
 use crate::substitution_models::{
     FreqVector, SubstMatrix, SubstModel, SubstModelInfo, SubstitutionLikelihoodCost,
@@ -21,11 +22,6 @@ impl SubstitutionModel for DNASubstModel {
     type ModelType = DNAModelType;
     type Params = DNASubstParams;
     const N: usize = 4;
-    const ALPHABET: &'static [u8] = b"TCAG";
-
-    fn char_sets() -> &'static [FreqVector] {
-        &DNA_SETS
-    }
 
     fn create(params: &DNASubstParams) -> DNASubstModel {
         let q = match params.model_type {

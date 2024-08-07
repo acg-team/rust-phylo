@@ -28,9 +28,7 @@ pub trait SubstitutionModel {
     type ModelType;
     type Params: EvoModelParams<ModelType = Self::ModelType>;
     const N: usize;
-    const ALPHABET: &'static [u8];
 
-    fn char_sets() -> &'static [FreqVector];
     fn create(params: &Self::Params) -> Self;
     fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
     where
@@ -130,14 +128,6 @@ where
         SubstitutionModel::freqs(self)
     }
 
-    fn char_probability(&self, char_encoding: &FreqVector) -> FreqVector {
-        let mut probs = SubstitutionModel::freqs(self)
-            .clone()
-            .component_mul(char_encoding);
-        probs.scale_mut(1.0 / probs.sum());
-        probs
-    }
-
     fn index(&self) -> &[usize; 255] {
         SubstitutionModel::index(self)
     }
@@ -193,22 +183,7 @@ impl<'a, SubstModel: SubstitutionModel + 'a> LikelihoodCostFunction
     }
 
     fn empirical_frequencies(&self) -> FreqVector {
-        let all_counts = self.info.counts();
-        let mut total = all_counts.values().sum::<f64>();
-        let index = SubstitutionModel::index(self.model);
-        let mut freqs = FreqVector::from_column_slice(&vec![0.0; Self::Model::N]);
-        for (&char, &count) in all_counts.iter() {
-            freqs += &Self::Model::char_sets()[char as usize].scale(count);
-        }
-        for &char in Self::Model::ALPHABET {
-            if freqs[index[char as usize]] == 0.0 {
-                freqs[index[char as usize]] += 1.0;
-                total += 1.0;
-            }
-        }
-        let scaler = 1.0 / total;
-        freqs.scale_mut(scaler);
-        freqs
+        self.info.freqs()
     }
 }
 
@@ -324,7 +299,7 @@ impl<SubstModel: SubstitutionModel> SubstModelInfo<SubstModel> {
         let node_count = info.tree.nodes.len();
         let msa_length = info.msa_length();
 
-        let mut leaf_sequence_info = info.leaf_encoding.clone();
+        let mut leaf_sequence_info = info.leaf_encoding().clone();
         for (_, leaf_seq) in leaf_sequence_info.iter_mut() {
             for mut site_info in leaf_seq.column_iter_mut() {
                 site_info.component_mul_assign(model.freqs());

@@ -1,6 +1,5 @@
 use rstest::*;
 
-use std::collections::HashMap;
 use std::iter::repeat;
 use std::ops::Mul;
 
@@ -8,19 +7,17 @@ use approx::assert_relative_eq;
 use nalgebra::dvector;
 use rand::Rng;
 
+use crate::alphabets::AMINOACIDS;
 use crate::evolutionary_models::{
     DNAModelType::{self, *},
     EvolutionaryModel,
     ProteinModelType::{self, *},
 };
-use crate::sequences::AMINOACIDS;
 use crate::substitution_models::dna_models::dna_model_generics::{
     gtr_params, hky_params, jc69_params, k80_params, tn93_params,
 };
-use crate::substitution_models::dna_models::{DNASubstModel, DNA_SETS};
-use crate::substitution_models::protein_models::{
-    ProteinSubstArray, ProteinSubstModel, BLOSUM_PI_ARR, HIVB_PI_ARR, PROTEIN_SETS, WAG_PI_ARR,
-};
+use crate::substitution_models::dna_models::DNASubstModel;
+use crate::substitution_models::protein_models::{ProteinSubstArray, ProteinSubstModel};
 use crate::substitution_models::{FreqVector, ParsimonyModel, SubstMatrix};
 use crate::Rounding as R;
 
@@ -30,65 +27,6 @@ fn check_pi_convergence(substmat: SubstMatrix, pi: &FreqVector, epsilon: f64) {
     for row in substmat.row_iter() {
         assert_relative_eq!(row.sum(), 1.0, epsilon = epsilon);
         assert_relative_eq!(row, pi.transpose().as_view(), epsilon = epsilon);
-    }
-}
-
-#[cfg(test)]
-pub(crate) fn gtr_char_probs_data() -> (Vec<f64>, HashMap<u8, FreqVector>) {
-    (
-        [0.21, 0.30, 0.34, 0.15]
-            .into_iter()
-            .chain(repeat(0.7).take(6))
-            .collect::<Vec<f64>>(),
-        HashMap::from([
-            (b'T', dvector![1.0, 0.0, 0.0, 0.0]),
-            (b'C', dvector![0.0, 1.0, 0.0, 0.0]),
-            (b'A', dvector![0.0, 0.0, 1.0, 0.0]),
-            (b'G', dvector![0.0, 0.0, 0.0, 1.0]),
-            (b'X', dvector![0.21, 0.30, 0.34, 0.15]),
-            (b'N', dvector![0.21, 0.30, 0.34, 0.15]),
-            (b'Z', dvector![0.21, 0.30, 0.34, 0.15]),
-            (b'P', dvector![0.21, 0.30, 0.34, 0.15]),
-            (b'V', dvector![0.0, 0.37974684, 0.43037975, 0.18987342]),
-            (b'D', dvector![0.3, 0.0, 0.48571429, 0.21428571]),
-            (b'B', dvector![0.31818182, 0.45454545, 0.0, 0.22727273]),
-            (b'H', dvector![0.24705882, 0.35294118, 0.4, 0.0]),
-            (b'M', dvector![0.0, 0.46875, 0.53125, 0.0]),
-            (b'R', dvector![0.0, 0.0, 0.69387755, 0.30612245]),
-            (b'W', dvector![0.38181818, 0.0, 0.61818182, 0.0]),
-            (b'S', dvector![0.0, 0.66666667, 0.0, 0.33333333]),
-            (b'Y', dvector![0.41176471, 0.58823529, 0.0, 0.0]),
-            (b'K', dvector![0.58333333, 0.0, 0.0, 0.41666667]),
-        ]),
-    )
-}
-
-#[cfg(test)]
-pub(crate) fn protein_char_probs_data(pi: &[f64]) -> HashMap<u8, FreqVector> {
-    HashMap::from([
-        (b'A', compile_aa_probability(&[b'A'], pi)),
-        (b'R', compile_aa_probability(&[b'R'], pi)),
-        (b'W', compile_aa_probability(&[b'W'], pi)),
-        (b'B', compile_aa_probability(&[b'D', b'N'], pi)),
-        (b'Z', compile_aa_probability(&[b'E', b'Q'], pi)),
-        (b'J', compile_aa_probability(&[b'I', b'L'], pi)),
-        (b'X', frequencies!(pi)),
-    ])
-}
-
-#[cfg(test)]
-fn compile_aa_probability(chars: &[u8], pi: &[f64]) -> FreqVector {
-    let mut char_probs = frequencies!(&[0.0; 20]);
-    if chars.len() == 1 {
-        char_probs[AMINOACIDS.iter().position(|&x| x == chars[0]).unwrap()] = 1.0;
-        char_probs
-    } else {
-        for c in chars {
-            let position = AMINOACIDS.iter().position(|&x| x == *c).unwrap();
-            char_probs[position] = pi[position];
-        }
-        char_probs.scale_mut(1.0 / char_probs.sum());
-        char_probs
     }
 }
 
@@ -356,13 +294,18 @@ fn dna_incorrect_gtr_params() {
     assert!(DNASubstModel::new(GTR, &repeat(0.4).take(10).collect::<Vec<f64>>()).is_err());
 }
 
-#[test]
-fn dna_p_matrix() {
-    let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
-    let p_inf = EvolutionaryModel::p(&jc69, 200000.0);
+#[rstest]
+#[case::jc69(JC69, &[])]
+#[case::k80(K80, &[])]
+#[case::hky(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5])]
+#[case::tn93(TN93, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
+#[case::gtr(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
+fn dna_infinity_p(#[case] model_type: DNAModelType, #[case] params: &[f64]) {
+    let model = DNASubstModel::new(model_type, params).unwrap();
+    let p_inf = EvolutionaryModel::p(&model, 200000.0);
     assert_eq!(p_inf.nrows(), 4);
     assert_eq!(p_inf.ncols(), 4);
-    check_pi_convergence(p_inf, &jc69.params.pi, 1e-5);
+    check_pi_convergence(p_inf, &model.params.pi, 1e-5);
 }
 
 #[test]
@@ -397,61 +340,6 @@ fn dna_normalisation() {
     assert_relative_eq!(
         (tn93.q.diagonal().transpose().mul(tn93.params.pi))[(0, 0)],
         -1.0
-    );
-}
-
-#[test]
-fn dna_char_probabilities() {
-    let (params, char_probs) = gtr_char_probs_data();
-    let gtr = DNASubstModel::new(GTR, &params).unwrap();
-    for (&char, expected) in char_probs.iter() {
-        let actual = gtr.char_probability(&DNA_SETS[char as usize]);
-        assert_relative_eq!(actual.sum(), 1.0);
-        assert_relative_eq!(actual, expected, epsilon = 1e-4);
-    }
-}
-
-#[rstest]
-#[case::wag(WAG, &WAG_PI_ARR, 1e-8)]
-#[case::blosum(BLOSUM, &BLOSUM_PI_ARR, 1e-5)]
-#[case::hivb(HIVB, &HIVB_PI_ARR, 1e-8)]
-fn protein_char_probabilities(
-    #[case] model_type: ProteinModelType,
-    #[case] pi_array: &[f64],
-    #[case] epsilon: f64,
-) {
-    let model = ProteinSubstModel::new(model_type, &[]).unwrap();
-    let expected = protein_char_probs_data(pi_array);
-    for (char, expected_probs) in expected.into_iter() {
-        let actual = model.char_probability(&PROTEIN_SETS[char as usize]);
-        assert_relative_eq!(actual.sum(), 1.0, epsilon = epsilon);
-        assert_relative_eq!(actual, expected_probs, epsilon = epsilon);
-    }
-}
-
-#[rstest]
-#[case::wag(WAG)]
-#[case::blosum(BLOSUM)]
-#[case::hivb(HIVB)]
-fn protein_weird_char_probabilities(#[case] model_type: ProteinModelType) {
-    let model = ProteinSubstModel::new(model_type, &[]).unwrap();
-    assert_eq!(
-        EvolutionaryModel::char_probability(&model, &PROTEIN_SETS[b'.' as usize]),
-        EvolutionaryModel::char_probability(&model, &PROTEIN_SETS[b'X' as usize])
-    );
-}
-
-#[rstest]
-#[case::jc69(JC69, &[])]
-#[case::k80(K80, &[])]
-#[case::hky(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5])]
-#[case::tn93(TN93, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
-#[case::gtr(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-fn dna_weird_char_probabilities(#[case] model_type: DNAModelType, #[case] params: &[f64]) {
-    let model = DNASubstModel::new(model_type, params).unwrap();
-    assert_eq!(
-        EvolutionaryModel::char_probability(&model, &DNA_SETS[b'.' as usize]),
-        EvolutionaryModel::char_probability(&model, &DNA_SETS[b'X' as usize]),
     );
 }
 
