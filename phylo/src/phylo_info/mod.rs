@@ -286,7 +286,7 @@ impl PhyloInfo {
     pub fn freqs(&self) -> FreqVector {
         let alphabet = alphabet_from_type(self.model_type, &self.gap_handling);
         let mut freqs = alphabet.empty_freqs();
-        for char in alphabet.all_symbols().into_iter() {
+        for &char in alphabet.symbols().iter().chain(alphabet.ambiguous()) {
             let count = self
                 .sequences
                 .iter()
@@ -294,9 +294,10 @@ impl PhyloInfo {
                 .sum::<usize>() as f64;
             freqs += alphabet.char_encoding(char).scale(count);
         }
-        for char in alphabet.symbols().into_iter() {
-            if freqs[alphabet.index()[char as usize]] == 0.0 {
-                freqs[alphabet.index()[char as usize]] = 1.0;
+        for char in alphabet.symbols().iter() {
+            let idx = alphabet.index(char);
+            if freqs[idx] == 0.0 {
+                freqs[idx] = 1.0;
             }
         }
         freqs.scale_mut(1.0 / freqs.sum());
