@@ -119,7 +119,6 @@ impl PhyloInfoBuilder {
     ) -> Result<PhyloInfo> {
         Self::check_sequences_not_empty(&sequences)?;
         let sequences = make_sequences_uppercase(&sequences);
-
         Self::validate_tree_sequence_ids(&tree, &sequences)?;
 
         let msa: Option<Vec<Record>> = Self::msa_if_aligned(&sequences);

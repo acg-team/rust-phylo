@@ -42,6 +42,12 @@ impl From<&NodeIdx> for usize {
     }
 }
 
+impl From<NodeIdx> for usize {
+    fn from(node_idx: NodeIdx) -> usize {
+        Self::from(&node_idx)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Node {
     pub idx: NodeIdx,
@@ -202,11 +208,11 @@ impl Tree {
         self.nodes[usize::from(idx)].blen = blen;
     }
 
-    pub fn add_parent_to_child_no_blen(&mut self, idx: &NodeIdx, parent_idx: &NodeIdx) {
+    pub(crate) fn add_parent_to_child_no_blen(&mut self, idx: &NodeIdx, parent_idx: &NodeIdx) {
         self.nodes[usize::from(idx)].add_parent(parent_idx);
     }
 
-    pub fn create_postorder(&mut self) {
+    pub(crate) fn create_postorder(&mut self) {
         debug_assert!(self.complete);
         if self.postorder.is_empty() {
             let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
@@ -226,15 +232,19 @@ impl Tree {
         }
     }
 
-    pub fn create_preorder(&mut self) {
+    pub(crate) fn create_preorder(&mut self) {
         debug_assert!(self.complete);
         if self.preorder.is_empty() {
-            self.preorder = self.preorder_subroot(self.root);
+            self.preorder = self.preorder_subroot(Some(self.root));
         }
     }
 
-    pub fn preorder_subroot(&self, subroot_idx: NodeIdx) -> Vec<NodeIdx> {
+    pub fn preorder_subroot(&self, subroot_idx: Option<NodeIdx>) -> Vec<NodeIdx> {
         debug_assert!(self.complete);
+        let subroot_idx = match subroot_idx {
+            Some(idx) => idx,
+            None => self.root,
+        };
         let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
         let mut stack = Vec::<NodeIdx>::with_capacity(self.nodes.len());
         let mut cur_root = subroot_idx;
@@ -263,11 +273,11 @@ impl Tree {
         lengths
     }
 
-    pub fn idx_by_id(&self, id: &str) -> Result<usize> {
+    pub fn idx(&self, id: &str) -> Result<usize> {
         debug_assert!(self.complete);
         let idx = self.nodes.iter().position(|node| node.id == id);
         if let Some(idx) = idx {
-            return Ok((&self.nodes[idx].idx).into());
+            return Ok(idx);
         }
         bail!("No node with id {} found in the tree", id);
     }

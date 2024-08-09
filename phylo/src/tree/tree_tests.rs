@@ -55,7 +55,6 @@ fn idx_by_id() {
     .unwrap()
     .pop()
     .unwrap();
-    println!("{:?}", tree.nodes);
     let nodes = [
         ("A", L(3)),
         ("B", L(4)),
@@ -66,23 +65,27 @@ fn idx_by_id() {
         ("G", I(0)),
     ];
     for (id, idx) in nodes.iter() {
-        assert!(tree.idx_by_id(id).is_ok());
-        assert_eq!(tree.idx_by_id(id).unwrap(), usize::from(idx));
+        assert!(tree.idx(id).is_ok());
+        assert_eq!(tree.idx(id).unwrap(), usize::from(idx));
     }
-    assert!(tree.idx_by_id("H").is_err());
+    assert!(tree.idx("H").is_err());
 }
 
 #[test]
 fn subroot_preorder() {
     let tree = setup_test_tree();
-    assert_eq!(tree.preorder_subroot(I(5)), [I(5), L(0), L(1)]);
-    assert_eq!(tree.preorder_subroot(I(6)), [I(6), L(3), L(4)]);
-    assert_eq!(tree.preorder_subroot(I(7)), [I(7), L(2), I(6), L(3), L(4)]);
+    assert_eq!(tree.preorder_subroot(Some(I(5))), [I(5), L(0), L(1)]);
+    assert_eq!(tree.preorder_subroot(Some(I(6))), [I(6), L(3), L(4)]);
     assert_eq!(
-        tree.preorder_subroot(I(8)),
+        tree.preorder_subroot(Some(I(7))),
+        [I(7), L(2), I(6), L(3), L(4)]
+    );
+    assert_eq!(
+        tree.preorder_subroot(Some(I(8))),
         [I(8), I(5), L(0), L(1), I(7), L(2), I(6), L(3), L(4)]
     );
-    assert_eq!(tree.preorder_subroot(I(8)), tree.preorder);
+    assert_eq!(tree.preorder_subroot(Some(I(8))), tree.preorder);
+    assert_eq!(tree.preorder_subroot(None), tree.preorder);
 }
 
 #[test]
@@ -214,7 +217,6 @@ fn nj_correct_2() {
         Record::with_attrs("D", None, b""),
     ];
     let tree = build_nj_tree_w_rng_from_matrix(nj_distances, &sequences, |_| 0).unwrap();
-    println!("{:?}", tree.root);
     assert_eq!(branch_length(&tree, "A"), 1.0);
     assert_eq!(branch_length(&tree, "B"), 3.0);
     assert_eq!(branch_length(&tree, "C"), 2.0);
@@ -222,7 +224,6 @@ fn nj_correct_2() {
     assert_eq!(tree.nodes[4].blen, 1.0);
     assert_eq!(tree.nodes[5].blen, 1.0);
     assert_eq!(tree.nodes.len(), 7);
-    println!("{:?}", tree.postorder);
     assert_eq!(tree.postorder.len(), 7);
     assert!(is_unique(&tree.postorder));
     assert_eq!(tree.preorder.len(), 7);
@@ -265,7 +266,7 @@ fn nj_correct_wiki_example() {
 }
 
 fn branch_length(tree: &Tree, id: &str) -> f64 {
-    tree.nodes[tree.idx_by_id(id).unwrap()].blen
+    tree.nodes[tree.idx(id).unwrap()].blen
 }
 
 #[test]

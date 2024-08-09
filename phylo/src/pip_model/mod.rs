@@ -151,7 +151,6 @@ where
         let mut leaf_seq_info: HashMap<String, DMatrix<f64>> = HashMap::new();
         for (id, leaf_seq) in info.leaf_encoding().iter() {
             let mut leaf_seq_w_gaps = leaf_seq.clone().insert_row(SubstModel::N, 0.0);
-            println!("{:?}", leaf_seq_w_gaps);
             for mut site_info in leaf_seq_w_gaps.column_iter_mut() {
                 site_info.component_mul_assign(model.freqs());
                 if site_info.sum() == 0.0 {
