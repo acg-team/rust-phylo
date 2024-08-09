@@ -153,6 +153,10 @@ impl Tree {
         }
     }
 
+    pub fn children(&self, node_idx: &NodeIdx) -> &Vec<NodeIdx> {
+        &self.nodes[usize::from(node_idx)].children
+    }
+
     pub fn to_newick(&self) -> String {
         format!("({});", self._to_newick(self.root))
     }
