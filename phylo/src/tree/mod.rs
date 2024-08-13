@@ -3,16 +3,17 @@ use std::fmt::{Debug, Display};
 use anyhow::bail;
 use approx::relative_eq;
 use bio::alignment::distance::levenshtein;
-use bio::io::fasta::Record;
 use inc_stats::Percentiles;
 use log::info;
 use nalgebra::{max, DMatrix};
 use rand::random;
 
+use crate::alignment::Sequences;
 use crate::tree::{
     nj_matrices::{Mat, NJMat},
     NodeIdx::{Internal as Int, Leaf},
 };
+
 use crate::{Result, Rounding};
 
 mod nj_matrices;
@@ -134,7 +135,7 @@ pub struct Tree {
 }
 
 impl Tree {
-    pub fn new(sequences: &[Record]) -> Result<Self> {
+    pub fn new(sequences: &Sequences) -> Result<Self> {
         let n = sequences.len();
         if n == 0 {
             bail!("No sequences provided, aborting.");
@@ -144,7 +145,12 @@ impl Tree {
                 root: Leaf(0),
                 postorder: vec![Leaf(0)],
                 preorder: vec![Leaf(0)],
-                nodes: vec![Node::new_leaf(0, None, 0.0, sequences[0].id().to_string())],
+                nodes: vec![Node::new_leaf(
+                    0,
+                    None,
+                    0.0,
+                    sequences.get(0).id().to_string(),
+                )],
                 complete: true,
                 n: 1,
             })
@@ -373,7 +379,7 @@ fn rng_len(l: usize) -> usize {
 
 fn build_nj_tree_w_rng_from_matrix(
     mut nj_data: NJMat,
-    sequences: &[Record],
+    sequences: &Sequences,
     rng: fn(usize) -> usize,
 ) -> Result<Tree> {
     let n = nj_data.distances.ncols();
@@ -397,23 +403,25 @@ fn build_nj_tree_w_rng_from_matrix(
     Ok(tree)
 }
 
-fn build_nj_tree_from_matrix(nj_data: NJMat, sequences: &[Record]) -> Result<Tree> {
+fn build_nj_tree_from_matrix(nj_data: NJMat, sequences: &Sequences) -> Result<Tree> {
     build_nj_tree_w_rng_from_matrix(nj_data, sequences, rng_len)
 }
 
-pub fn build_nj_tree(sequences: &[Record]) -> Result<Tree> {
+pub fn build_nj_tree(sequences: &Sequences) -> Result<Tree> {
     let nj_data = compute_distance_matrix(sequences);
     build_nj_tree_from_matrix(nj_data, sequences)
 }
 
-fn compute_distance_matrix(sequences: &[Record]) -> nj_matrices::NJMat {
+fn compute_distance_matrix(sequences: &Sequences) -> nj_matrices::NJMat {
     let nseqs = sequences.len();
     let mut distances = DMatrix::zeros(nseqs, nseqs);
     for i in 0..nseqs {
         for j in (i + 1)..nseqs {
-            let lev_dist = levenshtein(sequences[i].seq(), sequences[j].seq()) as f64;
+            let seq_i = sequences.get(i).seq();
+            let seq_j = sequences.get(j).seq();
+            let lev_dist = levenshtein(seq_i, seq_j) as f64;
             let proportion_diff = f64::min(
-                lev_dist / (max(sequences[i].seq().len(), sequences[j].seq().len()) as f64),
+                lev_dist / (max(seq_i.len(), seq_j.len()) as f64),
                 0.75 - f64::EPSILON,
             );
             let corrected_dist = -3.0 / 4.0 * (1.0 - 4.0 / 3.0 * proportion_diff).ln();

@@ -6,11 +6,12 @@ use bio::io::fasta::Record;
 use log::{info, warn};
 use nalgebra::DMatrix;
 
+use crate::alignment::{Alignment, AlignmentBuilder, Sequences};
 use crate::alphabets::{alphabet_from_type, sequence_type};
 use crate::evolutionary_models::ModelType;
 use crate::io::{self, DataError};
 use crate::substitution_models::FreqVector;
-use crate::tree::{build_nj_tree, Tree};
+use crate::tree::{build_nj_tree, NodeIdx, Tree};
 use crate::Result;
 
 /// Gap handling options. Ambiguous means that gaps are treated as unknown characters (X),
@@ -77,13 +78,6 @@ impl PhyloInfoBuilder {
     ///     .build()
     ///     .unwrap();
     /// assert!(info.has_msa());
-    /// for (i, node) in info.tree.leaves().iter().enumerate() {
-    ///     assert!(info.sequences[i].id() == node.id);
-    /// }
-    /// for rec in info.sequences.iter() {
-    ///     assert!(!rec.seq().is_empty());
-    ///     assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
-    /// }
     /// ```
     pub fn with_attrs(
         sequence_file: PathBuf,
@@ -113,23 +107,51 @@ impl PhyloInfoBuilder {
     }
 
     pub(crate) fn build_from_objects(
-        sequences: Vec<Record>,
+        sequences: Sequences,
         tree: Tree,
         gap_handling: GapHandling,
     ) -> Result<PhyloInfo> {
-        Self::check_sequences_not_empty(&sequences)?;
-        let sequences = make_sequences_uppercase(&sequences);
+        if sequences.is_empty() {
+            bail!(DataError {
+                message: String::from("No sequences provided, aborting.")
+            });
+        }
+        let sequences = sequences.make_uppercase();
         Self::validate_tree_sequence_ids(&tree, &sequences)?;
+        let msa = AlignmentBuilder::new(&tree, sequences).build()?;
+        let leaf_encoding = Self::leaf_encoding(&msa.seqs, &gap_handling);
 
-        let msa: Option<Vec<Record>> = Self::msa_if_aligned(&sequences);
-        let model_type = sequence_type(&sequences);
         Ok(PhyloInfo {
-            sequences,
-            model_type,
-            tree,
+            model_type: sequence_type(&msa.seqs),
+            tree: tree.clone(),
             msa,
             gap_handling,
+            leaf_encoding,
         })
+    }
+
+    /// Creates a vector of leaf encodings for the ungapped sequences.
+    /// Used for the likelihood calculation to avoid having to get the character encoding
+    /// from scratch every time the likelihood is optimised.
+    fn leaf_encoding(
+        sequences: &Sequences,
+        gap_handling: &GapHandling,
+    ) -> HashMap<String, DMatrix<f64>> {
+        let alphabet = alphabet_from_type(sequence_type(sequences), gap_handling);
+        let mut leaf_encoding = HashMap::with_capacity(sequences.len());
+        for seq in sequences.iter() {
+            leaf_encoding.insert(
+                seq.id().to_string(),
+                DMatrix::from_columns(
+                    seq.seq()
+                        .iter()
+                        .map(|&c| alphabet.char_encoding(c))
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                ),
+            );
+        }
+        leaf_encoding
     }
 
     pub fn build(self) -> Result<PhyloInfo> {
@@ -137,7 +159,7 @@ impl PhyloInfoBuilder {
             "Reading sequences from file {}",
             self.sequence_file.display()
         );
-        let sequences = io::read_sequences_from_file(&self.sequence_file)?;
+        let sequences = Sequences::new(io::read_sequences_from_file(&self.sequence_file)?);
         info!("{} sequence(s) read successfully", sequences.len());
 
         let tree = match &self.tree_file {
@@ -156,45 +178,30 @@ impl PhyloInfoBuilder {
         Self::build_from_objects(sequences, tree, self.gap_handling)
     }
 
-    /// Returns a vector of records representing the MSA if all the sequences are of the same length.
-    /// Otherwise returns None.
-    ///
-    /// # Arguments
-    /// * `sequences` - Vector of fasta records.
-    fn msa_if_aligned(sequences: &[Record]) -> Option<Vec<Record>> {
-        let sequence_length = sequences[0].seq().len();
-        if sequences
-            .iter()
-            .filter(|rec| rec.seq().len() != sequence_length)
-            .count()
-            == 0
-        {
-            Some(sequences.to_vec())
-        } else {
-            None
-        }
-    }
-
-    /// Checks that there are sequences in the vector, bails with an error otherwise.
-    fn check_sequences_not_empty(sequences: &[Record]) -> Result<()> {
-        if sequences.is_empty() {
-            bail!(DataError {
-                message: String::from("No sequences provided, aborting.")
-            });
-        }
-        Ok(())
-    }
-
     /// Checks that the ids of the tree leaves and the sequences match, bails with an error otherwise.
-    fn validate_tree_sequence_ids(tree: &Tree, sequences: &[Record]) -> Result<()> {
+    fn validate_tree_sequence_ids(tree: &Tree, sequences: &Sequences) -> Result<()> {
         let tip_ids: HashSet<String> = HashSet::from_iter(tree.leaf_ids());
         let sequence_ids: HashSet<String> =
             HashSet::from_iter(sequences.iter().map(|rec| rec.id().to_string()));
-        info!("Checking that tree tip and sequence IDs match");
-        if (&tip_ids | &sequence_ids) != (&tip_ids & &sequence_ids) {
-            let discrepancy: HashSet<_> = tip_ids.symmetric_difference(&sequence_ids).collect();
+        info!("Checking that tree tip and sequence IDs match.");
+        let mut missing_tips = sequence_ids.difference(&tip_ids).collect::<Vec<_>>();
+        if !missing_tips.is_empty() {
+            missing_tips.sort();
             bail!(DataError {
-                message: format!("Mismatched IDs found: {:?}", discrepancy)
+                message: format!(
+                    "Mismatched IDs found, missing tree tip IDs: {:?}",
+                    missing_tips
+                )
+            });
+        }
+        let mut missing_seqs = tip_ids.difference(&sequence_ids).collect::<Vec<_>>();
+        if !missing_seqs.is_empty() {
+            missing_seqs.sort();
+            bail!(DataError {
+                message: format!(
+                    "Mismatched IDs found, missing sequence IDs: {:?}",
+                    missing_seqs
+                )
             });
         }
         Ok(())
@@ -224,41 +231,45 @@ impl PhyloInfoBuilder {
 pub struct PhyloInfo {
     /// Type of the sequences (DNA/Protein).
     pub model_type: ModelType,
-    /// Unaligned sequences.
-    pub sequences: Vec<Record>,
-    /// Multiple sequence alignment of the sequences, if they are aligned.
-    msa: Option<Vec<Record>>,
+    /// Multiple sequence alignment of the sequences
+    pub(crate) msa: Alignment,
     /// Phylogenetic tree.
     pub tree: Tree,
-    // pub leaf_encoding: HashMap<String, DMatrix<f64>>,
+    pub leaf_encoding: HashMap<String, DMatrix<f64>>,
     gap_handling: GapHandling,
 }
 
-/// Converts the given sequences to uppercase and returns a new vector.
-fn make_sequences_uppercase(sequences: &[Record]) -> Vec<Record> {
-    sequences
-        .iter()
-        .map(|rec| Record::with_attrs(rec.id(), rec.desc(), &rec.seq().to_ascii_uppercase()))
-        .collect()
-}
-
 impl PhyloInfo {
-    pub fn aligned_sequence(&self, id: &str) -> Option<&Record> {
-        self.msa
-            .as_ref()
-            .and_then(|msa| msa.iter().find(|rec| rec.id() == id))
-    }
+    // pub fn aligned_sequence(&self, _: &str) -> Option<&Record> {
+    //     todo!()
+    // }
 
     pub fn sequence(&self, id: &str) -> Option<&Record> {
-        self.sequences.iter().find(|rec| rec.id() == id)
+        self.msa.seqs.iter().find(|rec| rec.id() == id)
     }
 
     pub fn has_msa(&self) -> bool {
-        self.msa.is_some()
+        !self.msa.is_empty()
     }
 
     pub fn msa_length(&self) -> usize {
-        self.msa.as_ref().map(|msa| msa[0].seq().len()).unwrap_or(0)
+        self.msa.msa_len()
+    }
+
+    pub fn compile_alignment(&self, subroot: Option<NodeIdx>) -> Result<Vec<Record>> {
+        self.msa.compile(subroot, &self.tree)
+    }
+
+    pub fn leaf_encoding_by_id(&self, id: &str) -> Result<&DMatrix<f64>> {
+        let encoding = self.leaf_encoding.get(id);
+        if encoding.is_none() {
+            bail!("No encoding found for leaf with id {}", id);
+        }
+        Ok(encoding.unwrap())
+    }
+    pub fn leaf_encoding(&self, idx: &NodeIdx) -> Result<&DMatrix<f64>> {
+        let id = self.tree.node_id(idx);
+        self.leaf_encoding_by_id(id)
     }
 
     /// Returns the empirical frequencies of the symbols in the sequences.
@@ -273,13 +284,13 @@ impl PhyloInfo {
     /// use phylo::phylo_info::{GapHandling, PhyloInfoBuilder};
     /// use phylo::substitution_models::FreqVector;
     /// let info = PhyloInfoBuilder::with_attrs(
-    ///     PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
+    ///     PathBuf::from("./data/sequences_DNA1.fasta"),
     ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
     ///     GapHandling::Proper)
     /// .build()
     /// .unwrap();
     /// let freqs = info.freqs();
-    /// assert_eq!(freqs, frequencies!(&[1.0, 2.0, 5.0, 1.0]).scale(1.0 / 9.0));
+    /// assert_eq!(freqs, frequencies!(&[1.25, 2.25, 4.25, 1.25]).scale(1.0 / 9.0));
     /// assert_eq!(freqs.sum(), 1.0);
     /// ```
     pub fn freqs(&self) -> FreqVector {
@@ -287,7 +298,8 @@ impl PhyloInfo {
         let mut freqs = alphabet.empty_freqs();
         for &char in alphabet.symbols().iter().chain(alphabet.ambiguous()) {
             let count = self
-                .sequences
+                .msa
+                .seqs
                 .iter()
                 .map(|rec| rec.seq().iter().filter(|&c| c == &char).count())
                 .sum::<usize>() as f64;
@@ -301,27 +313,6 @@ impl PhyloInfo {
         }
         freqs.scale_mut(1.0 / freqs.sum());
         freqs
-    }
-
-    /// Creates a vector of leaf encodings for the ungapped sequences.
-    /// Used for the likelihood calculation to avoid having to get the character encoding
-    /// from scratch every time the likelihood is optimised.
-    pub fn leaf_encoding(&self) -> HashMap<String, DMatrix<f64>> {
-        let alphabet = alphabet_from_type(self.model_type, &self.gap_handling);
-        let mut leaf_encoding = HashMap::with_capacity(self.sequences.len());
-        for seq in self.sequences.iter() {
-            leaf_encoding.insert(
-                seq.id().to_string(),
-                DMatrix::from_columns(
-                    seq.seq()
-                        .iter()
-                        .map(|&c| alphabet.char_encoding(c))
-                        .collect::<Vec<_>>()
-                        .as_slice(),
-                ),
-            );
-        }
-        leaf_encoding
     }
 }
 

@@ -5,15 +5,16 @@ use std::path::PathBuf;
 use approx::assert_relative_eq;
 use bio::io::fasta::Record;
 
+use crate::alignment::Sequences;
 use crate::evolutionary_models::{
     DNAModelType::{self, *},
-    EvoModelInfo, EvolutionaryModel,
+    EvolutionaryModel,
     ProteinModelType::{self, *},
 };
 use crate::frequencies;
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::{GapHandling, PhyloInfo, PhyloInfoBuilder};
-use crate::substitution_models::dna_models::{DNASubstModel, DNASubstModelInfo};
+use crate::substitution_models::dna_models::DNASubstModel;
 use crate::substitution_models::protein_models::{ProteinLikelihoodCost, ProteinSubstModel};
 use crate::substitution_models::{FreqVector, SubstMatrix, SubstitutionLikelihoodCost};
 use crate::tree::{tree_parser, NodeIdx::Leaf as L, Tree};
@@ -28,10 +29,10 @@ fn tree_newick(newick: &str) -> Tree {
 
 #[cfg(test)]
 fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
-    let sequences = vec![
+    let sequences = Sequences::new(vec![
         Record::with_attrs("A0", None, b"A"),
         Record::with_attrs("B1", None, b"A"),
-    ];
+    ]);
     let mut tree = Tree::new(&sequences).unwrap();
     tree.add_parent(0, &L(0), &L(1), blen_i, blen_j);
     tree.complete = true;
@@ -62,30 +63,8 @@ fn dna_simple_likelihood() {
 }
 
 #[cfg(test)]
-fn setup_simple_phylo_info_no_alignment() -> PhyloInfo {
-    let sequences = vec![
-        Record::with_attrs("A0", None, b"AAAAAA"),
-        Record::with_attrs("B1", None, b"A"),
-    ];
-    let mut tree = Tree::new(&sequences).unwrap();
-    tree.add_parent(0, &L(0), &L(1), 2.0, 1.4);
-    tree.complete = true;
-    tree.create_postorder();
-    tree.create_preorder();
-    PhyloInfoBuilder::build_from_objects(sequences, tree, GapHandling::Ambiguous).unwrap()
-}
-
-#[test]
-fn dna_likelihood_no_msa() {
-    let info = setup_simple_phylo_info_no_alignment();
-    let model = DNASubstModel::new(JC69, &[]).unwrap();
-    let tmp = DNASubstModelInfo::new(&info, &model);
-    assert!(tmp.is_err());
-}
-
-#[cfg(test)]
 fn setup_phylo_info_single_leaf() -> PhyloInfo {
-    let sequences = vec![Record::with_attrs("A0", None, b"AAAAAA")];
+    let sequences = Sequences::new(vec![Record::with_attrs("A0", None, b"AAAAAA")]);
     let mut tree = Tree::new(&sequences).unwrap();
     tree.complete = true;
     tree.create_postorder();
@@ -103,12 +82,12 @@ fn dna_likelihood_one_node() {
 
 #[cfg(test)]
 fn setup_cb_example_phylo_info() -> PhyloInfo {
-    let sequences = vec![
+    let sequences = Sequences::new(vec![
         Record::with_attrs("one", None, b"C"),
         Record::with_attrs("two", None, b"A"),
         Record::with_attrs("three", None, b"T"),
         Record::with_attrs("four", None, b"G"),
-    ];
+    ]);
     let newick = "((one:2,two:2):1,(three:1,four:1):2);".to_string();
     PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick), GapHandling::Ambiguous)
         .unwrap()
@@ -154,13 +133,13 @@ fn dna_cb_example_likelihood() {
 
 #[cfg(test)]
 fn setup_mol_evo_example_phylo_info() -> PhyloInfo {
-    let sequences = vec![
+    let sequences = Sequences::new(vec![
         Record::with_attrs("one", None, b"T"),
         Record::with_attrs("two", None, b"C"),
         Record::with_attrs("three", None, b"A"),
         Record::with_attrs("four", None, b"C"),
         Record::with_attrs("five", None, b"C"),
-    ];
+    ]);
     let newick = "(((one:0.2,two:0.2):0.1,three:0.2):0.1,(four:0.2,five:0.2):0.1);".to_string();
     PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick), GapHandling::Ambiguous)
         .unwrap()
@@ -274,11 +253,11 @@ fn protein_example_likelihood(
 
 #[cfg(test)]
 fn simple_dna_reroot_info() -> (PhyloInfo, PhyloInfo) {
-    let sequences = vec![
+    let sequences = Sequences::new(vec![
         Record::with_attrs("A", None, b"CTATATATAC"),
         Record::with_attrs("B", None, b"ATATATATAA"),
         Record::with_attrs("C", None, b"TTATATATAT"),
-    ];
+    ]);
     let info = PhyloInfoBuilder::build_from_objects(
         sequences.clone(),
         tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
@@ -314,11 +293,11 @@ fn simple_dna_likelihood_reversibility(#[case] model_type: DNAModelType, #[case]
 
 #[cfg(test)]
 fn simple_protein_reroot_info() -> (PhyloInfo, PhyloInfo) {
-    let sequences = vec![
+    let sequences = Sequences::new(vec![
         Record::with_attrs("A", None, b"CTATATATACIJL"),
         Record::with_attrs("B", None, b"ATATATATAAIHL"),
         Record::with_attrs("C", None, b"TTATATATATIJL"),
-    ];
+    ]);
     let info = PhyloInfoBuilder::build_from_objects(
         sequences.clone(),
         tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
@@ -392,12 +371,12 @@ fn huelsenbeck_example_dna_reversibility_likelihood(
 
 #[test]
 fn empirical_frequencies_no_ambigs() {
-    let sequences = vec![
+    let sequences = Sequences::new(vec![
         Record::with_attrs("one", None, b"CCCCCCCC"),
         Record::with_attrs("two", None, b"AAAAAAAA"),
         Record::with_attrs("three", None, b"TTTTTTTT"),
         Record::with_attrs("four", None, b"GGGGGGGG"),
-    ];
+    ]);
     let newick = "((one:2,two:2):1,(three:1,four:1):2);".to_string();
     let info = PhyloInfoBuilder::build_from_objects(
         sequences,
@@ -412,13 +391,13 @@ fn empirical_frequencies_no_ambigs() {
 }
 
 #[test]
-fn empirical_frequencies_ambig_x_or_n() {
-    let sequences = vec![
+fn empirical_frequencies_ambig_x() {
+    let sequences = Sequences::new(vec![
         Record::with_attrs("on", None, b"XXXXXXXX"),
         Record::with_attrs("tw", None, b"XXXXXXXX"),
         Record::with_attrs("th", None, b"NNNNNNNN"),
         Record::with_attrs("fo", None, b"NNNNNNNN"),
-    ];
+    ]);
     let newick = "((on:2,tw:2):1,(th:1,fo:1):2);".to_string();
     let info = PhyloInfoBuilder::build_from_objects(
         sequences,
@@ -430,12 +409,16 @@ fn empirical_frequencies_ambig_x_or_n() {
     let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
     let freqs = likelihood.empirical_frequencies();
     assert_relative_eq!(freqs, frequencies!(&[0.25; 4]), epsilon = 1e-6);
-    let sequences = vec![
+}
+
+#[test]
+fn empirical_frequencies_ambig_n() {
+    let sequences = Sequences::new(vec![
         Record::with_attrs("on", None, b"AAAAAAAAAA"),
         Record::with_attrs("tw", None, b"XXXXXXXXXX"),
         Record::with_attrs("th", None, b"CCCCCCCCCC"),
         Record::with_attrs("fo", None, b"NNNNNNNNNN"),
-    ];
+    ]);
     let newick = "(((on:2,tw:2):1,th:1):4,fo:1);".to_string();
     let info = PhyloInfoBuilder::build_from_objects(
         sequences,
@@ -443,6 +426,7 @@ fn empirical_frequencies_ambig_x_or_n() {
         GapHandling::Ambiguous,
     )
     .unwrap();
+    let model = DNASubstModel::new(JC69, &[]).unwrap();
     let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
     let freqs = likelihood.empirical_frequencies();
     assert_relative_eq!(
@@ -453,11 +437,11 @@ fn empirical_frequencies_ambig_x_or_n() {
 }
 
 #[test]
-fn empirical_frequencies_ambig() {
-    let sequences = vec![
-        Record::with_attrs("A", None, b"VVVVVVVVV"),
-        Record::with_attrs("B", None, b"TTT"),
-    ];
+fn empirical_frequencies_ambig_other() {
+    let sequences = Sequences::new(vec![
+        Record::with_attrs("A", None, b"VVVVVVVVVV"),
+        Record::with_attrs("B", None, b"TTTTVVVTVV"),
+    ]);
     let newick = "(A:2,B:2):1.0;".to_string();
     let info = PhyloInfoBuilder::build_from_objects(
         sequences,
@@ -469,10 +453,10 @@ fn empirical_frequencies_ambig() {
     let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
     let freqs = likelihood.empirical_frequencies();
     assert_relative_eq!(freqs, frequencies!(&[0.25; 4]), epsilon = 1e-6);
-    let sequences = vec![
+    let sequences = Sequences::new(vec![
         Record::with_attrs("A", None, b"SSSSSSSSSSSSSSSSSSSS"),
         Record::with_attrs("B", None, b"WWWWWWWWWWWWWWWWWWWW"),
-    ];
+    ]);
     let info = PhyloInfoBuilder::build_from_objects(
         sequences,
         tree_newick(&newick),
@@ -486,7 +470,7 @@ fn empirical_frequencies_ambig() {
 
 #[test]
 fn empirical_frequencies_no_aas() {
-    let sequences = vec![Record::with_attrs("A", None, b"BBBBBBBBB")];
+    let sequences = Sequences::new(vec![Record::with_attrs("A", None, b"BBBBBBBBB")]);
     let newick = "A:1.0;".to_string();
     let info = PhyloInfoBuilder::build_from_objects(
         sequences,

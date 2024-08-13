@@ -71,4 +71,14 @@ impl Sequences {
             .collect();
         Sequences::new(seqs)
     }
+
+    /// Converts the given sequences to uppercase and returns a new vector.
+    pub fn make_uppercase(&self) -> Sequences {
+        let seqs = self
+            .s
+            .iter()
+            .map(|rec| Record::with_attrs(rec.id(), rec.desc(), &rec.seq().to_ascii_uppercase()))
+            .collect();
+        Sequences::new(seqs)
+    }
 }

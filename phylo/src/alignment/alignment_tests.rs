@@ -136,9 +136,10 @@ fn build_from_map() {
     let tree = tree();
     let unaligned_seqs = unaligned_seqs();
     let (node_map, leaf_map) = maps();
-    let msa = AlignmentBuilder::new(&tree, &unaligned_seqs)
+    let msa = AlignmentBuilder::new(&tree, unaligned_seqs.clone())
         .msa(node_map.clone())
-        .build();
+        .build()
+        .unwrap();
     assert_eq!(msa.node_map, node_map);
     assert_eq!(msa.leaf_map, leaf_map);
     assert_eq!(msa.seqs, unaligned_seqs);
@@ -150,7 +151,7 @@ fn build_from_aligned_sequences() {
     let unaligned_seqs = unaligned_seqs();
     let aligned_seqs = aligned_seqs(&["A0", "B1", "C2", "D3", "E4"]);
     let (node_map, leaf_map) = maps();
-    let msa = AlignmentBuilder::new(&tree, &aligned_seqs).build();
+    let msa = AlignmentBuilder::new(&tree, aligned_seqs).build().unwrap();
     assert_eq!(msa.node_map, node_map);
     assert_eq!(msa.leaf_map, leaf_map);
     assert_eq!(msa.seqs, unaligned_seqs);
@@ -161,16 +162,23 @@ fn different_build_compare() {
     let tree = tree();
     let unaligned_seqs = unaligned_seqs();
     let (node_map, _) = maps();
-    let msa = AlignmentBuilder::new(&tree, &unaligned_seqs)
+    let msa = AlignmentBuilder::new(&tree, unaligned_seqs)
         .msa(node_map.clone())
-        .build();
+        .build()
+        .unwrap();
     let aligned_seqs = aligned_seqs(&["A0", "B1", "C2", "D3", "E4"]);
-    let msa2 = AlignmentBuilder::new(&tree, &aligned_seqs).build();
+    let msa2 = AlignmentBuilder::new(&tree, aligned_seqs).build().unwrap();
     assert_eq!(msa.node_map, msa2.node_map);
     assert_eq!(msa.leaf_map, msa2.leaf_map);
     assert_eq!(msa.seqs, msa2.seqs);
-    assert_alignment_eq(&msa.compile(None), &msa2.compile(None));
-    assert_alignment_eq(&msa.compile(Some(I(4))), &msa2.compile(Some(I(4))))
+    assert_alignment_eq(
+        &msa.compile(None, &tree).unwrap(),
+        &msa2.compile(None, &tree).unwrap(),
+    );
+    assert_alignment_eq(
+        &msa.compile(Some(I(4)), &tree).unwrap(),
+        &msa2.compile(Some(I(4)), &tree).unwrap(),
+    )
 }
 
 #[test]
@@ -181,8 +189,10 @@ fn compile_msa_root() {
             .into_iter()
             .choose_multiple(&mut thread_rng(), 5),
     );
-    let msa = AlignmentBuilder::new(&tree, &aligned_seqs).build();
-    assert_alignment_eq(&msa.compile(None), &aligned_seqs.s);
+    let msa = AlignmentBuilder::new(&tree, aligned_seqs.clone())
+        .build()
+        .unwrap();
+    assert_alignment_eq(&msa.compile(None, &tree).unwrap(), &aligned_seqs.s);
 }
 
 #[test]
@@ -190,11 +200,15 @@ fn compile_msa_int1() {
     let tree = tree();
     let unaligned_seqs = unaligned_seqs();
     let (node_map, _) = maps();
-    let msa = AlignmentBuilder::new(&tree, &unaligned_seqs)
+    let msa = AlignmentBuilder::new(&tree, unaligned_seqs)
         .msa(node_map.clone())
-        .build();
+        .build()
+        .unwrap();
     let idx = tree.idx("I5").unwrap();
-    assert_alignment_eq(&msa.compile(Some(I(idx))), &(aligned_seqs(&["A0", "B1"])).s);
+    assert_alignment_eq(
+        &msa.compile(Some(I(idx)), &tree).unwrap(),
+        &(aligned_seqs(&["A0", "B1"])).s,
+    );
 }
 
 #[test]
@@ -202,9 +216,10 @@ fn compile_msa_int2() {
     let tree = tree();
     let unaligned_seqs = unaligned_seqs();
     let (node_map, _) = maps();
-    let msa = AlignmentBuilder::new(&tree, &unaligned_seqs)
+    let msa = AlignmentBuilder::new(&tree, unaligned_seqs)
         .msa(node_map.clone())
-        .build();
+        .build()
+        .unwrap();
     let idx = tree.idx("I6").unwrap();
     let d3 = aligned_seqs(&["D3"]).s.pop().unwrap();
     let e4 = aligned_seqs(&["E4"]).s.pop().unwrap();
@@ -212,7 +227,7 @@ fn compile_msa_int2() {
         Record::with_attrs(d3.id(), d3.desc(), b"-A-"),
         Record::with_attrs(e4.id(), e4.desc(), b"AAA"),
     ];
-    assert_alignment_eq(&msa.compile(Some(I(idx))), &data);
+    assert_alignment_eq(&msa.compile(Some(I(idx)), &tree).unwrap(), &data);
 }
 
 #[test]
@@ -220,12 +235,14 @@ fn compile_msa_leaf() {
     let tree = tree();
     let unaligned_seqs = unaligned_seqs();
     let (node_map, _) = maps();
-    let msa = AlignmentBuilder::new(&tree, &unaligned_seqs)
+    let msa = AlignmentBuilder::new(&tree, unaligned_seqs.clone())
         .msa(node_map.clone())
-        .build();
+        .build()
+        .unwrap();
     for leaf_id in tree.leaf_ids() {
         assert_alignment_eq(
-            &msa.compile(Some(L(tree.idx(&leaf_id).unwrap()))),
+            &msa.compile(Some(L(tree.idx(&leaf_id).unwrap())), &tree)
+                .unwrap(),
             &[unaligned_seqs.get_by_id(&leaf_id).clone()],
         );
     }

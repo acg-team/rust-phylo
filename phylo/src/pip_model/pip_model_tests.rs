@@ -6,25 +6,23 @@ use approx::assert_relative_eq;
 use bio::io::fasta::Record;
 use nalgebra::{dvector, DMatrix, DVector};
 
+use crate::alignment::Sequences;
 use crate::alphabets::{AMINOACIDS, GAP, NUCLEOTIDES};
+use crate::evolutionary_models::{
+    DNAModelType::{self, *},
+    EvoModelInfo, EvolutionaryModel,
+    ProteinModelType::{self, *},
+};
 use crate::frequencies;
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::{GapHandling, PhyloInfo, PhyloInfoBuilder};
-use crate::pip_model::{PIPLikelihoodCost, PIPModel, PIPModelInfo, PIPProteinModel};
+use crate::pip_model::{PIPDNAModel, PIPLikelihoodCost, PIPModel, PIPModelInfo, PIPProteinModel};
 use crate::substitution_models::dna_models::DNASubstModel;
 use crate::substitution_models::protein_models::{
     ProteinSubstModel, BLOSUM_PI_ARR, HIVB_PI_ARR, WAG_PI_ARR,
 };
 use crate::substitution_models::{FreqVector, SubstMatrix, SubstitutionModel};
 use crate::tree::{tree_parser, Tree};
-use crate::{
-    evolutionary_models::{
-        DNAModelType::{self, *},
-        EvoModelInfo, EvolutionaryModel,
-        ProteinModelType::{self, *},
-    },
-    pip_model::PIPDNAModel,
-};
 
 const UNNORMALIZED_PIP_HKY_Q: [f64; 25] = [
     -0.9, 0.11, 0.22, 0.22, 0.0, 0.13, -0.88, 0.26, 0.26, 0.0, 0.33, 0.33, -0.825, 0.165, 0.0,
@@ -267,27 +265,14 @@ fn pip_p_example_matrix() {
     );
 }
 
-#[test]
-fn pip_likelihood_no_msa() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
-        PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
-        GapHandling::Proper,
-    )
-    .build()
-    .unwrap();
-    let model_jc69 = PIPDNAModel::new(JC69, &[0.5, 0.25]).unwrap();
-    assert!(PIPModelInfo::<DNASubstModel>::new(&info, &model_jc69).is_err());
-}
-
 #[cfg(test)]
 fn setup_example_phylo_info() -> PhyloInfo {
-    let sequences = vec![
+    let sequences = Sequences::new(vec![
         Record::with_attrs("A", None, b"-A--"),
         Record::with_attrs("B", None, b"CA--"),
         Record::with_attrs("C", None, b"-A-G"),
         Record::with_attrs("D", None, b"-CAA"),
-    ];
+    ]);
     PhyloInfoBuilder::build_from_objects(
         sequences,
         tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"),
@@ -590,14 +575,12 @@ fn pip_hky_likelihood_example_final() {
 
 #[cfg(test)]
 fn setup_example_phylo_info_2() -> PhyloInfo {
-    use crate::phylo_info::PhyloInfoBuilder;
-
-    let sequences = vec![
+    let sequences = Sequences::new(vec![
         Record::with_attrs("A", None, b"--A--"),
         Record::with_attrs("B", None, b"-CA--"),
         Record::with_attrs("C", None, b"--A-G"),
         Record::with_attrs("D", None, b"T-CAA"),
-    ];
+    ]);
     PhyloInfoBuilder::build_from_objects(
         sequences,
         tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"),

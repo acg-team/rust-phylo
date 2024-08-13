@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::ops::Mul;
 
-use anyhow::bail;
 use nalgebra::{DMatrix, DVector};
 use ordered_float::OrderedFloat;
 
@@ -293,18 +292,24 @@ impl<SubstModel: SubstitutionModel> EvoModelInfo for SubstModelInfo<SubstModel> 
 
 impl<SubstModel: SubstitutionModel> SubstModelInfo<SubstModel> {
     fn new(info: &PhyloInfo, model: &SubstModel) -> Result<Self> {
-        if !info.has_msa() {
-            bail!("An MSA is required to set up the likelihood computation.");
-        }
-        let node_count = info.tree.nodes.len();
+        let node_count = info.tree.len();
         let msa_length = info.msa_length();
 
-        let mut leaf_sequence_info = info.leaf_encoding().clone();
-        for (_, leaf_seq) in leaf_sequence_info.iter_mut() {
-            for mut site_info in leaf_seq.column_iter_mut() {
-                site_info.component_mul_assign(model.freqs());
+        let mut leaf_sequence_info: HashMap<String, DMatrix<f64>> = HashMap::new();
+        for node in info.tree.leaves() {
+            let alignment_map = info.msa.leaf_map(&node.idx);
+            let leaf_encoding = info.leaf_encoding.get(&node.id).unwrap();
+            let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(SubstModel::N, msa_length);
+            for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
+                if let Some(c) = alignment_map[i] {
+                    site_info.copy_from(&leaf_encoding.column(c));
+                    site_info.component_mul_assign(model.freqs());
+                } else {
+                    site_info.copy_from(model.freqs());
+                }
                 site_info.scale_mut((1.0) / site_info.sum());
             }
+            leaf_sequence_info.insert(node.id.clone(), leaf_seq_w_gaps);
         }
         Ok(SubstModelInfo::<SubstModel> {
             phantom: PhantomData::<SubstModel>,

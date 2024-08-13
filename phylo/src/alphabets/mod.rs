@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
-use bio::io::fasta::Record;
 use lazy_static::lazy_static;
 
+use crate::alignment::Sequences;
 use crate::evolutionary_models::{
     DNAModelType,
     ModelType::{self, *},
@@ -55,9 +55,9 @@ impl Alphabet {
     }
 }
 
-pub fn sequence_type(sequences: &[Record]) -> ModelType {
+pub fn sequence_type(sequences: &Sequences) -> ModelType {
     let dna_alphabet = dna_alphabet(&GapHandling::Ambiguous);
-    for record in sequences {
+    for record in sequences.iter() {
         if !dna_alphabet.is_word(record.seq()) {
             return Protein(ProteinModelType::UNDEF);
         }
