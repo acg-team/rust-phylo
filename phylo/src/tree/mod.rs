@@ -44,16 +44,16 @@ impl Debug for NodeIdx {
 
 impl From<&NodeIdx> for usize {
     fn from(node_idx: &NodeIdx) -> usize {
-        match node_idx {
-            Int(idx) => *idx,
-            Leaf(idx) => *idx,
-        }
+        Self::from(*node_idx)
     }
 }
 
 impl From<NodeIdx> for usize {
     fn from(node_idx: NodeIdx) -> usize {
-        Self::from(&node_idx)
+        match node_idx {
+            Int(idx) => idx,
+            Leaf(idx) => idx,
+        }
     }
 }
 
