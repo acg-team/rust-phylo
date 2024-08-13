@@ -2,38 +2,15 @@ use std::collections::HashMap;
 
 use bio::io::fasta::Record;
 
-use crate::alphabets::GAP;
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
-use crate::Result;
+
+pub mod sequences;
+pub use sequences::*;
 
 pub type Position = Option<usize>;
 pub type Mapping = Vec<Option<usize>>;
-
-pub struct AlignmentBuilder<'a> {
-    tree: &'a Tree,
-    aligned_seqs: &'a [Record],
-}
-
-#[derive(Clone, Debug)]
-pub struct PairwiseAlignment {
-    map_x: Mapping,
-    map_y: Mapping,
-}
-
-impl PairwiseAlignment {
-    pub fn new(map_x: Mapping, map_y: Mapping) -> PairwiseAlignment {
-        debug_assert!((map_x.len() == map_y.len()) | map_y.is_empty());
-        PairwiseAlignment { map_x, map_y }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Alignment<'a> {
-    tree: &'a Tree,
-    sequences: Vec<Record>,
-    leaf_maps: Vec<Mapping>,
-    msa: HashMap<NodeIdx, PairwiseAlignment>,
-}
+pub type NodeMapping = HashMap<NodeIdx, PairwiseAlignment>;
+pub type LeafMapping = HashMap<NodeIdx, Mapping>;
 
 macro_rules! align {
     ($e:expr) => {{
@@ -51,9 +28,104 @@ macro_rules! align {
     }};
 }
 
+pub struct AlignmentBuilder<'a> {
+    tree: &'a Tree,
+    seqs: &'a Sequences,
+    node_map: NodeMapping,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PairwiseAlignment {
+    map_x: Mapping,
+    map_y: Mapping,
+}
+
+impl PairwiseAlignment {
+    pub fn new(map_x: Mapping, map_y: Mapping) -> PairwiseAlignment {
+        debug_assert!((map_x.len() == map_y.len()) | map_y.is_empty());
+        PairwiseAlignment { map_x, map_y }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Alignment<'a> {
+    tree: &'a Tree,
+    seqs: Sequences,
+    leaf_map: LeafMapping,
+    node_map: NodeMapping,
+}
+
+/// TODO: Implement try_build.
 impl<'a> AlignmentBuilder<'a> {
-    pub fn with_attrs(tree: &'a Tree, aligned_seqs: &'a [Record]) -> AlignmentBuilder<'a> {
-        AlignmentBuilder { tree, aligned_seqs }
+    pub fn new(tree: &'a Tree, seqs: &'a Sequences) -> AlignmentBuilder<'a> {
+        AlignmentBuilder {
+            tree,
+            seqs,
+            node_map: HashMap::new(),
+        }
+    }
+
+    pub fn msa(mut self, msa: NodeMapping) -> Self {
+        self.node_map = msa;
+        self
+    }
+
+    pub fn build(self) -> Alignment<'a> {
+        if self.node_map.is_empty() {
+            println!("Building from sequences");
+            self.build_from_seqs()
+        } else {
+            self.build_from_map()
+        }
+    }
+
+    /// This assumes that the tree structure matches the alignment structure and that the sequences are aligned.
+    fn build_from_seqs(self) -> Alignment<'a> {
+        let msa_len = self.seqs.msa_len();
+        let mut stack = HashMap::<NodeIdx, Mapping>::with_capacity(self.tree.len());
+        let mut msa = NodeMapping::with_capacity(self.tree.n);
+        for node in self.tree.postorder.iter() {
+            match node {
+                Int(_) => {
+                    let childs = self.tree.children(node);
+                    let map_x = stack[&childs[0]].clone();
+                    let map_y = stack[&childs[1]].clone();
+                    stack.insert(*node, Self::stack_maps(msa_len, &map_x, &map_y));
+                    msa.insert(*node, Self::clear_common_gaps(msa_len, &map_x, &map_y));
+                }
+                Leaf(_) => {
+                    let seq = self.seqs.get_by_id(self.tree.node_id(node)).seq();
+                    stack.insert(*node, align!(seq).clone());
+                }
+            }
+        }
+        let leaf_maps = stack
+            .iter()
+            .filter_map(|(idx, map)| match idx {
+                Leaf(_) => Some((*idx, map.clone())),
+                _ => None,
+            })
+            .collect();
+        Alignment {
+            tree: self.tree,
+            seqs: self.seqs.without_gaps(),
+            leaf_map: leaf_maps,
+            node_map: msa,
+        }
+    }
+
+    /// This assumes that the tree structure matches the alignment structure.
+    fn build_from_map(self) -> Alignment<'a> {
+        let mut alignment = Alignment {
+            tree: self.tree,
+            seqs: Sequences::new(Vec::new()),
+            leaf_map: HashMap::new(),
+            node_map: self.node_map,
+        };
+        let leaf_map = alignment.compile_leaf_map(self.tree.root);
+        alignment.leaf_map = leaf_map;
+        alignment.seqs = self.seqs.without_gaps();
+        alignment
     }
 
     fn stack_maps(msa_len: usize, map_x: &Mapping, map_y: &Mapping) -> Mapping {
@@ -83,127 +155,75 @@ impl<'a> AlignmentBuilder<'a> {
         }
         PairwiseAlignment::new(upd_map_x, upd_map_y)
     }
+}
 
-    /// This assumes that the tree structure matches the alignment structure.
-    pub fn from_aligned_sequences(self) -> Result<Alignment<'a>> {
-        debug_assert_eq!(self.aligned_seqs.len(), self.tree.n);
-        debug_assert!(!self.aligned_seqs.is_empty());
-        let msa_len = self.aligned_seqs[0].seq().len();
-        let mut stack = HashMap::<NodeIdx, Mapping>::with_capacity(self.tree.nodes.len());
-        let mut msa = HashMap::<NodeIdx, PairwiseAlignment>::with_capacity(self.tree.n);
-        for node in self.tree.postorder.iter() {
-            match node {
-                Int(_) => {
-                    let childs = self.tree.children(node);
-                    let map_x = stack[&childs[0]].clone();
-                    let map_y = stack[&childs[1]].clone();
-                    stack.insert(*node, Self::stack_maps(msa_len, &map_x, &map_y));
-                    msa.insert(*node, Self::clear_common_gaps(msa_len, &map_x, &map_y));
-                }
-                Leaf(idx) => {
-                    let seq = self
-                        .aligned_seqs
-                        .iter()
-                        .find(|r| r.id() == self.tree.nodes[*idx].id)
-                        .unwrap()
-                        .seq();
-                    debug_assert!(seq.len() == msa_len);
-                    stack.insert(*node, align!(seq).clone());
-                }
+fn map_sequence(map: &Mapping, seq: &[u8]) -> Vec<u8> {
+    map.iter()
+        .map(|site| {
+            if let Some(idx) = site {
+                seq[*idx]
+            } else {
+                b'-'
             }
-        }
-        let sequences = Self::remove_gaps(self.aligned_seqs);
-        let leaf_maps = sequences.iter().map(|rec| align!(rec.seq())).collect();
-        Ok(Alignment {
-            tree: self.tree,
-            sequences,
-            leaf_maps,
-            msa,
         })
-    }
+        .collect()
+}
 
-    fn remove_gaps(aligned_seqs: &[Record]) -> Vec<Record> {
-        aligned_seqs
-            .iter()
-            .map(|rec| {
-                let sequence = rec
-                    .seq()
-                    .iter()
-                    .filter(|&c| c != &GAP)
-                    .copied()
-                    .collect::<Vec<u8>>();
-                Record::with_attrs(rec.id(), rec.desc(), &sequence)
-            })
-            .collect()
-    }
+fn map_child(parent: &Mapping, child: &Mapping) -> Mapping {
+    parent
+        .iter()
+        .map(|site| {
+            if let Some(idx) = site {
+                child[*idx]
+            } else {
+                None
+            }
+        })
+        .collect::<Mapping>()
 }
 
 impl Alignment<'_> {
-    fn sequence(&self, idx: NodeIdx) -> &Record {
-        let id = &self.tree.nodes[usize::from(idx)].id;
-        self.sequences.iter().find(|r| r.id() == id).unwrap()
+    pub fn compile(&self, subroot_opt: Option<NodeIdx>) -> Vec<Record> {
+        let subroot = subroot_opt.unwrap_or(self.tree.root);
+        let map = if subroot == self.tree.root {
+            self.leaf_map.clone()
+        } else {
+            self.compile_leaf_map(subroot)
+        };
+        let mut records = Vec::with_capacity(map.len());
+        for (idx, map) in &map {
+            let rec = self.seqs.get_by_id(self.tree.node_id(idx));
+            let aligned_seq = map_sequence(map, rec.seq());
+            records.push(Record::with_attrs(rec.id(), rec.desc(), &aligned_seq));
+        }
+        records
     }
 
-    pub fn compile(&self, subroot_idx: Option<NodeIdx>) -> Vec<Record> {
-        let nodes = &self.tree.nodes;
-        let order = self.tree.preorder_subroot(subroot_idx);
-
-        let root = order[0];
+    fn compile_leaf_map(&self, root: NodeIdx) -> LeafMapping {
+        let order = &self.tree.preorder_subroot(Some(root));
         let msa_len = match root {
-            Int(_) => self.msa[&root].map_x.len(),
-            Leaf(_) => self.sequence(root).seq().len(),
+            Int(_) => self.node_map[&root].map_x.len(),
+            Leaf(_) => self.seqs.get_by_id(self.tree.node_id(&root)).seq().len(),
         };
-
-        let mut stack = HashMap::<NodeIdx, Mapping>::with_capacity(nodes.len());
+        let mut stack = HashMap::<NodeIdx, Mapping>::with_capacity(self.tree.len());
         stack.insert(root, (0..msa_len).map(Some).collect());
-
-        let mut msa = Vec::<Record>::with_capacity(self.tree.n);
-        for node in &order {
-            match node {
-                Int(idx) => {
-                    let parent = &stack[node].clone();
-                    let map_x = &self.msa[node].map_x;
-                    let map_y = &self.msa[node].map_y;
-                    stack.insert(nodes[*idx].children[0], Self::map_child(parent, map_x));
-                    stack.insert(nodes[*idx].children[1], Self::map_child(parent, map_y));
+        let mut leaf_map = LeafMapping::with_capacity(self.tree.n);
+        for idx in order {
+            match idx {
+                Int(_) => {
+                    let parent = &stack[idx].clone();
+                    let childs = self.tree.children(idx);
+                    let map_x = &self.node_map[idx].map_x;
+                    let map_y = &self.node_map[idx].map_y;
+                    stack.insert(childs[0], map_child(parent, map_x));
+                    stack.insert(childs[1], map_child(parent, map_y));
                 }
-                Leaf(idx) => {
-                    let seq = self
-                        .sequences
-                        .iter()
-                        .find(|r| r.id() == nodes[*idx].id)
-                        .unwrap();
-                    let aligned_seq = Self::map_sequence(&stack[node], seq.seq());
-                    msa.push(Record::with_attrs(seq.id(), seq.desc(), &aligned_seq));
+                Leaf(_) => {
+                    leaf_map.insert(*idx, stack[idx].clone());
                 }
             }
         }
-        msa
-    }
-
-    fn map_sequence(map: &Mapping, seq: &[u8]) -> Vec<u8> {
-        map.iter()
-            .map(|site| {
-                if let Some(idx) = site {
-                    seq[*idx]
-                } else {
-                    b'-'
-                }
-            })
-            .collect()
-    }
-
-    fn map_child(parent: &Mapping, child: &Mapping) -> Mapping {
-        parent
-            .iter()
-            .map(|site| {
-                if let Some(idx) = site {
-                    child[*idx]
-                } else {
-                    None
-                }
-            })
-            .collect::<Mapping>()
+        leaf_map
     }
 }
 
