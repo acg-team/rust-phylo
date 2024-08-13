@@ -116,9 +116,9 @@ impl Node {
 #[derive(Debug, Clone)]
 pub struct Tree {
     pub root: NodeIdx,
-    pub nodes: Vec<Node>,
-    pub postorder: Vec<NodeIdx>,
-    pub preorder: Vec<NodeIdx>,
+    pub(crate) nodes: Vec<Node>,
+    pub(crate) postorder: Vec<NodeIdx>,
+    pub(crate) preorder: Vec<NodeIdx>,
     pub complete: bool,
     pub n: usize,
 }
@@ -157,6 +157,22 @@ impl Tree {
         &self.nodes[usize::from(node_idx)].children
     }
 
+    pub fn node(&self, node_idx: &NodeIdx) -> &Node {
+        &self.nodes[usize::from(node_idx)]
+    }
+
+    pub fn len(&self) -> usize {
+        self.nodes.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.nodes.is_empty()
+    }
+
+    pub fn preorder(&self) -> &Vec<NodeIdx> {
+        &self.preorder
+    }
+
     pub fn to_newick(&self) -> String {
         format!("({});", self._to_newick(self.root))
     }
@@ -179,13 +195,8 @@ impl Tree {
         }
     }
 
-    pub fn node_id(&self, node_idx: &NodeIdx) -> String {
-        let id = &self.nodes[usize::from(node_idx)].id;
-        if id.is_empty() {
-            String::new()
-        } else {
-            format!(" with id {}", id)
-        }
+    pub fn node_id(&self, node_idx: &NodeIdx) -> &str {
+        &self.nodes[usize::from(node_idx)].id
     }
 
     pub(crate) fn add_parent(
