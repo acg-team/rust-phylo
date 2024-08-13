@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use anyhow::bail;
 use approx::relative_eq;
@@ -18,7 +18,7 @@ use crate::{Result, Rounding};
 mod nj_matrices;
 pub mod tree_parser;
 
-#[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Eq, Ord, Hash)]
+#[derive(PartialEq, Clone, Copy, PartialOrd, Eq, Ord, Hash)]
 pub enum NodeIdx {
     Internal(usize),
     Leaf(usize),
@@ -29,6 +29,15 @@ impl Display for NodeIdx {
         match self {
             Int(idx) => write!(f, "internal node {}", idx),
             Leaf(idx) => write!(f, "leaf node {}", idx),
+        }
+    }
+}
+
+impl Debug for NodeIdx {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Int(idx) => write!(f, "Int({})", idx),
+            Leaf(idx) => write!(f, "Leaf({})", idx),
         }
     }
 }
@@ -59,9 +68,10 @@ pub struct Node {
 
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.idx {
-            Int(idx) => write!(f, "Internal node {}", idx),
-            Leaf(idx) => write!(f, "Leaf node {}", idx),
+        if self.id.is_empty() {
+            write!(f, "{}", self.idx)
+        } else {
+            write!(f, "{} with id {}", self.idx, self.id)
         }
     }
 }

@@ -627,10 +627,9 @@ fn test_node_id_string() {
         "cow",
         "elk",
         "fox",
-    ]
-    .map(|s| format!("{}{}", " with id ", s));
+    ];
     for node in &tree.nodes {
-        assert!(ids.contains(&(tree.node_id(&node.idx))));
+        assert!(ids.contains(&tree.node_id(&node.idx)));
     }
     let tree =
         tree_parser::from_newick_string("((ant:17,(bat:31, cow:22):7):10,(elk:33,fox:12):40):0;")
@@ -644,7 +643,7 @@ fn test_node_id_string() {
                 assert!(tree.node_id(&node.idx).is_empty());
             }
             L(_) => {
-                assert!(ids.contains(&(tree.node_id(&node.idx))));
+                assert!(ids.contains(&tree.node_id(&node.idx)));
             }
         }
     }
@@ -656,6 +655,14 @@ fn test_node_idx_display() {
     assert_eq!(format!("{}", L(r1)), format!("leaf node {}", r1));
     let r2 = rand::thread_rng().gen_range(1..100);
     assert_eq!(format!("{}", I(r2)), format!("internal node {}", r2));
+}
+
+#[test]
+fn test_node_idx_debug() {
+    let r1 = rand::thread_rng().gen_range(1..100);
+    assert_eq!(format!("{:?}", L(r1)), format!("Leaf({})", r1));
+    let r2 = rand::thread_rng().gen_range(1..100);
+    assert_eq!(format!("{:?}", I(r2)), format!("Int({})", r2));
 }
 
 #[test]
