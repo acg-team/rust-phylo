@@ -247,4 +247,4 @@ fn generic_aminoacid_sets(char: u8) -> FreqVector {
 }
 
 #[cfg(test)]
-mod alphabets_tests;
+mod tests;
