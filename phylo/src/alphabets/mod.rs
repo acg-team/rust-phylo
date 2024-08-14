@@ -67,13 +67,6 @@ pub fn detect_alphabet(sequences: &[Record], gap_handling: &GapHandling) -> Alph
     dna_alphabet
 }
 
-pub fn alphabet_from_type(model_type: ModelType, gap_handling: &GapHandling) -> Alphabet {
-    match model_type {
-        DNA(_) => dna_alphabet(gap_handling),
-        Protein(_) => protein_alphabet(gap_handling),
-    }
-}
-
 fn dna_alphabet(gap_handling: &GapHandling) -> Alphabet {
     let char_sets: &Vec<FreqVector> = match gap_handling {
         GapHandling::Ambiguous => &NUCLEOTIDE_SETS_AMBIG,
