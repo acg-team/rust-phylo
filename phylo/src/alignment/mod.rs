@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use bio::io::fasta::Record;
 
+use crate::alphabets::Alphabet;
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::Result;
 
@@ -54,6 +55,10 @@ pub struct Alignment {
 }
 
 impl Alignment {
+    pub fn alphabet(&self) -> &Alphabet {
+        &self.seqs.alphabet
+    }
+
     pub fn len(&self) -> usize {
         self.leaf_map.len()
     }

@@ -5,8 +5,6 @@ use bio::io::fasta::Record;
 use nalgebra::DMatrix;
 
 use crate::alignment::Alignment;
-use crate::alphabets::alphabet_from_type;
-use crate::evolutionary_models::ModelType;
 use crate::substitution_models::FreqVector;
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
@@ -52,16 +50,12 @@ impl From<&str> for GapHandling {
 /// * Add support for unaligned sequences.
 #[derive(Debug, Clone)]
 pub struct PhyloInfo {
-    /// Type of the sequences (DNA/Protein).
-    pub model_type: ModelType,
     /// Multiple sequence alignment of the sequences
     pub msa: Alignment,
     /// Phylogenetic tree.
     pub tree: Tree,
     /// Leaf sequence encodings.
     pub leaf_encoding: HashMap<String, DMatrix<f64>>,
-    /// Gap handling option.
-    pub gap_handling: GapHandling,
 }
 
 impl PhyloInfo {
@@ -115,7 +109,7 @@ impl PhyloInfo {
     /// assert_eq!(freqs.sum(), 1.0);
     /// ```
     pub fn freqs(&self) -> FreqVector {
-        let alphabet = alphabet_from_type(self.model_type, &self.gap_handling);
+        let alphabet = self.msa.alphabet();
         let mut freqs = alphabet.empty_freqs();
         for &char in alphabet.symbols().iter().chain(alphabet.ambiguous()) {
             let count = self
@@ -140,7 +134,7 @@ impl PhyloInfo {
     /// Used for the likelihood calculation to avoid having to get the character encoding
     /// from scratch every time the likelihood is optimised.
     fn generate_leaf_encoding(&mut self) {
-        let alphabet = alphabet_from_type(self.model_type, &self.gap_handling);
+        let alphabet = self.msa.alphabet();
         let mut leaf_encoding = HashMap::with_capacity(self.msa.len());
         for seq in self.msa.seqs.iter() {
             leaf_encoding.insert(

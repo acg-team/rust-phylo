@@ -1,4 +1,7 @@
-use crate::alphabets::GAP;
+use crate::{
+    alphabets::{detect_alphabet, Alphabet, GAP},
+    phylo_info::GapHandling,
+};
 
 use bio::io::fasta::Record;
 
@@ -7,23 +10,35 @@ pub struct Sequences {
     pub(crate) s: Vec<Record>,
     pub(crate) aligned: bool,
     pub(crate) msa_len: usize,
+    pub(crate) alphabet: Alphabet,
 }
 
 impl Sequences {
     /// Creates a new Sequences object from a vector of bio::io::fasta::Record.
+    /// The Sequences object is considered aligned if all sequences have the same length.
+    /// By default gap handling is set to proper.
     pub fn new(s: Vec<Record>) -> Sequences {
+        Self::with_attrs(s, &GapHandling::Proper)
+    }
+
+    /// Creates a new Sequences object from a vector of bio::io::fasta::Record.
+    /// The Sequences object is considered aligned if all sequences have the same length.
+    pub fn with_attrs(s: Vec<Record>, gap_handling: &GapHandling) -> Sequences {
         let len = if s.is_empty() { 0 } else { s[0].seq().len() };
+        let alphabet = detect_alphabet(&s, gap_handling);
         if s.iter().filter(|rec| rec.seq().len() != len).count() == 0 {
             Sequences {
                 s,
                 aligned: true,
                 msa_len: len,
+                alphabet,
             }
         } else {
             Sequences {
                 s,
                 aligned: false,
                 msa_len: 0,
+                alphabet,
             }
         }
     }
@@ -56,7 +71,16 @@ impl Sequences {
         self.msa_len
     }
 
-    pub fn without_gaps(&self) -> Sequences {
+    pub fn alphabet(&self) -> &Alphabet {
+        &self.alphabet
+    }
+
+    pub fn gap_handling(&self) -> &GapHandling {
+        &self.alphabet.gap_handling
+    }
+
+    /// Removes all gaps from the sequences and returns a new Sequences object.
+    pub fn without_gaps(self) -> Sequences {
         let seqs = self
             .s
             .iter()
@@ -70,16 +94,11 @@ impl Sequences {
                 Record::with_attrs(rec.id(), rec.desc(), &sequence)
             })
             .collect();
-        Sequences::new(seqs)
-    }
-
-    /// Converts the given sequences to uppercase and returns a new vector.
-    pub fn make_uppercase(self) -> Sequences {
-        let seqs = self
-            .s
-            .iter()
-            .map(|rec| Record::with_attrs(rec.id(), rec.desc(), &rec.seq().to_ascii_uppercase()))
-            .collect();
-        Sequences::new(seqs)
+        Sequences {
+            s: seqs,
+            aligned: false,
+            msa_len: 0,
+            alphabet: self.alphabet,
+        }
     }
 }

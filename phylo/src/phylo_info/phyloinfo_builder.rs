@@ -5,7 +5,6 @@ use anyhow::bail;
 use log::{info, warn};
 
 use crate::alignment::{AlignmentBuilder, Sequences};
-use crate::alphabets::sequence_type;
 use crate::io::{self, DataError};
 use crate::phylo_info::{GapHandling, PhyloInfo};
 use crate::tree::{build_nj_tree, Tree};
@@ -148,7 +147,10 @@ impl PhyloInfoBuilder {
             "Reading sequences from file {}",
             self.sequence_file.display()
         );
-        let sequences = Sequences::new(io::read_sequences_from_file(&self.sequence_file)?);
+        let sequences = Sequences::with_attrs(
+            io::read_sequences_from_file(&self.sequence_file)?,
+            &self.gap_handling,
+        );
         info!("{} sequence(s) read successfully", sequences.len());
 
         let tree = match &self.tree_file {
@@ -164,7 +166,7 @@ impl PhyloInfoBuilder {
                 build_nj_tree(&sequences)?
             }
         };
-        Self::build_from_objects(sequences, tree, self.gap_handling)
+        Self::build_from_objects(sequences, tree)
     }
 
     /// Builds the PhyloInfo struct from the provided sequences and tree.
@@ -172,11 +174,7 @@ impl PhyloInfoBuilder {
     /// Bails if the IDs of the tree leaves and the sequences do not match.
     /// Bails if the sequences are not aligned.
     /// Returns the PhyloInfo struct with the model type, tree, msa, gap handling and leaf encoding set.
-    pub(crate) fn build_from_objects(
-        sequences: Sequences,
-        tree: Tree,
-        gap_handling: GapHandling,
-    ) -> Result<PhyloInfo> {
+    pub(crate) fn build_from_objects(sequences: Sequences, tree: Tree) -> Result<PhyloInfo> {
         if sequences.is_empty() {
             bail!(DataError {
                 message: String::from("No sequences provided, aborting.")
@@ -186,10 +184,8 @@ impl PhyloInfoBuilder {
         let msa = AlignmentBuilder::new(&tree, sequences).build()?;
         // let leaf_encoding = Self::leaf_encoding(&msa.seqs, &gap_handling);
         let mut info = PhyloInfo {
-            model_type: sequence_type(&msa.seqs),
             tree: tree.clone(),
             msa,
-            gap_handling,
             leaf_encoding: HashMap::new(),
         };
         info.generate_leaf_encoding();

@@ -24,8 +24,7 @@ fn empirical_frequencies_easy() {
         .unwrap()
         .pop()
         .unwrap();
-    let info =
-        PhyloInfoBuilder::build_from_objects(sequences, tree, GapHandling::Ambiguous).unwrap();
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree).unwrap();
     let freqs = info.freqs();
     assert_eq!(freqs, frequencies!(&[0.25, 0.25, 0.25, 0.25]));
     assert_eq!(freqs.sum(), 1.0);
@@ -43,8 +42,7 @@ fn empirical_frequencies() {
         .unwrap()
         .pop()
         .unwrap();
-    let info =
-        PhyloInfoBuilder::build_from_objects(sequences, tree, GapHandling::Ambiguous).unwrap();
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree).unwrap();
     let freqs = info.freqs();
     assert_eq!(
         freqs,
@@ -213,8 +211,7 @@ fn test_aligned_check() {
         Record::with_attrs("E4", None, b"AAA"),
     ]);
     let tree = tree_newick("((A0:2.0,B1:2.0):1.0,(C2:2.0,(D3:1.0,E4:2.5):3.0):2.0):0.0;");
-    let info =
-        PhyloInfoBuilder::build_from_objects(sequences, tree.clone(), GapHandling::Ambiguous);
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree.clone());
     assert!(info.is_err());
     let sequences = Sequences::new(vec![
         Record::with_attrs("A0", None, b"AAAAA"),
@@ -223,7 +220,7 @@ fn test_aligned_check() {
         Record::with_attrs("D3", None, b"AAAAA"),
         Record::with_attrs("E4", None, b"AAATT"),
     ]);
-    let info = PhyloInfoBuilder::build_from_objects(sequences, tree, GapHandling::Ambiguous);
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree);
     assert!(info.is_ok());
 }
 
@@ -237,7 +234,6 @@ fn check_phyloinfo_creation_newick_msa() {
     let info = PhyloInfoBuilder::build_from_objects(
         sequences,
         tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
-        GapHandling::Ambiguous,
     );
     assert!(info.is_ok());
     assert!(!info.unwrap().msa.is_empty());
@@ -251,12 +247,8 @@ fn check_phyloinfo_creation_tree_no_msa() {
         Record::with_attrs("B", None, b"ATATATATAA"),
         Record::with_attrs("C", None, b"TTATATATAT"),
     ]);
-    PhyloInfoBuilder::build_from_objects(
-        sequences,
-        tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
-        GapHandling::Ambiguous,
-    )
-    .unwrap();
+    PhyloInfoBuilder::build_from_objects(sequences, tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"))
+        .unwrap();
 }
 
 #[test]
@@ -267,7 +259,6 @@ fn check_phyloinfo_creation_tree_no_seqs() {
             .unwrap()
             .pop()
             .unwrap(),
-        GapHandling::Ambiguous,
     );
     assert!(info.is_err());
 }
@@ -285,7 +276,6 @@ fn check_phyloinfo_creation_newick_mismatch_ids() {
             .unwrap()
             .pop()
             .unwrap(),
-        GapHandling::Ambiguous,
     );
     assert!(info.is_err());
 }
@@ -318,7 +308,6 @@ fn check_phyloinfo_creation_tree_correct_no_msa() {
             Record::with_attrs("D", None, b"A"),
         ]),
         make_test_tree(),
-        GapHandling::Ambiguous,
     );
     assert!(info.is_err());
 }
@@ -333,7 +322,6 @@ fn check_phyloinfo_creation_tree_correct_msa() {
             Record::with_attrs("D", None, b"A-"),
         ]),
         make_test_tree(),
-        GapHandling::Ambiguous,
     );
     assert!(info.is_ok());
     assert!(!info.unwrap().msa.is_empty());
@@ -348,7 +336,6 @@ fn check_phyloinfo_creation_tree_mismatch_ids() {
             Record::with_attrs("F", None, b"TTATATATAT"),
         ]),
         make_test_tree(),
-        GapHandling::Ambiguous,
     );
     assert!(info.is_err());
 }
@@ -363,7 +350,6 @@ fn check_empirical_frequencies() {
             Record::with_attrs("D", None, b"TTAAA"),
         ]),
         make_test_tree(),
-        GapHandling::Ambiguous,
     )
     .unwrap();
     let freqs = info.freqs();

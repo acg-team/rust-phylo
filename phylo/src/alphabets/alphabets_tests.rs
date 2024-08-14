@@ -3,10 +3,10 @@ use rstest::*;
 
 use std::path::PathBuf;
 
-use crate::alignment::Sequences;
-use crate::alphabets::sequence_type;
+use crate::alphabets::detect_alphabet;
 use crate::evolutionary_models::ModelType;
 use crate::io::read_sequences_from_file;
+use crate::phylo_info::GapHandling;
 
 #[rstest]
 #[case::aligned("./data/sequences_DNA1.fasta")]
@@ -14,8 +14,8 @@ use crate::io::read_sequences_from_file;
 #[case::long("./data/sequences_long.fasta")]
 fn dna_type_test(#[case] input: &str) {
     let seqs = read_sequences_from_file(&PathBuf::from(input)).unwrap();
-    let alphabet = sequence_type(&Sequences::new(seqs));
-    assert_matches!(alphabet, ModelType::DNA(_));
+    let alphabet = detect_alphabet(&seqs, &GapHandling::Proper);
+    assert_matches!(alphabet.model_type, ModelType::DNA(_));
 }
 
 #[rstest]
@@ -23,6 +23,6 @@ fn dna_type_test(#[case] input: &str) {
 #[case("./data/sequences_protein2.fasta")]
 fn protein_type_test(#[case] input: &str) {
     let seqs = read_sequences_from_file(&PathBuf::from(input)).unwrap();
-    let alphabet = sequence_type(&Sequences::new(seqs));
-    assert_matches!(alphabet, ModelType::Protein(_));
+    let alphabet = detect_alphabet(&seqs, &GapHandling::Proper);
+    assert_matches!(alphabet.model_type, ModelType::Protein(_));
 }

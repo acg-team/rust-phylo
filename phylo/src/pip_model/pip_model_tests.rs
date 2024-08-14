@@ -273,12 +273,8 @@ fn setup_example_phylo_info() -> PhyloInfo {
         Record::with_attrs("C", None, b"-A-G"),
         Record::with_attrs("D", None, b"-CAA"),
     ]);
-    PhyloInfoBuilder::build_from_objects(
-        sequences,
-        tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"),
-        GapHandling::Proper,
-    )
-    .unwrap()
+    PhyloInfoBuilder::build_from_objects(sequences, tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"))
+        .unwrap()
 }
 
 #[test]
@@ -581,12 +577,8 @@ fn setup_example_phylo_info_2() -> PhyloInfo {
         Record::with_attrs("C", None, b"--A-G"),
         Record::with_attrs("D", None, b"T-CAA"),
     ]);
-    PhyloInfoBuilder::build_from_objects(
-        sequences,
-        tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"),
-        GapHandling::Proper,
-    )
-    .unwrap()
+    PhyloInfoBuilder::build_from_objects(sequences, tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"))
+        .unwrap()
 }
 
 #[test]

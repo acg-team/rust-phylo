@@ -81,7 +81,7 @@ impl<'a> AlignmentBuilder<'a> {
     /// This assumes that the tree structure matches the alignment structure.
     fn build_from_map(self) -> Result<Alignment> {
         let mut alignment = Alignment {
-            seqs: Sequences::new(Vec::new()),
+            seqs: Sequences::with_attrs(Vec::new(), self.seqs.gap_handling()),
             leaf_map: HashMap::new(),
             node_map: self.node_map,
         };
