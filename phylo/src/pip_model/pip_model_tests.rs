@@ -347,20 +347,20 @@ fn pip_hky_likelihood_example_leaf_values() {
 
     let mut temp_values = PIPModelInfo::<DNASubstModel>::new(&info, &model).unwrap();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model,
     };
 
     let iota = 0.133;
     let beta = 0.787;
     cost.set_leaf_values(
-        cost.info.tree.idx_by_id("A").unwrap().into(),
+        cost.info.tree.idx_by_id("A").unwrap(),
         &model,
         &mut temp_values,
     );
     assert_values(
         &temp_values,
-        cost.info.tree.idx_by_id("A").unwrap().into(),
+        cost.info.tree.idx_by_id("A").unwrap(),
         iota,
         beta,
         &[[0.0, 1.0, 0.0, 0.0], [0.0; 4], [0.0; 4]].concat(),
@@ -368,13 +368,13 @@ fn pip_hky_likelihood_example_leaf_values() {
         &[0.0, 0.33 * iota * beta, 0.0, 0.0],
     );
     cost.set_leaf_values(
-        cost.info.tree.idx_by_id("B").unwrap().into(),
+        cost.info.tree.idx_by_id("B").unwrap(),
         &model,
         &mut temp_values,
     );
     assert_values(
         &temp_values,
-        cost.info.tree.idx_by_id("B").unwrap().into(),
+        cost.info.tree.idx_by_id("B").unwrap(),
         iota,
         beta,
         &[[1.0, 1.0, 0.0, 0.0], [0.0; 4], [0.0; 4]].concat(),
@@ -382,7 +382,7 @@ fn pip_hky_likelihood_example_leaf_values() {
         &[0.26 * iota * beta, 0.33 * iota * beta, 0.0, 0.0],
     );
     cost.set_leaf_values(
-        cost.info.tree.idx_by_id("C").unwrap().into(),
+        cost.info.tree.idx_by_id("C").unwrap(),
         &model,
         &mut temp_values,
     );
@@ -390,7 +390,7 @@ fn pip_hky_likelihood_example_leaf_values() {
     let beta = 0.885;
     assert_values(
         &temp_values,
-        cost.info.tree.idx_by_id("C").unwrap().into(),
+        cost.info.tree.idx_by_id("C").unwrap(),
         iota,
         beta,
         &[[0.0, 1.0, 0.0, 1.0], [0.0; 4], [0.0; 4]].concat(),
@@ -398,13 +398,13 @@ fn pip_hky_likelihood_example_leaf_values() {
         &[0.0, 0.33 * iota * beta, 0.0, 0.19 * iota * beta],
     );
     cost.set_leaf_values(
-        cost.info.tree.idx_by_id("D").unwrap().into(),
+        cost.info.tree.idx_by_id("D").unwrap(),
         &model,
         &mut temp_values,
     );
     assert_values(
         &temp_values,
-        cost.info.tree.idx_by_id("D").unwrap().into(),
+        cost.info.tree.idx_by_id("D").unwrap(),
         iota,
         beta,
         &[[0.0, 1.0, 1.0, 1.0], [0.0; 4], [0.0; 4]].concat(),
@@ -425,19 +425,19 @@ fn pip_hky_likelihood_example_internals() {
     let info = setup_example_phylo_info();
     let mut temp_values = PIPModelInfo::<DNASubstModel>::new(&info, &model).unwrap();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model,
     };
-    for i in 0..4 {
-        cost.set_leaf_values(i, &model, &mut temp_values);
+    for i in cost.info.tree.leaves() {
+        cost.set_leaf_values((&i.idx).into(), &model, &mut temp_values);
     }
     let iota = 0.133;
     let beta = 0.787;
-    let idx = usize::from(cost.info.tree.idx_by_id("E").unwrap());
+    let idx = cost.info.tree.idx_by_id("E").unwrap();
     cost.set_internal_values(idx, &model, &mut temp_values);
     assert_values(
         &temp_values,
-        idx + 4,
+        idx,
         iota,
         beta,
         &[1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
@@ -449,7 +449,7 @@ fn pip_hky_likelihood_example_internals() {
             0.0,
         ],
     );
-    let idx = usize::from(cost.info.tree.idx_by_id("F").unwrap());
+    let idx = cost.info.tree.idx_by_id("F").unwrap();
     cost.set_internal_values(idx, &model, &mut temp_values);
     let iota_f = 0.2;
     let beta_f = 0.704;
@@ -457,7 +457,7 @@ fn pip_hky_likelihood_example_internals() {
     let beta_d = 0.885;
     assert_values(
         &temp_values,
-        idx + 4,
+        idx,
         iota_f,
         beta_f,
         &[0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
@@ -474,11 +474,11 @@ fn pip_hky_likelihood_example_internals() {
     let beta = 1.0;
     let iota_e = 0.133;
     let beta_e = 0.787;
-    let idx = usize::from(cost.info.tree.idx_by_id("R").unwrap());
+    let idx = cost.info.tree.idx_by_id("R").unwrap();
     cost.set_root_values(idx, &model, &mut temp_values);
     assert_values(
         &temp_values,
-        idx + 4,
+        idx,
         iota,
         beta,
         &[1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0],
@@ -530,80 +530,64 @@ fn pip_hky_likelihood_example_c0() {
     let info = setup_example_phylo_info();
     let mut tmp = PIPModelInfo::<DNASubstModel>::new(&info, &model).unwrap();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model,
     };
-    cost.set_leaf_values(
-        cost.info.tree.idx_by_id("A").unwrap().into(),
-        &model,
-        &mut tmp,
-    );
+    cost.set_leaf_values(cost.info.tree.idx_by_id("A").unwrap(), &model, &mut tmp);
     assert_c0_values(
         &tmp,
-        cost.info.tree.idx_by_id("A").unwrap().into(),
+        cost.info.tree.idx_by_id("A").unwrap(),
         &[0.0, 0.0, 0.0, 0.0, 1.0],
         0.0,
         0.028329,
     );
-    cost.set_leaf_values(
-        cost.info.tree.idx_by_id("B").unwrap().into(),
-        &model,
-        &mut tmp,
-    );
+    cost.set_leaf_values(cost.info.tree.idx_by_id("B").unwrap(), &model, &mut tmp);
     assert_c0_values(
         &tmp,
-        cost.info.tree.idx_by_id("B").unwrap().into(),
+        cost.info.tree.idx_by_id("B").unwrap(),
         &[0.0, 0.0, 0.0, 0.0, 1.0],
         0.0,
         0.028329,
     );
-    cost.set_leaf_values(
-        cost.info.tree.idx_by_id("C").unwrap().into(),
-        &model,
-        &mut tmp,
-    );
+    cost.set_leaf_values(cost.info.tree.idx_by_id("C").unwrap(), &model, &mut tmp);
     assert_c0_values(
         &tmp,
-        cost.info.tree.idx_by_id("C").unwrap().into(),
+        cost.info.tree.idx_by_id("C").unwrap(),
         &[0.0, 0.0, 0.0, 0.0, 1.0],
         0.0,
         0.007705,
     );
-    cost.set_leaf_values(
-        cost.info.tree.idx_by_id("D").unwrap().into(),
-        &model,
-        &mut tmp,
-    );
+    cost.set_leaf_values(cost.info.tree.idx_by_id("D").unwrap(), &model, &mut tmp);
     assert_c0_values(
         &tmp,
-        cost.info.tree.idx_by_id("D").unwrap().into(),
+        cost.info.tree.idx_by_id("D").unwrap(),
         &[0.0, 0.0, 0.0, 0.0, 1.0],
         0.0,
         0.007705,
     );
-    let idx = usize::from(cost.info.tree.idx_by_id("E").unwrap());
+    let idx = cost.info.tree.idx_by_id("E").unwrap();
     cost.set_internal_values(idx, &model, &mut tmp);
     assert_c0_values(
         &tmp,
-        idx + 4,
+        idx,
         &[0.154, 0.154, 0.154, 0.154, 1.0],
         0.154,
         0.044448334 + 0.028329 * 2.0,
     );
-    let idx = usize::from(cost.info.tree.idx_by_id("F").unwrap());
+    let idx = cost.info.tree.idx_by_id("F").unwrap();
     cost.set_internal_values(idx, &model, &mut tmp);
     assert_c0_values(
         &tmp,
-        idx + 4,
+        idx,
         &[0.0488, 0.0488, 0.0488, 0.0488, 1.0],
         0.0488,
         0.06607104 + 0.007705 * 2.0,
     );
-    let idx = usize::from(cost.info.tree.idx_by_id("R").unwrap());
+    let idx = cost.info.tree.idx_by_id("R").unwrap();
     cost.set_root_values(idx, &model, &mut tmp);
     assert_c0_values(
         &tmp,
-        idx + 4,
+        idx,
         &[0.268, 0.268, 0.268, 0.268, 1.0],
         0.268,
         0.071556 + 0.044448334 + 0.028329 * 2.0 + 0.06607104 + 0.007705 * 2.0,
@@ -613,7 +597,6 @@ fn pip_hky_likelihood_example_c0() {
 #[cfg(test)]
 fn assert_c0_values<SM: SubstitutionModel>(
     tmp: &PIPModelInfo<SM>,
-
     node_id: usize,
     exp_ftilde: &[f64],
     exp_f: f64,
@@ -636,21 +619,21 @@ fn pip_hky_likelihood_example_final() {
     let info = setup_example_phylo_info();
     let mut tmp = PIPModelInfo::<DNASubstModel>::new(&info, &model).unwrap();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model,
     };
-    for i in 0..4 {
-        cost.set_leaf_values(i, &model, &mut tmp);
+    for i in cost.info.tree.leaves() {
+        cost.set_leaf_values((&i.idx).into(), &model, &mut tmp);
     }
     cost.set_internal_values(1, &model, &mut tmp);
-    cost.set_internal_values(2, &model, &mut tmp);
+    cost.set_internal_values(4, &model, &mut tmp);
     cost.set_root_values(0, &model, &mut tmp);
     assert_relative_eq!(
-        tmp.p[4],
+        tmp.p[0],
         DVector::from_column_slice(&[0.0392204949, 0.000148719, 0.03102171, 0.00527154]),
         epsilon = 1e-3
     );
-    assert_relative_eq!(tmp.c0_p[4], 0.254143374, epsilon = 1e-3);
+    assert_relative_eq!(tmp.c0_p[0], 0.254143374, epsilon = 1e-3);
     assert_relative_eq!(
         cost.compute_log_likelihood_with_tmp(&mut tmp),
         -20.769363665853653 - 0.709020450847471,
@@ -685,7 +668,7 @@ fn pip_hky_likelihood_example_2() {
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
     let info = setup_example_phylo_info_2();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model,
     };
     assert_relative_eq!(
@@ -705,7 +688,7 @@ fn pip_likelihood_huelsenbeck_example() {
     .unwrap();
     let model = PIPDNAModel::new(HKY, &PIP_HKY_PARAMS).unwrap();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info: info.clone(),
         model: &model,
     };
     assert_relative_eq!(
@@ -716,7 +699,7 @@ fn pip_likelihood_huelsenbeck_example() {
 
     let model = PIPDNAModel::new(HKY, &[1.2, 0.45, 0.25, 0.25, 0.25, 0.25, 1.0]).unwrap();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info: info.clone(),
         model: &model,
     };
     assert_relative_eq!(
@@ -733,7 +716,7 @@ fn pip_likelihood_huelsenbeck_example() {
     )
     .unwrap();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model,
     };
     assert_relative_eq!(
@@ -754,12 +737,12 @@ fn pip_likelihood_huelsenbeck_example_model_comp() {
     let model_hky_as_jc69 =
         PIPDNAModel::new(HKY, &[1.1, 0.55, 0.25, 0.25, 0.25, 0.25, 1.0]).unwrap();
     let cost_1 = PIPLikelihoodCost {
-        info: &info,
+        info: info.clone(),
         model: &model_hky_as_jc69,
     };
     let model_jc69 = PIPDNAModel::new(JC69, &[1.1, 0.55]).unwrap();
     let cost_2 = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model_jc69,
     };
     assert_relative_eq!(
@@ -784,7 +767,7 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
     )
     .unwrap();
     let cost_1 = PIPLikelihoodCost {
-        info: &info_1,
+        info: info_1,
         model: &model_gtr,
     };
 
@@ -795,7 +778,7 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
     )
     .unwrap();
     let cost_2 = PIPLikelihoodCost {
-        info: &info_2,
+        info: info_2,
         model: &model_gtr,
     };
 
@@ -820,7 +803,7 @@ fn pip_likelihood_protein_example() {
     .unwrap();
     let model_wag = PIPProteinModel::new(WAG, &[0.5, 0.25]).unwrap();
     let cost = PIPLikelihoodCost {
-        info: &info,
+        info,
         model: &model_wag,
     };
     assert!(LikelihoodCostFunction::compute_logl(&cost) <= 0.0);
