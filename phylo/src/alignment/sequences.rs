@@ -10,6 +10,7 @@ pub struct Sequences {
 }
 
 impl Sequences {
+    /// Creates a new Sequences object from a vector of bio::io::fasta::Record.
     pub fn new(s: Vec<Record>) -> Sequences {
         let len = if s.is_empty() { 0 } else { s[0].seq().len() };
         if s.iter().filter(|rec| rec.seq().len() != len).count() == 0 {
@@ -73,7 +74,7 @@ impl Sequences {
     }
 
     /// Converts the given sequences to uppercase and returns a new vector.
-    pub fn make_uppercase(&self) -> Sequences {
+    pub fn make_uppercase(self) -> Sequences {
         let seqs = self
             .s
             .iter()

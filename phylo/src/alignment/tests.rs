@@ -3,7 +3,7 @@ use rand::seq::IteratorRandom;
 use rand::thread_rng;
 
 use crate::alignment::{
-    sequences::Sequences, AlignmentBuilder, LeafMapping, NodeMapping, PairwiseAlignment as PA,
+    sequences::Sequences, AlignmentBuilder, InternalMapping, LeafMapping, PairwiseAlignment as PA,
 };
 use crate::tree::tree_parser;
 use crate::tree::{
@@ -65,10 +65,10 @@ fn unaligned_seqs() -> Sequences {
 }
 
 #[cfg(test)]
-fn maps() -> (NodeMapping, LeafMapping) {
+fn maps() -> (InternalMapping, LeafMapping) {
     let aligned_seqs = aligned_seqs(&["A0", "B1", "C2", "D3", "E4"]);
     (
-        NodeMapping::from([
+        InternalMapping::from([
             (I(0), PA::new(align!(b"01234"), align!(b"01-23"))),
             (I(1), PA::new(align!(b"01234"), align!(b"---0-"))),
             (I(4), PA::new(align!(b"01--"), align!(b"-012"))),
