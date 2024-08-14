@@ -5,7 +5,7 @@ use approx::assert_relative_eq;
 use crate::evolutionary_models::{DNAModelType::*, EvolutionaryModel, FrequencyOptimisation};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::optimisers::dna_model_optimiser::DNAModelOptimiser;
-use crate::phylo_info::{GapHandling, PhyloInfoBuilder};
+use crate::phylo_info::PhyloInfoBuilder;
 use crate::substitution_models::dna_models::{DNALikelihoodCost, DNASubstModel};
 
 #[test]
@@ -13,7 +13,6 @@ fn check_likelihood_opt_k80() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/K80/K80.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        GapHandling::Ambiguous,
     )
     .build()
     .unwrap();
@@ -38,7 +37,6 @@ fn frequencies_unchanged_opt_k80() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/K80/K80.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        GapHandling::Ambiguous,
     )
     .build()
     .unwrap();
@@ -56,7 +54,6 @@ fn parameter_definition_after_optim_k80() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/K80/K80.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        GapHandling::Ambiguous,
     )
     .build()
     .unwrap();
@@ -78,7 +75,6 @@ fn gtr_on_k80_data() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/K80/K80.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        GapHandling::Ambiguous,
     )
     .build()
     .unwrap();
@@ -104,7 +100,6 @@ fn parameter_definition_after_optim_hky() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/GTR/gtr.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        GapHandling::Ambiguous,
     )
     .build()
     .unwrap();
@@ -127,7 +122,6 @@ fn parameter_definition_after_optim_tn93() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/GTR/gtr.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        GapHandling::Ambiguous,
     )
     .build()
     .unwrap();
@@ -150,7 +144,6 @@ fn check_parameter_optimisation_gtr() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/GTR/gtr.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        GapHandling::Ambiguous,
     )
     .build()
     .unwrap();
@@ -211,7 +204,6 @@ fn frequencies_fixed_opt_gtr() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/GTR/gtr.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        GapHandling::Ambiguous,
     )
     .build()
     .unwrap();

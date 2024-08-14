@@ -6,7 +6,7 @@ use bio::io::fasta::Record;
 use crate::alignment::Sequences;
 use crate::frequencies;
 use crate::io::{read_sequences_from_file, DataError};
-use crate::phylo_info::{GapHandling, PhyloInfo, PhyloInfoBuilder};
+use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder};
 use crate::substitution_models::FreqVector;
 use crate::tree::tree_parser::{self, ParsingError};
 use crate::tree::NodeIdx::{Internal as I, Leaf as L};
@@ -64,7 +64,6 @@ fn setup_info_correct_unaligned() {
     let res_info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
-        GapHandling::Ambiguous,
     )
     .build();
     assert!(res_info.is_err());
@@ -75,7 +74,6 @@ fn setup_info_mismatched_ids_missing_tips() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_1.newick"),
-        GapHandling::Ambiguous,
     )
     .build();
     let error_msg = downcast_error::<DataError>(&info).to_string();
@@ -87,7 +85,6 @@ fn setup_info_mismatched_ids_missing_sequences() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_3.newick"),
-        GapHandling::Ambiguous,
     )
     .build();
     let error_msg = downcast_error::<DataError>(&info).to_string();
@@ -99,7 +96,6 @@ fn setup_info_missing_sequence_file() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sequences_DNA_nonexistent.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_1.newick"),
-        GapHandling::Ambiguous,
     )
     .build();
     assert_matches!(
@@ -113,7 +109,6 @@ fn setup_info_empty_sequence_file() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sequences_empty.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_1.newick"),
-        GapHandling::Ambiguous,
     )
     .build();
     assert_matches!(
@@ -127,7 +122,6 @@ fn setup_info_empty_tree_file() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_empty.newick"),
-        GapHandling::Ambiguous,
     )
     .build();
     assert_matches!(
@@ -141,7 +135,6 @@ fn setup_info_malformed_tree_file() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_malformed.newick"),
-        GapHandling::Ambiguous,
     )
     .build();
     assert!(downcast_error::<ParsingError>(&info)
@@ -154,7 +147,6 @@ fn setup_info_multiple_trees() {
     let res_info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sequences_DNA1.fasta"),
         PathBuf::from("./data/tree_multiple.newick"),
-        GapHandling::Ambiguous,
     )
     .build()
     .unwrap();
@@ -173,7 +165,6 @@ fn setup_unaligned() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
-        GapHandling::Ambiguous,
     )
     .build();
     assert!(info.is_err());
@@ -184,7 +175,6 @@ fn setup_aligned_msa() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sequences_DNA1.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
-        GapHandling::Ambiguous,
     )
     .build()
     .unwrap();
@@ -355,13 +345,4 @@ fn check_empirical_frequencies() {
     let freqs = info.freqs();
     assert_eq!(freqs.clone().sum(), 1.0);
     assert_eq!(freqs, frequencies!(&[5.0, 5.0, 7.0, 3.0]).scale(1.0 / 20.0));
-}
-
-#[test]
-fn gap_handling_from_string() {
-    assert_eq!(GapHandling::from("ambiguous"), GapHandling::Ambiguous);
-    assert_eq!(GapHandling::from("AmbIg"), GapHandling::Ambiguous);
-    assert_eq!(GapHandling::from("proper"), GapHandling::Proper);
-    assert_eq!(GapHandling::from("PROPer"), GapHandling::Proper);
-    assert_eq!(GapHandling::from("Lalala"), GapHandling::Undefined);
 }

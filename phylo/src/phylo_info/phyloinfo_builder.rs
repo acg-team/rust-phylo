@@ -6,19 +6,18 @@ use log::{info, warn};
 
 use crate::alignment::{AlignmentBuilder, Sequences};
 use crate::io::{self, DataError};
-use crate::phylo_info::{GapHandling, PhyloInfo};
+use crate::phylo_info::PhyloInfo;
 use crate::tree::{build_nj_tree, Tree};
 use crate::Result;
 
 pub struct PhyloInfoBuilder {
     sequence_file: PathBuf,
     tree_file: Option<PathBuf>,
-    gap_handling: GapHandling,
 }
 
 impl PhyloInfoBuilder {
     /// Creates a new empty PhyloInfoBuilder struct with only the sequence file path set.
-    /// The tree file path is set to None and and gap handling is set to Proper.
+    /// The tree file path is set to None.
     ///
     /// # Arguments
     /// * `sequence_file` - File path to the sequence fasta file.
@@ -33,35 +32,27 @@ impl PhyloInfoBuilder {
         PhyloInfoBuilder {
             sequence_file,
             tree_file: None,
-            gap_handling: GapHandling::Proper,
         }
     }
 
-    /// Creates a new PhyloInfoBuilder struct with the sequence file path, tree file path and gap handling set.
+    /// Creates a new PhyloInfoBuilder struct with the sequence and tree file paths set.
     ///
     /// # Arguments
     /// * `sequence_file` - File path to the sequence fasta file.
     /// * `tree_file` - File path to the tree newick file.
-    /// * `gap_handling` - Gap handling option -- treat gaps as ambiguous characters or properly.
     ///
     /// # Example
     /// ```
     /// use std::path::PathBuf;
-    /// use phylo::phylo_info::{PhyloInfoBuilder, GapHandling};
+    /// use phylo::phylo_info::PhyloInfoBuilder;
     /// let builder = PhyloInfoBuilder::with_attrs(
     ///     PathBuf::from("./data/sequences_DNA_small.fasta"),
-    ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
-    ///     GapHandling::Ambiguous);
+    ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"));
     /// ```
-    pub fn with_attrs(
-        sequence_file: PathBuf,
-        tree_file: PathBuf,
-        gap_handling: GapHandling,
-    ) -> PhyloInfoBuilder {
+    pub fn with_attrs(sequence_file: PathBuf, tree_file: PathBuf) -> PhyloInfoBuilder {
         PhyloInfoBuilder {
             sequence_file,
             tree_file: Some(tree_file),
-            gap_handling,
         }
     }
 
@@ -101,40 +92,21 @@ impl PhyloInfoBuilder {
         self
     }
 
-    /// Sets the gap handling option for the PhyloInfoBuilder struct.
-    /// Returns the PhyloInfoBuilder struct with the gap handling option set.
-    ///
-    /// # Arguments
-    /// * `gap_handling` - Gap handling option -- treat gaps as ambiguous characters or properly.
-    ///
-    /// # Example
-    /// ```
-    /// use std::path::PathBuf;
-    /// use phylo::phylo_info::{GapHandling, PhyloInfoBuilder};
-    /// let builder = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta"))
-    ///     .gap_handling(GapHandling::Ambiguous);
-    /// ```
-    pub fn gap_handling(mut self, gap_handling: GapHandling) -> PhyloInfoBuilder {
-        self.gap_handling = gap_handling;
-        self
-    }
-
     /// Builds the PhyloInfo struct from the sequence file and the tree file (if provided).
     /// If the provided tree file has more than one tree, only the first tree will be processed.
     /// If no tree file is provided, an NJ tree is built from the sequences.
     /// Bails if no sequences are provided.
     /// Bails if the IDs of the tree leaves and the sequences do not match.
     /// Bails if the sequences are not aligned.
-    /// Returns the PhyloInfo struct with the model type, tree, msa, gap handling and leaf encoding set.
+    /// Returns the PhyloInfo struct with the model type, tree, msa and leaf encoding set.
     ///
     /// # Example
     /// ```
     /// use std::path::PathBuf;
-    /// use phylo::phylo_info::{GapHandling, PhyloInfoBuilder};
+    /// use phylo::phylo_info::PhyloInfoBuilder;
     /// let info = PhyloInfoBuilder::with_attrs(
     ///     PathBuf::from("./data/sequences_DNA_small.fasta"),
-    ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
-    ///     GapHandling::Ambiguous)
+    ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"))
     ///     .build()
     ///     .unwrap();
     /// assert_eq!(info.msa.msa_len(), 8);
@@ -147,10 +119,7 @@ impl PhyloInfoBuilder {
             "Reading sequences from file {}",
             self.sequence_file.display()
         );
-        let sequences = Sequences::with_attrs(
-            io::read_sequences_from_file(&self.sequence_file)?,
-            &self.gap_handling,
-        );
+        let sequences = Sequences::new(io::read_sequences_from_file(&self.sequence_file)?);
         info!("{} sequence(s) read successfully", sequences.len());
 
         let tree = match &self.tree_file {
@@ -173,7 +142,7 @@ impl PhyloInfoBuilder {
     /// Bails if no sequences are provided.
     /// Bails if the IDs of the tree leaves and the sequences do not match.
     /// Bails if the sequences are not aligned.
-    /// Returns the PhyloInfo struct with the model type, tree, msa, gap handling and leaf encoding set.
+    /// Returns the PhyloInfo struct with the model type, tree, msa and leaf encoding set.
     pub(crate) fn build_from_objects(sequences: Sequences, tree: Tree) -> Result<PhyloInfo> {
         if sequences.is_empty() {
             bail!(DataError {
@@ -182,7 +151,6 @@ impl PhyloInfoBuilder {
         }
         Self::validate_tree_sequence_ids(&tree, &sequences)?;
         let msa = AlignmentBuilder::new(&tree, sequences).build()?;
-        // let leaf_encoding = Self::leaf_encoding(&msa.seqs, &gap_handling);
         let mut info = PhyloInfo {
             tree: tree.clone(),
             msa,

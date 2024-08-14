@@ -6,7 +6,6 @@ use std::path::PathBuf;
 use crate::alphabets::detect_alphabet;
 use crate::evolutionary_models::ModelType;
 use crate::io::read_sequences_from_file;
-use crate::phylo_info::GapHandling;
 
 #[rstest]
 #[case::aligned("./data/sequences_DNA1.fasta")]
@@ -14,7 +13,7 @@ use crate::phylo_info::GapHandling;
 #[case::long("./data/sequences_long.fasta")]
 fn dna_type_test(#[case] input: &str) {
     let seqs = read_sequences_from_file(&PathBuf::from(input)).unwrap();
-    let alphabet = detect_alphabet(&seqs, &GapHandling::Proper);
+    let alphabet = detect_alphabet(&seqs);
     assert_matches!(alphabet.model_type, ModelType::DNA(_));
 }
 
@@ -23,6 +22,6 @@ fn dna_type_test(#[case] input: &str) {
 #[case("./data/sequences_protein2.fasta")]
 fn protein_type_test(#[case] input: &str) {
     let seqs = read_sequences_from_file(&PathBuf::from(input)).unwrap();
-    let alphabet = detect_alphabet(&seqs, &GapHandling::Proper);
+    let alphabet = detect_alphabet(&seqs);
     assert_matches!(alphabet.model_type, ModelType::Protein(_));
 }

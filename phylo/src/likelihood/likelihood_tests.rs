@@ -13,7 +13,7 @@ use crate::evolutionary_models::{
 };
 use crate::frequencies;
 use crate::likelihood::LikelihoodCostFunction;
-use crate::phylo_info::{GapHandling, PhyloInfo, PhyloInfoBuilder};
+use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder};
 use crate::substitution_models::dna_models::DNASubstModel;
 use crate::substitution_models::protein_models::{ProteinLikelihoodCost, ProteinSubstModel};
 use crate::substitution_models::{FreqVector, SubstMatrix, SubstitutionLikelihoodCost};
@@ -195,7 +195,6 @@ fn dna_ambig_example_likelihood() {
     let info_w_x = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/ambiguous_example.fasta"),
         PathBuf::from("./data/ambiguous_example.newick"),
-        GapHandling::Ambiguous,
     )
     .build()
     .unwrap();
@@ -210,7 +209,6 @@ fn dna_ambig_example_likelihood() {
     let info_w_n = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/ambiguous_example_N.fasta"),
         PathBuf::from("./data/ambiguous_example.newick"),
-        GapHandling::Ambiguous,
     )
     .build()
     .unwrap();
@@ -234,7 +232,6 @@ fn dna_huelsenbeck_example_likelihood() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
-        GapHandling::Ambiguous,
     )
     .build()
     .unwrap();
@@ -262,7 +259,6 @@ fn protein_example_likelihood(
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/phyml_protein_nogap_example.fasta"),
         PathBuf::from("./data/phyml_protein_example.newick"),
-        GapHandling::Ambiguous,
     )
     .build()
     .unwrap();
@@ -367,14 +363,12 @@ fn huelsenbeck_example_dna_reversibility_likelihood(
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
-        GapHandling::Ambiguous,
     )
     .build()
     .unwrap();
     let info_rerooted = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example_reroot.newick"),
-        GapHandling::Ambiguous,
     )
     .build()
     .unwrap();

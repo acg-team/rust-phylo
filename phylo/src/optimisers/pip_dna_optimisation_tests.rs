@@ -8,7 +8,7 @@ use crate::evolutionary_models::{
 };
 use crate::likelihood::LikelihoodCostFunction;
 use crate::optimisers::pip_model_optimiser::PIPDNAModelOptimiser;
-use crate::phylo_info::{GapHandling, PhyloInfoBuilder};
+use crate::phylo_info::PhyloInfoBuilder;
 use crate::pip_model::{PIPDNAParams, PIPLikelihoodCost, PIPModel};
 
 #[test]
@@ -16,7 +16,6 @@ fn check_parameter_optimisation_pip_arpiptest() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/pip/arpip/msa.fasta"),
         PathBuf::from("./data/pip/arpip/tree.nwk"),
-        GapHandling::Proper,
     )
     .build()
     .unwrap();
@@ -45,7 +44,6 @@ fn test_optimisation_pip_propip_example() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/pip/propip/msa.initial.fasta"),
         PathBuf::from("./data/pip/propip/tree.nwk"),
-        GapHandling::Proper,
     )
     .build()
     .unwrap();
@@ -84,7 +82,6 @@ fn check_example_against_python_no_gaps() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
-        GapHandling::Proper,
     )
     .build()
     .unwrap();
@@ -127,7 +124,6 @@ fn check_parameter_optimisation_pip_gtr() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/GTR/gtr.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
-        GapHandling::Proper,
     )
     .build()
     .unwrap();

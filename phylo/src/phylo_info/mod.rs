@@ -12,33 +12,6 @@ use crate::Result;
 mod phyloinfo_builder;
 pub use phyloinfo_builder::*;
 
-/// Gap handling options. Ambiguous means that gaps are treated as unknown characters (X),
-/// Proper means that the gaps are treated as a separate character.
-#[derive(Debug, Clone, PartialEq)]
-pub enum GapHandling {
-    Ambiguous,
-    Proper,
-    Undefined,
-}
-
-impl From<String> for GapHandling {
-    fn from(gap_handling: String) -> GapHandling {
-        GapHandling::from(gap_handling.as_str())
-    }
-}
-
-impl From<&str> for GapHandling {
-    fn from(gap_handling: &str) -> GapHandling {
-        if gap_handling.to_lowercase().contains("ambig") {
-            GapHandling::Ambiguous
-        } else if gap_handling.to_lowercase().contains("proper") {
-            GapHandling::Proper
-        } else {
-            GapHandling::Undefined
-        }
-    }
-}
-
 /// The PhyloInfo struct contains all the information needed for phylogenetic inference.
 /// The struct can be built using the PhyloInfoBuilder from at least a fasta sequnce file.
 /// At the moment the sequences need to be aligned.
@@ -96,12 +69,11 @@ impl PhyloInfo {
     /// ```
     /// use std::path::PathBuf;
     /// use phylo::frequencies;
-    /// use phylo::phylo_info::{GapHandling, PhyloInfoBuilder};
+    /// use phylo::phylo_info::PhyloInfoBuilder;
     /// use phylo::substitution_models::FreqVector;
     /// let info = PhyloInfoBuilder::with_attrs(
     ///     PathBuf::from("./data/sequences_DNA1.fasta"),
-    ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
-    ///     GapHandling::Proper)
+    ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"))
     /// .build()
     /// .unwrap();
     /// let freqs = info.freqs();

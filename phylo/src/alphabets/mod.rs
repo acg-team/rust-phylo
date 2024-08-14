@@ -9,7 +9,6 @@ use crate::evolutionary_models::{
     ProteinModelType,
 };
 use crate::frequencies;
-use crate::phylo_info::GapHandling;
 use crate::substitution_models::FreqVector;
 
 pub static AMINOACIDS: &[u8] = b"ARNDCQEGHILKMFPSTWYV";
@@ -21,7 +20,6 @@ pub static GAP: u8 = b'-';
 #[derive(Debug, PartialEq, Clone)]
 pub struct Alphabet {
     model_type: ModelType,
-    pub(crate) gap_handling: GapHandling,
     symbols: &'static [u8],
     ambiguous: &'static [u8],
     char_sets: &'static [FreqVector],
@@ -57,45 +55,35 @@ impl Alphabet {
     }
 }
 
-pub fn detect_alphabet(sequences: &[Record], gap_handling: &GapHandling) -> Alphabet {
-    let dna_alphabet = dna_alphabet(gap_handling);
+pub fn detect_alphabet(sequences: &[Record]) -> Alphabet {
+    let dna_alphabet = dna_alphabet();
     for record in sequences.iter() {
         if !dna_alphabet.is_word(record.seq()) {
-            return protein_alphabet(gap_handling);
+            return protein_alphabet();
         }
     }
     dna_alphabet
 }
 
-fn dna_alphabet(gap_handling: &GapHandling) -> Alphabet {
-    let char_sets: &Vec<FreqVector> = match gap_handling {
-        GapHandling::Ambiguous => &NUCLEOTIDE_SETS_AMBIG,
-        _ => &NUCLEOTIDE_SETS_PROPER,
-    };
+fn dna_alphabet() -> Alphabet {
     Alphabet {
         model_type: DNA(DNAModelType::UNDEF),
-        gap_handling: gap_handling.clone(),
         symbols: NUCLEOTIDES,
         ambiguous: AMB_NUCLEOTIDES,
         index: &NUCLEOTIDE_INDEX,
         valid_symbols: &VALID_NUCLEOTIDES,
-        char_sets,
+        char_sets: &NUCLEOTIDE_SETS,
     }
 }
 
-fn protein_alphabet(gap_handling: &GapHandling) -> Alphabet {
-    let char_sets: &Vec<FreqVector> = match gap_handling {
-        GapHandling::Ambiguous => &AMINOACID_SETS_AMBIG,
-        _ => &AMINOACID_SETS_PROPER,
-    };
+fn protein_alphabet() -> Alphabet {
     Alphabet {
         model_type: Protein(ProteinModelType::UNDEF),
-        gap_handling: gap_handling.clone(),
         symbols: AMINOACIDS,
         ambiguous: AMB_AMINOACIDS,
         index: &AMINOACID_INDEX,
         valid_symbols: &VALID_AMINOACIDS,
-        char_sets,
+        char_sets: &AMINOACID_SETS,
     }
 }
 
@@ -109,19 +97,7 @@ lazy_static! {
         index[GAP as usize] = 4;
         index
     };
-    pub static ref NUCLEOTIDE_SETS_PROPER: Vec<FreqVector> = {
-        let mut map = vec![frequencies!(&[0.0; 4]); 255];
-        for (i, elem) in map.iter_mut().enumerate() {
-            let char = i as u8;
-            if char == GAP {
-                elem.set_column(0, &frequencies!(&[0.0, 0.0, 0.0, 0.0]));
-            } else {
-                elem.set_column(0, &generic_nucleotide_sets(char));
-            }
-        }
-        map
-    };
-    pub static ref NUCLEOTIDE_SETS_AMBIG: Vec<FreqVector> = {
+    pub static ref NUCLEOTIDE_SETS: Vec<FreqVector> = {
         let mut map = vec![frequencies!(&[0.0; 4]); 255];
         for (i, elem) in map.iter_mut().enumerate() {
             let char = i as u8;
@@ -177,19 +153,7 @@ lazy_static! {
         index[GAP as usize] = 20;
         index
     };
-    pub static ref AMINOACID_SETS_PROPER: Vec<FreqVector> = {
-        let mut map: Vec<FreqVector> = vec![frequencies!(&[0.0; 20]); 255];
-        for (i, elem) in map.iter_mut().enumerate() {
-            let char = i as u8;
-            if char == GAP {
-                elem.set_column(0, &frequencies!(&[0.0; 20]));
-            } else {
-                elem.set_column(0, &generic_aminoacid_sets(char));
-            }
-        }
-        map
-    };
-    pub static ref AMINOACID_SETS_AMBIG: Vec<FreqVector> = {
+    pub static ref AMINOACID_SETS: Vec<FreqVector> = {
         let mut map: Vec<FreqVector> = vec![frequencies!(&[0.0; 20]); 255];
         for (i, elem) in map.iter_mut().enumerate() {
             let char = i as u8;
