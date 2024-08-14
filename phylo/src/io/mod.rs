@@ -1,16 +1,12 @@
-use std::{
-    error::Error,
-    fmt,
-    fs::{self, File},
-    io::Write,
-    path::PathBuf,
-};
+use std::error::Error;
+use std::fmt;
+use std::fs::{self, File};
+use std::io::Write;
+use std::path::PathBuf;
 
 use anyhow::bail;
-use bio::{
-    alphabets,
-    io::fasta::{Reader, Record, Writer},
-};
+use bio::alphabets;
+use bio::io::fasta::{Reader, Record, Writer};
 use log::info;
 
 use crate::tree::{tree_parser, Tree};
@@ -32,6 +28,7 @@ impl fmt::Display for DataError {
 impl Error for DataError {}
 
 /// Reads sequences from a fasta file, returning a vector of fasta records.
+/// All sequences are converted to uppercase.
 ///
 /// # Arguments
 /// * `path` - Path to the fasta file.
@@ -43,7 +40,8 @@ impl Error for DataError {}
 /// let records = read_sequences_from_file(&PathBuf::from("./data/sequences_DNA_small.fasta")).unwrap();
 /// # assert_eq!(records.len(), 4);
 /// # for rec in records {
-/// #    assert_eq!(rec.seq().len(), 7);
+/// #    assert_eq!(rec.seq().len(), 8);
+/// #    assert_eq!(rec.seq(), rec.seq().to_ascii_uppercase());
 /// # }
 /// ```
 pub fn read_sequences_from_file(path: &PathBuf) -> Result<Vec<Record>> {
@@ -61,10 +59,14 @@ pub fn read_sequences_from_file(path: &PathBuf) -> Result<Vec<Record>> {
         }
         if !alphabet.is_word(rec.seq()) {
             bail!(DataError {
-                message: String::from("Invalid genetic sequences")
+                message: String::from("Invalid genetic sequence encountered.")
             });
         }
-        sequences.push(rec);
+        sequences.push(Record::with_attrs(
+            rec.id(),
+            rec.desc(),
+            &rec.seq().to_ascii_uppercase(),
+        ));
     }
     info!("Read sequences successfully.");
     Ok(sequences)
@@ -93,7 +95,7 @@ pub fn read_sequences_from_file(path: &PathBuf) -> Result<Vec<Record>> {
 ///    Record::with_attrs("seq2", None, b"CGTA"),
 /// ];
 /// let output_path = PathBuf::from("./data/doctest_tmp_output.fasta");
-/// write_sequences_to_file(&sequences, output_path.clone()).unwrap();
+/// write_sequences_to_file(&sequences, &output_path).unwrap();
 /// # let mut file_content = String::new();
 /// # File::open(output_path.clone())
 /// #   .unwrap()
@@ -103,7 +105,7 @@ pub fn read_sequences_from_file(path: &PathBuf) -> Result<Vec<Record>> {
 /// # assert_eq!(file_content, expected_output);
 /// # assert!(remove_file(output_path).is_ok());
 /// ```
-pub fn write_sequences_to_file(sequences: &[Record], path: PathBuf) -> Result<()> {
+pub fn write_sequences_to_file(sequences: &[Record], path: &PathBuf) -> Result<()> {
     info!("Writing sequences/MSA to file {}.", path.display());
     if path.exists() {
         bail!(DataError {

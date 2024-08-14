@@ -6,10 +6,8 @@ use bio::io::fasta;
 use rstest::*;
 use tempfile::tempdir;
 
-use crate::{
-    io::{read_sequences_from_file, write_newick_to_file, write_sequences_to_file},
-    tree::tree_parser::from_newick_string,
-};
+use crate::io::{read_sequences_from_file, write_newick_to_file, write_sequences_to_file};
+use crate::tree::tree_parser::from_newick_string;
 
 #[test]
 fn reading_correct_fasta() {
@@ -52,7 +50,7 @@ fn test_write_sequences_to_file() {
     ];
     let temp_dir = tempdir().unwrap();
     let output_path = temp_dir.path().join("output.fasta");
-    write_sequences_to_file(&sequences, output_path.clone()).unwrap();
+    write_sequences_to_file(&sequences, &output_path).unwrap();
     let mut file_content = String::new();
     std::fs::File::open(output_path)
         .unwrap()
@@ -73,7 +71,7 @@ fn test_write_sequences_to_file_bad_path() {
         .path()
         .join("nonexistent_folder")
         .join("output.fasta");
-    assert!(write_sequences_to_file(&sequences, output_path).is_err());
+    assert!(write_sequences_to_file(&sequences, &output_path).is_err());
 }
 
 #[test]
@@ -85,7 +83,7 @@ fn test_write_sequences_to_existing_file() {
     let temp_dir = tempdir().unwrap();
     let output_path = temp_dir.path().join("output.fasta");
     File::create(&output_path).unwrap();
-    assert!(write_sequences_to_file(&sequences, output_path).is_err());
+    assert!(write_sequences_to_file(&sequences, &output_path).is_err());
 }
 
 #[test]
