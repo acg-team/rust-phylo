@@ -3,11 +3,9 @@ use std::path::PathBuf;
 
 use anyhow::bail;
 use log::{info, warn};
-use nalgebra::DMatrix;
 
 use crate::alignment::{AlignmentBuilder, Sequences};
-use crate::alphabets::{alphabet_from_type, sequence_type};
-
+use crate::alphabets::sequence_type;
 use crate::io::{self, DataError};
 use crate::phylo_info::{GapHandling, PhyloInfo};
 use crate::tree::{build_nj_tree, Tree};
@@ -186,38 +184,16 @@ impl PhyloInfoBuilder {
         }
         Self::validate_tree_sequence_ids(&tree, &sequences)?;
         let msa = AlignmentBuilder::new(&tree, sequences).build()?;
-        let leaf_encoding = Self::leaf_encoding(&msa.seqs, &gap_handling);
-        Ok(PhyloInfo {
+        // let leaf_encoding = Self::leaf_encoding(&msa.seqs, &gap_handling);
+        let mut info = PhyloInfo {
             model_type: sequence_type(&msa.seqs),
             tree: tree.clone(),
             msa,
             gap_handling,
-            leaf_encoding,
-        })
-    }
-
-    /// Creates a the character encoding for each given ungapped sequence.
-    /// Used for the likelihood calculation to avoid having to get the character encoding
-    /// from scratch every time the likelihood is optimised.
-    fn leaf_encoding(
-        sequences: &Sequences,
-        gap_handling: &GapHandling,
-    ) -> HashMap<String, DMatrix<f64>> {
-        let alphabet = alphabet_from_type(sequence_type(sequences), gap_handling);
-        let mut leaf_encoding = HashMap::with_capacity(sequences.len());
-        for seq in sequences.iter() {
-            leaf_encoding.insert(
-                seq.id().to_string(),
-                DMatrix::from_columns(
-                    seq.seq()
-                        .iter()
-                        .map(|&c| alphabet.char_encoding(c))
-                        .collect::<Vec<_>>()
-                        .as_slice(),
-                ),
-            );
-        }
-        leaf_encoding
+            leaf_encoding: HashMap::new(),
+        };
+        info.generate_leaf_encoding();
+        Ok(info)
     }
 
     /// Checks that the ids of the tree leaves and the sequences match, bails with an error otherwise.
