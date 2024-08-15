@@ -85,7 +85,7 @@ impl<'a> AlignmentBuilder<'a> {
             leaf_map: HashMap::new(),
             node_map: self.node_map,
         };
-        let leaf_map = alignment.compile_leaf_map(self.tree.root, self.tree)?;
+        let leaf_map = alignment.compile_leaf_map(&self.tree.root, self.tree)?;
         alignment.leaf_map = leaf_map;
         alignment.seqs = self.seqs.without_gaps();
         Ok(alignment)

@@ -67,7 +67,7 @@ fn idx_by_id() {
     ];
     for (id, idx) in nodes.iter() {
         assert!(tree.idx(id).is_ok());
-        assert_eq!(tree.idx(id).unwrap(), usize::from(idx));
+        assert_eq!(tree.idx(id).unwrap(), *idx);
     }
     assert!(tree.idx("H").is_err());
 }
@@ -75,17 +75,17 @@ fn idx_by_id() {
 #[test]
 fn subroot_preorder() {
     let tree = setup_test_tree();
-    assert_eq!(tree.preorder_subroot(Some(I(5))), [I(5), L(0), L(1)]);
-    assert_eq!(tree.preorder_subroot(Some(I(6))), [I(6), L(3), L(4)]);
+    assert_eq!(tree.preorder_subroot(Some(&I(5))), [I(5), L(0), L(1)]);
+    assert_eq!(tree.preorder_subroot(Some(&I(6))), [I(6), L(3), L(4)]);
     assert_eq!(
-        tree.preorder_subroot(Some(I(7))),
+        tree.preorder_subroot(Some(&I(7))),
         [I(7), L(2), I(6), L(3), L(4)]
     );
     assert_eq!(
-        tree.preorder_subroot(Some(I(8))),
+        tree.preorder_subroot(Some(&I(8))),
         [I(8), I(5), L(0), L(1), I(7), L(2), I(6), L(3), L(4)]
     );
-    assert_eq!(tree.preorder_subroot(Some(I(8))), tree.preorder);
+    assert_eq!(tree.preorder_subroot(Some(&I(8))), tree.preorder);
     assert_eq!(tree.preorder_subroot(None), tree.preorder);
 }
 
@@ -218,10 +218,10 @@ fn nj_correct_2() {
         Record::with_attrs("D", None, b""),
     ]);
     let tree = build_nj_tree_w_rng_from_matrix(nj_distances, &sequences, |_| 0).unwrap();
-    assert_eq!(branch_length(&tree, "A"), 1.0);
-    assert_eq!(branch_length(&tree, "B"), 3.0);
-    assert_eq!(branch_length(&tree, "C"), 2.0);
-    assert_eq!(branch_length(&tree, "D"), 7.0);
+    assert_eq!(tree.blen(&tree.idx("A").unwrap()), 1.0);
+    assert_eq!(tree.blen(&tree.idx("B").unwrap()), 3.0);
+    assert_eq!(tree.blen(&tree.idx("C").unwrap()), 2.0);
+    assert_eq!(tree.blen(&tree.idx("D").unwrap()), 7.0);
     assert_eq!(tree.nodes[4].blen, 1.0);
     assert_eq!(tree.nodes[5].blen, 1.0);
     assert_eq!(tree.nodes.len(), 7);
@@ -251,11 +251,11 @@ fn nj_correct_wiki_example() {
         Record::with_attrs("e", None, b""),
     ]);
     let tree = build_nj_tree_w_rng_from_matrix(nj_distances, &sequences, |l| l - 1).unwrap();
-    assert_eq!(branch_length(&tree, "a"), 2.0);
-    assert_eq!(branch_length(&tree, "b"), 3.0);
-    assert_eq!(branch_length(&tree, "c"), 4.0);
-    assert_eq!(branch_length(&tree, "d"), 1.0);
-    assert_eq!(branch_length(&tree, "e"), 1.0);
+    assert_eq!(tree.blen(&tree.idx("a").unwrap()), 2.0);
+    assert_eq!(tree.blen(&tree.idx("b").unwrap()), 3.0);
+    assert_eq!(tree.blen(&tree.idx("c").unwrap()), 4.0);
+    assert_eq!(tree.blen(&tree.idx("d").unwrap()), 1.0);
+    assert_eq!(tree.blen(&tree.idx("e").unwrap()), 1.0);
     assert_eq!(tree.nodes[5].blen, 3.0);
     assert_eq!(tree.nodes[6].blen, 2.0);
     assert_eq!(tree.nodes[7].blen, 1.0);
@@ -264,10 +264,6 @@ fn nj_correct_wiki_example() {
     assert!(is_unique(&tree.postorder));
     assert_eq!(tree.preorder.len(), 9);
     assert!(is_unique(&tree.preorder));
-}
-
-fn branch_length(tree: &Tree, id: &str) -> f64 {
-    tree.nodes[tree.idx(id).unwrap()].blen
 }
 
 #[test]

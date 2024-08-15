@@ -176,8 +176,8 @@ fn different_build_compare() {
         &msa2.compile(None, &tree).unwrap(),
     );
     assert_alignment_eq(
-        &msa.compile(Some(I(4)), &tree).unwrap(),
-        &msa2.compile(Some(I(4)), &tree).unwrap(),
+        &msa.compile(Some(&I(4)), &tree).unwrap(),
+        &msa2.compile(Some(&I(4)), &tree).unwrap(),
     )
 }
 
@@ -204,9 +204,9 @@ fn compile_msa_int1() {
         .msa(node_map.clone())
         .build()
         .unwrap();
-    let idx = tree.idx("I5").unwrap();
+    let idx = &tree.idx("I5").unwrap();
     assert_alignment_eq(
-        &msa.compile(Some(I(idx)), &tree).unwrap(),
+        &msa.compile(Some(idx), &tree).unwrap(),
         &(aligned_seqs(&["A0", "B1"])).s,
     );
 }
@@ -220,14 +220,14 @@ fn compile_msa_int2() {
         .msa(node_map.clone())
         .build()
         .unwrap();
-    let idx = tree.idx("I6").unwrap();
+    let idx = &tree.idx("I6").unwrap();
     let d3 = aligned_seqs(&["D3"]).s.pop().unwrap();
     let e4 = aligned_seqs(&["E4"]).s.pop().unwrap();
     let data = vec![
         Record::with_attrs(d3.id(), d3.desc(), b"-A-"),
         Record::with_attrs(e4.id(), e4.desc(), b"AAA"),
     ];
-    assert_alignment_eq(&msa.compile(Some(I(idx)), &tree).unwrap(), &data);
+    assert_alignment_eq(&msa.compile(Some(idx), &tree).unwrap(), &data);
 }
 
 #[test]
@@ -241,7 +241,7 @@ fn compile_msa_leaf() {
         .unwrap();
     for leaf_id in tree.leaf_ids() {
         assert_alignment_eq(
-            &msa.compile(Some(L(tree.idx(&leaf_id).unwrap())), &tree)
+            &msa.compile(Some(&tree.idx(&leaf_id).unwrap()), &tree)
                 .unwrap(),
             &[unaligned_seqs.get_by_id(&leaf_id).clone()],
         );

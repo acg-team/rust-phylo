@@ -169,6 +169,10 @@ impl Tree {
         }
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = &Node> {
+        self.nodes.iter()
+    }
+
     pub fn children(&self, node_idx: &NodeIdx) -> &Vec<NodeIdx> {
         &self.nodes[usize::from(node_idx)].children
     }
@@ -266,14 +270,14 @@ impl Tree {
     pub(crate) fn create_preorder(&mut self) {
         debug_assert!(self.complete);
         if self.preorder.is_empty() {
-            self.preorder = self.preorder_subroot(Some(self.root));
+            self.preorder = self.preorder_subroot(Some(&self.root));
         }
     }
 
-    pub fn preorder_subroot(&self, subroot_idx: Option<NodeIdx>) -> Vec<NodeIdx> {
+    pub fn preorder_subroot(&self, subroot_idx: Option<&NodeIdx>) -> Vec<NodeIdx> {
         debug_assert!(self.complete);
         let subroot_idx = match subroot_idx {
-            Some(idx) => idx,
+            Some(idx) => *idx,
             None => self.root,
         };
         let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
@@ -304,11 +308,11 @@ impl Tree {
         lengths
     }
 
-    pub fn idx(&self, id: &str) -> Result<usize> {
+    pub fn idx(&self, id: &str) -> Result<NodeIdx> {
         debug_assert!(self.complete);
-        let idx = self.nodes.iter().position(|node| node.id == id);
-        if let Some(idx) = idx {
-            return Ok(idx);
+        let node = self.nodes.iter().find(|node| node.id == id);
+        if let Some(node) = node {
+            return Ok(node.idx);
         }
         bail!("No node with id {} found in the tree", id);
     }
@@ -318,7 +322,7 @@ impl Tree {
         self.nodes[usize::from(node_idx)].blen = blen;
     }
 
-    pub fn branch_length(&self, node_idx: &NodeIdx) -> f64 {
+    pub fn blen(&self, node_idx: &NodeIdx) -> f64 {
         self.nodes[usize::from(node_idx)].blen
     }
 
