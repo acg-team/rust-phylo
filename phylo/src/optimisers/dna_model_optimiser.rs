@@ -29,7 +29,7 @@ impl CostFunction for DNAParamOptimiser<'_> {
         let mut likelihood_cost = self.likelihood_cost.clone();
         let model = DNASubstModel::create(&gtr_params);
         likelihood_cost.model = &model;
-        Ok(-likelihood_cost.compute_log_likelihood().0)
+        Ok(-likelihood_cost.logl().0)
     }
 
     fn parallelize(&self) -> bool {
@@ -87,7 +87,7 @@ impl<'a> DNAModelOptimiser<'a> {
         param_sets: Vec<(&str, Vec<DNAParameter>)>,
     ) -> Result<(u32, DNASubstParams, f64)> {
         let mut prev_logl = f64::NEG_INFINITY;
-        let mut opt_logl = self.likelihood_cost.compute_log_likelihood().0;
+        let mut opt_logl = self.likelihood_cost.logl().0;
         info!("Initial logl: {}.", opt_logl);
         let mut opt_params = start_params.clone();
         let mut model = DNASubstModel::create(&opt_params);

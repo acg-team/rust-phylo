@@ -105,7 +105,7 @@ fn parameter_definition_after_optim_hky() {
     .unwrap();
     let model = DNASubstModel::new(HKY, &[0.26, 0.2, 0.4, 0.14, 4.0, 1.0]).unwrap();
     let likelihood = DNALikelihoodCost::new(&info, &model);
-    let start_logl = likelihood.compute_log_likelihood().0;
+    let start_logl = likelihood.logl().0;
     let (_, optim_parameters, opt_logl) = DNAModelOptimiser::new(&likelihood)
         .optimise_parameters(FrequencyOptimisation::Empirical)
         .unwrap();
@@ -127,7 +127,7 @@ fn parameter_definition_after_optim_tn93() {
     .unwrap();
     let model = DNASubstModel::new(TN93, &[0.26, 0.2, 0.4, 0.14, 4.0, 2.0, 1.0]).unwrap();
     let likelihood = DNALikelihoodCost::new(&info, &model);
-    let start_logl = likelihood.compute_log_likelihood().0;
+    let start_logl = likelihood.logl().0;
     let (_, optim_parameters, opt_logl) = DNAModelOptimiser::new(&likelihood)
         .optimise_parameters(FrequencyOptimisation::Empirical)
         .unwrap();

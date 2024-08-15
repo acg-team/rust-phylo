@@ -193,6 +193,10 @@ impl Tree {
         &self.preorder
     }
 
+    pub fn postorder(&self) -> &Vec<NodeIdx> {
+        &self.postorder
+    }
+
     pub fn to_newick(&self) -> String {
         format!("({});", self._to_newick(self.root))
     }
