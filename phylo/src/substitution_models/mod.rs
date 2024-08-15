@@ -319,4 +319,4 @@ impl<SubstModel: SubstitutionModel> SubstModelInfo<SubstModel> {
 }
 
 #[cfg(test)]
-pub(crate) mod substitution_models_tests;
+pub(crate) mod tests;

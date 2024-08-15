@@ -426,4 +426,4 @@ fn log_factorial(n: usize) -> f64 {
 }
 
 #[cfg(test)]
-mod pip_model_tests;
+mod tests;

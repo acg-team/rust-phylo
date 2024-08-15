@@ -444,4 +444,4 @@ fn compute_distance_matrix(sequences: &Sequences) -> nj_matrices::NJMat {
 }
 
 #[cfg(test)]
-mod tree_tests;
+mod tests;

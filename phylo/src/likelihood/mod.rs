@@ -5,4 +5,4 @@ pub trait LikelihoodCostFunction {
 }
 
 #[cfg(test)]
-mod likelihood_tests;
+mod tests;

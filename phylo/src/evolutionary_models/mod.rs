@@ -132,4 +132,4 @@ pub trait EvoModelInfo {
 }
 
 #[cfg(test)]
-pub(crate) mod evolutionary_models_tests;
+pub(crate) mod tests;
