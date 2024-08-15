@@ -207,12 +207,12 @@ where
 }
 
 #[derive(Clone)]
-pub struct PIPLikelihoodCost<'a, SubstModel: SubstitutionModel> {
+pub struct PIPCost<'a, SubstModel: SubstitutionModel> {
     pub(crate) info: PhyloInfo,
     pub(crate) model: &'a PIPModel<SubstModel>,
 }
 
-impl<'a, SubstModel: SubstitutionModel> LikelihoodCostFunction for PIPLikelihoodCost<'a, SubstModel>
+impl<'a, SubstModel: SubstitutionModel> LikelihoodCostFunction for PIPCost<'a, SubstModel>
 where
     SubstModel: Clone,
     SubstModel::Params: Clone,
@@ -221,25 +221,22 @@ where
     type Model = PIPModel<SubstModel>;
     type Info = PIPModelInfo<SubstModel>;
 
-    fn compute_logl(&self) -> f64 {
-        self.compute_log_likelihood().0
+    fn logl(&self) -> f64 {
+        self.logl().0
     }
 }
 
-impl<'a, SubstModel: SubstitutionModel> PIPLikelihoodCost<'a, SubstModel>
+impl<'a, SubstModel: SubstitutionModel> PIPCost<'a, SubstModel>
 where
     SubstModel: Clone,
     SubstModel::ModelType: Clone,
     SubstModel::Params: Clone,
 {
-    pub(crate) fn compute_log_likelihood(&self) -> (f64, PIPModelInfo<SubstModel>) {
+    pub(crate) fn logl(&self) -> (f64, PIPModelInfo<SubstModel>) {
         let mut tmp_info = PIPModelInfo::<SubstModel>::new(&self.info, self.model).unwrap();
-        (
-            self.compute_log_likelihood_with_tmp(&mut tmp_info),
-            tmp_info,
-        )
+        (self.logl_with_tmp(&mut tmp_info), tmp_info)
     }
-    fn compute_log_likelihood_with_tmp(&self, tmp: &mut PIPModelInfo<SubstModel>) -> f64 {
+    fn logl_with_tmp(&self, tmp: &mut PIPModelInfo<SubstModel>) -> f64 {
         for node_idx in &self.info.tree.postorder {
             match node_idx {
                 Int(idx) => {
@@ -255,9 +252,7 @@ where
         }
         let root_idx = usize::from(&self.info.tree.root);
         let msa_length = tmp.ftilde[0].ncols();
-
         let nu = self.model.params.lambda * (tmp.tree_length + 1.0 / self.model.params.mu);
-
         let ln_phi = nu.ln() * msa_length as f64 + (tmp.c0_p[root_idx] - 1.0) * nu
             - (log_factorial(msa_length));
         tmp.p[root_idx].map(|x| x.ln()).sum() + ln_phi

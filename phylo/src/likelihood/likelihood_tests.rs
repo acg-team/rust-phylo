@@ -47,7 +47,7 @@ fn dna_simple_likelihood() {
     let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
 
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&likelihood),
+        LikelihoodCostFunction::logl(&likelihood),
         -2.5832498829317445,
         epsilon = 1e-6
     );
@@ -55,7 +55,7 @@ fn dna_simple_likelihood() {
     let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
 
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&likelihood),
+        LikelihoodCostFunction::logl(&likelihood),
         -2.719098272533848,
         epsilon = 1e-6
     );
@@ -104,7 +104,7 @@ fn dna_likelihood_one_node() {
     let info = setup_phylo_info_single_leaf();
     let model = DNASubstModel::new(JC69, &[]).unwrap();
     let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
-    assert!(LikelihoodCostFunction::compute_logl(&likelihood) < 0.0);
+    assert!(LikelihoodCostFunction::logl(&likelihood) < 0.0);
 }
 
 #[cfg(test)]
@@ -151,7 +151,7 @@ fn dna_cb_example_likelihood() {
     );
     let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&likelihood),
+        LikelihoodCostFunction::logl(&likelihood),
         -17.1035117087,
         epsilon = 1e-6
     );
@@ -177,7 +177,7 @@ fn dna_mol_evo_example_likelihood() {
     let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
 
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&likelihood),
+        LikelihoodCostFunction::logl(&likelihood),
         -7.581408,
         epsilon = 1e-6
     );
@@ -200,7 +200,7 @@ fn dna_ambig_example_likelihood() {
 
     let likelihood_w_x = SubstitutionLikelihoodCost::new(&info_w_x, &model);
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&likelihood_w_x),
+        LikelihoodCostFunction::logl(&likelihood_w_x),
         -94.46514304131543,
         epsilon = 1e-6
     );
@@ -214,14 +214,14 @@ fn dna_ambig_example_likelihood() {
 
     let likelihood_w_n = SubstitutionLikelihoodCost::new(&info_w_n, &model);
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&likelihood_w_n),
+        LikelihoodCostFunction::logl(&likelihood_w_n),
         -94.46514304131543,
         epsilon = 1e-6
     );
 
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&likelihood_w_x),
-        LikelihoodCostFunction::compute_logl(&likelihood_w_n),
+        LikelihoodCostFunction::logl(&likelihood_w_x),
+        LikelihoodCostFunction::logl(&likelihood_w_n),
     );
 }
 
@@ -239,7 +239,7 @@ fn dna_huelsenbeck_example_likelihood() {
     let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
 
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&likelihood),
+        LikelihoodCostFunction::logl(&likelihood),
         -216.234734,
         epsilon = 1e-3
     );
@@ -264,7 +264,7 @@ fn protein_example_likelihood(
     let model = ProteinSubstModel::new(model_type, params).unwrap();
     let likelihood = ProteinLikelihoodCost::new(&info, &model);
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&likelihood),
+        LikelihoodCostFunction::logl(&likelihood),
         expected_llik,
         epsilon = epsilon
     );
@@ -302,8 +302,8 @@ fn simple_dna_likelihood_reversibility(#[case] model_type: DNAModelType, #[case]
     let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
     let likelihood_rerooted = SubstitutionLikelihoodCost::new(&info_rerooted, &model);
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&likelihood),
-        LikelihoodCostFunction::compute_logl(&likelihood_rerooted),
+        LikelihoodCostFunction::logl(&likelihood),
+        LikelihoodCostFunction::logl(&likelihood_rerooted),
         epsilon = 1e-10,
     );
 }
@@ -342,8 +342,8 @@ fn simple_protein_likelihood_reversibility(
     let likelihood = ProteinLikelihoodCost::new(&info, &model);
     let likelihood_rerooted = ProteinLikelihoodCost::new(&info_rerooted, &model);
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&likelihood),
-        LikelihoodCostFunction::compute_logl(&likelihood_rerooted),
+        LikelihoodCostFunction::logl(&likelihood),
+        LikelihoodCostFunction::logl(&likelihood_rerooted),
         epsilon = epsilon,
     );
 }
@@ -375,8 +375,8 @@ fn huelsenbeck_example_dna_reversibility_likelihood(
     let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
     let likelihood_rerooted = SubstitutionLikelihoodCost::new(&info_rerooted, &model);
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&likelihood),
-        LikelihoodCostFunction::compute_logl(&likelihood_rerooted),
+        LikelihoodCostFunction::logl(&likelihood),
+        LikelihoodCostFunction::logl(&likelihood_rerooted),
         epsilon = 1e-10,
     );
 }

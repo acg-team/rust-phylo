@@ -16,7 +16,7 @@ use crate::evolutionary_models::{
 use crate::frequencies;
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder};
-use crate::pip_model::{PIPDNAModel, PIPLikelihoodCost, PIPModel, PIPModelInfo, PIPProteinModel};
+use crate::pip_model::{PIPCost, PIPDNAModel, PIPModel, PIPModelInfo, PIPProteinModel};
 use crate::substitution_models::dna_models::DNASubstModel;
 use crate::substitution_models::protein_models::{
     ProteinSubstModel, BLOSUM_PI_ARR, HIVB_PI_ARR, WAG_PI_ARR,
@@ -284,7 +284,7 @@ fn pip_hky_likelihood_example_leaf_values() {
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
 
     let mut temp_values = PIPModelInfo::<DNASubstModel>::new(&info, &model).unwrap();
-    let cost = PIPLikelihoodCost {
+    let cost = PIPCost {
         info,
         model: &model,
     };
@@ -558,12 +558,12 @@ fn pip_hky_likelihood_example_final() {
     );
     assert_relative_eq!(tmp.c0_p[0], 0.254143374, epsilon = 1e-3);
     assert_relative_eq!(
-        cost.compute_log_likelihood_with_tmp(&mut tmp),
+        cost.logl_with_tmp(&mut tmp),
         -20.769363665853653 - 0.709020450847471,
         epsilon = 1e-3
     );
     assert_relative_eq!(
-        cost.compute_log_likelihood_with_tmp(&mut tmp),
+        cost.logl_with_tmp(&mut tmp),
         -21.476307347643274, // value from the python script
         epsilon = 1e-2
     );
@@ -586,12 +586,12 @@ fn pip_hky_likelihood_example_2() {
     let mut model = PIPDNAModel::new(HKY, &PIP_HKY_PARAMS).unwrap();
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
     let info = setup_example_phylo_info_2();
-    let cost = PIPLikelihoodCost {
+    let cost = PIPCost {
         info,
         model: &model,
     };
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&cost),
+        LikelihoodCostFunction::logl(&cost),
         -24.9549393298,
         epsilon = 1e-2
     );
@@ -606,23 +606,23 @@ fn pip_likelihood_huelsenbeck_example() {
     .build()
     .unwrap();
     let model = PIPDNAModel::new(HKY, &PIP_HKY_PARAMS).unwrap();
-    let cost = PIPLikelihoodCost {
+    let cost = PIPCost {
         info: info.clone(),
         model: &model,
     };
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&cost),
+        LikelihoodCostFunction::logl(&cost),
         -372.1419415285655,
         epsilon = 1e-4
     );
 
     let model = PIPDNAModel::new(HKY, &[1.2, 0.45, 0.25, 0.25, 0.25, 0.25, 1.0]).unwrap();
-    let cost = PIPLikelihoodCost {
+    let cost = PIPCost {
         info: info.clone(),
         model: &model,
     };
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&cost),
+        LikelihoodCostFunction::logl(&cost),
         -361.1613531649497, // value from the python script
         epsilon = 1e-1
     );
@@ -634,12 +634,12 @@ fn pip_likelihood_huelsenbeck_example() {
         ],
     )
     .unwrap();
-    let cost = PIPLikelihoodCost {
+    let cost = PIPCost {
         info,
         model: &model,
     };
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&cost),
+        LikelihoodCostFunction::logl(&cost),
         -359.2343309917135,
         epsilon = 1e-4
     );
@@ -655,18 +655,18 @@ fn pip_likelihood_huelsenbeck_example_model_comp() {
     .unwrap();
     let model_hky_as_jc69 =
         PIPDNAModel::new(HKY, &[1.1, 0.55, 0.25, 0.25, 0.25, 0.25, 1.0]).unwrap();
-    let cost_1 = PIPLikelihoodCost {
+    let cost_1 = PIPCost {
         info: info.clone(),
         model: &model_hky_as_jc69,
     };
     let model_jc69 = PIPDNAModel::new(JC69, &[1.1, 0.55]).unwrap();
-    let cost_2 = PIPLikelihoodCost {
+    let cost_2 = PIPCost {
         info,
         model: &model_jc69,
     };
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&cost_1),
-        LikelihoodCostFunction::compute_logl(&cost_2),
+        LikelihoodCostFunction::logl(&cost_1),
+        LikelihoodCostFunction::logl(&cost_2),
     );
 }
 
@@ -685,7 +685,7 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
         ],
     )
     .unwrap();
-    let cost_1 = PIPLikelihoodCost {
+    let cost_1 = PIPCost {
         info: info_1,
         model: &model_gtr,
     };
@@ -696,17 +696,17 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
     )
     .build()
     .unwrap();
-    let cost_2 = PIPLikelihoodCost {
+    let cost_2 = PIPCost {
         info: info_2,
         model: &model_gtr,
     };
 
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&cost_1),
-        LikelihoodCostFunction::compute_logl(&cost_2),
+        LikelihoodCostFunction::logl(&cost_1),
+        LikelihoodCostFunction::logl(&cost_2),
     );
     assert_relative_eq!(
-        LikelihoodCostFunction::compute_logl(&cost_1),
+        LikelihoodCostFunction::logl(&cost_1),
         -359.2343309917135,
         epsilon = 1e-4
     );
@@ -721,9 +721,9 @@ fn pip_likelihood_protein_example() {
     .build()
     .unwrap();
     let model_wag = PIPProteinModel::new(WAG, &[0.5, 0.25]).unwrap();
-    let cost = PIPLikelihoodCost {
+    let cost = PIPCost {
         info,
         model: &model_wag,
     };
-    assert!(LikelihoodCostFunction::compute_logl(&cost) <= 0.0);
+    assert!(LikelihoodCostFunction::logl(&cost) <= 0.0);
 }

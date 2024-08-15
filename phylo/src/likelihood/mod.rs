@@ -1,7 +1,7 @@
 pub trait LikelihoodCostFunction {
     type Model;
     type Info;
-    fn compute_logl(&self) -> f64;
+    fn logl(&self) -> f64;
 }
 
 #[cfg(test)]

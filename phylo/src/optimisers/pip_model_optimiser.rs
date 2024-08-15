@@ -3,12 +3,12 @@ use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
 use crate::evolutionary_models::{EvoModelParams, EvolutionaryModel};
-use crate::pip_model::{PIPDNAModel, PIPDNAParams, PIPLikelihoodCost, PIPModel};
+use crate::pip_model::{PIPCost, PIPDNAModel, PIPDNAParams, PIPModel};
 use crate::substitution_models::dna_models::{DNAParameter, DNASubstModel};
 use crate::Result;
 
 pub(crate) struct PIPDNAParamOptimiser<'a> {
-    pub(crate) likelihood_cost: &'a PIPLikelihoodCost<'a, DNASubstModel>,
+    pub(crate) likelihood_cost: &'a PIPCost<'a, DNASubstModel>,
     pub(crate) model: &'a PIPModel<DNASubstModel>,
     pub(crate) parameter: &'a [DNAParameter],
 }
@@ -22,12 +22,12 @@ impl CostFunction for PIPDNAParamOptimiser<'_> {
         for param_name in self.parameter {
             params.set_value(param_name, *value);
         }
-        let mut likelihood_cost: PIPLikelihoodCost<DNASubstModel> = self.likelihood_cost.clone();
+        let mut likelihood_cost: PIPCost<DNASubstModel> = self.likelihood_cost.clone();
 
         let model = PIPDNAModel::create(&params);
 
         likelihood_cost.model = &model;
-        Ok(-likelihood_cost.compute_log_likelihood().0)
+        Ok(-likelihood_cost.logl().0)
     }
 
     fn parallelize(&self) -> bool {
@@ -37,11 +37,11 @@ impl CostFunction for PIPDNAParamOptimiser<'_> {
 
 pub struct PIPDNAModelOptimiser<'a> {
     pub(crate) epsilon: f64,
-    pub(crate) likelihood_cost: &'a PIPLikelihoodCost<'a, DNASubstModel>,
+    pub(crate) likelihood_cost: &'a PIPCost<'a, DNASubstModel>,
 }
 
 impl<'a> PIPDNAModelOptimiser<'a> {
-    pub fn new(likelihood_cost: &'a PIPLikelihoodCost<'a, DNASubstModel>) -> Self {
+    pub fn new(likelihood_cost: &'a PIPCost<'a, DNASubstModel>) -> Self {
         PIPDNAModelOptimiser {
             epsilon: 1e-3,
             likelihood_cost,
@@ -55,7 +55,7 @@ impl<'a> PIPDNAModelOptimiser<'a> {
 
         let param_sets = &PIPDNAParams::parameter_definition(&model_type);
 
-        let mut opt_logl = self.likelihood_cost.compute_log_likelihood().0;
+        let mut opt_logl = self.likelihood_cost.logl().0;
         info!("Initial logl: {}.", opt_logl);
         let mut prev_logl = f64::NEG_INFINITY;
         let mut iters = 0;

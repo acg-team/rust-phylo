@@ -3,7 +3,7 @@ use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
 use crate::phylo_info::PhyloInfo;
-use crate::pip_model::{PIPLikelihoodCost, PIPModel};
+use crate::pip_model::{PIPCost, PIPModel};
 use crate::substitution_models::SubstitutionModel;
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
@@ -24,12 +24,12 @@ where
     type Output = f64;
 
     fn cost(&self, value: &Self::Param) -> Result<Self::Output> {
-        let mut lc = PIPLikelihoodCost {
+        let mut lc = PIPCost {
             model: self.model,
             info: self.phylo_info.clone(),
         };
         lc.info.tree.set_branch_length(self.branch, *value);
-        Ok(-lc.compute_log_likelihood().0)
+        Ok(-lc.logl().0)
     }
 
     fn parallelize(&self) -> bool {
@@ -60,12 +60,12 @@ where
     pub fn optimise_parameters(&self) -> Result<(u32, Tree, f64, f64)> {
         info!("Optimising branch lengths.");
 
-        let mut lc = PIPLikelihoodCost {
+        let mut lc = PIPCost {
             model: self.model,
             info: self.phylo_info.clone(),
         };
 
-        let init_logl = lc.compute_log_likelihood().0;
+        let init_logl = lc.logl().0;
         info!("Initial logl: {}.", init_logl);
         let mut opt_logl = init_logl;
         let mut prev_logl = f64::NEG_INFINITY;
@@ -93,11 +93,7 @@ where
         Ok((iters, lc.info.tree.clone(), init_logl, opt_logl))
     }
 
-    fn optimise_branch(
-        &self,
-        lc: &PIPLikelihoodCost<SubstModel>,
-        branch: &NodeIdx,
-    ) -> Result<(f64, f64)> {
+    fn optimise_branch(&self, lc: &PIPCost<SubstModel>, branch: &NodeIdx) -> Result<(f64, f64)> {
         let optimiser = SingleBranchOptimiser {
             model: self.model,
             phylo_info: &lc.info,
