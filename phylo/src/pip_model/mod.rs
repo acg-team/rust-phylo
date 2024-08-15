@@ -238,8 +238,9 @@ where
         let mut tmp_info = PIPModelInfo::<SubstModel>::new(&self.info, self.model).unwrap();
         (self.logl_with_tmp(&mut tmp_info), tmp_info)
     }
+
     fn logl_with_tmp(&self, tmp: &mut PIPModelInfo<SubstModel>) -> f64 {
-        for node_idx in &self.info.tree.postorder {
+        for node_idx in self.info.tree.postorder() {
             match node_idx {
                 Int(_) => {
                     if self.info.tree.root == *node_idx {

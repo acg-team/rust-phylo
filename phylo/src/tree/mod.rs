@@ -127,9 +127,9 @@ impl Node {
 #[derive(Debug, Clone)]
 pub struct Tree {
     pub root: NodeIdx,
-    pub(crate) nodes: Vec<Node>,
-    pub(crate) postorder: Vec<NodeIdx>,
-    pub(crate) preorder: Vec<NodeIdx>,
+    nodes: Vec<Node>,
+    postorder: Vec<NodeIdx>,
+    preorder: Vec<NodeIdx>,
     pub complete: bool,
     pub n: usize,
 }

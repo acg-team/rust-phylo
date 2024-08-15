@@ -40,12 +40,12 @@ fn setup_test_tree() -> Tree {
 
 #[cfg(test)]
 pub(crate) fn count_internals(tree: &Tree) -> usize {
-    tree.nodes.iter().filter(|&x| matches!(x.idx, I(_))).count()
+    tree.iter().filter(|&x| matches!(x.idx, I(_))).count()
 }
 
 #[cfg(test)]
 pub(crate) fn count_leaves(tree: &Tree) -> usize {
-    tree.nodes.iter().filter(|&x| matches!(x.idx, L(_))).count()
+    tree.iter().filter(|&x| matches!(x.idx, L(_))).count()
 }
 
 #[test]

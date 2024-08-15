@@ -44,18 +44,18 @@ impl<'a> AlignmentBuilder<'a> {
         let msa_len = self.seqs.msa_len();
         let mut stack = HashMap::<NodeIdx, Mapping>::with_capacity(self.tree.len());
         let mut msa = InternalMapping::with_capacity(self.tree.n);
-        for node in self.tree.postorder.iter() {
-            match node {
+        for node_idx in self.tree.postorder() {
+            match node_idx {
                 Int(_) => {
-                    let childs = self.tree.children(node);
+                    let childs = self.tree.children(node_idx);
                     let map_x = stack[&childs[0]].clone();
                     let map_y = stack[&childs[1]].clone();
-                    stack.insert(*node, Self::stack_maps(msa_len, &map_x, &map_y));
-                    msa.insert(*node, Self::clear_common_gaps(msa_len, &map_x, &map_y));
+                    stack.insert(*node_idx, Self::stack_maps(msa_len, &map_x, &map_y));
+                    msa.insert(*node_idx, Self::clear_common_gaps(msa_len, &map_x, &map_y));
                 }
                 Leaf(_) => {
-                    let seq = self.seqs.get_by_id(self.tree.node_id(node)).seq();
-                    stack.insert(*node, align!(seq).clone());
+                    let seq = self.seqs.get_by_id(self.tree.node_id(node_idx)).seq();
+                    stack.insert(*node_idx, align!(seq).clone());
                 }
             }
         }
