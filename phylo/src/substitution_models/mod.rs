@@ -180,10 +180,6 @@ impl<'a, SubstModel: SubstitutionModel + 'a> LikelihoodCostFunction
     fn compute_logl(&self) -> f64 {
         self.compute_log_likelihood().0
     }
-
-    fn empirical_frequencies(&self) -> FreqVector {
-        self.info.freqs()
-    }
 }
 
 impl<'a, SubstModel: SubstitutionModel> SubstitutionLikelihoodCost<'a, SubstModel> {

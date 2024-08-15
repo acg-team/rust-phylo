@@ -7,7 +7,6 @@ use crate::evolutionary_models::{
     EvoModelParams,
     FrequencyOptimisation::{self, *},
 };
-use crate::likelihood::LikelihoodCostFunction;
 use crate::substitution_models::dna_models::{DNAParameter, DNASubstModel, DNASubstParams};
 use crate::substitution_models::{SubstitutionLikelihoodCost, SubstitutionModel};
 use crate::Result;
@@ -53,7 +52,7 @@ impl<'a> DNAModelOptimiser<'a> {
 
     fn set_empirical_frequencies(&self, start_params: &DNASubstParams) -> DNASubstParams {
         let mut start_params = start_params.clone();
-        start_params.set_freqs(self.likelihood_cost.empirical_frequencies());
+        start_params.set_freqs(self.likelihood_cost.info.freqs());
         info!("Set stationary frequencies to empirical.");
         start_params
     }

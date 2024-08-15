@@ -372,7 +372,6 @@ fn huelsenbeck_example_dna_reversibility_likelihood(
     )
     .build()
     .unwrap();
-
     let model = DNASubstModel::new(model_type, params).unwrap();
     let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
     let likelihood_rerooted = SubstitutionLikelihoodCost::new(&info_rerooted, &model);
@@ -393,10 +392,7 @@ fn empirical_frequencies_no_ambigs() {
     ]);
     let newick = "((one:2,two:2):1,(three:1,four:1):2);".to_string();
     let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
-    let model = DNASubstModel::new(JC69, &[]).unwrap();
-    let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
-    let freqs = likelihood.empirical_frequencies();
-    assert_relative_eq!(freqs, frequencies!(&[0.25; 4]), epsilon = 1e-6);
+    assert_relative_eq!(info.freqs(), frequencies!(&[0.25; 4]), epsilon = 1e-6);
 }
 
 #[test]
@@ -409,10 +405,7 @@ fn empirical_frequencies_ambig_x() {
     ]);
     let newick = "((on:2,tw:2):1,(th:1,fo:1):2);".to_string();
     let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
-    let model = DNASubstModel::new(JC69, &[]).unwrap();
-    let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
-    let freqs = likelihood.empirical_frequencies();
-    assert_relative_eq!(freqs, frequencies!(&[0.25; 4]), epsilon = 1e-6);
+    assert_relative_eq!(info.freqs(), frequencies!(&[0.25; 4]), epsilon = 1e-6);
 }
 
 #[test]
@@ -425,11 +418,8 @@ fn empirical_frequencies_ambig_n() {
     ]);
     let newick = "(((on:2,tw:2):1,th:1):4,fo:1);".to_string();
     let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
-    let model = DNASubstModel::new(JC69, &[]).unwrap();
-    let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
-    let freqs = likelihood.empirical_frequencies();
     assert_relative_eq!(
-        freqs,
+        info.freqs(),
         frequencies!(&[0.125, 0.375, 0.375, 0.125]),
         epsilon = 1e-6
     );
@@ -443,18 +433,13 @@ fn empirical_frequencies_ambig_other() {
     ]);
     let newick = "(A:2,B:2):1.0;".to_string();
     let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
-    let model = DNASubstModel::new(JC69, &[]).unwrap();
-    let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
-    let freqs = likelihood.empirical_frequencies();
-    assert_relative_eq!(freqs, frequencies!(&[0.25; 4]), epsilon = 1e-6);
+    assert_relative_eq!(info.freqs(), frequencies!(&[0.25; 4]), epsilon = 1e-6);
     let sequences = Sequences::new(vec![
         Record::with_attrs("A", None, b"SSSSSSSSSSSSSSSSSSSS"),
         Record::with_attrs("B", None, b"WWWWWWWWWWWWWWWWWWWW"),
     ]);
     let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
-    let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
-    let freqs = likelihood.empirical_frequencies();
-    assert_relative_eq!(freqs, frequencies!(&[0.25; 4]), epsilon = 1e-6);
+    assert_relative_eq!(info.freqs(), frequencies!(&[0.25; 4]), epsilon = 1e-6);
 }
 
 #[test]
@@ -462,12 +447,8 @@ fn empirical_frequencies_no_aas() {
     let sequences = Sequences::new(vec![Record::with_attrs("A", None, b"BBBBBBBBB")]);
     let newick = "A:1.0;".to_string();
     let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
-    let model = DNASubstModel::new(JC69, &[]).unwrap();
-    let likelihood = SubstitutionLikelihoodCost::new(&info, &model);
-    let freqs = likelihood.empirical_frequencies();
-
     assert_relative_eq!(
-        freqs,
+        info.freqs(),
         frequencies!(&[3.0 / 10.0, 3.0 / 10.0, 1.0 / 10.0, 3.0 / 10.0]),
         epsilon = 1e-6
     );

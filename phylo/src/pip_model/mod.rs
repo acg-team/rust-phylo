@@ -224,10 +224,6 @@ where
     fn compute_logl(&self) -> f64 {
         self.compute_log_likelihood().0
     }
-
-    fn empirical_frequencies(&self) -> FreqVector {
-        todo!()
-    }
 }
 
 impl<'a, SubstModel: SubstitutionModel> PIPLikelihoodCost<'a, SubstModel>
