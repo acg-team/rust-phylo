@@ -71,7 +71,7 @@ where
         let mut prev_logl = f64::NEG_INFINITY;
         let mut iters = 0;
 
-        let nodes: Vec<NodeIdx> = lc.info.tree.nodes.iter().map(|node| node.idx).collect();
+        let nodes: Vec<NodeIdx> = lc.info.tree.iter().map(|node| node.idx).collect();
         while (prev_logl - opt_logl).abs() > self.epsilon {
             iters += 1;
             debug!("Iteration: {}", iters);

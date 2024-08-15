@@ -193,7 +193,7 @@ fn protein_nj_correct() {
         Record::with_attrs("D3", None, b""),
     ]);
     let tree = build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
-    assert_eq!(tree.nodes.len(), 7);
+    assert_eq!(tree.len(), 7);
     assert_eq!(tree.postorder.len(), 7);
     assert!(is_unique(&tree.postorder));
     assert_eq!(tree.preorder.len(), 7);
@@ -222,9 +222,9 @@ fn nj_correct_2() {
     assert_eq!(tree.blen(&tree.idx("B").unwrap()), 3.0);
     assert_eq!(tree.blen(&tree.idx("C").unwrap()), 2.0);
     assert_eq!(tree.blen(&tree.idx("D").unwrap()), 7.0);
-    assert_eq!(tree.nodes[4].blen, 1.0);
-    assert_eq!(tree.nodes[5].blen, 1.0);
-    assert_eq!(tree.nodes.len(), 7);
+    assert_eq!(tree.blen(&I(4)), 1.0);
+    assert_eq!(tree.blen(&I(5)), 1.0);
+    assert_eq!(tree.len(), 7);
     assert_eq!(tree.postorder.len(), 7);
     assert!(is_unique(&tree.postorder));
     assert_eq!(tree.preorder.len(), 7);
@@ -256,10 +256,10 @@ fn nj_correct_wiki_example() {
     assert_eq!(tree.blen(&tree.idx("c").unwrap()), 4.0);
     assert_eq!(tree.blen(&tree.idx("d").unwrap()), 1.0);
     assert_eq!(tree.blen(&tree.idx("e").unwrap()), 1.0);
-    assert_eq!(tree.nodes[5].blen, 3.0);
-    assert_eq!(tree.nodes[6].blen, 2.0);
-    assert_eq!(tree.nodes[7].blen, 1.0);
-    assert_eq!(tree.nodes.len(), 9);
+    assert_eq!(tree.blen(&I(5)), 3.0);
+    assert_eq!(tree.blen(&I(6)), 2.0);
+    assert_eq!(tree.blen(&I(7)), 1.0);
+    assert_eq!(tree.len(), 9);
     assert_eq!(tree.postorder.len(), 9);
     assert!(is_unique(&tree.postorder));
     assert_eq!(tree.preorder.len(), 9);
