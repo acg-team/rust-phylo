@@ -73,6 +73,7 @@ where
 
         let nodes: Vec<NodeIdx> = lc.info.tree.nodes.iter().map(|node| node.idx).collect();
         while (prev_logl - opt_logl).abs() > self.epsilon {
+            iters += 1;
             debug!("Iteration: {}", iters);
             prev_logl = opt_logl;
             for branch in &nodes {
@@ -84,7 +85,6 @@ where
                     branch, length, opt_logl
                 );
             }
-            iters += 1;
         }
         info!(
             "Final logl: {}, achieved in {} iteration(s).",

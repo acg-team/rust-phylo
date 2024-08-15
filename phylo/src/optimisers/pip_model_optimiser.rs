@@ -62,6 +62,7 @@ impl<'a> PIPDNAModelOptimiser<'a> {
         let mut model = PIPModel::create(&opt_params);
 
         while (prev_logl - opt_logl).abs() > self.epsilon {
+            iters += 1;
             debug!("Iteration: {}", iters);
             prev_logl = opt_logl;
             for (param_name, param_set) in param_sets.iter() {
@@ -88,7 +89,6 @@ impl<'a> PIPDNAModelOptimiser<'a> {
                 debug!("New parameters: {}\n", opt_params);
                 model = PIPModel::create(&opt_params);
             }
-            iters += 1;
         }
         info!(
             "Final logl: {}, achieved in {} iteration(s).",

@@ -95,6 +95,7 @@ impl<'a> DNAModelOptimiser<'a> {
         let mut iters = 0;
 
         while (prev_logl - opt_logl).abs() > self.epsilon {
+            iters += 1;
             debug!("Iteration: {}", iters);
             prev_logl = opt_logl;
             for (param_name, param_set) in param_sets.iter() {
@@ -121,7 +122,6 @@ impl<'a> DNAModelOptimiser<'a> {
                 debug!("New parameters: {}\n", opt_params);
                 model = DNASubstModel::create(&opt_params);
             }
-            iters += 1;
         }
         info!(
             "Final logl: {}, achieved in {} iteration(s).",
