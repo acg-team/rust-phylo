@@ -83,6 +83,7 @@ where
 {
     type ModelType = SubstModel::ModelType;
     type Params = PIPParams<SubstModel>;
+    const N: usize = SubstModel::N + 1;
 
     fn new(model: Self::ModelType, params: &[f64]) -> Result<Self>
     where

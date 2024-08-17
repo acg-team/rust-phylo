@@ -106,6 +106,7 @@ where
 {
     type ModelType = <SubstModel<Params> as SubstitutionModel>::ModelType;
     type Params = Params;
+    const N: usize = <SubstModel<Params> as SubstitutionModel>::N;
 
     fn new(model: Self::ModelType, params: &[f64]) -> Result<Self>
     where
@@ -162,7 +163,7 @@ pub struct SubstitutionLikelihoodCost<'a, SubstModel: SubstitutionModel + 'a> {
     pub(crate) model: &'a SubstModel,
 }
 
-impl<'a, SubstModel: SubstitutionModel + 'a> LikelihoodCostFunction
+impl<'a, SubstModel: SubstitutionModel + EvoModel + 'a> LikelihoodCostFunction
     for SubstitutionLikelihoodCost<'a, SubstModel>
 {
     fn logl(&self, info: &PhyloInfo) -> f64 {
@@ -170,7 +171,7 @@ impl<'a, SubstModel: SubstitutionModel + 'a> LikelihoodCostFunction
     }
 }
 
-impl<'a, SubstModel: SubstitutionModel> SubstitutionLikelihoodCost<'a, SubstModel> {
+impl<'a, SubstModel: SubstitutionModel + EvoModel> SubstitutionLikelihoodCost<'a, SubstModel> {
     pub fn new(model: &'a SubstModel) -> Self {
         SubstitutionLikelihoodCost { model }
     }
@@ -199,7 +200,7 @@ impl<'a, SubstModel: SubstitutionModel> SubstitutionLikelihoodCost<'a, SubstMode
             };
         }
         let root_info = &tmp_values.node_info[usize::from(&info.tree.root)];
-        let likelihood = model.freqs().transpose().mul(root_info);
+        let likelihood = SubstitutionModel::freqs(model).transpose().mul(root_info);
         debug_assert_eq!(likelihood.ncols(), info.msa_length());
         debug_assert_eq!(likelihood.nrows(), 1);
         likelihood.map(|x| x.ln()).sum()
@@ -261,22 +262,9 @@ pub struct SubstModelInfo<SubstModel: SubstitutionModel> {
     leaf_sequence_info: HashMap<String, DMatrix<f64>>,
 }
 
-impl<SubstModel: SubstitutionModel> EvoModelInfo for SubstModelInfo<SubstModel> {
+impl<SubstModel: SubstitutionModel + EvoModel> EvoModelInfo for SubstModelInfo<SubstModel> {
     type Model = SubstModel;
 
-    fn new(info: &PhyloInfo, model: &SubstModel) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        Self::new(info, model)
-    }
-
-    fn reset(&mut self) {
-        self.reset();
-    }
-}
-
-impl<SubstModel: SubstitutionModel> SubstModelInfo<SubstModel> {
     fn new(info: &PhyloInfo, model: &SubstModel) -> Result<Self> {
         let node_count = info.tree.len();
         let msa_length = info.msa_length();
@@ -285,13 +273,14 @@ impl<SubstModel: SubstitutionModel> SubstModelInfo<SubstModel> {
         for node in info.tree.leaves() {
             let alignment_map = info.msa.leaf_map(&node.idx);
             let leaf_encoding = info.leaf_encoding.get(&node.id).unwrap();
-            let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(SubstModel::N, msa_length);
+            let mut leaf_seq_w_gaps =
+                DMatrix::<f64>::zeros(<SubstModel as SubstitutionModel>::N, msa_length);
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
                     site_info.copy_from(&leaf_encoding.column(c));
-                    site_info.component_mul_assign(model.freqs());
+                    site_info.component_mul_assign(SubstitutionModel::freqs(model));
                 } else {
-                    site_info.copy_from(model.freqs());
+                    site_info.copy_from(SubstitutionModel::freqs(model));
                 }
                 site_info.scale_mut((1.0) / site_info.sum());
             }
@@ -299,9 +288,18 @@ impl<SubstModel: SubstitutionModel> SubstModelInfo<SubstModel> {
         }
         Ok(SubstModelInfo::<SubstModel> {
             phantom: PhantomData::<SubstModel>,
-            node_info: vec![DMatrix::<f64>::zeros(SubstModel::N, msa_length); node_count],
+            node_info: vec![
+                DMatrix::<f64>::zeros(<SubstModel as SubstitutionModel>::N, msa_length);
+                node_count
+            ],
             node_info_valid: vec![false; node_count],
-            node_models: vec![SubstMatrix::zeros(SubstModel::N, SubstModel::N); node_count],
+            node_models: vec![
+                SubstMatrix::zeros(
+                    <SubstModel as SubstitutionModel>::N,
+                    <SubstModel as SubstitutionModel>::N
+                );
+                node_count
+            ],
             node_models_valid: vec![false; node_count],
             leaf_sequence_info,
         })

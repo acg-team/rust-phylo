@@ -97,6 +97,7 @@ impl From<&str> for ProteinModelType {
 pub trait EvoModel {
     type ModelType;
     type Params;
+    const N: usize;
     fn new(model: Self::ModelType, params: &[f64]) -> Result<Self>
     where
         Self: Sized;
