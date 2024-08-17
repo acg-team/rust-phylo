@@ -13,7 +13,7 @@ use crate::pip_model::{PIPCost, PIPDNAParams, PIPModel};
 
 #[test]
 fn check_parameter_optimisation_pip_arpiptest() {
-    let info = PhyloInfoBuilder::with_attrs(
+    let info = &PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/pip/arpip/msa.fasta"),
         PathBuf::from("./data/pip/arpip/tree.nwk"),
     )
@@ -27,13 +27,10 @@ fn check_parameter_optimisation_pip_arpiptest() {
         ],
     )
     .unwrap();
-    let likelihood = PIPCost {
-        info,
-        model: &model,
-    };
+    let likelihood = PIPCost { model: &model };
 
-    let initial_logl = LikelihoodCostFunction::logl(&likelihood);
-    let (_, _, logl) = PIPDNAModelOptimiser::new(&likelihood)
+    let initial_logl = LikelihoodCostFunction::logl(&likelihood, info);
+    let (_, _, logl) = PIPDNAModelOptimiser::new(&likelihood, info)
         .optimise_parameters()
         .unwrap();
     assert!(logl > initial_logl);
@@ -41,7 +38,7 @@ fn check_parameter_optimisation_pip_arpiptest() {
 
 #[test]
 fn test_optimisation_pip_propip_example() {
-    let info = PhyloInfoBuilder::with_attrs(
+    let info = &PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/pip/propip/msa.initial.fasta"),
         PathBuf::from("./data/pip/propip/tree.nwk"),
     )
@@ -56,30 +53,24 @@ fn test_optimisation_pip_propip_example() {
     )
     .unwrap();
 
-    let likelihood = PIPCost {
-        info: info.clone(),
-        model: &model,
-    };
-    let initial_logl = LikelihoodCostFunction::logl(&likelihood);
+    let likelihood = PIPCost { model: &model };
+    let initial_logl = LikelihoodCostFunction::logl(&likelihood, info);
     assert_relative_eq!(initial_logl, -1241.9944955187807, epsilon = 1e-3);
-    let (_, optimised_params, logl) = PIPDNAModelOptimiser::new(&likelihood)
+    let (_, optimised_params, logl) = PIPDNAModelOptimiser::new(&likelihood, info)
         .optimise_parameters()
         .unwrap();
     assert!(logl > initial_logl);
     assert!(logl > -1136.3884248861254);
     let model = PIPModel::create(&optimised_params);
 
-    let likelihood = PIPCost {
-        info,
-        model: &model,
-    };
-    let recomp_logl = LikelihoodCostFunction::logl(&likelihood);
+    let likelihood = PIPCost { model: &model };
+    let recomp_logl = LikelihoodCostFunction::logl(&likelihood, info);
     assert_eq!(logl, recomp_logl);
 }
 
 #[test]
 fn check_example_against_python_no_gaps() {
-    let info = PhyloInfoBuilder::with_attrs(
+    let info = &PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
     )
@@ -92,17 +83,14 @@ fn check_example_against_python_no_gaps() {
     )
     .unwrap();
     let model = PIPModel::create(&pip_params);
-    let cost = PIPCost {
-        info,
-        model: &model,
-    };
+    let cost = PIPCost { model: &model };
 
     assert_relative_eq!(
-        LikelihoodCostFunction::logl(&cost),
+        LikelihoodCostFunction::logl(&cost, info),
         -361.1613531649497, // value from the python script
         epsilon = 1e-1
     );
-    let (_, opt_params, logl) = PIPDNAModelOptimiser::new(&cost)
+    let (_, opt_params, logl) = PIPDNAModelOptimiser::new(&cost, info)
         .optimise_parameters()
         .unwrap();
     assert_eq!(opt_params.subst_params.rtc, opt_params.subst_params.rag);
@@ -121,7 +109,7 @@ fn check_example_against_python_no_gaps() {
 
 #[test]
 fn check_parameter_optimisation_pip_gtr() {
-    let info = PhyloInfoBuilder::with_attrs(
+    let info = &PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/GTR/gtr.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
     )
@@ -136,12 +124,9 @@ fn check_parameter_optimisation_pip_gtr() {
     )
     .unwrap();
     let model = PIPModel::create(&pip_params);
-    let likelihood = PIPCost {
-        info,
-        model: &model,
-    };
-    let initial_logl = LikelihoodCostFunction::logl(&likelihood);
-    let (_, opt_params, optimised_logl) = PIPDNAModelOptimiser::new(&likelihood)
+    let likelihood = PIPCost { model: &model };
+    let initial_logl = LikelihoodCostFunction::logl(&likelihood, info);
+    let (_, opt_params, optimised_logl) = PIPDNAModelOptimiser::new(&likelihood, info)
         .optimise_parameters()
         .unwrap();
     assert_relative_eq!(initial_logl, -9988.486546494, epsilon = 1e0); // value from the python script

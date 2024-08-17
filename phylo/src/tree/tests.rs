@@ -38,16 +38,6 @@ fn setup_test_tree() -> Tree {
     tree
 }
 
-#[cfg(test)]
-pub(crate) fn count_internals(tree: &Tree) -> usize {
-    tree.iter().filter(|&x| matches!(x.idx, I(_))).count()
-}
-
-#[cfg(test)]
-pub(crate) fn count_leaves(tree: &Tree) -> usize {
-    tree.iter().filter(|&x| matches!(x.idx, L(_))).count()
-}
-
 #[test]
 fn idx_by_id() {
     let tree = from_newick_string(&String::from(
@@ -320,6 +310,10 @@ fn newick_ladder_second_correct() {
     assert_eq!(trees[0].nodes, nodes);
     assert_eq!(trees[0].postorder.len(), 5);
     assert_eq!(trees[0].preorder.len(), 5);
+    assert_eq!(
+        trees[0].height,
+        trees[0].all_branch_lengths().iter().sum::<f64>()
+    );
 }
 
 #[test]
@@ -331,8 +325,8 @@ fn newick_ladder_big_correct() {
     assert_eq!(trees.len(), 1);
     assert_eq!(trees[0].root, I(0));
     assert_eq!(trees[0].nodes.len(), 9);
-    assert_eq!(count_leaves(&trees[0]), 5);
-    assert_eq!(count_internals(&trees[0]), 4);
+    assert_eq!(trees[0].leaves().len(), 5);
+    assert_eq!(trees[0].internals().len(), 4);
     assert_eq!(trees[0].postorder.len(), 9);
     assert_eq!(trees[0].preorder.len(), 9);
 }
@@ -351,8 +345,8 @@ fn newick_complex_tree_correct() {
     assert_eq!(trees.len(), 1);
     assert_eq!(trees[0].root, I(0));
     assert_eq!(trees[0].nodes.len(), 31);
-    assert_eq!(count_leaves(&trees[0]), 16);
-    assert_eq!(count_internals(&trees[0]), 15);
+    assert_eq!(trees[0].leaves().len(), 16);
+    assert_eq!(trees[0].internals().len(), 15);
 }
 
 #[test]
@@ -407,14 +401,14 @@ fn newick_multiple_correct() {
     .unwrap();
     assert_eq!(trees.len(), 3);
     assert_eq!(trees[0].root, I(0));
-    assert_eq!(count_leaves(&trees[0]), 5);
-    assert_eq!(count_internals(&trees[0]), 4);
+    assert_eq!(trees[0].leaves().len(), 5);
+    assert_eq!(trees[0].internals().len(), 4);
     assert_eq!(trees[1].root, I(0));
-    assert_eq!(count_leaves(&trees[1]), 4);
-    assert_eq!(count_internals(&trees[1]), 3);
+    assert_eq!(trees[1].leaves().len(), 4);
+    assert_eq!(trees[1].internals().len(), 3);
     assert_eq!(trees[2].root, I(0));
-    assert_eq!(count_leaves(&trees[2]), 3);
-    assert_eq!(count_internals(&trees[2]), 2);
+    assert_eq!(trees[2].leaves().len(), 3);
+    assert_eq!(trees[2].internals().len(), 2);
 }
 
 #[test]
@@ -470,8 +464,8 @@ fn newick_parse_unrooted_long() {
     )).unwrap();
     assert_eq!(trees.len(), 1);
     let tree = trees.pop().unwrap();
-    assert_eq!(count_leaves(&tree), 8);
-    assert_eq!(count_internals(&tree), 7);
+    assert_eq!(tree.leaves().len(), 8);
+    assert_eq!(tree.internals().len(), 7);
 }
 
 #[test]
@@ -484,6 +478,11 @@ fn newick_parse_unrooted_rooted_mix() {
         (G:2,H:5)N:5;",
     )).unwrap();
     assert_eq!(trees.len(), 5);
+}
+
+#[test]
+fn newick_parse_phyml_output() {
+    tree_parser::from_newick_string("((Gorilla:0.06683711,(Orangutan:0.21859880,Gibbon:0.31145586):0.06570906):0.03853171,Human:0.05356244,Chimpanzee:0.05417982);").unwrap();
 }
 
 fn make_parsing_error(rules: &[Rule]) -> ErrorVariant<Rule> {
@@ -681,6 +680,7 @@ fn test_to_newick_simple() {
         preorder: vec![I(2), L(0), L(1)],
         complete: false,
         n: 3,
+        height: 8.5,
     };
     assert_eq!(tree.to_newick(), "((A:1,B:5.5)C:2);");
 }
@@ -707,6 +707,7 @@ fn test_to_newick_complex() {
         .pop()
         .unwrap();
     assert!(tree.complete);
+    assert_eq!(tree.height, tree.all_branch_lengths().iter().sum::<f64>());
 }
 
 #[test]
@@ -733,9 +734,10 @@ fn test_parse_huge_newick() {
     let mut trees = trees.unwrap();
     assert_eq!(trees.len(), 1);
     let tree = trees.pop().unwrap();
-    assert_eq!(count_leaves(&tree), 762);
-    assert_eq!(count_internals(&tree), 761);
+    assert_eq!(tree.leaves().len(), 762);
+    assert_eq!(tree.internals().len(), 761);
     assert!(tree.complete);
+    assert_eq!(tree.height, tree.all_branch_lengths().iter().sum::<f64>());
 }
 
 #[test]

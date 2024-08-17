@@ -127,11 +127,12 @@ impl Node {
 #[derive(Debug, Clone)]
 pub struct Tree {
     pub root: NodeIdx,
-    nodes: Vec<Node>,
+    pub(crate) nodes: Vec<Node>,
     postorder: Vec<NodeIdx>,
     preorder: Vec<NodeIdx>,
     pub complete: bool,
     pub n: usize,
+    pub height: f64,
 }
 
 impl Tree {
@@ -153,6 +154,7 @@ impl Tree {
                 )],
                 complete: true,
                 n: 1,
+                height: 0.0,
             })
         } else {
             Ok(Self {
@@ -165,6 +167,7 @@ impl Tree {
                     .collect(),
                 complete: false,
                 n,
+                height: 0.0,
             })
         }
     }
@@ -323,6 +326,8 @@ impl Tree {
 
     pub fn set_branch_length(&mut self, node_idx: &NodeIdx, blen: f64) {
         debug_assert!(blen >= 0.0);
+        let old_blen = self.nodes[usize::from(node_idx)].blen;
+        self.height += blen - old_blen;
         self.nodes[usize::from(node_idx)].blen = blen;
     }
 
@@ -335,6 +340,14 @@ impl Tree {
         self.nodes
             .iter()
             .filter(|&x| matches!(x.idx, Leaf(_)))
+            .collect()
+    }
+
+    pub fn internals(&self) -> Vec<&Node> {
+        debug_assert!(self.complete);
+        self.nodes
+            .iter()
+            .filter(|&x| matches!(x.idx, Int(_)))
             .collect()
     }
 }
@@ -408,6 +421,7 @@ fn build_nj_tree_w_rng_from_matrix(
     tree.complete = true;
     tree.create_postorder();
     tree.create_preorder();
+    tree.height = tree.nodes.iter().map(|node| node.blen).sum();
     Ok(tree)
 }
 

@@ -7,7 +7,10 @@ use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::{EvoModelInfo, EvoModelParams, EvolutionaryModel};
 use crate::likelihood::LikelihoodCostFunction;
-use crate::tree::NodeIdx::{self, Internal, Leaf};
+use crate::tree::{
+    Node,
+    NodeIdx::{Internal, Leaf},
+};
 use crate::{f64_h, phylo_info::PhyloInfo, Result, Rounding};
 
 pub mod dna_models;
@@ -156,67 +159,62 @@ where
 
 #[derive(Clone)]
 pub struct SubstitutionLikelihoodCost<'a, SubstModel: SubstitutionModel + 'a> {
-    pub(crate) info: &'a PhyloInfo,
     pub(crate) model: &'a SubstModel,
-}
-
-impl<'a, SubstModel: SubstitutionModel + 'a> SubstitutionLikelihoodCost<'a, SubstModel> {
-    pub fn new(info: &'a PhyloInfo, model: &'a SubstModel) -> Self {
-        SubstitutionLikelihoodCost { info, model }
-    }
-    pub fn logl(&self) -> (f64, SubstModelInfo<SubstModel>) {
-        let mut tmp_info = SubstModelInfo::<SubstModel>::new(self.info, self.model).unwrap();
-        let logl = self.logl_with_tmp(self.model, &mut tmp_info);
-        (logl, tmp_info)
-    }
 }
 
 impl<'a, SubstModel: SubstitutionModel + 'a> LikelihoodCostFunction
     for SubstitutionLikelihoodCost<'a, SubstModel>
 {
-    type Model = SubstModel;
-    type Info = SubstModelInfo<SubstModel>;
-
-    fn logl(&self) -> f64 {
-        self.logl().0
+    fn logl(&self, info: &PhyloInfo) -> f64 {
+        self.logl(info).0
     }
 }
 
 impl<'a, SubstModel: SubstitutionModel> SubstitutionLikelihoodCost<'a, SubstModel> {
+    pub fn new(model: &'a SubstModel) -> Self {
+        SubstitutionLikelihoodCost { model }
+    }
+
+    pub fn logl(&self, info: &PhyloInfo) -> (f64, SubstModelInfo<SubstModel>) {
+        let mut tmp_info = SubstModelInfo::<SubstModel>::new(info, self.model).unwrap();
+        let logl = self.logl_with_tmp(info, self.model, &mut tmp_info);
+        (logl, tmp_info)
+    }
+
     fn logl_with_tmp(
         &self,
+        info: &PhyloInfo,
         model: &SubstModel,
         tmp_values: &mut SubstModelInfo<SubstModel>,
     ) -> f64 {
-        debug_assert_eq!(self.info.tree.len(), tmp_values.node_info.len());
-        for node_idx in self.info.tree.postorder() {
+        debug_assert_eq!(info.tree.len(), tmp_values.node_info.len());
+        for node_idx in info.tree.postorder() {
             match node_idx {
                 Internal(_) => {
-                    self.set_internal(node_idx, model, tmp_values);
+                    self.set_internal(info.tree.node(node_idx), model, tmp_values);
                 }
                 Leaf(_) => {
-                    self.set_leaf(node_idx, model, tmp_values);
+                    self.set_leaf(info.tree.node(node_idx), model, tmp_values);
                 }
             };
         }
-        let root_info = &tmp_values.node_info[usize::from(&self.info.tree.root)];
+        let root_info = &tmp_values.node_info[usize::from(&info.tree.root)];
         let likelihood = model.freqs().transpose().mul(root_info);
-        debug_assert_eq!(likelihood.ncols(), self.info.msa_length());
+        debug_assert_eq!(likelihood.ncols(), info.msa_length());
         debug_assert_eq!(likelihood.nrows(), 1);
         likelihood.map(|x| x.ln()).sum()
     }
 
     fn set_internal(
         &self,
-        node_idx: &NodeIdx,
+        node: &Node,
         model: &SubstModel,
         tmp_values: &mut SubstModelInfo<SubstModel>,
     ) {
-        let idx = usize::from(node_idx);
+        let idx = usize::from(node.idx);
         if tmp_values.node_info_valid[idx] {
             return;
         }
-        let node = self.info.tree.node(node_idx);
         if !tmp_values.node_models_valid[idx] {
             tmp_values.node_models[idx] = SubstitutionModel::p(model, node.blen);
             tmp_values.node_models_valid[idx] = true;
@@ -232,15 +230,14 @@ impl<'a, SubstModel: SubstitutionModel> SubstitutionLikelihoodCost<'a, SubstMode
 
     fn set_leaf(
         &self,
-        node_idx: &NodeIdx,
+        node: &Node,
         model: &SubstModel,
         tmp_values: &mut SubstModelInfo<SubstModel>,
     ) {
-        let idx = usize::from(node_idx);
+        let idx = usize::from(node.idx);
         if tmp_values.node_info_valid[idx] {
             return;
         }
-        let node = self.info.tree.node(node_idx);
         if !tmp_values.node_models_valid[idx] {
             tmp_values.node_models[idx] = SubstitutionModel::p(model, node.blen);
             tmp_values.node_models_valid[idx] = true;

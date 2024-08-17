@@ -3,6 +3,7 @@ use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
 use crate::evolutionary_models::{EvoModelParams, EvolutionaryModel};
+use crate::phylo_info::PhyloInfo;
 use crate::pip_model::{PIPCost, PIPDNAModel, PIPDNAParams, PIPModel};
 use crate::substitution_models::dna_models::{DNAParameter, DNASubstModel};
 use crate::Result;
@@ -10,6 +11,7 @@ use crate::Result;
 pub(crate) struct PIPDNAParamOptimiser<'a> {
     pub(crate) likelihood_cost: &'a PIPCost<'a, DNASubstModel>,
     pub(crate) model: &'a PIPModel<DNASubstModel>,
+    pub(crate) phylo_info: &'a PhyloInfo,
     pub(crate) parameter: &'a [DNAParameter],
 }
 
@@ -27,7 +29,7 @@ impl CostFunction for PIPDNAParamOptimiser<'_> {
         let model = PIPDNAModel::create(&params);
 
         likelihood_cost.model = &model;
-        Ok(-likelihood_cost.logl().0)
+        Ok(-likelihood_cost.logl(self.phylo_info).0)
     }
 
     fn parallelize(&self) -> bool {
@@ -38,13 +40,15 @@ impl CostFunction for PIPDNAParamOptimiser<'_> {
 pub struct PIPDNAModelOptimiser<'a> {
     pub(crate) epsilon: f64,
     pub(crate) likelihood_cost: &'a PIPCost<'a, DNASubstModel>,
+    pub(crate) info: PhyloInfo,
 }
 
 impl<'a> PIPDNAModelOptimiser<'a> {
-    pub fn new(likelihood_cost: &'a PIPCost<'a, DNASubstModel>) -> Self {
+    pub fn new(cost: &'a PIPCost<'a, DNASubstModel>, phylo_info: &PhyloInfo) -> Self {
         PIPDNAModelOptimiser {
             epsilon: 1e-3,
-            likelihood_cost,
+            likelihood_cost: cost,
+            info: phylo_info.clone(),
         }
     }
 
@@ -55,7 +59,7 @@ impl<'a> PIPDNAModelOptimiser<'a> {
 
         let param_sets = &PIPDNAParams::parameter_definition(&model_type);
 
-        let mut opt_logl = self.likelihood_cost.logl().0;
+        let mut opt_logl = self.likelihood_cost.logl(&self.info).0;
         info!("Initial logl: {}.", opt_logl);
         let mut prev_logl = f64::NEG_INFINITY;
         let mut iters = 0;
@@ -70,6 +74,7 @@ impl<'a> PIPDNAModelOptimiser<'a> {
                     likelihood_cost: self.likelihood_cost,
                     model: &model,
                     parameter: param_set,
+                    phylo_info: &self.info,
                 };
                 let gss = BrentOpt::new(1e-10, 100.0);
                 let res = Executor::new(optimiser, gss)

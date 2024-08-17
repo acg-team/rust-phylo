@@ -5,13 +5,15 @@ use std::vec;
 
 use nalgebra::{DMatrix, DVector};
 
+use crate::alignment::Mapping;
 use crate::evolutionary_models::{EvoModelInfo, EvolutionaryModel};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::DNASubstModel;
 use crate::substitution_models::protein_models::ProteinSubstModel;
 use crate::substitution_models::{FreqVector, SubstMatrix, SubstitutionModel};
-use crate::tree::NodeIdx::{self, Internal as Int, Leaf};
+use crate::tree::Node;
+use crate::tree::NodeIdx::{Internal as Int, Leaf};
 use crate::Result;
 
 mod pip_parameters;
@@ -210,8 +212,7 @@ where
 
 #[derive(Clone)]
 pub struct PIPCost<'a, SubstModel: SubstitutionModel> {
-    pub(crate) info: PhyloInfo,
-    pub(crate) model: &'a PIPModel<SubstModel>,
+    pub model: &'a PIPModel<SubstModel>,
 }
 
 impl<'a, SubstModel: SubstitutionModel> LikelihoodCostFunction for PIPCost<'a, SubstModel>
@@ -220,11 +221,8 @@ where
     SubstModel::Params: Clone,
     SubstModel::ModelType: Clone,
 {
-    type Model = PIPModel<SubstModel>;
-    type Info = PIPModelInfo<SubstModel>;
-
-    fn logl(&self) -> f64 {
-        self.logl().0
+    fn logl(&self, info: &PhyloInfo) -> f64 {
+        self.logl(info).0
     }
 }
 
@@ -234,26 +232,32 @@ where
     SubstModel::ModelType: Clone,
     SubstModel::Params: Clone,
 {
-    pub(crate) fn logl(&self) -> (f64, PIPModelInfo<SubstModel>) {
-        let mut tmp_info = PIPModelInfo::<SubstModel>::new(&self.info, self.model).unwrap();
-        (self.logl_with_tmp(&mut tmp_info), tmp_info)
+    pub(crate) fn logl(&self, info: &PhyloInfo) -> (f64, PIPModelInfo<SubstModel>) {
+        let mut tmp_info = PIPModelInfo::<SubstModel>::new(info, self.model).unwrap();
+        (self.logl_with_tmp(info, &mut tmp_info), tmp_info)
     }
 
-    fn logl_with_tmp(&self, tmp: &mut PIPModelInfo<SubstModel>) -> f64 {
-        for node_idx in self.info.tree.postorder() {
+    fn logl_with_tmp(&self, info: &PhyloInfo, tmp: &mut PIPModelInfo<SubstModel>) -> f64 {
+        tmp.tree_length = info.tree.height;
+        for node_idx in info.tree.postorder() {
             match node_idx {
                 Int(_) => {
-                    if self.info.tree.root == *node_idx {
-                        self.set_root(node_idx, self.model, tmp);
+                    if info.tree.root == *node_idx {
+                        self.set_root(info.tree.node(node_idx), self.model, tmp);
                     }
-                    self.set_internal(node_idx, self.model, tmp);
+                    self.set_internal(info.tree.node(node_idx), self.model, tmp);
                 }
                 Leaf(_) => {
-                    self.set_leaf(node_idx, self.model, tmp);
+                    self.set_leaf(
+                        info.tree.node(node_idx),
+                        info.msa.leaf_map(node_idx),
+                        self.model,
+                        tmp,
+                    );
                 }
             };
         }
-        let root_idx = usize::from(&self.info.tree.root);
+        let root_idx = usize::from(&info.tree.root);
         let msa_length = tmp.ftilde[0].ncols();
         let nu = self.model.params.lambda * (tmp.tree_length + 1.0 / self.model.params.mu);
         let ln_phi = nu.ln() * msa_length as f64 + (tmp.c0_p[root_idx] - 1.0) * nu
@@ -263,78 +267,78 @@ where
 
     fn set_root(
         &self,
-        idx: &NodeIdx,
+        node: &Node,
         model: &PIPModel<SubstModel>,
         tmp: &mut PIPModelInfo<SubstModel>,
     ) {
-        self.set_model(idx, model, tmp);
-        let idx_usize = usize::from(idx);
-        if !tmp.valid[idx_usize] {
+        self.set_model(node, model, tmp);
+        let idx = usize::from(node.idx);
+        if !tmp.valid[idx] {
             let mu = model.params.mu;
-            tmp.surv_probs[idx_usize] = 1.0;
-            tmp.ins_probs[idx_usize] = Self::insertion_prob(tmp.tree_length, 1.0 / mu, mu);
-            self.set_ftilde(idx, model, tmp);
-            self.set_ancestors(idx, tmp);
-            tmp.anc[idx_usize].fill_column(0, 1.0);
-            self.set_p(idx, tmp);
-            self.set_c0(idx, model, tmp);
-            tmp.valid[idx_usize] = true;
+            tmp.surv_probs[idx] = 1.0;
+            tmp.ins_probs[idx] = Self::insertion_prob(tmp.tree_length, 1.0 / mu, mu);
+            self.set_ftilde(node, model, tmp);
+            self.set_ancestors(node, tmp);
+            tmp.anc[idx].fill_column(0, 1.0);
+            self.set_p(node, tmp);
+            self.set_c0(node, model, tmp);
+            tmp.valid[idx] = true;
         }
     }
 
     fn set_internal(
         &self,
-        idx: &NodeIdx,
+        node: &Node,
         model: &PIPModel<SubstModel>,
         tmp: &mut PIPModelInfo<SubstModel>,
     ) {
-        self.set_model(idx, model, tmp);
-        let us_idx = usize::from(idx);
+        self.set_model(node, model, tmp);
+        let us_idx = usize::from(node.idx);
         if !tmp.valid[us_idx] {
             let mu = model.params.mu;
             let b = tmp.branches[us_idx];
             tmp.surv_probs[us_idx] = Self::survival_prob(mu, b);
             tmp.ins_probs[us_idx] = Self::insertion_prob(tmp.tree_length, b, mu);
-            self.set_ftilde(idx, model, tmp);
-            self.set_ancestors(idx, tmp);
-            self.set_p(idx, tmp);
-            self.set_c0(idx, model, tmp);
+            self.set_ftilde(node, model, tmp);
+            self.set_ancestors(node, tmp);
+            self.set_p(node, tmp);
+            self.set_c0(node, model, tmp);
             tmp.valid[us_idx] = true;
         }
     }
 
     fn set_leaf(
         &self,
-        idx: &NodeIdx,
+        node: &Node,
+        leaf_map: &Mapping,
         model: &PIPModel<SubstModel>,
         tmp: &mut PIPModelInfo<SubstModel>,
     ) {
-        let us_idx = usize::from(idx);
-        if !tmp.valid[us_idx] {
-            self.set_model(idx, model, tmp);
+        let idx = usize::from(node.idx);
+        if !tmp.valid[idx] {
+            self.set_model(node, model, tmp);
             let mu = model.params.mu;
-            let b = tmp.branches[us_idx];
-            tmp.surv_probs[us_idx] = Self::survival_prob(mu, b);
-            tmp.ins_probs[us_idx] = Self::insertion_prob(tmp.tree_length, b, mu);
-            for (i, c) in self.info.msa.leaf_map(idx).iter().enumerate() {
+            let b = tmp.branches[idx];
+            tmp.surv_probs[idx] = Self::survival_prob(mu, b);
+            tmp.ins_probs[idx] = Self::insertion_prob(tmp.tree_length, b, mu);
+            for (i, c) in leaf_map.iter().enumerate() {
                 if c.is_some() {
-                    tmp.anc[us_idx][(i, 0)] = 1.0;
+                    tmp.anc[idx][(i, 0)] = 1.0;
                 }
             }
-            tmp.f[us_idx] = tmp.ftilde[us_idx]
+            tmp.f[idx] = tmp.ftilde[idx]
                 .tr_mul(model.freqs())
-                .component_mul(&tmp.anc[us_idx].column(0));
-            tmp.p[us_idx] = tmp.f[us_idx].clone() * tmp.surv_probs[us_idx] * tmp.ins_probs[us_idx];
-            tmp.c0_ftilde[us_idx][SubstModel::N] = 1.0;
-            tmp.c0_f[us_idx] = 0.0;
-            tmp.c0_p[us_idx] = (1.0 - tmp.surv_probs[us_idx]) * tmp.ins_probs[us_idx];
-            tmp.valid[us_idx] = true;
+                .component_mul(&tmp.anc[idx].column(0));
+            tmp.p[idx] = tmp.f[idx].clone() * tmp.surv_probs[idx] * tmp.ins_probs[idx];
+            tmp.c0_ftilde[idx][SubstModel::N] = 1.0;
+            tmp.c0_f[idx] = 0.0;
+            tmp.c0_p[idx] = (1.0 - tmp.surv_probs[idx]) * tmp.ins_probs[idx];
+            tmp.valid[idx] = true;
         }
     }
 
-    fn set_p(&self, idx: &NodeIdx, tmp: &mut PIPModelInfo<SubstModel>) {
-        let node = self.info.tree.node(idx);
-        let idx = usize::from(idx);
+    fn set_p(&self, node: &Node, tmp: &mut PIPModelInfo<SubstModel>) {
+        let idx = usize::from(node.idx);
         tmp.p[idx] = tmp.f[idx].clone().component_mul(&tmp.anc[idx].column(0))
             * tmp.surv_probs[idx]
             * tmp.ins_probs[idx];
@@ -346,12 +350,11 @@ where
 
     fn set_ftilde(
         &self,
-        idx: &NodeIdx,
+        node: &Node,
         model: &PIPModel<SubstModel>,
         tmp: &mut PIPModelInfo<SubstModel>,
     ) {
-        let node = self.info.tree.node(idx);
-        let idx = usize::from(idx);
+        let idx = usize::from(node.idx);
         let x_idx = usize::from(&node.children[0]);
         let y_idx = usize::from(&node.children[1]);
         tmp.ftilde[idx] = (&tmp.models[x_idx])
@@ -362,20 +365,19 @@ where
 
     fn set_model(
         &self,
-        idx: &NodeIdx,
+        node: &Node,
         model: &PIPModel<SubstModel>,
         tmp: &mut PIPModelInfo<SubstModel>,
     ) {
-        let idx = usize::from(idx);
+        let idx = usize::from(node.idx);
         if !tmp.models_valid[idx] {
             tmp.models[idx] = model.p(tmp.branches[idx]);
             tmp.models_valid[idx] = true;
         }
     }
 
-    fn set_ancestors(&self, idx: &NodeIdx, tmp: &mut PIPModelInfo<SubstModel>) {
-        let node = self.info.tree.node(idx);
-        let idx = usize::from(idx);
+    fn set_ancestors(&self, node: &Node, tmp: &mut PIPModelInfo<SubstModel>) {
+        let idx = usize::from(node.idx);
         let x_anc = tmp.anc[usize::from(&node.children[0])].clone();
         let y_anc = tmp.anc[usize::from(&node.children[1])].clone();
         tmp.anc[idx].set_column(1, &x_anc.column(0));
@@ -392,14 +394,13 @@ where
 
     fn set_c0(
         &self,
-        idx: &NodeIdx,
+        node: &Node,
         model: &PIPModel<SubstModel>,
         tmp: &mut PIPModelInfo<SubstModel>,
     ) {
-        let node = self.info.tree.node(idx);
         let x_idx = usize::from(&node.children[0]);
         let y_idx = usize::from(&node.children[1]);
-        let idx = usize::from(idx);
+        let idx = usize::from(node.idx);
         tmp.c0_ftilde[idx] = (&tmp.models[x_idx])
             .mul(&tmp.c0_ftilde[x_idx])
             .component_mul(&(&tmp.models[y_idx]).mul(&tmp.c0_ftilde[y_idx]));
