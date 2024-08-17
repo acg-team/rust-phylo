@@ -39,7 +39,7 @@ impl CostFunction for PIPDNAParamOptimiser<'_> {
 
 pub struct PIPDNAModelOptimiser<'a> {
     pub(crate) epsilon: f64,
-    pub(crate) likelihood_cost: &'a PIPCost<'a, DNASubstModel>,
+    pub(crate) cost: &'a PIPCost<'a, DNASubstModel>,
     pub(crate) info: PhyloInfo,
 }
 
@@ -47,19 +47,19 @@ impl<'a> PIPDNAModelOptimiser<'a> {
     pub fn new(cost: &'a PIPCost<'a, DNASubstModel>, phylo_info: &PhyloInfo) -> Self {
         PIPDNAModelOptimiser {
             epsilon: 1e-3,
-            likelihood_cost: cost,
+            cost,
             info: phylo_info.clone(),
         }
     }
 
     pub fn optimise_parameters(&self) -> Result<(u32, PIPDNAParams, f64)> {
-        let mut opt_params = self.likelihood_cost.model.params.clone();
+        let mut opt_params = self.cost.model.params.clone();
         let model_type = opt_params.model_type;
         info!("Optimising PIP with {} parameters.", model_type);
 
-        let param_sets = &PIPDNAParams::parameter_definition(&model_type);
+        let param_sets = self.cost.model.params.parameter_definition();
 
-        let mut opt_logl = self.likelihood_cost.logl(&self.info).0;
+        let mut opt_logl = self.cost.logl(&self.info).0;
         info!("Initial logl: {}.", opt_logl);
         let mut prev_logl = f64::NEG_INFINITY;
         let mut iters = 0;
@@ -71,7 +71,7 @@ impl<'a> PIPDNAModelOptimiser<'a> {
             prev_logl = opt_logl;
             for (param_name, param_set) in param_sets.iter() {
                 let optimiser = PIPDNAParamOptimiser {
-                    likelihood_cost: self.likelihood_cost,
+                    likelihood_cost: self.cost,
                     model: &model,
                     parameter: param_set,
                     phylo_info: &self.info,

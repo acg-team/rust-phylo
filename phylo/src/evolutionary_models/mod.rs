@@ -93,26 +93,10 @@ impl From<&str> for ProteinModelType {
     }
 }
 
-pub trait EvoModelParams {
-    type ModelType;
-    type Parameter;
-    fn new(model: &Self::ModelType, params: &[f64]) -> Result<Self>
-    where
-        Self: Sized;
-    fn parameter_definition(
-        model_type: &Self::ModelType,
-    ) -> Vec<(&'static str, Vec<Self::Parameter>)>;
-    fn value(&self, param_name: &Self::Parameter) -> f64;
-    fn set_value(&mut self, param_name: &Self::Parameter, value: f64);
-    fn freqs(&self) -> &FreqVector;
-    fn set_freqs(&mut self, pi: FreqVector);
-}
-
 // TODO: change pi to a row vector
 pub trait EvoModel {
     type ModelType;
     type Params;
-
     fn new(model: Self::ModelType, params: &[f64]) -> Result<Self>
     where
         Self: Sized;
@@ -122,6 +106,19 @@ pub trait EvoModel {
     fn freqs(&self) -> &FreqVector;
     fn index(&self) -> &[usize; 255];
     fn params(&self) -> &Self::Params;
+}
+
+pub trait EvoModelParams {
+    type ModelType;
+    type Parameter;
+    fn new(model: &Self::ModelType, params: &[f64]) -> Result<Self>
+    where
+        Self: Sized;
+    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)>;
+    fn value(&self, param_name: &Self::Parameter) -> f64;
+    fn set_value(&mut self, param_name: &Self::Parameter, value: f64);
+    fn freqs(&self) -> &FreqVector;
+    fn set_freqs(&mut self, pi: FreqVector);
 }
 
 pub trait EvoModelInfo {

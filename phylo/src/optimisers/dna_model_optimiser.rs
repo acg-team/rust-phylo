@@ -71,7 +71,7 @@ impl<'a> DNAModelOptimiser<'a> {
         let start_params = self.cost.model.params.clone();
         let model_type = start_params.model_type;
         info!("Optimising {} parameters.", model_type);
-        let param_sets = DNASubstParams::parameter_definition(&model_type);
+        let param_sets = self.cost.model.params.parameter_definition();
         let start_params = match model_type {
             JC69 | K80 => start_params,
             _ => {

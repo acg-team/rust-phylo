@@ -47,9 +47,7 @@ impl EvoModelParams for ProteinSubstParams {
             },
         })
     }
-    fn parameter_definition(
-        _model_type: &ProteinModelType,
-    ) -> Vec<(&'static str, Vec<ProteinParameter>)> {
+    fn parameter_definition(&self) -> Vec<(&'static str, Vec<ProteinParameter>)> {
         todo!()
     }
     fn value(&self, _param_name: &ProteinParameter) -> f64 {

@@ -101,8 +101,8 @@ impl EvoModelParams for DNASubstParams {
         }
     }
 
-    fn parameter_definition(model_type: &DNAModelType) -> Vec<(&'static str, Vec<DNAParameter>)> {
-        match model_type {
+    fn parameter_definition(&self) -> Vec<(&'static str, Vec<DNAParameter>)> {
+        match self.model_type {
             DNAModelType::JC69 => vec![],
             DNAModelType::K80 => vec![
                 ("alpha", vec![Rtc, Rag]),

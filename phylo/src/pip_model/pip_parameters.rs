@@ -3,14 +3,9 @@ use std::fmt::Display;
 use anyhow::bail;
 
 use crate::evolutionary_models::{DNAModelType, EvoModelParams, ProteinModelType};
+use crate::substitution_models::dna_models::DNAParameter::{self, *};
 use crate::substitution_models::dna_models::DNASubstModel;
-use crate::substitution_models::dna_models::{
-    DNAParameter::{self, *},
-    DNASubstParams,
-};
-use crate::substitution_models::protein_models::{
-    ProteinParameter, ProteinSubstModel, ProteinSubstParams,
-};
+use crate::substitution_models::protein_models::{ProteinParameter, ProteinSubstModel};
 use crate::substitution_models::{FreqVector, SubstitutionModel};
 use crate::Result;
 
@@ -95,8 +90,9 @@ impl EvoModelParams for PIPDNAParams {
         self.set_freqs(pi)
     }
 
-    fn parameter_definition(model_type: &DNAModelType) -> Vec<(&'static str, Vec<DNAParameter>)> {
-        DNASubstParams::parameter_definition(model_type)
+    fn parameter_definition(&self) -> Vec<(&'static str, Vec<DNAParameter>)> {
+        self.subst_params
+            .parameter_definition()
             .into_iter()
             .chain([
                 ("mu", vec![DNAParameter::Mu]),
@@ -138,10 +134,9 @@ impl EvoModelParams for PIPProteinParams {
         self.set_freqs(pi)
     }
 
-    fn parameter_definition(
-        model_type: &ProteinModelType,
-    ) -> Vec<(&'static str, Vec<ProteinParameter>)> {
-        ProteinSubstParams::parameter_definition(model_type)
+    fn parameter_definition(&self) -> Vec<(&'static str, Vec<ProteinParameter>)> {
+        self.subst_params
+            .parameter_definition()
             .into_iter()
             .chain([
                 ("mu", vec![ProteinParameter::Mu]),
