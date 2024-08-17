@@ -2,7 +2,7 @@ use argmin::core::{CostFunction, Executor, IterState, State};
 use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
-use crate::evolutionary_models::{EvoModelParams, EvolutionaryModel};
+use crate::evolutionary_models::{EvoModel, EvoModelParams};
 use crate::phylo_info::PhyloInfo;
 use crate::pip_model::{PIPCost, PIPDNAModel, PIPDNAParams, PIPModel};
 use crate::substitution_models::dna_models::{DNAParameter, DNASubstModel};

@@ -8,7 +8,7 @@ use bio::io::fasta::Record;
 use crate::alignment::Sequences;
 use crate::evolutionary_models::{
     DNAModelType::{self, *},
-    EvolutionaryModel,
+    EvoModel,
     ProteinModelType::{self, *},
 };
 use crate::likelihood::LikelihoodCostFunction;

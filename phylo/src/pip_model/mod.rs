@@ -6,7 +6,7 @@ use std::vec;
 use nalgebra::{DMatrix, DVector};
 
 use crate::alignment::Mapping;
-use crate::evolutionary_models::{EvoModelInfo, EvolutionaryModel};
+use crate::evolutionary_models::{EvoModelInfo, EvoModel};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::DNASubstModel;
@@ -75,7 +75,7 @@ where
     }
 }
 
-impl<SubstModel: SubstitutionModel> EvolutionaryModel for PIPModel<SubstModel>
+impl<SubstModel: SubstitutionModel> EvoModel for PIPModel<SubstModel>
 where
     SubstModel: Clone,
     SubstModel::Params: Clone,

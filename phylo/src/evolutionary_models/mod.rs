@@ -109,9 +109,10 @@ pub trait EvoModelParams {
 }
 
 // TODO: change pi to a row vector
-pub trait EvolutionaryModel {
+pub trait EvoModel {
     type ModelType;
     type Params;
+
     fn new(model: Self::ModelType, params: &[f64]) -> Result<Self>
     where
         Self: Sized;

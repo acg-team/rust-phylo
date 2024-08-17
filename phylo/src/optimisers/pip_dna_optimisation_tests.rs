@@ -4,7 +4,7 @@ use approx::assert_relative_eq;
 
 use crate::evolutionary_models::{
     DNAModelType::{self, *},
-    EvolutionaryModel,
+    EvoModel,
 };
 use crate::likelihood::LikelihoodCostFunction;
 use crate::optimisers::pip_model_optimiser::PIPDNAModelOptimiser;

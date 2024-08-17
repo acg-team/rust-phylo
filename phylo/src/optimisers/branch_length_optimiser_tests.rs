@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use approx::assert_relative_eq;
 
-use crate::evolutionary_models::{DNAModelType, EvolutionaryModel};
+use crate::evolutionary_models::{DNAModelType, EvoModel};
 use crate::optimisers::branch_length_optimiser::BranchOptimiser;
 use crate::phylo_info::PhyloInfoBuilder;
 use crate::pip_model::{PIPCost, PIPDNAModel};

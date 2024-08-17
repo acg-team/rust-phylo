@@ -5,7 +5,7 @@ use std::ops::Mul;
 use nalgebra::{DMatrix, DVector};
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::{EvoModelInfo, EvoModelParams, EvolutionaryModel};
+use crate::evolutionary_models::{EvoModel, EvoModelInfo, EvoModelParams};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::tree::{
     Node,
@@ -100,7 +100,7 @@ pub struct SubstModel<Params: EvoModelParams> {
     pub(crate) q: SubstMatrix,
 }
 
-impl<Params: EvoModelParams> EvolutionaryModel for SubstModel<Params>
+impl<Params: EvoModelParams> EvoModel for SubstModel<Params>
 where
     SubstModel<Params>: SubstitutionModel,
 {

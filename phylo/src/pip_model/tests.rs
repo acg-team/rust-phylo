@@ -10,7 +10,7 @@ use crate::alignment::Sequences;
 use crate::alphabets::{AMINOACIDS, GAP, NUCLEOTIDES};
 use crate::evolutionary_models::{
     DNAModelType::{self, *},
-    EvoModelInfo, EvolutionaryModel,
+    EvoModel, EvoModelInfo,
     ProteinModelType::{self, *},
 };
 use crate::frequencies;
@@ -85,7 +85,7 @@ fn protein_pip_correct(
     assert_eq!(pip_model.params.lambda, params[0]);
     assert_eq!(pip_model.params.mu, params[1]);
     let frequencies = frequencies!(pi_array).insert_row(20, 0.0);
-    assert_eq!(EvolutionaryModel::freqs(&pip_model), &frequencies);
+    assert_eq!(EvoModel::freqs(&pip_model), &frequencies);
     let subst_model = <ProteinSubstModel as SubstitutionModel>::new(model_type, &[]).unwrap();
     compare_pip_subst_rates(AMINOACIDS, &pip_model, &subst_model);
 }
@@ -96,7 +96,7 @@ fn pip_dna_jc69_correct() {
     assert_eq!(pip_jc69.params.lambda, 0.1);
     assert_eq!(pip_jc69.params.mu, 0.4);
     assert_eq!(
-        EvolutionaryModel::freqs(&pip_jc69),
+        EvoModel::freqs(&pip_jc69),
         &dvector![0.25, 0.25, 0.25, 0.25, 0.0]
     );
     let jc96 = <DNASubstModel as SubstitutionModel>::new(JC69, &[]).unwrap();
@@ -109,14 +109,14 @@ fn pip_dna_jc69_normalised() {
     assert_eq!(pip_jc69.params.lambda, 0.1);
     assert_eq!(pip_jc69.params.mu, 0.4);
     assert_eq!(
-        EvolutionaryModel::freqs(&pip_jc69),
+        EvoModel::freqs(&pip_jc69),
         &dvector![0.25, 0.25, 0.25, 0.25, 0.0]
     );
     for &char in NUCLEOTIDES {
-        assert_eq!(EvolutionaryModel::rate(&pip_jc69, char, char), -1.0 - 0.4);
+        assert_eq!(EvoModel::rate(&pip_jc69, char, char), -1.0 - 0.4);
         assert_relative_eq!(pip_jc69.q.row(pip_jc69.index[char as usize]).sum(), 0.0,);
-        assert_relative_eq!(EvolutionaryModel::rate(&pip_jc69, char, b'-'), 0.4);
-        assert_relative_eq!(EvolutionaryModel::rate(&pip_jc69, b'-', char), 0.0);
+        assert_relative_eq!(EvoModel::rate(&pip_jc69, char, b'-'), 0.4);
+        assert_relative_eq!(EvoModel::rate(&pip_jc69, b'-', char), 0.0);
     }
 }
 
@@ -126,16 +126,12 @@ fn pip_protein_wag_normalised() {
     assert_eq!(pip_wag.params.lambda, 0.1);
     assert_eq!(pip_wag.params.mu, 0.4);
     let stat_dist = frequencies!(&WAG_PI_ARR).insert_row(20, 0.0);
-    assert_relative_eq!(EvolutionaryModel::freqs(&pip_wag), &stat_dist);
+    assert_relative_eq!(EvoModel::freqs(&pip_wag), &stat_dist);
     assert_relative_eq!(pip_wag.q.sum(), 0.0, epsilon = 1e-10);
     for &char in NUCLEOTIDES {
         assert_relative_eq!(pip_wag.q.row(pip_wag.index[char as usize]).sum(), 0.0,);
-        assert_relative_eq!(
-            EvolutionaryModel::rate(&pip_wag, char, b'-'),
-            0.4,
-            epsilon = 1e-5
-        );
-        assert_relative_eq!(EvolutionaryModel::rate(&pip_wag, b'-', char), 0.0);
+        assert_relative_eq!(EvoModel::rate(&pip_wag, char, b'-'), 0.4, epsilon = 1e-5);
+        assert_relative_eq!(EvoModel::rate(&pip_wag, b'-', char), 0.0);
     }
 }
 
@@ -159,7 +155,7 @@ fn pip_dna_tn93_correct() {
     let expected_q = tn93.q.insert_column(4, 0.0).insert_row(4, 0.0) + diff;
     assert_relative_eq!(pip_tn93.q, expected_q, epsilon = 1e-10);
     assert_relative_eq!(
-        EvolutionaryModel::freqs(&pip_tn93),
+        EvoModel::freqs(&pip_tn93),
         &dvector![0.22, 0.26, 0.33, 0.19, 0.0]
     );
 }
@@ -211,7 +207,7 @@ fn pip_rates(#[case] model_type: DNAModelType, #[case] params: &[f64]) {
 fn pip_dna_p_matrix_inf(#[case] model_type: DNAModelType, #[case] params: &[f64]) {
     let pip_params = vec![0.2, 0.5];
     let pip = PIPDNAModel::new(model_type, &[&pip_params, params].concat()).unwrap();
-    let p = EvolutionaryModel::p(&pip, 10000000.0);
+    let p = EvoModel::p(&pip, 10000000.0);
     let expected = SubstMatrix::from_row_slice(
         5,
         5,
@@ -229,7 +225,7 @@ fn pip_dna_p_matrix_inf(#[case] model_type: DNAModelType, #[case] params: &[f64]
 #[case::hivb(HIVB, &[0.1, 0.04])]
 fn pip_protein_p_matrix_inf(#[case] model_type: ProteinModelType, #[case] params: &[f64]) {
     let pip = PIPProteinModel::new(model_type, params).unwrap();
-    let p = EvolutionaryModel::p(&pip, 10000000.0);
+    let p = EvoModel::p(&pip, 10000000.0);
     let mut expected = SubstMatrix::zeros(21, 21);
     expected.fill_column(20, 1.0);
     assert_relative_eq!(p, expected, epsilon = 1e-10);
@@ -249,11 +245,7 @@ fn pip_p_example_matrix() {
             0.276, 0.0792, 0.393, 0.115, 0.136, 0.138, 0.217, 0.393, 0.0, 0.0, 0.0, 0.0, 1.0,
         ],
     );
-    assert_relative_eq!(
-        EvolutionaryModel::p(&pip_hky, 2.0),
-        expected_p,
-        epsilon = epsilon
-    );
+    assert_relative_eq!(EvoModel::p(&pip_hky, 2.0), expected_p, epsilon = epsilon);
     let expected_p = SubstMatrix::from_row_slice(
         5,
         5,
@@ -262,11 +254,7 @@ fn pip_p_example_matrix() {
             0.48, 0.0625, 0.221, 0.108, 0.128, 0.108, 0.434, 0.221, 0.0, 0.0, 0.0, 0.0, 1.0,
         ],
     );
-    assert_relative_eq!(
-        EvolutionaryModel::p(&pip_hky, 1.0),
-        expected_p,
-        epsilon = epsilon
-    );
+    assert_relative_eq!(EvoModel::p(&pip_hky, 1.0), expected_p, epsilon = epsilon);
 }
 
 #[cfg(test)]
