@@ -6,7 +6,7 @@ use std::vec;
 use nalgebra::{DMatrix, DVector};
 
 use crate::alignment::Mapping;
-use crate::evolutionary_models::{EvoModel, EvoModelInfo};
+use crate::evolutionary_models::EvoModel;
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::DNASubstModel;
@@ -137,14 +137,12 @@ pub struct PIPModelInfo<SubstModel: SubstitutionModel> {
     models_valid: Vec<bool>,
 }
 
-impl<SubstModel: SubstitutionModel + Clone> EvoModelInfo for PIPModelInfo<SubstModel>
+impl<SubstModel: SubstitutionModel + Clone> PIPModelInfo<SubstModel>
 where
     SubstModel::Params: Clone,
     SubstModel::ModelType: Clone,
 {
-    type Model = PIPModel<SubstModel>;
-
-    fn new(info: &PhyloInfo, model: &Self::Model) -> Result<Self> {
+    pub fn new(info: &PhyloInfo, model: &PIPModel<SubstModel>) -> Result<Self> {
         let node_count = info.tree.len();
         let msa_length = info.msa_length();
         let mut leaf_seq_info: HashMap<String, DMatrix<f64>> = HashMap::new();
@@ -195,7 +193,7 @@ where
         })
     }
 
-    fn reset(&mut self) {
+    pub fn reset(&mut self) {
         self.ins_probs.fill(0.0);
         self.surv_probs.fill(0.0);
         self.anc.iter_mut().for_each(|x| x.fill(0.0));

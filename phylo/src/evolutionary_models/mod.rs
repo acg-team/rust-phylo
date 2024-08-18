@@ -2,7 +2,6 @@ use std::fmt::Display;
 
 use log::warn;
 
-use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{FreqVector, SubstMatrix};
 use crate::Result;
 
@@ -120,14 +119,6 @@ pub trait EvoModelParams {
     fn set_value(&mut self, param_name: &Self::Parameter, value: f64);
     fn freqs(&self) -> &FreqVector;
     fn set_freqs(&mut self, pi: FreqVector);
-}
-
-pub trait EvoModelInfo {
-    type Model;
-    fn new(info: &PhyloInfo, model: &Self::Model) -> Result<Self>
-    where
-        Self: Sized;
-    fn reset(&mut self);
 }
 
 #[cfg(test)]

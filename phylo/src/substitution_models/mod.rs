@@ -5,7 +5,7 @@ use std::ops::Mul;
 use nalgebra::{DMatrix, DVector};
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::{EvoModel, EvoModelInfo, EvoModelParams};
+use crate::evolutionary_models::{EvoModel, EvoModelParams};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::tree::{
     Node,
@@ -103,6 +103,7 @@ pub struct SubstModel<Params: EvoModelParams> {
 impl<Params: EvoModelParams> EvoModel for SubstModel<Params>
 where
     SubstModel<Params>: SubstitutionModel,
+    Params: EvoModelParams<ModelType = <SubstModel<Params> as SubstitutionModel>::ModelType>,
 {
     type ModelType = <SubstModel<Params> as SubstitutionModel>::ModelType;
     type Params = Params;
@@ -262,10 +263,8 @@ pub struct SubstModelInfo<SubstModel: SubstitutionModel> {
     leaf_sequence_info: HashMap<String, DMatrix<f64>>,
 }
 
-impl<SubstModel: SubstitutionModel + EvoModel> EvoModelInfo for SubstModelInfo<SubstModel> {
-    type Model = SubstModel;
-
-    fn new(info: &PhyloInfo, model: &SubstModel) -> Result<Self> {
+impl<SubstModel: SubstitutionModel + EvoModel> SubstModelInfo<SubstModel> {
+    pub fn new(info: &PhyloInfo, model: &SubstModel) -> Result<Self> {
         let node_count = info.tree.len();
         let msa_length = info.msa_length();
 
@@ -305,7 +304,7 @@ impl<SubstModel: SubstitutionModel + EvoModel> EvoModelInfo for SubstModelInfo<S
         })
     }
 
-    fn reset(&mut self) {
+    pub fn reset(&mut self) {
         self.node_info.iter_mut().for_each(|x| x.fill(0.0));
         self.node_info_valid.fill(false);
         self.node_models.iter_mut().for_each(|x| x.fill(0.0));

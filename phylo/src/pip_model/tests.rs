@@ -10,7 +10,7 @@ use crate::alignment::Sequences;
 use crate::alphabets::{AMINOACIDS, GAP, NUCLEOTIDES};
 use crate::evolutionary_models::{
     DNAModelType::{self, *},
-    EvoModel, EvoModelInfo,
+    EvoModel,
     ProteinModelType::{self, *},
 };
 use crate::frequencies;
