@@ -49,41 +49,41 @@ impl<'a> BranchOptimiser<'a> {
         info!("Optimising branch lengths.");
         let mut info = self.info.clone();
 
-        let init_logl = self.cost.logl(&info);
-        info!("Initial logl: {}.", init_logl);
-        let mut opt_logl = init_logl;
+        let initial_logl = self.cost.logl(&info);
+        info!("Initial logl: {}.", initial_logl);
+        let mut final_logl = initial_logl;
         let mut prev_logl = f64::NEG_INFINITY;
-        let mut iters = 0;
+        let mut iterations = 0;
 
         let nodes: Vec<NodeIdx> = info.tree.iter().map(|node| node.idx).collect();
-        while (prev_logl - opt_logl).abs() > self.epsilon {
-            iters += 1;
-            debug!("Iteration: {}", iters);
-            prev_logl = opt_logl;
+        while (prev_logl - final_logl).abs() > self.epsilon {
+            iterations += 1;
+            debug!("Iteration: {}", iterations);
+            prev_logl = final_logl;
             for branch in &nodes {
                 if info.tree.root == *branch {
                     continue;
                 }
                 let (logl, length) = self.optimise_branch(branch, &info)?;
-                if logl < opt_logl {
+                if logl < final_logl {
                     continue;
                 }
-                opt_logl = logl;
+                final_logl = logl;
                 info.tree.set_branch_length(branch, length);
                 debug!(
                     "Optimised {} branch length to value {:.5} with logl {:.5}",
-                    branch, length, opt_logl
+                    branch, length, final_logl
                 );
             }
         }
         info!(
             "Final logl: {}, achieved in {} iteration(s).",
-            opt_logl, iters
+            final_logl, iterations
         );
         Ok(PhyloOptimisationResult {
-            initial_logl: init_logl,
-            final_logl: opt_logl,
-            iterations: iters,
+            initial_logl,
+            final_logl,
+            iterations,
             tree: info.tree.clone(),
             alignment: info.msa.clone(),
         })
