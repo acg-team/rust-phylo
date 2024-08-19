@@ -2,20 +2,26 @@ use argmin::core::{CostFunction, Executor, IterState, State};
 use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
-use crate::evolutionary_models::{EvoModel, EvoModelParams};
+use crate::evolutionary_models::{EvoModel, EvoModelParams, FrequencyOptimisation};
+use crate::likelihood::LikelihoodCostFunction;
+use crate::optimisers::ModelOptimisationResult;
 use crate::phylo_info::PhyloInfo;
-use crate::pip_model::{PIPCost, PIPDNAModel, PIPDNAParams, PIPModel};
+use crate::pip_model::{PIPCost, PIPDNAModel, PIPModel};
 use crate::substitution_models::dna_models::{DNAParameter, DNASubstModel};
 use crate::Result;
 
-pub(crate) struct PIPDNAParamOptimiser<'a> {
+use super::ModelOptimiser;
+
+pub type PIPDNAOptimisationResult = ModelOptimisationResult<PIPDNAModel>;
+
+pub(crate) struct PIPDNAOptimiser<'a> {
     pub(crate) likelihood_cost: &'a PIPCost<'a, DNASubstModel>,
     pub(crate) model: &'a PIPModel<DNASubstModel>,
     pub(crate) phylo_info: &'a PhyloInfo,
     pub(crate) parameter: &'a [DNAParameter],
 }
 
-impl CostFunction for PIPDNAParamOptimiser<'_> {
+impl CostFunction for PIPDNAOptimiser<'_> {
     type Param = f64;
     type Output = f64;
 
@@ -29,7 +35,7 @@ impl CostFunction for PIPDNAParamOptimiser<'_> {
         let model = PIPDNAModel::create(&params);
 
         likelihood_cost.model = &model;
-        Ok(-likelihood_cost.logl(self.phylo_info).0)
+        Ok(-likelihood_cost.logl(self.phylo_info))
     }
 
     fn parallelize(&self) -> bool {
@@ -43,34 +49,39 @@ pub struct PIPDNAModelOptimiser<'a> {
     pub(crate) info: PhyloInfo,
 }
 
-impl<'a> PIPDNAModelOptimiser<'a> {
-    pub fn new(cost: &'a PIPCost<'a, DNASubstModel>, phylo_info: &PhyloInfo) -> Self {
-        PIPDNAModelOptimiser {
+impl<'a> ModelOptimiser<'a, PIPCost<'a, DNASubstModel>, PIPDNAModel> for PIPDNAModelOptimiser<'a> {
+    fn new(
+        cost: &'a PIPCost<'a, DNASubstModel>,
+        phylo_info: &PhyloInfo,
+        _: FrequencyOptimisation,
+    ) -> Self {
+        Self {
             epsilon: 1e-3,
             cost,
             info: phylo_info.clone(),
         }
     }
 
-    pub fn optimise_parameters(&self) -> Result<(u32, PIPDNAParams, f64)> {
+    fn run(self) -> Result<PIPDNAOptimisationResult> {
         let mut opt_params = self.cost.model.params.clone();
         let model_type = opt_params.model_type;
         info!("Optimising PIP with {} parameters.", model_type);
 
         let param_sets = self.cost.model.params.parameter_definition();
 
-        let mut opt_logl = self.cost.logl(&self.info).0;
-        info!("Initial logl: {}.", opt_logl);
+        let initial_logl = self.cost.logl(&self.info);
+        info!("Initial logl: {}.", initial_logl);
+        let mut final_logl = initial_logl;
         let mut prev_logl = f64::NEG_INFINITY;
-        let mut iters = 0;
+        let mut iterations = 0;
         let mut model = PIPModel::create(&opt_params);
 
-        while (prev_logl - opt_logl).abs() > self.epsilon {
-            iters += 1;
-            debug!("Iteration: {}", iters);
-            prev_logl = opt_logl;
+        while (prev_logl - final_logl).abs() > self.epsilon {
+            iterations += 1;
+            debug!("Iteration: {}", iterations);
+            prev_logl = final_logl;
             for (param_name, param_set) in param_sets.iter() {
-                let optimiser = PIPDNAParamOptimiser {
+                let optimiser = PIPDNAOptimiser {
                     likelihood_cost: self.cost,
                     model: &model,
                     parameter: param_set,
@@ -86,10 +97,10 @@ impl<'a> PIPDNAModelOptimiser<'a> {
                 for param_id in param_set {
                     opt_params.set_value(param_id, value);
                 }
-                opt_logl = -res.state().best_cost;
+                final_logl = -res.state().best_cost;
                 debug!(
                     "Optimised parameter {:?} to value {} with logl {}",
-                    param_name, value, opt_logl
+                    param_name, value, final_logl
                 );
                 debug!("New parameters: {}\n", opt_params);
                 model = PIPModel::create(&opt_params);
@@ -97,8 +108,13 @@ impl<'a> PIPDNAModelOptimiser<'a> {
         }
         info!(
             "Final logl: {}, achieved in {} iteration(s).",
-            opt_logl, iters
+            final_logl, iterations
         );
-        Ok((iters, opt_params, opt_logl))
+        Ok(PIPDNAOptimisationResult {
+            model,
+            initial_logl,
+            final_logl,
+            iterations,
+        })
     }
 }
