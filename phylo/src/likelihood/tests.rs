@@ -68,7 +68,7 @@ fn gaps_as_ambigs() {
     let tree = tree_newick("((one:2,two:2):1,(three:1,four:1):2);");
     let info_ambig = &PhyloInfoBuilder::build_from_objects(sequences, tree.clone()).unwrap();
     let model = DNASubstModel::new(JC69, &[]).unwrap();
-    let likelihood_ambig = SubstitutionLikelihoodCost::new(&model).logl(info_ambig).0;
+    let likelihood_ambig = SubstitutionLikelihoodCost::new(&model).logl(info_ambig);
     let sequences = Sequences::new(vec![
         Record::with_attrs("one", None, b"CCCCCC--"),
         Record::with_attrs("two", None, b"--AAAAAA"),
@@ -77,7 +77,7 @@ fn gaps_as_ambigs() {
     ]);
     let tree = tree_newick("((one:2,two:2):1,(three:1,four:1):2);");
     let info_gaps = &PhyloInfoBuilder::build_from_objects(sequences, tree.clone()).unwrap();
-    let likelihood_gaps = SubstitutionLikelihoodCost::new(&model).logl(info_gaps).0;
+    let likelihood_gaps = SubstitutionLikelihoodCost::new(&model).logl(info_gaps);
     assert_eq!(likelihood_ambig, likelihood_gaps);
 }
 

@@ -21,7 +21,6 @@ pub use pip_parameters::*;
 
 pub struct PIPModel<SubstModel: SubstitutionModel> {
     pub(crate) q: SubstMatrix,
-    pub subst_model: SubstModel,
     pub(crate) index: [usize; 255],
     pub params: PIPParams<SubstModel>,
 }
@@ -47,7 +46,6 @@ where
             index,
             params: params.clone(),
             q,
-            subst_model,
         }
     }
 
@@ -231,7 +229,7 @@ where
     SubstModel::ModelType: Clone,
     SubstModel::Params: Clone,
 {
-    pub(crate) fn logl(&self, info: &PhyloInfo) -> (f64, PIPModelInfo<SubstModel>) {
+    fn logl(&self, info: &PhyloInfo) -> (f64, PIPModelInfo<SubstModel>) {
         let mut tmp_info = PIPModelInfo::<SubstModel>::new(info, self.model).unwrap();
         (self.logl_with_tmp(info, &mut tmp_info), tmp_info)
     }

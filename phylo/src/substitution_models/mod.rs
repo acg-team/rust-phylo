@@ -177,7 +177,7 @@ impl<'a, SubstModel: SubstitutionModel + EvoModel> SubstitutionLikelihoodCost<'a
         SubstitutionLikelihoodCost { model }
     }
 
-    pub fn logl(&self, info: &PhyloInfo) -> (f64, SubstModelInfo<SubstModel>) {
+    fn logl(&self, info: &PhyloInfo) -> (f64, SubstModelInfo<SubstModel>) {
         let mut tmp_info = SubstModelInfo::<SubstModel>::new(info, self.model).unwrap();
         let logl = self.logl_with_tmp(info, self.model, &mut tmp_info);
         (logl, tmp_info)
