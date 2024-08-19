@@ -7,10 +7,14 @@ use crate::evolutionary_models::{
     EvoModelParams,
     FrequencyOptimisation::{self, *},
 };
+use crate::likelihood::LikelihoodCostFunction;
+use crate::optimisers::{ModelOptimisationResult, ModelOptimiser};
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::{DNAParameter, DNASubstModel, DNASubstParams};
 use crate::substitution_models::{SubstitutionLikelihoodCost, SubstitutionModel};
 use crate::Result;
+
+pub type DNAOptimisationResult = ModelOptimisationResult<DNASubstModel>;
 
 pub(crate) struct DNAParamOptimiser<'a> {
     pub(crate) likelihood_cost: &'a SubstitutionLikelihoodCost<'a, DNASubstModel>,
@@ -31,7 +35,7 @@ impl CostFunction for DNAParamOptimiser<'_> {
         let mut likelihood_cost = self.likelihood_cost.clone();
         let model = DNASubstModel::create(&gtr_params);
         likelihood_cost.model = &model;
-        Ok(-likelihood_cost.logl(self.info).0)
+        Ok(-likelihood_cost.logl(self.info))
     }
 
     fn parallelize(&self) -> bool {
@@ -43,67 +47,73 @@ pub struct DNAModelOptimiser<'a> {
     pub(crate) epsilon: f64,
     pub(crate) cost: &'a SubstitutionLikelihoodCost<'a, DNASubstModel>,
     pub(crate) info: PhyloInfo,
+    pub(crate) freq_opt: FrequencyOptimisation,
 }
 
-impl<'a> DNAModelOptimiser<'a> {
-    pub fn new(
+impl<'a> ModelOptimiser<'a, SubstitutionLikelihoodCost<'a, DNASubstModel>, DNASubstModel>
+    for DNAModelOptimiser<'a>
+{
+    fn new(
         cost: &'a SubstitutionLikelihoodCost<'a, DNASubstModel>,
         phylo_info: &PhyloInfo,
+        freq_opt: FrequencyOptimisation,
     ) -> Self {
         DNAModelOptimiser {
             epsilon: 1e-3,
+            freq_opt,
             cost,
             info: phylo_info.clone(),
         }
     }
 
-    fn set_empirical_frequencies(&self, start_params: &DNASubstParams) -> DNASubstParams {
-        let mut start_params = start_params.clone();
-        start_params.set_freqs(self.info.freqs());
-        info!("Set stationary frequencies to empirical.");
-        start_params
-    }
-
-    pub fn optimise_parameters(
-        &self,
-        optimise_freqs: FrequencyOptimisation,
-    ) -> Result<(u32, DNASubstParams, f64)> {
-        let start_params = self.cost.model.params.clone();
+    fn run(self) -> Result<DNAOptimisationResult> {
+        let mut start_params = self.cost.model.params.clone();
         let model_type = start_params.model_type;
         info!("Optimising {} parameters.", model_type);
         let param_sets = self.cost.model.params.parameter_definition();
-        let start_params = match model_type {
-            JC69 | K80 => start_params,
-            _ => {
-                match optimise_freqs {
-                    Fixed => start_params,
-                    Empirical => self.set_empirical_frequencies(&start_params),
-                    Estimated => {
-                        warn!("Stationary frequency estimation not available, falling back on empirical.");
-                        self.set_empirical_frequencies(&start_params)
+        match self.freq_opt {
+            Fixed => {}
+            Empirical => {
+                info!("Seting stationary frequencies to empirical.");
+                match model_type {
+                    JC69 | K80 => {}
+                    _ => {
+                        start_params.set_freqs(self.info.freqs());
                     }
                 }
             }
-        };
+            Estimated => {
+                warn!("Stationary frequency estimation not available, falling back on empirical.");
+                match model_type {
+                    JC69 | K80 => {}
+                    _ => {
+                        start_params.set_freqs(self.info.freqs());
+                    }
+                }
+            }
+        }
         self.run_parameter_brent(&start_params, param_sets)
     }
+}
 
+impl<'a> DNAModelOptimiser<'a> {
     fn run_parameter_brent(
         &self,
         start_params: &DNASubstParams,
         param_sets: Vec<(&str, Vec<DNAParameter>)>,
-    ) -> Result<(u32, DNASubstParams, f64)> {
+    ) -> Result<DNAOptimisationResult> {
         let mut prev_logl = f64::NEG_INFINITY;
-        let mut opt_logl = self.cost.logl(&self.info).0;
-        info!("Initial logl: {}.", opt_logl);
+        let initial_logl = self.cost.logl(&self.info);
+        info!("Initial logl: {}.", initial_logl);
+        let mut final_logl = initial_logl;
         let mut opt_params = start_params.clone();
         let mut model = DNASubstModel::create(&opt_params);
-        let mut iters = 0;
+        let mut iterations = 0;
 
-        while (prev_logl - opt_logl).abs() > self.epsilon {
-            iters += 1;
-            debug!("Iteration: {}", iters);
-            prev_logl = opt_logl;
+        while (prev_logl - final_logl).abs() > self.epsilon {
+            iterations += 1;
+            debug!("Iteration: {}", iterations);
+            prev_logl = final_logl;
             for (param_name, param_set) in param_sets.iter() {
                 let optimiser = DNAParamOptimiser {
                     likelihood_cost: self.cost,
@@ -121,10 +131,10 @@ impl<'a> DNAModelOptimiser<'a> {
                 for param_id in param_set {
                     opt_params.set_value(param_id, value);
                 }
-                opt_logl = -res.state().best_cost;
+                final_logl = -res.state().best_cost;
                 debug!(
                     "Optimised parameter {:?} to value {} with logl {}",
-                    param_name, value, opt_logl
+                    param_name, value, final_logl
                 );
                 debug!("New parameters: {}\n", opt_params);
                 model = DNASubstModel::create(&opt_params);
@@ -132,8 +142,13 @@ impl<'a> DNAModelOptimiser<'a> {
         }
         info!(
             "Final logl: {}, achieved in {} iteration(s).",
-            opt_logl, iters
+            final_logl, iterations
         );
-        Ok((iters, opt_params, opt_logl))
+        Ok(DNAOptimisationResult {
+            model,
+            initial_logl,
+            final_logl,
+            iterations,
+        })
     }
 }

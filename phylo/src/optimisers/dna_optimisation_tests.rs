@@ -5,6 +5,7 @@ use approx::assert_relative_eq;
 use crate::evolutionary_models::{DNAModelType::*, EvoModel, FrequencyOptimisation};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::optimisers::dna_model_optimiser::DNAModelOptimiser;
+use crate::optimisers::ModelOptimiser;
 use crate::phylo_info::PhyloInfoBuilder;
 use crate::substitution_models::dna_models::{DNALikelihoodCost, DNASubstModel};
 
@@ -19,17 +20,19 @@ fn check_likelihood_opt_k80() {
     let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
     let likelihood = DNALikelihoodCost::new(&model);
     let unopt_logl = LikelihoodCostFunction::logl(&likelihood, &info);
-    let (_, _, logl) = DNAModelOptimiser::new(&likelihood, &info)
-        .optimise_parameters(FrequencyOptimisation::Fixed)
+    let o = DNAModelOptimiser::new(&likelihood, &info, FrequencyOptimisation::Fixed)
+        .run()
         .unwrap();
-    assert!(logl > unopt_logl);
+    assert!(o.final_logl > unopt_logl);
 
     let model = DNASubstModel::new(K80, &[1.884815, 1.0]).unwrap();
     let likelihood = DNALikelihoodCost::new(&model);
     let expected_logl = LikelihoodCostFunction::logl(&likelihood, &info);
 
-    assert_relative_eq!(logl, expected_logl, epsilon = 1e-6);
-    assert_relative_eq!(logl, -4034.5008033, epsilon = 1e-6);
+    assert_relative_eq!(o.final_logl, expected_logl, epsilon = 1e-6);
+    assert_relative_eq!(o.final_logl, -4034.5008033, epsilon = 1e-6);
+    assert_relative_eq!(o.model.params.rtc, 1.884815, epsilon = 1e-5);
+    assert_relative_eq!(o.model.params.rta, 1.0, epsilon = 1e-5);
 }
 
 #[test]
@@ -41,12 +44,13 @@ fn frequencies_unchanged_opt_k80() {
     .build()
     .unwrap();
     let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
-    let likelihood = DNALikelihoodCost::new(&model);
-
-    let (_, optim_params, _) = DNAModelOptimiser::new(&likelihood, &info)
-        .optimise_parameters(FrequencyOptimisation::Empirical)
+    let cost = DNALikelihoodCost::new(&model);
+    // let cost =
+    //     ProteinLikelihoodCost::new(&ProteinSubstModel::new(ProteinModelType::BLOSUM, &[]).unwrap());
+    let o = DNAModelOptimiser::new(&cost, &info, FrequencyOptimisation::Empirical)
+        .run()
         .unwrap();
-    assert!(optim_params.pi.iter().all(|&x| x == 0.25));
+    assert!(o.model.params.pi.iter().all(|&x| x == 0.25));
 }
 
 #[test]
@@ -58,16 +62,16 @@ fn parameter_definition_after_optim_k80() {
     .build()
     .unwrap();
     let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
-    let likelihood = DNALikelihoodCost::new(&model);
-
-    let (_, optim_parameters, _) = DNAModelOptimiser::new(&likelihood, &info)
-        .optimise_parameters(FrequencyOptimisation::Fixed)
+    let cost = DNALikelihoodCost::new(&model);
+    let o = DNAModelOptimiser::new(&cost, &info, FrequencyOptimisation::Fixed)
+        .run()
         .unwrap();
-    assert_eq!(optim_parameters.rtc, optim_parameters.rag);
-    assert_eq!(optim_parameters.rta, optim_parameters.rtg);
-    assert_eq!(optim_parameters.rta, optim_parameters.rca);
-    assert_eq!(optim_parameters.rta, optim_parameters.rcg);
-    assert!(optim_parameters.pi.iter().all(|&x| x == 0.25));
+    let params = &o.model.params;
+    assert_eq!(params.rtc, params.rag);
+    assert_eq!(params.rta, params.rtg);
+    assert_eq!(params.rta, params.rca);
+    assert_eq!(params.rta, params.rcg);
+    assert!(params.pi.iter().all(|&x| x == 0.25));
 }
 
 #[test]
@@ -83,16 +87,15 @@ fn gtr_on_k80_data() {
         &[0.25, 0.35, 0.3, 0.1, 0.88, 0.03, 0.00001, 0.07, 0.02, 1.0],
     )
     .unwrap();
-
-    let likelihood = DNALikelihoodCost::new(&model);
-
-    let (_, optim_parameters, _) = DNAModelOptimiser::new(&likelihood, &info)
-        .optimise_parameters(FrequencyOptimisation::Empirical)
+    let cost = DNALikelihoodCost::new(&model);
+    let o = DNAModelOptimiser::new(&cost, &info, FrequencyOptimisation::Empirical)
+        .run()
         .unwrap();
-    assert_relative_eq!(optim_parameters.rta, optim_parameters.rtg, epsilon = 1e-1);
-    assert_relative_eq!(optim_parameters.rta, optim_parameters.rca, epsilon = 1e-1);
-    assert_relative_eq!(optim_parameters.rta, optim_parameters.rcg, epsilon = 1e-1);
-    assert!(optim_parameters.pi.iter().all(|&x| x - 0.25 < 1e-2));
+    let params = &o.model.params;
+    assert_relative_eq!(params.rta, params.rtg, epsilon = 1e-1);
+    assert_relative_eq!(params.rta, params.rca, epsilon = 1e-1);
+    assert_relative_eq!(params.rta, params.rcg, epsilon = 1e-1);
+    assert!(params.pi.iter().all(|&x| x - 0.25 < 1e-2));
 }
 
 #[test]
@@ -105,16 +108,18 @@ fn parameter_definition_after_optim_hky() {
     .unwrap();
     let model = DNASubstModel::new(HKY, &[0.26, 0.2, 0.4, 0.14, 4.0, 1.0]).unwrap();
     let likelihood = DNALikelihoodCost::new(&model);
-    let start_logl = likelihood.logl(&info).0;
-    let (_, optim_parameters, opt_logl) = DNAModelOptimiser::new(&likelihood, &info)
-        .optimise_parameters(FrequencyOptimisation::Empirical)
+    let start_logl = likelihood.logl(&info);
+    let o = DNAModelOptimiser::new(&likelihood, &info, FrequencyOptimisation::Empirical)
+        .run()
         .unwrap();
-    assert_eq!(optim_parameters.rtc, optim_parameters.rag);
-    assert_eq!(optim_parameters.rta, optim_parameters.rtg);
-    assert_eq!(optim_parameters.rta, optim_parameters.rca);
-    assert_eq!(optim_parameters.rta, optim_parameters.rcg);
-    assert!(optim_parameters.pi.iter().all(|&x| x != 0.25));
-    assert!(opt_logl > start_logl);
+    let params = &o.model.params;
+    assert_eq!(params.rtc, params.rag);
+    assert_eq!(params.rta, params.rtg);
+    assert_eq!(params.rta, params.rca);
+    assert_eq!(params.rta, params.rcg);
+    assert!(params.pi.iter().all(|&x| x != 0.25));
+    assert_eq!(o.initial_logl, start_logl);
+    assert!(o.final_logl > start_logl);
 }
 
 #[test]
@@ -127,16 +132,17 @@ fn parameter_definition_after_optim_tn93() {
     .unwrap();
     let model = DNASubstModel::new(TN93, &[0.26, 0.2, 0.4, 0.14, 4.0, 2.0, 1.0]).unwrap();
     let likelihood = DNALikelihoodCost::new(&model);
-    let start_logl = likelihood.logl(&info).0;
-    let (_, optim_parameters, opt_logl) = DNAModelOptimiser::new(&likelihood, &info)
-        .optimise_parameters(FrequencyOptimisation::Empirical)
+    let start_logl = likelihood.logl(&info);
+    let o = DNAModelOptimiser::new(&likelihood, &info, FrequencyOptimisation::Empirical)
+        .run()
         .unwrap();
-    assert_ne!(optim_parameters.rtc, optim_parameters.rag);
-    assert_eq!(optim_parameters.rta, optim_parameters.rtg);
-    assert_eq!(optim_parameters.rta, optim_parameters.rca);
-    assert_eq!(optim_parameters.rta, optim_parameters.rcg);
-    assert!(optim_parameters.pi.iter().all(|&x| x != 0.25));
-    assert!(opt_logl > start_logl);
+    let params = &o.model.params;
+    assert_ne!(params.rtc, params.rag);
+    assert_eq!(params.rta, params.rtg);
+    assert_eq!(params.rta, params.rca);
+    assert_eq!(params.rta, params.rcg);
+    assert!(params.pi.iter().all(|&x| x != 0.25));
+    assert!(o.final_logl > start_logl);
 }
 
 #[test]
@@ -186,17 +192,17 @@ fn check_parameter_optimisation_gtr() {
         ],
     )
     .unwrap();
-    let likelihood = DNALikelihoodCost::new(&model);
-    let (_, _, logl) = DNAModelOptimiser::new(&likelihood, &info)
-        .optimise_parameters(FrequencyOptimisation::Fixed)
+    let o = DNAModelOptimiser::new(&DNALikelihoodCost::new(&model), &info, FrequencyOptimisation::Fixed)
+        .run()
         .unwrap();
-    assert!(logl > phyml_logl);
-    assert!(logl > paml_logl);
-    let (iters, _, double_opt_logl) = DNAModelOptimiser::new(&likelihood, &info)
-        .optimise_parameters(FrequencyOptimisation::Fixed)
+    assert!(o.final_logl > phyml_logl);
+    assert!(o.final_logl > paml_logl);
+
+    let o2 = DNAModelOptimiser::new(&DNALikelihoodCost::new(&o.model), &info, FrequencyOptimisation::Fixed)
+        .run()
         .unwrap();
-    assert!(double_opt_logl >= logl);
-    assert!(iters < 10);
+    assert!(o2.final_logl >= o.final_logl);
+    assert!(o2.iterations < 10);
 }
 
 #[test]
@@ -210,10 +216,8 @@ fn frequencies_fixed_opt_gtr() {
     let model =
         DNASubstModel::new(GTR, &[0.25, 0.35, 0.3, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
 
-    let likelihood = DNALikelihoodCost::new(&model);
-
-    let (_, optim_params, _) = DNAModelOptimiser::new(&likelihood, &info)
-        .optimise_parameters(FrequencyOptimisation::Fixed)
+    let o = DNAModelOptimiser::new(&DNALikelihoodCost::new(&model), &info, FrequencyOptimisation::Fixed)
+        .run()
         .unwrap();
-    assert!(optim_params.pi.as_slice() == [0.25, 0.35, 0.3, 0.1]);
+    assert!(o.model.params.pi.as_slice() == [0.25, 0.35, 0.3, 0.1]);
 }
