@@ -18,7 +18,7 @@ use crate::substitution_models::dna_models::dna_model_generics::{
 };
 use crate::substitution_models::dna_models::DNASubstModel;
 use crate::substitution_models::protein_models::{ProteinSubstArray, ProteinSubstModel};
-use crate::substitution_models::{FreqVector, ParsimonyModel, SubstMatrix};
+use crate::substitution_models::{FreqVector, ParsimonyModel, SubstMatrix, SubstitutionModel};
 use crate::Rounding as R;
 
 #[cfg(test)]
@@ -38,10 +38,7 @@ fn dna_jc69_correct() {
     assert_relative_eq!(EvoModel::rate(&jc69, b'A', b'A'), -1.0);
     assert_relative_eq!(EvoModel::rate(&jc69, b'A', b'C'), 1.0 / 3.0);
     assert_relative_eq!(EvoModel::rate(&jc69, b'G', b'T'), 1.0 / 3.0);
-    assert_relative_eq!(
-        EvoModel::freqs(&jc69),
-        &dvector![0.25, 0.25, 0.25, 0.25]
-    );
+    assert_relative_eq!(EvoModel::freqs(&jc69), &dvector![0.25, 0.25, 0.25, 0.25]);
     let jc69_3 = DNASubstModel::new(JC69, &[4.0]).unwrap();
     assert_eq!(jc69.q, jc69_3.q);
     assert_eq!(jc69.params.pi, jc69_3.params.pi);
@@ -67,10 +64,7 @@ fn dna_k80_correct() {
     assert_relative_eq!(EvoModel::rate(&k80, b'A', b'A'), -1.0);
     assert_relative_eq!(EvoModel::rate(&k80, b'T', b'A'), 1.0 * 0.25);
     assert_relative_eq!(EvoModel::rate(&k80, b'A', b'G'), 2.0 * 0.25);
-    assert_relative_eq!(
-        EvoModel::freqs(&k80),
-        &dvector![0.25, 0.25, 0.25, 0.25]
-    );
+    assert_relative_eq!(EvoModel::freqs(&k80), &dvector![0.25, 0.25, 0.25, 0.25]);
 }
 
 #[test]
@@ -96,15 +90,9 @@ fn dna_hky_incorrect() {
 #[test]
 fn dna_hky_correct() {
     let hky = DNASubstModel::new(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5]).unwrap();
-    assert_relative_eq!(
-        EvoModel::freqs(&hky),
-        &dvector![0.22, 0.26, 0.33, 0.19]
-    );
+    assert_relative_eq!(EvoModel::freqs(&hky), &dvector![0.22, 0.26, 0.33, 0.19]);
     let hky2 = DNASubstModel::new(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5, 1.0]).unwrap();
-    assert_relative_eq!(
-        EvoModel::freqs(&hky2),
-        &dvector![0.22, 0.26, 0.33, 0.19]
-    );
+    assert_relative_eq!(EvoModel::freqs(&hky2), &dvector![0.22, 0.26, 0.33, 0.19]);
     assert_eq!(hky, hky2);
     let hky3 = DNASubstModel::new(HKY, &[0.22, 0.26, 0.33, 0.19]).unwrap();
     let hky4 = DNASubstModel::new(HKY, &[0.22, 0.26, 0.33, 0.19, 2.0, 1.0]).unwrap();
@@ -162,10 +150,7 @@ fn dna_gtr_correct() {
         EvoModel::rate(&gtr, b'A', b'G'),
         EvoModel::rate(&gtr, b'G', b'A')
     );
-    assert_relative_eq!(
-        EvoModel::freqs(&gtr),
-        &dvector![0.25, 0.25, 0.25, 0.25]
-    );
+    assert_relative_eq!(EvoModel::freqs(&gtr), &dvector![0.25, 0.25, 0.25, 0.25]);
 }
 
 #[test]
@@ -357,11 +342,7 @@ fn protein_model_correct(#[case] model_type: ProteinModelType, #[case] epsilon: 
         let query2 = AMINOACIDS[rng.gen_range(0..AMINOACIDS.len())];
         EvoModel::rate(&model_1, query1, query2);
     }
-    assert_relative_eq!(
-        EvoModel::freqs(&model_1).sum(),
-        1.0,
-        epsilon = epsilon
-    );
+    assert_relative_eq!(EvoModel::freqs(&model_1).sum(), 1.0, epsilon = epsilon);
 }
 
 #[rstest]

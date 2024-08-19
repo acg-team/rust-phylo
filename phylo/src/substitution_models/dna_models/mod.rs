@@ -3,8 +3,8 @@ use log::{info, warn};
 use crate::alphabets::NUCLEOTIDE_INDEX;
 use crate::evolutionary_models::{DNAModelType, EvoModelParams};
 use crate::substitution_models::{
-    FreqVector, SubstMatrix, SubstModel, SubstModelInfo, SubstitutionLikelihoodCost,
-    SubstitutionModel,
+    FreqVector, SubstMatrix, SubstModel, SubstModelInfo, SubstModelParams,
+    SubstitutionLikelihoodCost, SubstitutionModel,
 };
 use crate::Result;
 
@@ -47,11 +47,11 @@ impl SubstitutionModel for DNASubstModel {
         let params = if model_type == DNAModelType::UNDEF {
             warn!("No model provided, defaulting to GTR.");
             DNASubstParams::new(
-                &DNAModelType::GTR,
+                DNAModelType::GTR,
                 [0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0].as_slice(),
             )?
         } else {
-            DNASubstParams::new(&model_type, params)?
+            DNASubstParams::new(model_type, params)?
         };
         info!(
             "Setting up {} with parameters: {}",

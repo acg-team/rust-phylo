@@ -2,11 +2,11 @@ use std::fmt::Display;
 
 use anyhow::bail;
 
-use crate::evolutionary_models::{DNAModelType, EvoModelParams, ProteinModelType};
+use crate::evolutionary_models::EvoModelParams;
 use crate::substitution_models::dna_models::DNAParameter::{self, *};
 use crate::substitution_models::dna_models::DNASubstModel;
 use crate::substitution_models::protein_models::{ProteinParameter, ProteinSubstModel};
-use crate::substitution_models::{FreqVector, SubstitutionModel};
+use crate::substitution_models::{FreqVector, SubstModelParams, SubstitutionModel};
 use crate::Result;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -33,13 +33,16 @@ fn check_pip_params(params: &[f64]) -> Result<(f64, f64)> {
 impl<SubstModel: SubstitutionModel + Clone> PIPParams<SubstModel>
 where
     SubstModel::ModelType: Clone,
+    SubstModel::Params: EvoModelParams,
 {
-    pub(crate) fn new(model_type: &SubstModel::ModelType, params: &[f64]) -> Result<Self> {
+    pub fn new(model_type: SubstModel::ModelType, params: &[f64]) -> Result<Self> {
         let (lambda, mu) = check_pip_params(params)?;
-        let subst_params = SubstModel::Params::new(model_type, &params[2..])?;
-        let pi = subst_params.freqs().clone().insert_row(SubstModel::N, 0.0);
+        let subst_params = SubstModel::Params::new(model_type.clone(), &params[2..])?;
+        let pi = EvoModelParams::freqs(&subst_params)
+            .clone()
+            .insert_row(SubstModel::N, 0.0);
         Ok(Self {
-            model_type: model_type.clone(),
+            model_type,
             lambda,
             mu,
             subst_params,
@@ -59,12 +62,7 @@ where
 }
 
 impl EvoModelParams for PIPDNAParams {
-    type ModelType = DNAModelType;
     type Parameter = DNAParameter;
-
-    fn new(model_type: &DNAModelType, params: &[f64]) -> Result<Self> {
-        PIPParams::new(model_type, params)
-    }
 
     fn value(&self, param_name: &DNAParameter) -> f64 {
         match param_name {
@@ -103,12 +101,7 @@ impl EvoModelParams for PIPDNAParams {
 }
 
 impl EvoModelParams for PIPProteinParams {
-    type ModelType = ProteinModelType;
     type Parameter = ProteinParameter;
-
-    fn new(model_type: &ProteinModelType, params: &[f64]) -> Result<Self> {
-        PIPParams::new(model_type, params)
-    }
 
     fn value(&self, param_name: &ProteinParameter) -> f64 {
         match param_name {

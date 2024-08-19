@@ -5,7 +5,7 @@ use std::ops::Mul;
 use nalgebra::{DMatrix, DVector};
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::{EvoModel, EvoModelParams};
+use crate::evolutionary_models::EvoModel;
 use crate::likelihood::LikelihoodCostFunction;
 use crate::tree::{
     Node,
@@ -26,9 +26,16 @@ macro_rules! frequencies {
     };
 }
 
+pub trait SubstModelParams {
+    type ModelType;
+    fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
+    where
+        Self: Sized;
+}
+
 pub trait SubstitutionModel {
     type ModelType;
-    type Params: EvoModelParams<ModelType = Self::ModelType>;
+    type Params: SubstModelParams<ModelType = Self::ModelType>;
     const N: usize;
 
     fn create(params: &Self::Params) -> Self;
@@ -95,26 +102,18 @@ pub trait ParsimonyModel {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SubstModel<Params: EvoModelParams> {
+pub struct SubstModel<Params: SubstModelParams> {
     pub(crate) params: Params,
     pub(crate) q: SubstMatrix,
 }
 
-impl<Params: EvoModelParams> EvoModel for SubstModel<Params>
+impl<Params: SubstModelParams> EvoModel for SubstModel<Params>
 where
     SubstModel<Params>: SubstitutionModel,
-    Params: EvoModelParams<ModelType = <SubstModel<Params> as SubstitutionModel>::ModelType>,
+    Params: SubstModelParams<ModelType = <SubstModel<Params> as SubstitutionModel>::ModelType>,
 {
-    type ModelType = <SubstModel<Params> as SubstitutionModel>::ModelType;
     type Params = Params;
     const N: usize = <SubstModel<Params> as SubstitutionModel>::N;
-
-    fn new(model: Self::ModelType, params: &[f64]) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        SubstitutionModel::new(model, params)
-    }
 
     fn p(&self, time: f64) -> SubstMatrix {
         SubstitutionModel::p(self, time)
@@ -141,7 +140,7 @@ where
     }
 }
 
-impl<Params: EvoModelParams> ParsimonyModel for SubstModel<Params>
+impl<Params: SubstModelParams> ParsimonyModel for SubstModel<Params>
 where
     SubstModel<Params>: SubstitutionModel,
 {

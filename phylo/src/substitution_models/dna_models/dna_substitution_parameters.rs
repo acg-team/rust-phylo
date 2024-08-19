@@ -3,9 +3,10 @@ use std::fmt::Display;
 use log::warn;
 
 use crate::evolutionary_models::EvoModelParams;
+
 use crate::substitution_models::{
     dna_models::DNAModelType::{self, *},
-    FreqVector,
+    FreqVector, SubstModelParams,
 };
 use crate::Result;
 
@@ -40,11 +41,10 @@ pub struct DNASubstParams {
     pub(crate) rag: f64,
 }
 
-impl EvoModelParams for DNASubstParams {
+impl SubstModelParams for DNASubstParams {
     type ModelType = DNAModelType;
-    type Parameter = DNAParameter;
 
-    fn new(model_type: &DNAModelType, params: &[f64]) -> Result<Self>
+    fn new(model_type: DNAModelType, params: &[f64]) -> Result<Self>
     where
         Self: Sized,
     {
@@ -57,6 +57,10 @@ impl EvoModelParams for DNASubstParams {
             _ => unreachable!(),
         }
     }
+}
+
+impl EvoModelParams for DNASubstParams {
+    type Parameter = DNAParameter;
 
     fn value(&self, param_name: &DNAParameter) -> f64 {
         match param_name {

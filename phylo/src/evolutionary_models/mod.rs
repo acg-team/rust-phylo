@@ -3,7 +3,6 @@ use std::fmt::Display;
 use log::warn;
 
 use crate::substitution_models::{FreqVector, SubstMatrix};
-use crate::Result;
 
 pub enum FrequencyOptimisation {
     Empirical,
@@ -94,12 +93,8 @@ impl From<&str> for ProteinModelType {
 
 // TODO: change pi to a row vector
 pub trait EvoModel {
-    type ModelType;
     type Params;
     const N: usize;
-    fn new(model: Self::ModelType, params: &[f64]) -> Result<Self>
-    where
-        Self: Sized;
     fn p(&self, time: f64) -> SubstMatrix;
     fn q(&self) -> &SubstMatrix;
     fn rate(&self, i: u8, j: u8) -> f64;
@@ -109,11 +104,7 @@ pub trait EvoModel {
 }
 
 pub trait EvoModelParams {
-    type ModelType;
     type Parameter;
-    fn new(model: &Self::ModelType, params: &[f64]) -> Result<Self>
-    where
-        Self: Sized;
     fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)>;
     fn value(&self, param_name: &Self::Parameter) -> f64;
     fn set_value(&mut self, param_name: &Self::Parameter, value: f64);

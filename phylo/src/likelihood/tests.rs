@@ -8,14 +8,13 @@ use bio::io::fasta::Record;
 use crate::alignment::Sequences;
 use crate::evolutionary_models::{
     DNAModelType::{self, *},
-    EvoModel,
     ProteinModelType::{self, *},
 };
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder};
 use crate::substitution_models::dna_models::DNASubstModel;
 use crate::substitution_models::protein_models::{ProteinLikelihoodCost, ProteinSubstModel};
-use crate::substitution_models::{SubstMatrix, SubstitutionLikelihoodCost};
+use crate::substitution_models::{SubstMatrix, SubstitutionLikelihoodCost, SubstitutionModel};
 use crate::tree::{tree_parser, Tree};
 
 #[cfg(test)]

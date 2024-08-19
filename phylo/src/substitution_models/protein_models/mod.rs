@@ -3,8 +3,8 @@ use std::fmt::Display;
 use crate::alphabets::AMINOACID_INDEX;
 use crate::evolutionary_models::{EvoModelParams, ProteinModelType};
 use crate::substitution_models::{
-    FreqVector, SubstMatrix, SubstModel, SubstModelInfo, SubstitutionLikelihoodCost,
-    SubstitutionModel,
+    FreqVector, SubstMatrix, SubstModel, SubstModelInfo, SubstModelParams,
+    SubstitutionLikelihoodCost, SubstitutionModel,
 };
 use crate::Result;
 
@@ -30,15 +30,15 @@ pub struct ProteinSubstParams {
     pub(crate) pi: FreqVector,
 }
 
-impl EvoModelParams for ProteinSubstParams {
+impl SubstModelParams for ProteinSubstParams {
     type ModelType = ProteinModelType;
-    type Parameter = ProteinParameter;
-    fn new(model_type: &ProteinModelType, _: &[f64]) -> Result<Self>
+
+    fn new(model_type: ProteinModelType, _: &[f64]) -> Result<Self>
     where
         Self: Sized,
     {
         Ok(Self {
-            model_type: *model_type,
+            model_type,
             pi: match model_type {
                 ProteinModelType::WAG => wag_freqs(),
                 ProteinModelType::HIVB => hivb_freqs(),
@@ -47,6 +47,11 @@ impl EvoModelParams for ProteinSubstParams {
             },
         })
     }
+}
+
+impl EvoModelParams for ProteinSubstParams {
+    type Parameter = ProteinParameter;
+
     fn parameter_definition(&self) -> Vec<(&'static str, Vec<ProteinParameter>)> {
         todo!()
     }
@@ -94,7 +99,7 @@ impl SubstitutionModel for ProteinSubstModel {
     where
         Self: Sized,
     {
-        let params = ProteinSubstParams::new(&model_type, &[])?;
+        let params = ProteinSubstParams::new(model_type, &[])?;
         let mut model = ProteinSubstModel::create(&params);
         model.normalise();
         Ok(model)

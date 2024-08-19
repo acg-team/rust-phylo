@@ -6,7 +6,7 @@ use std::vec;
 use nalgebra::{DMatrix, DVector};
 
 use crate::alignment::Mapping;
-use crate::evolutionary_models::EvoModel;
+use crate::evolutionary_models::{EvoModel, EvoModelParams};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::DNASubstModel;
@@ -31,10 +31,18 @@ pub type PIPProteinModel = PIPModel<ProteinSubstModel>;
 impl<SubstModel: SubstitutionModel> PIPModel<SubstModel>
 where
     SubstModel: Clone,
-    SubstModel::Params: Clone,
     SubstModel::ModelType: Clone,
+    SubstModel::Params: EvoModelParams + Clone,
 {
-    pub fn create(params: &PIPParams<SubstModel>) -> PIPModel<SubstModel> {
+    pub fn new(model: SubstModel::ModelType, params: &[f64]) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        let params = PIPParams::<SubstModel>::new(model, params)?;
+        Ok(Self::create(&params))
+    }
+
+    pub(crate) fn create(params: &PIPParams<SubstModel>) -> PIPModel<SubstModel> {
         let mut subst_model = SubstModel::create(&params.subst_params);
         subst_model.normalise();
         let (index, q, _) = Self::make_pip_q(
@@ -78,17 +86,8 @@ where
     SubstModel::Params: Clone,
     SubstModel::ModelType: Clone,
 {
-    type ModelType = SubstModel::ModelType;
     type Params = PIPParams<SubstModel>;
     const N: usize = SubstModel::N + 1;
-
-    fn new(model: Self::ModelType, params: &[f64]) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        let params = PIPParams::<SubstModel>::new(&model, params)?;
-        Ok(Self::create(&params))
-    }
 
     fn p(&self, time: f64) -> SubstMatrix {
         (self.q.clone() * time).exp()

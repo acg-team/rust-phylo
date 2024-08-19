@@ -2,12 +2,13 @@ use std::path::PathBuf;
 
 use approx::assert_relative_eq;
 
-use crate::evolutionary_models::{DNAModelType::*, EvoModel, FrequencyOptimisation};
+use crate::evolutionary_models::{DNAModelType::*, FrequencyOptimisation};
 use crate::likelihood::LikelihoodCostFunction;
 use crate::optimisers::dna_model_optimiser::DNAModelOptimiser;
 use crate::optimisers::ModelOptimiser;
 use crate::phylo_info::PhyloInfoBuilder;
 use crate::substitution_models::dna_models::{DNALikelihoodCost, DNASubstModel};
+use crate::substitution_models::SubstitutionModel;
 
 #[test]
 fn check_likelihood_opt_k80() {

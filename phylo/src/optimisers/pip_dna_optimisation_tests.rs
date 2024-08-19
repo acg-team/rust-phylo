@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use approx::assert_relative_eq;
 
 use crate::evolutionary_models::DNAModelType::{self, *};
-use crate::evolutionary_models::EvoModel;
 use crate::likelihood::LikelihoodCostFunction;
 use crate::optimisers::pip_model_optimiser::PIPDNAModelOptimiser;
 use crate::optimisers::FrequencyOptimisation;
@@ -78,11 +77,8 @@ fn check_example_against_python_no_gaps() {
     .build()
     .unwrap();
 
-    let pip_params = PIPDNAParams::new(
-        &DNAModelType::HKY,
-        &[1.2, 0.45, 0.25, 0.25, 0.25, 0.25, 1.0],
-    )
-    .unwrap();
+    let pip_params =
+        PIPDNAParams::new(DNAModelType::HKY, &[1.2, 0.45, 0.25, 0.25, 0.25, 0.25, 1.0]).unwrap();
     let model = PIPModel::create(&pip_params);
     let cost = PIPCost { model: &model };
 
@@ -119,7 +115,7 @@ fn check_parameter_optimisation_pip_gtr() {
     .unwrap();
 
     let pip_params = PIPDNAParams::new(
-        &DNAModelType::GTR,
+        DNAModelType::GTR,
         &[
             0.1, 0.1, 0.24720, 0.35320, 0.29540, 0.10420, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
         ],
