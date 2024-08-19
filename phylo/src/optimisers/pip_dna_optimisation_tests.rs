@@ -65,7 +65,7 @@ fn test_optimisation_pip_propip_example() {
     let model = PIPModel::create(&o.model.params);
 
     let likelihood = PIPCost { model: &model };
-    let recomp_logl = LikelihoodCostFunction::logl(&likelihood, info);
+    let recomp_logl = likelihood.logl(info);
     assert_eq!(o.final_logl, recomp_logl);
 }
 

@@ -173,7 +173,8 @@ impl<'a, SubstModel: SubstitutionModel + EvoModel + 'a> LikelihoodCostFunction
 }
 
 impl<'a, SubstModel: SubstitutionModel + EvoModel> SubstitutionLikelihoodCost<'a, SubstModel> {
-    pub fn new(model: &'a SubstModel) -> Self {
+    #[allow(dead_code)]
+    pub(crate) fn new(model: &'a SubstModel) -> Self {
         SubstitutionLikelihoodCost { model }
     }
 
