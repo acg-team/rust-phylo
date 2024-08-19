@@ -4,8 +4,10 @@ use log::{debug, info};
 
 use crate::likelihood::LikelihoodCostFunction;
 use crate::phylo_info::PhyloInfo;
-use crate::tree::{NodeIdx, Tree};
+use crate::tree::NodeIdx;
 use crate::Result;
+
+use super::PhyloOptimisationResult;
 
 pub(crate) struct SingleBranchOptimiser<'a> {
     pub(crate) cost: &'a dyn LikelihoodCostFunction,
@@ -43,7 +45,7 @@ impl<'a> BranchOptimiser<'a> {
         }
     }
 
-    pub fn optimise_parameters(&self) -> Result<(u32, Tree, f64, f64)> {
+    pub fn run(&self) -> Result<PhyloOptimisationResult> {
         info!("Optimising branch lengths.");
         let mut info = self.info.clone();
 
@@ -78,7 +80,13 @@ impl<'a> BranchOptimiser<'a> {
             "Final logl: {}, achieved in {} iteration(s).",
             opt_logl, iters
         );
-        Ok((iters, info.tree.clone(), init_logl, opt_logl))
+        Ok(PhyloOptimisationResult {
+            initial_logl: init_logl,
+            final_logl: opt_logl,
+            iterations: iters,
+            tree: info.tree.clone(),
+            alignment: info.msa.clone(),
+        })
     }
 
     fn optimise_branch(&self, branch: &NodeIdx, info: &PhyloInfo) -> Result<(f64, f64)> {
