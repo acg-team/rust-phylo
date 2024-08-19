@@ -29,29 +29,6 @@ pub struct PIPModel<SubstModel: SubstitutionModel> {
 pub type PIPDNAModel = PIPModel<DNASubstModel>;
 pub type PIPProteinModel = PIPModel<ProteinSubstModel>;
 
-impl<SubstModel: SubstitutionModel> PIPModel<SubstModel> {
-    fn make_pip_q(
-        index: [usize; 255],
-        subst_model: &SubstModel,
-        mu: f64,
-    ) -> ([usize; 255], SubstMatrix, FreqVector) {
-        let mut index = index;
-        index[b'-' as usize] = SubstModel::N;
-        let mut q = SubstitutionModel::q(subst_model)
-            .clone()
-            .insert_column(SubstModel::N, mu)
-            .insert_row(SubstModel::N, 0.0);
-        q.fill_diagonal(0.0);
-        for i in 0..(SubstModel::N + 1) {
-            q[(i, i)] = -q.row(i).sum();
-        }
-        let pi = SubstitutionModel::freqs(subst_model)
-            .clone()
-            .insert_row(SubstModel::N, 0.0);
-        (index, q, pi)
-    }
-}
-
 impl<SubstModel: SubstitutionModel> PIPModel<SubstModel>
 where
     SubstModel: Clone,
@@ -72,6 +49,28 @@ where
             q,
             subst_model,
         }
+    }
+
+    fn make_pip_q(
+        index: [usize; 255],
+        subst_model: &SubstModel,
+        mu: f64,
+    ) -> ([usize; 255], SubstMatrix, FreqVector) {
+        let n = PIPModel::<SubstModel>::N - 1;
+        let mut index = index;
+        index[b'-' as usize] = n;
+        let mut q = SubstitutionModel::q(subst_model)
+            .clone()
+            .insert_column(n, mu)
+            .insert_row(n, 0.0);
+        q.fill_diagonal(0.0);
+        for i in 0..(n + 1) {
+            q[(i, i)] = -q.row(i).sum();
+        }
+        let pi = SubstitutionModel::freqs(subst_model)
+            .clone()
+            .insert_row(n, 0.0);
+        (index, q, pi)
     }
 }
 
@@ -143,20 +142,21 @@ where
     SubstModel::ModelType: Clone,
 {
     pub fn new(info: &PhyloInfo, model: &PIPModel<SubstModel>) -> Result<Self> {
+        let n = PIPModel::<SubstModel>::N;
         let node_count = info.tree.len();
         let msa_length = info.msa_length();
         let mut leaf_seq_info: HashMap<String, DMatrix<f64>> = HashMap::new();
         for node in info.tree.leaves() {
             let alignment_map = info.msa.leaf_map(&node.idx);
             let leaf_encoding = info.leaf_encoding.get(&node.id).unwrap();
-            let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(SubstModel::N + 1, msa_length);
+            let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(n, msa_length);
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
-                    let encoding = leaf_encoding.column(c).insert_row(SubstModel::N, 0.0);
+                    let encoding = leaf_encoding.column(c).insert_row(n - 1, 0.0);
                     site_info.copy_from(&encoding);
                     site_info.component_mul_assign(model.freqs());
                 } else {
-                    site_info.fill_row(SubstModel::N, 1.0);
+                    site_info.fill_row(n - 1, 1.0);
                 }
                 site_info.scale_mut((1.0) / site_info.sum());
             }
@@ -166,7 +166,7 @@ where
             .tree
             .iter()
             .map(|node| match node.idx {
-                Int(_) => DMatrix::<f64>::zeros(SubstModel::N + 1, msa_length),
+                Int(_) => DMatrix::<f64>::zeros(n, msa_length),
                 Leaf(_) => leaf_seq_info
                     .get(info.tree.node_id(&node.idx))
                     .unwrap()
@@ -181,13 +181,13 @@ where
             surv_probs: vec![0.0; node_count],
             f: vec![DVector::<f64>::zeros(msa_length); node_count],
             p: vec![DVector::<f64>::zeros(msa_length); node_count],
-            c0_ftilde: vec![DMatrix::<f64>::zeros(SubstModel::N + 1, 1); node_count],
+            c0_ftilde: vec![DMatrix::<f64>::zeros(n, 1); node_count],
             c0_f: vec![0.0; node_count],
             c0_p: vec![0.0; node_count],
             branches: info.tree.iter().map(|n| n.blen).collect(),
             anc: vec![DMatrix::<f64>::zeros(msa_length, 3); node_count],
             valid: vec![false; node_count],
-            models: vec![SubstMatrix::zeros(SubstModel::N + 1, SubstModel::N + 1); node_count],
+            models: vec![SubstMatrix::zeros(n, n); node_count],
             models_valid: vec![false; node_count],
             phantom: PhantomData,
         })
@@ -329,7 +329,7 @@ where
                 .tr_mul(model.freqs())
                 .component_mul(&tmp.anc[idx].column(0));
             tmp.p[idx] = tmp.f[idx].clone() * tmp.surv_probs[idx] * tmp.ins_probs[idx];
-            tmp.c0_ftilde[idx][SubstModel::N] = 1.0;
+            tmp.c0_ftilde[idx][PIPModel::<SubstModel>::N - 1] = 1.0;
             tmp.c0_f[idx] = 0.0;
             tmp.c0_p[idx] = (1.0 - tmp.surv_probs[idx]) * tmp.ins_probs[idx];
             tmp.valid[idx] = true;
