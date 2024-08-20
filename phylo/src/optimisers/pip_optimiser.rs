@@ -100,7 +100,7 @@ where
                     parameter: param_set,
                     phylo_info: &self.info,
                 };
-                let gss = BrentOpt::new(1e-10, 100.0);
+                let gss = BrentOpt::new(1e-10, 20.0);
                 let res = Executor::new(optimiser, gss)
                     .configure(|_| {
                         IterState::new().param(opt_params.value(param_set.first().unwrap()))
@@ -115,6 +115,8 @@ where
                     "Optimised parameter {:?} to value {} with logl {}",
                     param_name, value, final_logl
                 );
+                debug_assert!(final_logl > initial_logl);
+                debug_assert!(20.0 - value > 1e-10);
                 debug!("New parameters: {}\n", opt_params);
                 model = PIPModel::create(&opt_params);
             }

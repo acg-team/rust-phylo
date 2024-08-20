@@ -2,12 +2,13 @@ use std::path::PathBuf;
 
 use approx::assert_relative_eq;
 
-use crate::evolutionary_models::DNAModelType::*;
+use crate::evolutionary_models::{DNAModelType::*, ProteinModelType::*};
 use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::{FrequencyOptimisation, ModelOptimiser, PIPParamOptimiser};
 use crate::phylo_info::PhyloInfoBuilder;
 use crate::pip_model::{PIPCost, PIPModel};
 use crate::substitution_models::dna_models::DNASubstModel;
+use crate::substitution_models::protein_models::ProteinSubstModel;
 
 #[test]
 fn check_parameter_optimisation_pip_arpiptest() {
@@ -35,7 +36,7 @@ fn check_parameter_optimisation_pip_arpiptest() {
 }
 
 #[test]
-fn test_optimisation_pip_propip_example() {
+fn optimisation_pip_propip_example() {
     let info = &PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/pip/propip/msa.initial.fasta"),
         PathBuf::from("./data/pip/propip/tree.nwk"),
@@ -68,7 +69,7 @@ fn test_optimisation_pip_propip_example() {
 }
 
 #[test]
-fn check_example_against_python_no_gaps() {
+fn optimisation_against_python_no_gaps() {
     let info = &PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
@@ -103,7 +104,7 @@ fn check_example_against_python_no_gaps() {
 }
 
 #[test]
-fn check_parameter_optimisation_pip_gtr() {
+fn optimisation_pip_gtr() {
     let info = &PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/GTR/gtr.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
@@ -134,4 +135,32 @@ fn check_parameter_optimisation_pip_gtr() {
     assert_relative_eq!(subst_params.rca, 0.07906, epsilon = 1e-4);
     assert_relative_eq!(subst_params.rcg, 0.04276, epsilon = 1e-4);
     assert_relative_eq!(subst_params.rag, 1.00000, epsilon = 1e-4);
+}
+
+#[test]
+fn protein_example_pip_opt() {
+    let info = &PhyloInfoBuilder::with_attrs(
+        PathBuf::from("./data/phyml_protein_nogap_example.fasta"),
+        PathBuf::from("./data/phyml_protein_example.newick"),
+    )
+    .build()
+    .unwrap();
+    let pip = PIPModel::<ProteinSubstModel>::new(WAG, &[2.0, 0.1]).unwrap();
+
+    let llik = PIPCost { model: &pip };
+    let initial_logl = llik.cost(info);
+    let o = PIPParamOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
+        .run()
+        .unwrap();
+    assert!(o.final_logl > initial_logl);
+    assert_relative_eq!(o.initial_logl, initial_logl);
+    assert_ne!(o.model.params.lambda, 2.0);
+    assert_ne!(o.model.params.mu, 0.1);
+    assert_eq!(
+        PIPCost {
+            model: &PIPModel::create(&o.model.params)
+        }
+        .cost(info),
+        o.final_logl
+    );
 }
