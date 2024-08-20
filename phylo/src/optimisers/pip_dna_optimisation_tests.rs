@@ -5,7 +5,7 @@ use approx::assert_relative_eq;
 use crate::evolutionary_models::DNAModelType::*;
 use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::{
-    pip_model_optimiser::PIPModelOptimiser, FrequencyOptimisation, ModelOptimiser,
+    pip_model_optimiser::PIPParamOptimiser, FrequencyOptimisation, ModelOptimiser,
 };
 use crate::phylo_info::PhyloInfoBuilder;
 use crate::pip_model::{PIPCost, PIPModel};
@@ -28,7 +28,7 @@ fn check_parameter_optimisation_pip_arpiptest() {
     )
     .unwrap();
     let llik = PIPCost { model: &pip_gtr };
-    let o = PIPModelOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
+    let o = PIPParamOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     let initial_logl = llik.cost(info);
@@ -56,7 +56,7 @@ fn test_optimisation_pip_propip_example() {
     let likelihood = PIPCost { model: &pip_gtr };
     let initial_logl = likelihood.cost(info);
     assert_relative_eq!(initial_logl, -1241.9944955187807, epsilon = 1e-3);
-    let o = PIPModelOptimiser::new(&likelihood, info, FrequencyOptimisation::Empirical)
+    let o = PIPParamOptimiser::new(&likelihood, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     assert_eq!(o.initial_logl, initial_logl);
@@ -86,7 +86,7 @@ fn check_example_against_python_no_gaps() {
         -361.1613531649497, // value from the python script
         epsilon = 1e-1
     );
-    let o = PIPModelOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
+    let o = PIPParamOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     let params = o.model.params;
@@ -121,7 +121,7 @@ fn check_parameter_optimisation_pip_gtr() {
     .unwrap();
     let llik = PIPCost { model: &pip_gtr };
     let initial_logl = llik.cost(info);
-    let o = PIPModelOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
+    let o = PIPParamOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
 

@@ -49,7 +49,7 @@ where
     }
 }
 
-pub struct PIPModelOptimiser<'a, SubstModel: SubstitutionModel> {
+pub struct PIPParamOptimiser<'a, SubstModel: SubstitutionModel> {
     pub(crate) epsilon: f64,
     pub(crate) likelihood: &'a PIPCost<'a, SubstModel>,
     pub(crate) info: PhyloInfo,
@@ -57,7 +57,7 @@ pub struct PIPModelOptimiser<'a, SubstModel: SubstitutionModel> {
 
 impl<'a, SubstModel: SubstitutionModel + Clone>
     ModelOptimiser<'a, PIPCost<'a, SubstModel>, PIPModel<SubstModel>>
-    for PIPModelOptimiser<'a, SubstModel>
+    for PIPParamOptimiser<'a, SubstModel>
 where
     SubstModel::ModelType: Clone + Display,
     SubstModel::Params: Clone,
