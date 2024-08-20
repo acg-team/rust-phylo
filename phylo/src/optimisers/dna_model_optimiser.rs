@@ -3,7 +3,6 @@ use argmin::solver::brent::BrentOpt;
 use log::{debug, info, warn};
 
 use crate::evolutionary_models::{
-    DNAModelType::*,
     EvoModelParams,
     FrequencyOptimisation::{self, *},
 };
@@ -75,21 +74,11 @@ impl<'a> ModelOptimiser<'a, SubstLikelihoodCost<'a, DNASubstModel>, DNASubstMode
             Fixed => {}
             Empirical => {
                 info!("Seting stationary frequencies to empirical.");
-                match model_type {
-                    JC69 | K80 => {}
-                    _ => {
-                        start_params.set_freqs(self.info.freqs());
-                    }
-                }
+                start_params.set_freqs(self.info.freqs());
             }
             Estimated => {
                 warn!("Stationary frequency estimation not available, falling back on empirical.");
-                match model_type {
-                    JC69 | K80 => {}
-                    _ => {
-                        start_params.set_freqs(self.info.freqs());
-                    }
-                }
+                start_params.set_freqs(self.info.freqs());
             }
         }
         self.run_parameter_brent(&start_params, param_sets)
