@@ -4,7 +4,7 @@ use crate::alphabets::NUCLEOTIDE_INDEX;
 use crate::evolutionary_models::{DNAModelType, EvoModelParams};
 use crate::substitution_models::{
     FreqVector, SubstMatrix, SubstModel, SubstModelInfo, SubstModelParams,
-    SubstitutionLikelihoodCost, SubstitutionModel,
+    SubstLikelihoodCost, SubstitutionModel,
 };
 use crate::Result;
 
@@ -16,7 +16,7 @@ pub(crate) use dna_model_generics::*;
 
 pub type DNASubstModel = SubstModel<DNASubstParams>;
 pub type DNASubstModelInfo = SubstModelInfo<DNASubstModel>;
-pub type DNALikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, DNASubstModel>;
+pub type DNALikelihoodCost<'a> = SubstLikelihoodCost<'a, DNASubstModel>;
 
 impl SubstitutionModel for DNASubstModel {
     type ModelType = DNAModelType;

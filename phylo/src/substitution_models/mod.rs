@@ -6,7 +6,7 @@ use nalgebra::{DMatrix, DVector};
 use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::EvoModel;
-use crate::likelihood::LikelihoodCostFunction;
+use crate::likelihood::PhyloCostFunction;
 use crate::tree::{
     Node,
     NodeIdx::{Internal, Leaf},
@@ -159,22 +159,22 @@ where
 }
 
 #[derive(Clone)]
-pub struct SubstitutionLikelihoodCost<'a, SubstModel: SubstitutionModel + 'a> {
+pub struct SubstLikelihoodCost<'a, SubstModel: SubstitutionModel + 'a> {
     pub(crate) model: &'a SubstModel,
 }
 
-impl<'a, SubstModel: SubstitutionModel + EvoModel + 'a> LikelihoodCostFunction
-    for SubstitutionLikelihoodCost<'a, SubstModel>
+impl<'a, SubstModel: SubstitutionModel + EvoModel + 'a> PhyloCostFunction
+    for SubstLikelihoodCost<'a, SubstModel>
 {
-    fn logl(&self, info: &PhyloInfo) -> f64 {
+    fn cost(&self, info: &PhyloInfo) -> f64 {
         self.logl(info).0
     }
 }
 
-impl<'a, SubstModel: SubstitutionModel + EvoModel> SubstitutionLikelihoodCost<'a, SubstModel> {
+impl<'a, SubstModel: SubstitutionModel + EvoModel> SubstLikelihoodCost<'a, SubstModel> {
     #[allow(dead_code)]
     pub(crate) fn new(model: &'a SubstModel) -> Self {
-        SubstitutionLikelihoodCost { model }
+        SubstLikelihoodCost { model }
     }
 
     fn logl(&self, info: &PhyloInfo) -> (f64, SubstModelInfo<SubstModel>) {

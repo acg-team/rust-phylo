@@ -7,7 +7,7 @@ use nalgebra::{DMatrix, DVector};
 
 use crate::alignment::Mapping;
 use crate::evolutionary_models::{EvoModel, EvoModelParams};
-use crate::likelihood::LikelihoodCostFunction;
+use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::DNASubstModel;
 use crate::substitution_models::protein_models::ProteinSubstModel;
@@ -211,13 +211,13 @@ pub struct PIPCost<'a, SubstModel: SubstitutionModel> {
     pub model: &'a PIPModel<SubstModel>,
 }
 
-impl<'a, SubstModel: SubstitutionModel> LikelihoodCostFunction for PIPCost<'a, SubstModel>
+impl<'a, SubstModel: SubstitutionModel> PhyloCostFunction for PIPCost<'a, SubstModel>
 where
     SubstModel: Clone,
     SubstModel::Params: Clone,
     SubstModel::ModelType: Clone,
 {
-    fn logl(&self, info: &PhyloInfo) -> f64 {
+    fn cost(&self, info: &PhyloInfo) -> f64 {
         self.logl(info).0
     }
 }

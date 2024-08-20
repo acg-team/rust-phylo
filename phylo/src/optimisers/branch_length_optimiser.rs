@@ -2,7 +2,7 @@ use argmin::core::{CostFunction, Executor, IterState, State};
 use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
-use crate::likelihood::LikelihoodCostFunction;
+use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::tree::NodeIdx;
 use crate::Result;
@@ -10,7 +10,7 @@ use crate::Result;
 use crate::optimisers::{PhyloOptimisationResult, PhyloOptimiser};
 
 pub(crate) struct SingleBranchOptimiser<'a> {
-    pub(crate) cost: &'a dyn LikelihoodCostFunction,
+    pub(crate) c: &'a dyn PhyloCostFunction,
     pub(crate) info: &'a PhyloInfo,
     pub(crate) branch: &'a NodeIdx,
 }
@@ -22,7 +22,7 @@ impl<'a> CostFunction for SingleBranchOptimiser<'a> {
     fn cost(&self, value: &Self::Param) -> Result<Self::Output> {
         let mut info = self.info.clone();
         info.tree.set_branch_length(self.branch, *value);
-        Ok(-self.cost.logl(&info))
+        Ok(-self.c.cost(&info))
     }
 
     fn parallelize(&self) -> bool {
@@ -32,15 +32,15 @@ impl<'a> CostFunction for SingleBranchOptimiser<'a> {
 
 pub struct BranchOptimiser<'a> {
     pub(crate) epsilon: f64,
-    pub(crate) cost: &'a dyn LikelihoodCostFunction,
+    pub(crate) c: &'a dyn PhyloCostFunction,
     pub(crate) info: PhyloInfo,
 }
 
 impl<'a> PhyloOptimiser<'a> for BranchOptimiser<'a> {
-    fn new(cost: &'a dyn LikelihoodCostFunction, phylo_info: &PhyloInfo) -> Self {
+    fn new(cost: &'a dyn PhyloCostFunction, phylo_info: &PhyloInfo) -> Self {
         BranchOptimiser {
             epsilon: 1e-3,
-            cost,
+            c: cost,
             info: phylo_info.clone(),
         }
     }
@@ -49,7 +49,7 @@ impl<'a> PhyloOptimiser<'a> for BranchOptimiser<'a> {
         info!("Optimising branch lengths.");
         let mut info = self.info.clone();
 
-        let initial_logl = self.cost.logl(&info);
+        let initial_logl = self.c.cost(&info);
         info!("Initial logl: {}.", initial_logl);
         let mut final_logl = initial_logl;
         let mut prev_logl = f64::NEG_INFINITY;
@@ -99,7 +99,7 @@ impl<'a> BranchOptimiser<'a> {
             (start_blen * 0.1, start_blen * 10.0)
         };
         let optimiser = SingleBranchOptimiser {
-            cost: self.cost,
+            c: self.c,
             info,
             branch,
         };

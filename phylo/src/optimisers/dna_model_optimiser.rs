@@ -7,17 +7,17 @@ use crate::evolutionary_models::{
     EvoModelParams,
     FrequencyOptimisation::{self, *},
 };
-use crate::likelihood::LikelihoodCostFunction;
+use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::{ModelOptimisationResult, ModelOptimiser};
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::{DNAParameter, DNASubstModel, DNASubstParams};
-use crate::substitution_models::{SubstitutionLikelihoodCost, SubstitutionModel};
+use crate::substitution_models::{SubstLikelihoodCost, SubstitutionModel};
 use crate::Result;
 
 pub type DNAOptimisationResult = ModelOptimisationResult<DNASubstModel>;
 
 pub(crate) struct DNAParamOptimiser<'a> {
-    pub(crate) likelihood_cost: &'a SubstitutionLikelihoodCost<'a, DNASubstModel>,
+    pub(crate) likelihood: &'a SubstLikelihoodCost<'a, DNASubstModel>,
     pub(crate) info: &'a PhyloInfo,
     pub(crate) model: &'a DNASubstModel,
     pub(crate) parameter: &'a [DNAParameter],
@@ -32,10 +32,10 @@ impl CostFunction for DNAParamOptimiser<'_> {
         for param_name in self.parameter {
             gtr_params.set_value(param_name, *value);
         }
-        let mut likelihood_cost = self.likelihood_cost.clone();
+        let mut likelihood = self.likelihood.clone();
         let model = DNASubstModel::create(&gtr_params);
-        likelihood_cost.model = &model;
-        Ok(-likelihood_cost.logl(self.info))
+        likelihood.model = &model;
+        Ok(-likelihood.cost(self.info))
     }
 
     fn parallelize(&self) -> bool {
@@ -45,32 +45,32 @@ impl CostFunction for DNAParamOptimiser<'_> {
 
 pub struct DNAModelOptimiser<'a> {
     pub(crate) epsilon: f64,
-    pub(crate) cost: &'a SubstitutionLikelihoodCost<'a, DNASubstModel>,
+    pub(crate) likelihood: &'a SubstLikelihoodCost<'a, DNASubstModel>,
     pub(crate) info: PhyloInfo,
     pub(crate) freq_opt: FrequencyOptimisation,
 }
 
-impl<'a> ModelOptimiser<'a, SubstitutionLikelihoodCost<'a, DNASubstModel>, DNASubstModel>
+impl<'a> ModelOptimiser<'a, SubstLikelihoodCost<'a, DNASubstModel>, DNASubstModel>
     for DNAModelOptimiser<'a>
 {
     fn new(
-        cost: &'a SubstitutionLikelihoodCost<'a, DNASubstModel>,
+        likelihood: &'a SubstLikelihoodCost<'a, DNASubstModel>,
         phylo_info: &PhyloInfo,
         freq_opt: FrequencyOptimisation,
     ) -> Self {
         DNAModelOptimiser {
             epsilon: 1e-3,
             freq_opt,
-            cost,
+            likelihood,
             info: phylo_info.clone(),
         }
     }
 
     fn run(self) -> Result<DNAOptimisationResult> {
-        let mut start_params = self.cost.model.params.clone();
+        let mut start_params = self.likelihood.model.params.clone();
         let model_type = start_params.model_type;
         info!("Optimising {} parameters.", model_type);
-        let param_sets = self.cost.model.params.parameter_definition();
+        let param_sets = self.likelihood.model.params.parameter_definition();
         match self.freq_opt {
             Fixed => {}
             Empirical => {
@@ -103,7 +103,7 @@ impl<'a> DNAModelOptimiser<'a> {
         param_sets: Vec<(&str, Vec<DNAParameter>)>,
     ) -> Result<DNAOptimisationResult> {
         let mut prev_logl = f64::NEG_INFINITY;
-        let initial_logl = self.cost.logl(&self.info);
+        let initial_logl = self.likelihood.cost(&self.info);
         info!("Initial logl: {}.", initial_logl);
         let mut final_logl = initial_logl;
         let mut opt_params = start_params.clone();
@@ -116,7 +116,7 @@ impl<'a> DNAModelOptimiser<'a> {
             prev_logl = final_logl;
             for (param_name, param_set) in param_sets.iter() {
                 let optimiser = DNAParamOptimiser {
-                    likelihood_cost: self.cost,
+                    likelihood: self.likelihood,
                     model: &model,
                     info: &self.info,
                     parameter: param_set,

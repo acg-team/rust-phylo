@@ -1,6 +1,6 @@
 use crate::alignment::Alignment;
 use crate::evolutionary_models::{EvoModel, FrequencyOptimisation};
-use crate::likelihood::LikelihoodCostFunction;
+use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::tree::Tree;
 use crate::Result;
@@ -25,7 +25,7 @@ pub struct PhyloOptimisationResult {
 }
 
 pub trait PhyloOptimiser<'a> {
-    fn new(cost: &'a dyn LikelihoodCostFunction, info: &PhyloInfo) -> Self;
+    fn new(cost: &'a dyn PhyloCostFunction, info: &PhyloInfo) -> Self;
     fn run(self) -> Result<PhyloOptimisationResult>;
 }
 
@@ -36,7 +36,7 @@ pub struct ModelOptimisationResult<M: EvoModel> {
     pub model: M,
 }
 
-pub trait ModelOptimiser<'a, LC: LikelihoodCostFunction, M: EvoModel> {
+pub trait ModelOptimiser<'a, LC: PhyloCostFunction, M: EvoModel> {
     fn new(cost: &'a LC, info: &PhyloInfo, frequencies: FrequencyOptimisation) -> Self;
     fn run(self) -> Result<ModelOptimisationResult<M>>;
 }

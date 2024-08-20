@@ -8,7 +8,7 @@ use crate::optimisers::PhyloOptimiser;
 use crate::phylo_info::PhyloInfoBuilder;
 use crate::pip_model::{PIPCost, PIPDNAModel};
 use crate::substitution_models::dna_models::DNASubstModel;
-use crate::substitution_models::{SubstitutionLikelihoodCost, SubstitutionModel};
+use crate::substitution_models::{SubstLikelihoodCost, SubstitutionModel};
 use crate::tree::tree_parser::from_newick_string;
 use crate::tree::NodeIdx::Internal as Int;
 
@@ -51,7 +51,7 @@ fn branch_optimiser_likelihood_increase() {
         &[0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
     )
     .unwrap();
-    let cost = SubstitutionLikelihoodCost { model: &model };
+    let cost = SubstLikelihoodCost { model: &model };
     let o = BranchOptimiser::new(&cost, &info).run().unwrap();
     assert!(o.final_logl > o.initial_logl);
     assert_ne!(o.tree.height, info.tree.height);
@@ -71,7 +71,7 @@ fn branch_optimiser_against_phyml() {
     .build()
     .unwrap();
     let model = DNASubstModel::new(DNAModelType::JC69, &[]).unwrap();
-    let cost = SubstitutionLikelihoodCost { model: &model };
+    let cost = SubstLikelihoodCost { model: &model };
     let o = BranchOptimiser::new(&cost, &info).run().unwrap();
     assert!(o.final_logl > o.initial_logl);
     assert_ne!(o.tree.height, info.tree.height);

@@ -3,7 +3,7 @@ use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
 use crate::evolutionary_models::{EvoModel, EvoModelParams, FrequencyOptimisation};
-use crate::likelihood::LikelihoodCostFunction;
+use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::ModelOptimisationResult;
 use crate::phylo_info::PhyloInfo;
 use crate::pip_model::{PIPCost, PIPDNAModel, PIPModel};
@@ -15,7 +15,7 @@ use super::ModelOptimiser;
 pub type PIPDNAOptimisationResult = ModelOptimisationResult<PIPDNAModel>;
 
 pub(crate) struct PIPDNAOptimiser<'a> {
-    pub(crate) likelihood_cost: &'a PIPCost<'a, DNASubstModel>,
+    pub(crate) likelihood: &'a PIPCost<'a, DNASubstModel>,
     pub(crate) model: &'a PIPModel<DNASubstModel>,
     pub(crate) phylo_info: &'a PhyloInfo,
     pub(crate) parameter: &'a [DNAParameter],
@@ -30,12 +30,12 @@ impl CostFunction for PIPDNAOptimiser<'_> {
         for param_name in self.parameter {
             params.set_value(param_name, *value);
         }
-        let mut likelihood_cost: PIPCost<DNASubstModel> = self.likelihood_cost.clone();
+        let mut likelihood: PIPCost<DNASubstModel> = self.likelihood.clone();
 
         let model = PIPDNAModel::create(&params);
 
-        likelihood_cost.model = &model;
-        Ok(-likelihood_cost.logl(self.phylo_info))
+        likelihood.model = &model;
+        Ok(-likelihood.cost(self.phylo_info))
     }
 
     fn parallelize(&self) -> bool {
@@ -45,31 +45,31 @@ impl CostFunction for PIPDNAOptimiser<'_> {
 
 pub struct PIPDNAModelOptimiser<'a> {
     pub(crate) epsilon: f64,
-    pub(crate) cost: &'a PIPCost<'a, DNASubstModel>,
+    pub(crate) likelihood: &'a PIPCost<'a, DNASubstModel>,
     pub(crate) info: PhyloInfo,
 }
 
 impl<'a> ModelOptimiser<'a, PIPCost<'a, DNASubstModel>, PIPDNAModel> for PIPDNAModelOptimiser<'a> {
     fn new(
-        cost: &'a PIPCost<'a, DNASubstModel>,
+        likelihood: &'a PIPCost<'a, DNASubstModel>,
         phylo_info: &PhyloInfo,
         _: FrequencyOptimisation,
     ) -> Self {
         Self {
             epsilon: 1e-3,
-            cost,
+            likelihood,
             info: phylo_info.clone(),
         }
     }
 
     fn run(self) -> Result<PIPDNAOptimisationResult> {
-        let mut opt_params = self.cost.model.params.clone();
+        let mut opt_params = self.likelihood.model.params.clone();
         let model_type = opt_params.model_type;
         info!("Optimising PIP with {} parameters.", model_type);
 
-        let param_sets = self.cost.model.params.parameter_definition();
+        let param_sets = self.likelihood.model.params.parameter_definition();
 
-        let initial_logl = self.cost.logl(&self.info);
+        let initial_logl = self.likelihood.cost(&self.info);
         info!("Initial logl: {}.", initial_logl);
         let mut final_logl = initial_logl;
         let mut prev_logl = f64::NEG_INFINITY;
@@ -82,7 +82,7 @@ impl<'a> ModelOptimiser<'a, PIPCost<'a, DNASubstModel>, PIPDNAModel> for PIPDNAM
             prev_logl = final_logl;
             for (param_name, param_set) in param_sets.iter() {
                 let optimiser = PIPDNAOptimiser {
-                    likelihood_cost: self.cost,
+                    likelihood: self.likelihood,
                     model: &model,
                     parameter: param_set,
                     phylo_info: &self.info,

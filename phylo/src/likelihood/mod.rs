@@ -1,7 +1,7 @@
 use crate::phylo_info::PhyloInfo;
 
-pub trait LikelihoodCostFunction {
-    fn logl(&self, info: &PhyloInfo) -> f64;
+pub trait PhyloCostFunction {
+    fn cost(&self, info: &PhyloInfo) -> f64;
 }
 
 #[cfg(test)]

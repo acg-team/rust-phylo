@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use approx::assert_relative_eq;
 
 use crate::evolutionary_models::{DNAModelType::*, FrequencyOptimisation};
-use crate::likelihood::LikelihoodCostFunction;
+use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::dna_model_optimiser::DNAModelOptimiser;
 use crate::optimisers::ModelOptimiser;
 use crate::phylo_info::PhyloInfoBuilder;
@@ -19,17 +19,17 @@ fn check_likelihood_opt_k80() {
     .build()
     .unwrap();
     let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
-    let cost = DNALikelihoodCost::new(&model);
+    let llik = DNALikelihoodCost::new(&model);
     // let cost =
     //     ProteinLikelihoodCost::new(&ProteinSubstModel::new(ProteinModelType::BLOSUM, &[]).unwrap());
-    let unopt_logl = cost.logl(&info);
-    let o = DNAModelOptimiser::new(&cost, &info, FrequencyOptimisation::Fixed)
+    let unopt_logl = llik.cost(&info);
+    let o = DNAModelOptimiser::new(&llik, &info, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
     assert!(o.final_logl > unopt_logl);
 
     let model = DNASubstModel::new(K80, &[1.884815, 1.0]).unwrap();
-    let expected_logl = DNALikelihoodCost::new(&model).logl(&info);
+    let expected_logl = DNALikelihoodCost::new(&model).cost(&info);
 
     assert_relative_eq!(o.final_logl, expected_logl, epsilon = 1e-6);
     assert_relative_eq!(o.final_logl, -4034.5008033, epsilon = 1e-6);
@@ -117,7 +117,7 @@ fn parameter_definition_after_optim_hky() {
     .unwrap();
     let model = DNASubstModel::new(HKY, &[0.26, 0.2, 0.4, 0.14, 4.0, 1.0]).unwrap();
     let cost = DNALikelihoodCost::new(&model);
-    let start_logl = cost.logl(&info);
+    let start_logl = cost.cost(&info);
     let o = DNAModelOptimiser::new(&cost, &info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
@@ -140,9 +140,9 @@ fn parameter_definition_after_optim_tn93() {
     .build()
     .unwrap();
     let model = DNASubstModel::new(TN93, &[0.26, 0.2, 0.4, 0.14, 4.0, 2.0, 1.0]).unwrap();
-    let cost = DNALikelihoodCost::new(&model);
-    let start_logl = cost.logl(&info);
-    let o = DNAModelOptimiser::new(&cost, &info, FrequencyOptimisation::Empirical)
+    let llik = DNALikelihoodCost::new(&model);
+    let start_logl = llik.cost(&info);
+    let o = DNAModelOptimiser::new(&llik, &info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     let params = &o.model.params;
@@ -179,7 +179,7 @@ fn check_parameter_optimisation_gtr() {
         ],
     )
     .unwrap();
-    let phyml_logl = DNALikelihoodCost::new(&phyml_model).logl(&info);
+    let phyml_logl = DNALikelihoodCost::new(&phyml_model).cost(&info);
     assert_relative_eq!(phyml_logl, -3474.48083, epsilon = 1.0e-5);
 
     let paml_model = DNASubstModel::new(
@@ -189,7 +189,7 @@ fn check_parameter_optimisation_gtr() {
         ],
     )
     .unwrap(); // Original input to paml
-    let paml_logl = DNALikelihoodCost::new(&paml_model).logl(&info);
+    let paml_logl = DNALikelihoodCost::new(&paml_model).cost(&info);
     assert!(phyml_logl > paml_logl);
 
     let model = DNASubstModel::new(

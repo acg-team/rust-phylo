@@ -3,8 +3,8 @@ use std::fmt::Display;
 use crate::alphabets::AMINOACID_INDEX;
 use crate::evolutionary_models::{EvoModelParams, ProteinModelType};
 use crate::substitution_models::{
-    FreqVector, SubstMatrix, SubstModel, SubstModelInfo, SubstModelParams,
-    SubstitutionLikelihoodCost, SubstitutionModel,
+    FreqVector, SubstLikelihoodCost, SubstMatrix, SubstModel, SubstModelInfo, SubstModelParams,
+    SubstitutionModel,
 };
 use crate::Result;
 
@@ -16,7 +16,7 @@ pub(crate) type ProteinFrequencyArray = [f64; 20];
 
 pub type ProteinSubstModel = SubstModel<ProteinSubstParams>;
 pub type ProteinSubstModelInfo = SubstModelInfo<ProteinSubstModel>;
-pub type ProteinLikelihoodCost<'a> = SubstitutionLikelihoodCost<'a, ProteinSubstModel>;
+pub type ProteinLikelihoodCost<'a> = SubstLikelihoodCost<'a, ProteinSubstModel>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ProteinParameter {
