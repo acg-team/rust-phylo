@@ -106,16 +106,20 @@ where
                         IterState::new().param(opt_params.value(param_set.first().unwrap()))
                     })
                     .run()?;
+                let logl = -res.state().best_cost;
+                if logl < final_logl {
+                    continue;
+                }
                 let value = res.state().best_param.unwrap();
                 for param_id in param_set {
                     opt_params.set_value(param_id, value);
                 }
-                final_logl = -res.state().best_cost;
+                final_logl = logl;
                 debug!(
                     "Optimised parameter {:?} to value {} with logl {}",
                     param_name, value, final_logl
                 );
-                debug_assert!(final_logl > initial_logl);
+                debug_assert!(final_logl >= initial_logl);
                 debug_assert!(20.0 - value > 1e-10);
                 debug!("New parameters: {}\n", opt_params);
                 model = PIPModel::create(&opt_params);

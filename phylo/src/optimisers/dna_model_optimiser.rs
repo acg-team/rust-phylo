@@ -116,11 +116,15 @@ impl<'a> DNAModelOptimiser<'a> {
                         IterState::new().param(opt_params.value(param_set.first().unwrap()))
                     })
                     .run()?;
+                let logl = -res.state().best_cost;
+                if logl < final_logl {
+                    continue;
+                }
                 let value = res.state().best_param.unwrap();
                 for param_id in param_set {
                     opt_params.set_value(param_id, value);
                 }
-                final_logl = -res.state().best_cost;
+                final_logl = logl;
                 debug!(
                     "Optimised parameter {:?} to value {} with logl {}",
                     param_name, value, final_logl
