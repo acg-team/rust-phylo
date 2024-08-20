@@ -4,6 +4,7 @@ use approx::assert_relative_eq;
 
 use crate::evolutionary_models::DNAModelType;
 use crate::optimisers::branch_length_optimiser::BranchOptimiser;
+use crate::optimisers::PhyloOptimiser;
 use crate::phylo_info::PhyloInfoBuilder;
 use crate::pip_model::{PIPCost, PIPDNAModel};
 use crate::substitution_models::dna_models::DNASubstModel;

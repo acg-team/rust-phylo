@@ -7,7 +7,7 @@ use crate::phylo_info::PhyloInfo;
 use crate::tree::NodeIdx;
 use crate::Result;
 
-use super::PhyloOptimisationResult;
+use crate::optimisers::{PhyloOptimisationResult, PhyloOptimiser};
 
 pub(crate) struct SingleBranchOptimiser<'a> {
     pub(crate) cost: &'a dyn LikelihoodCostFunction,
@@ -33,19 +33,19 @@ impl<'a> CostFunction for SingleBranchOptimiser<'a> {
 pub struct BranchOptimiser<'a> {
     pub(crate) epsilon: f64,
     pub(crate) cost: &'a dyn LikelihoodCostFunction,
-    pub(crate) info: &'a PhyloInfo,
+    pub(crate) info: PhyloInfo,
 }
 
-impl<'a> BranchOptimiser<'a> {
-    pub fn new(cost: &'a dyn LikelihoodCostFunction, phylo_info: &'a PhyloInfo) -> Self {
+impl<'a> PhyloOptimiser<'a> for BranchOptimiser<'a> {
+    fn new(cost: &'a dyn LikelihoodCostFunction, phylo_info: &PhyloInfo) -> Self {
         BranchOptimiser {
             epsilon: 1e-3,
             cost,
-            info: phylo_info,
+            info: phylo_info.clone(),
         }
     }
 
-    pub fn run(&self) -> Result<PhyloOptimisationResult> {
+    fn run(self) -> Result<PhyloOptimisationResult> {
         info!("Optimising branch lengths.");
         let mut info = self.info.clone();
 
@@ -88,7 +88,9 @@ impl<'a> BranchOptimiser<'a> {
             alignment: info.msa.clone(),
         })
     }
+}
 
+impl<'a> BranchOptimiser<'a> {
     fn optimise_branch(&self, branch: &NodeIdx, info: &PhyloInfo) -> Result<(f64, f64)> {
         let start_blen = info.tree.blen(branch);
         let (start, end) = if start_blen == 0.0 {

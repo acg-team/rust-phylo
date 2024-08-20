@@ -24,6 +24,11 @@ pub struct PhyloOptimisationResult {
     pub alignment: Alignment,
 }
 
+pub trait PhyloOptimiser<'a> {
+    fn new(cost: &'a dyn LikelihoodCostFunction, info: &PhyloInfo) -> Self;
+    fn run(self) -> Result<PhyloOptimisationResult>;
+}
+
 pub struct ModelOptimisationResult<M: EvoModel> {
     pub initial_logl: f64,
     pub final_logl: f64,
