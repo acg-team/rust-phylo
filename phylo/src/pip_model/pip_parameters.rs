@@ -139,15 +139,14 @@ impl EvoModelParams for PIPProteinParams {
     }
 }
 
-impl<SubstModel: SubstitutionModel> Display for PIPParams<SubstModel>
-where
-    SubstModel::Params: std::fmt::Debug,
-{
+impl<SubstModel: SubstitutionModel> Display for PIPParams<SubstModel> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "[lambda = {:.5},\nmu = {:.5},\nsubst model parameters = \n{:?}]",
-            self.lambda, self.mu, self.subst_params
+            "lambda = {:.5},\nmu = {:.5},\nstationary freqs = \n{}",
+            self.lambda,
+            self.mu,
+            self.pi.transpose()
         )
     }
 }
