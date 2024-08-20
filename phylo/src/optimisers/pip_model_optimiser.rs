@@ -25,7 +25,7 @@ where
 impl<'a, SubstModel: SubstitutionModel + Clone> CostFunction for PIPDNAOptimiser<'a, SubstModel>
 where
     SubstModel::ModelType: Clone,
-    SubstModel::Params: Clone + EvoModelParams,
+    SubstModel::Params: Clone,
     PIPParams<SubstModel>: EvoModelParams,
 {
     type Param = f64;
@@ -55,13 +55,12 @@ pub struct PIPModelOptimiser<'a, SubstModel: SubstitutionModel> {
     pub(crate) info: PhyloInfo,
 }
 
-impl<'a, SubstModel: SubstitutionModel>
+impl<'a, SubstModel: SubstitutionModel + Clone>
     ModelOptimiser<'a, PIPCost<'a, SubstModel>, PIPModel<SubstModel>>
     for PIPModelOptimiser<'a, SubstModel>
 where
-    SubstModel: Clone,
     SubstModel::ModelType: Clone + Display,
-    SubstModel::Params: Clone + EvoModelParams,
+    SubstModel::Params: Clone,
     PIPParams<SubstModel>: EvoModelParams + Display,
 {
     fn new(
