@@ -4,7 +4,7 @@ use approx::assert_relative_eq;
 
 use crate::evolutionary_models::{DNAModelType::*, ProteinModelType::*};
 use crate::likelihood::PhyloCostFunction;
-use crate::optimisers::{FrequencyOptimisation, ModelOptimiser, PIPParamOptimiser};
+use crate::optimisers::{FrequencyOptimisation, ModelOptimiser, PIPOptimiser};
 use crate::phylo_info::PhyloInfoBuilder;
 use crate::pip_model::{PIPCost, PIPModel};
 use crate::substitution_models::dna_models::DNASubstModel;
@@ -27,7 +27,7 @@ fn check_parameter_optimisation_pip_arpiptest() {
     )
     .unwrap();
     let llik = PIPCost { model: &pip_gtr };
-    let o = PIPParamOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
+    let o = PIPOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     let initial_logl = llik.cost(info);
@@ -55,7 +55,7 @@ fn optimisation_pip_propip_example() {
     let likelihood = PIPCost { model: &pip_gtr };
     let initial_logl = likelihood.cost(info);
     assert_relative_eq!(initial_logl, -1241.9944955187807, epsilon = 1e-3);
-    let o = PIPParamOptimiser::new(&likelihood, info, FrequencyOptimisation::Empirical)
+    let o = PIPOptimiser::new(&likelihood, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     assert_eq!(o.initial_logl, initial_logl);
@@ -85,7 +85,7 @@ fn optimisation_against_python_no_gaps() {
         -361.1613531649497, // value from the python script
         epsilon = 1e-1
     );
-    let o = PIPParamOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
+    let o = PIPOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     let params = o.model.params;
@@ -120,7 +120,7 @@ fn optimisation_pip_gtr() {
     .unwrap();
     let llik = PIPCost { model: &pip_gtr };
     let initial_logl = llik.cost(info);
-    let o = PIPParamOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
+    let o = PIPOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
 
@@ -149,7 +149,7 @@ fn protein_example_pip_opt() {
 
     let llik = PIPCost { model: &pip };
     let initial_logl = llik.cost(info);
-    let o = PIPParamOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
+    let o = PIPOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     assert!(o.final_logl > initial_logl);

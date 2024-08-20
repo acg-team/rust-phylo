@@ -12,7 +12,7 @@ use crate::pip_model::{PIPCost, PIPModel, PIPParams};
 use crate::substitution_models::SubstitutionModel;
 use crate::Result;
 
-pub(crate) struct PIPDNAOptimiser<'a, SubstModel: SubstitutionModel>
+pub(crate) struct PIPParamOptimiser<'a, SubstModel: SubstitutionModel>
 where
     PIPParams<SubstModel>: EvoModelParams,
 {
@@ -22,7 +22,7 @@ where
     pub(crate) parameter: &'a [<PIPParams<SubstModel> as EvoModelParams>::Parameter],
 }
 
-impl<'a, SubstModel: SubstitutionModel + Clone> CostFunction for PIPDNAOptimiser<'a, SubstModel>
+impl<'a, SubstModel: SubstitutionModel + Clone> CostFunction for PIPParamOptimiser<'a, SubstModel>
 where
     SubstModel::ModelType: Clone,
     SubstModel::Params: Clone,
@@ -49,7 +49,7 @@ where
     }
 }
 
-pub struct PIPParamOptimiser<'a, SubstModel: SubstitutionModel> {
+pub struct PIPOptimiser<'a, SubstModel: SubstitutionModel> {
     pub(crate) epsilon: f64,
     pub(crate) likelihood: &'a PIPCost<'a, SubstModel>,
     pub(crate) info: PhyloInfo,
@@ -57,7 +57,7 @@ pub struct PIPParamOptimiser<'a, SubstModel: SubstitutionModel> {
 
 impl<'a, SubstModel: SubstitutionModel + Clone>
     ModelOptimiser<'a, PIPCost<'a, SubstModel>, PIPModel<SubstModel>>
-    for PIPParamOptimiser<'a, SubstModel>
+    for PIPOptimiser<'a, SubstModel>
 where
     SubstModel::ModelType: Clone + Display,
     SubstModel::Params: Clone,
@@ -94,7 +94,7 @@ where
             debug!("Iteration: {}", iterations);
             prev_logl = final_logl;
             for (param_name, param_set) in param_sets.iter() {
-                let optimiser = PIPDNAOptimiser {
+                let optimiser = PIPParamOptimiser {
                     likelihood: self.likelihood,
                     model: &model,
                     parameter: param_set,
