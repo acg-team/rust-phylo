@@ -116,9 +116,9 @@ fn parameter_definition_after_optim_hky() {
     .build()
     .unwrap();
     let model = DNASubstModel::new(HKY, &[0.26, 0.2, 0.4, 0.14, 4.0, 1.0]).unwrap();
-    let cost = DNALikelihoodCost::new(&model);
-    let start_logl = cost.cost(&info);
-    let o = DNAModelOptimiser::new(&cost, &info, FrequencyOptimisation::Empirical)
+    let llik = DNALikelihoodCost::new(&model);
+    let start_logl = llik.cost(&info);
+    let o = DNAModelOptimiser::new(&llik, &info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     let params = &o.model.params;

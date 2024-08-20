@@ -1,27 +1,33 @@
+use std::fmt::Display;
+
 use argmin::core::{CostFunction, Executor, IterState, State};
 use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
 use crate::evolutionary_models::{EvoModel, EvoModelParams, FrequencyOptimisation};
 use crate::likelihood::PhyloCostFunction;
-use crate::optimisers::ModelOptimisationResult;
+use crate::optimisers::{ModelOptimisationResult, ModelOptimiser};
 use crate::phylo_info::PhyloInfo;
-use crate::pip_model::{PIPCost, PIPDNAModel, PIPModel};
-use crate::substitution_models::dna_models::{DNAParameter, DNASubstModel};
+use crate::pip_model::{PIPCost, PIPModel, PIPParams};
+use crate::substitution_models::SubstitutionModel;
 use crate::Result;
 
-use super::ModelOptimiser;
-
-pub type PIPDNAOptimisationResult = ModelOptimisationResult<PIPDNAModel>;
-
-pub(crate) struct PIPDNAOptimiser<'a> {
-    pub(crate) likelihood: &'a PIPCost<'a, DNASubstModel>,
-    pub(crate) model: &'a PIPModel<DNASubstModel>,
+pub(crate) struct PIPDNAOptimiser<'a, SubstModel: SubstitutionModel>
+where
+    PIPParams<SubstModel>: EvoModelParams,
+{
+    pub(crate) likelihood: &'a PIPCost<'a, SubstModel>,
+    pub(crate) model: &'a PIPModel<SubstModel>,
     pub(crate) phylo_info: &'a PhyloInfo,
-    pub(crate) parameter: &'a [DNAParameter],
+    pub(crate) parameter: &'a [<PIPParams<SubstModel> as EvoModelParams>::Parameter],
 }
 
-impl CostFunction for PIPDNAOptimiser<'_> {
+impl<'a, SubstModel: SubstitutionModel + Clone> CostFunction for PIPDNAOptimiser<'a, SubstModel>
+where
+    SubstModel::ModelType: Clone,
+    SubstModel::Params: Clone + EvoModelParams,
+    PIPParams<SubstModel>: EvoModelParams,
+{
     type Param = f64;
     type Output = f64;
 
@@ -30,9 +36,9 @@ impl CostFunction for PIPDNAOptimiser<'_> {
         for param_name in self.parameter {
             params.set_value(param_name, *value);
         }
-        let mut likelihood: PIPCost<DNASubstModel> = self.likelihood.clone();
+        let mut likelihood = self.likelihood.clone();
 
-        let model = PIPDNAModel::create(&params);
+        let model = PIPModel::<SubstModel>::create(&params);
 
         likelihood.model = &model;
         Ok(-likelihood.cost(self.phylo_info))
@@ -43,15 +49,23 @@ impl CostFunction for PIPDNAOptimiser<'_> {
     }
 }
 
-pub struct PIPDNAModelOptimiser<'a> {
+pub struct PIPModelOptimiser<'a, SubstModel: SubstitutionModel> {
     pub(crate) epsilon: f64,
-    pub(crate) likelihood: &'a PIPCost<'a, DNASubstModel>,
+    pub(crate) likelihood: &'a PIPCost<'a, SubstModel>,
     pub(crate) info: PhyloInfo,
 }
 
-impl<'a> ModelOptimiser<'a, PIPCost<'a, DNASubstModel>, PIPDNAModel> for PIPDNAModelOptimiser<'a> {
+impl<'a, SubstModel: SubstitutionModel>
+    ModelOptimiser<'a, PIPCost<'a, SubstModel>, PIPModel<SubstModel>>
+    for PIPModelOptimiser<'a, SubstModel>
+where
+    SubstModel: Clone,
+    SubstModel::ModelType: Clone + Display,
+    SubstModel::Params: Clone + EvoModelParams,
+    PIPParams<SubstModel>: EvoModelParams + Display,
+{
     fn new(
-        likelihood: &'a PIPCost<'a, DNASubstModel>,
+        likelihood: &'a PIPCost<'a, SubstModel>,
         phylo_info: &PhyloInfo,
         _: FrequencyOptimisation,
     ) -> Self {
@@ -62,9 +76,9 @@ impl<'a> ModelOptimiser<'a, PIPCost<'a, DNASubstModel>, PIPDNAModel> for PIPDNAM
         }
     }
 
-    fn run(self) -> Result<PIPDNAOptimisationResult> {
+    fn run(self) -> Result<ModelOptimisationResult<PIPModel<SubstModel>>> {
         let mut opt_params = self.likelihood.model.params.clone();
-        let model_type = opt_params.model_type;
+        let model_type = &opt_params.model_type;
         info!("Optimising PIP with {} parameters.", model_type);
 
         let param_sets = self.likelihood.model.params.parameter_definition();
@@ -110,7 +124,7 @@ impl<'a> ModelOptimiser<'a, PIPCost<'a, DNASubstModel>, PIPDNAModel> for PIPDNAM
             "Final logl: {}, achieved in {} iteration(s).",
             final_logl, iterations
         );
-        Ok(PIPDNAOptimisationResult {
+        Ok(ModelOptimisationResult::<PIPModel<SubstModel>> {
             model,
             initial_logl,
             final_logl,

@@ -6,7 +6,7 @@ use std::vec;
 use nalgebra::{DMatrix, DVector};
 
 use crate::alignment::Mapping;
-use crate::evolutionary_models::{EvoModel, EvoModelParams};
+use crate::evolutionary_models::EvoModel;
 use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::DNASubstModel;
@@ -32,7 +32,7 @@ impl<SubstModel: SubstitutionModel> PIPModel<SubstModel>
 where
     SubstModel: Clone,
     SubstModel::ModelType: Clone,
-    SubstModel::Params: EvoModelParams + Clone,
+    SubstModel::Params: Clone,
 {
     pub fn new(model: SubstModel::ModelType, params: &[f64]) -> Result<Self>
     where

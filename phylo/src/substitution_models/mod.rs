@@ -5,7 +5,7 @@ use std::ops::Mul;
 use nalgebra::{DMatrix, DVector};
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::EvoModel;
+use crate::evolutionary_models::{EvoModel, EvoModelParams};
 use crate::likelihood::PhyloCostFunction;
 use crate::tree::{
     Node,
@@ -35,7 +35,7 @@ pub trait SubstModelParams {
 
 pub trait SubstitutionModel {
     type ModelType;
-    type Params: SubstModelParams<ModelType = Self::ModelType>;
+    type Params: SubstModelParams<ModelType = Self::ModelType> + EvoModelParams;
     const N: usize;
 
     fn create(params: &Self::Params) -> Self;

@@ -2,13 +2,14 @@ use std::path::PathBuf;
 
 use approx::assert_relative_eq;
 
-use crate::evolutionary_models::DNAModelType::{self, *};
+use crate::evolutionary_models::DNAModelType::*;
 use crate::likelihood::PhyloCostFunction;
-use crate::optimisers::pip_model_optimiser::PIPDNAModelOptimiser;
-use crate::optimisers::FrequencyOptimisation;
-use crate::optimisers::ModelOptimiser;
+use crate::optimisers::{
+    pip_model_optimiser::PIPModelOptimiser, FrequencyOptimisation, ModelOptimiser,
+};
 use crate::phylo_info::PhyloInfoBuilder;
-use crate::pip_model::{PIPCost, PIPDNAParams, PIPModel};
+use crate::pip_model::{PIPCost, PIPModel};
+use crate::substitution_models::dna_models::DNASubstModel;
 
 #[test]
 fn check_parameter_optimisation_pip_arpiptest() {
@@ -19,15 +20,15 @@ fn check_parameter_optimisation_pip_arpiptest() {
     .build()
     .unwrap();
 
-    let model = PIPModel::new(
+    let pip_gtr = PIPModel::<DNASubstModel>::new(
         GTR,
         &[
             0.1, 0.1, 0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
         ],
     )
     .unwrap();
-    let llik = PIPCost { model: &model };
-    let o = PIPDNAModelOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
+    let llik = PIPCost { model: &pip_gtr };
+    let o = PIPModelOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     let initial_logl = llik.cost(info);
@@ -44,28 +45,28 @@ fn test_optimisation_pip_propip_example() {
     .build()
     .unwrap();
 
-    let model = PIPModel::new(
-        DNAModelType::GTR,
+    let pip_gtr = PIPModel::<DNASubstModel>::new(
+        GTR,
         &[
             14.142_1, 0.1414, 0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
         ],
     )
     .unwrap();
 
-    let likelihood = PIPCost { model: &model };
+    let likelihood = PIPCost { model: &pip_gtr };
     let initial_logl = likelihood.cost(info);
     assert_relative_eq!(initial_logl, -1241.9944955187807, epsilon = 1e-3);
-    let o = PIPDNAModelOptimiser::new(&likelihood, info, FrequencyOptimisation::Empirical)
+    let o = PIPModelOptimiser::new(&likelihood, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     assert_eq!(o.initial_logl, initial_logl);
     assert!(o.final_logl > initial_logl);
     assert!(o.final_logl > -1136.3884248861254);
-    let model = PIPModel::create(&o.model.params);
-
-    let likelihood = PIPCost { model: &model };
-    let recomp_logl = likelihood.cost(info);
-    assert_eq!(o.final_logl, recomp_logl);
+    let pip_optimised = PIPModel::create(&o.model.params);
+    let optimised_llik = PIPCost {
+        model: &pip_optimised,
+    };
+    assert_eq!(o.final_logl, optimised_llik.cost(info));
 }
 
 #[test]
@@ -77,16 +78,15 @@ fn check_example_against_python_no_gaps() {
     .build()
     .unwrap();
 
-    let pip_params =
-        PIPDNAParams::new(DNAModelType::HKY, &[1.2, 0.45, 0.25, 0.25, 0.25, 0.25, 1.0]).unwrap();
-    let model = PIPModel::create(&pip_params);
-    let llik = PIPCost { model: &model };
+    let pip_hky =
+        PIPModel::<DNASubstModel>::new(HKY, &[1.2, 0.45, 0.25, 0.25, 0.25, 0.25, 1.0]).unwrap();
+    let llik = PIPCost { model: &pip_hky };
     assert_relative_eq!(
         llik.cost(info),
         -361.1613531649497, // value from the python script
         epsilon = 1e-1
     );
-    let o = PIPDNAModelOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
+    let o = PIPModelOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     let params = o.model.params;
@@ -112,18 +112,16 @@ fn check_parameter_optimisation_pip_gtr() {
     )
     .build()
     .unwrap();
-
-    let pip_params = PIPDNAParams::new(
-        DNAModelType::GTR,
+    let pip_gtr = PIPModel::<DNASubstModel>::new(
+        GTR,
         &[
             0.1, 0.1, 0.24720, 0.35320, 0.29540, 0.10420, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
         ],
     )
     .unwrap();
-    let model = PIPModel::create(&pip_params);
-    let llik = PIPCost { model: &model };
+    let llik = PIPCost { model: &pip_gtr };
     let initial_logl = llik.cost(info);
-    let o = PIPDNAModelOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
+    let o = PIPModelOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
 
