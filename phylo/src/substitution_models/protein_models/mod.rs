@@ -1,3 +1,4 @@
+use log::warn;
 use std::fmt::Display;
 
 use crate::alphabets::AMINOACID_INDEX;
@@ -10,7 +11,6 @@ use crate::Result;
 
 pub(crate) mod protein_model_generics;
 pub(crate) use protein_model_generics::*;
-
 pub(crate) type ProteinSubstArray = [f64; 400];
 pub(crate) type ProteinFrequencyArray = [f64; 20];
 
@@ -24,6 +24,7 @@ pub enum ProteinParameter {
     Mu,
     Lambda,
 }
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProteinSubstParams {
     pub(crate) model_type: ProteinModelType,
@@ -53,19 +54,21 @@ impl EvoModelParams for ProteinSubstParams {
     type Parameter = ProteinParameter;
 
     fn parameter_definition(&self) -> Vec<(&'static str, Vec<ProteinParameter>)> {
-        todo!()
+        vec![]
     }
     fn value(&self, _param_name: &ProteinParameter) -> f64 {
-        todo!()
+        0.0
     }
-    fn set_value(&mut self, _param_name: &ProteinParameter, _value: f64) {
-        todo!()
-    }
+    fn set_value(&mut self, _param_name: &ProteinParameter, _value: f64) {}
     fn freqs(&self) -> &FreqVector {
         &self.pi
     }
-    fn set_freqs(&mut self, _pi: FreqVector) {
-        todo!()
+    fn set_freqs(&mut self, pi: FreqVector) {
+        if pi.sum() != 1.0 {
+            warn!("Frequencies must sum to 1.0, not setting values");
+        } else {
+            self.pi = pi;
+        }
     }
 }
 
