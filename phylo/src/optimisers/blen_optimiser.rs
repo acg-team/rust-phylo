@@ -3,11 +3,10 @@ use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
 use crate::likelihood::PhyloCostFunction;
+use crate::optimisers::{PhyloOptimisationResult, PhyloOptimiser};
 use crate::phylo_info::PhyloInfo;
 use crate::tree::NodeIdx;
 use crate::Result;
-
-use crate::optimisers::{PhyloOptimisationResult, PhyloOptimiser};
 
 pub(crate) struct SingleBranchOptimiser<'a> {
     pub(crate) c: &'a dyn PhyloCostFunction,

@@ -5,9 +5,12 @@ use crate::phylo_info::PhyloInfo;
 use crate::tree::Tree;
 use crate::Result;
 
-pub mod branch_length_optimiser;
+pub mod blen_optimiser;
+pub use blen_optimiser::*;
 pub mod dna_model_optimiser;
-pub mod pip_model_optimiser;
+pub use dna_model_optimiser::*;
+pub mod pip_optimiser;
+pub use pip_optimiser::*;
 
 pub struct PhyloOptimisationResult {
     pub initial_logl: f64,
@@ -35,8 +38,8 @@ pub trait ModelOptimiser<'a, LC: PhyloCostFunction, M: EvoModel> {
 }
 
 #[cfg(test)]
-mod branch_length_optimiser_tests;
+mod blen_optimiser_tests;
 #[cfg(test)]
 mod dna_optimisation_tests;
 #[cfg(test)]
-mod pip_dna_optimisation_tests;
+mod pip_optimiser_tests;
