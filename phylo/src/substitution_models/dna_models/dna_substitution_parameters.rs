@@ -6,7 +6,7 @@ use crate::evolutionary_models::EvoModelParams;
 
 use crate::substitution_models::{
     dna_models::DNAModelType::{self, *},
-    FreqVector, SubstModelParams,
+    FreqVector,
 };
 use crate::Result;
 
@@ -41,10 +41,8 @@ pub struct DNASubstParams {
     pub(crate) rag: f64,
 }
 
-impl SubstModelParams for DNASubstParams {
-    type ModelType = DNAModelType;
-
-    fn new(model_type: DNAModelType, params: &[f64]) -> Result<Self>
+impl DNASubstParams {
+    pub(crate) fn new(model_type: DNAModelType, params: &[f64]) -> Result<Self>
     where
         Self: Sized,
     {
@@ -62,7 +60,7 @@ impl SubstModelParams for DNASubstParams {
 impl EvoModelParams for DNASubstParams {
     type Parameter = DNAParameter;
 
-    fn value(&self, param_name: &DNAParameter) -> f64 {
+    fn param(&self, param_name: &DNAParameter) -> f64 {
         match param_name {
             Pit => self.pi[0],
             Pic => self.pi[1],
@@ -78,7 +76,7 @@ impl EvoModelParams for DNASubstParams {
         }
     }
 
-    fn set_value(&mut self, param_name: &DNAParameter, value: f64) {
+    fn set_param(&mut self, param_name: &DNAParameter, value: f64) {
         match param_name {
             Pit | Pic | Pia | Pig => {
                 warn!("Cannot set frequencies individually. Use set_freqs() instead.")

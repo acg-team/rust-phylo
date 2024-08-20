@@ -1,11 +1,11 @@
 use log::warn;
 use std::fmt::Display;
+use std::vec;
 
 use crate::alphabets::AMINOACID_INDEX;
 use crate::evolutionary_models::{EvoModelParams, ProteinModelType};
 use crate::substitution_models::{
-    FreqVector, SubstLikelihoodCost, SubstMatrix, SubstModel, SubstModelInfo, SubstModelParams,
-    SubstitutionModel,
+    FreqVector, SubstLikelihoodCost, SubstMatrix, SubstModel, SubstModelInfo, SubstitutionModel,
 };
 use crate::Result;
 
@@ -31,10 +31,8 @@ pub struct ProteinSubstParams {
     pub(crate) pi: FreqVector,
 }
 
-impl SubstModelParams for ProteinSubstParams {
-    type ModelType = ProteinModelType;
-
-    fn new(model_type: ProteinModelType, _: &[f64]) -> Result<Self>
+impl ProteinSubstParams {
+    pub(crate) fn new(model_type: ProteinModelType, _: &[f64]) -> Result<Self>
     where
         Self: Sized,
     {
@@ -56,10 +54,12 @@ impl EvoModelParams for ProteinSubstParams {
     fn parameter_definition(&self) -> Vec<(&'static str, Vec<ProteinParameter>)> {
         vec![]
     }
-    fn value(&self, _param_name: &ProteinParameter) -> f64 {
+
+    fn param(&self, _param_name: &ProteinParameter) -> f64 {
         0.0
     }
-    fn set_value(&mut self, _param_name: &ProteinParameter, _value: f64) {}
+    fn set_param(&mut self, _param_name: &ProteinParameter, _value: f64) {}
+
     fn freqs(&self) -> &FreqVector {
         &self.pi
     }
@@ -80,23 +80,8 @@ impl Display for ProteinSubstParams {
 
 impl SubstitutionModel for ProteinSubstModel {
     type ModelType = ProteinModelType;
-    type Params = ProteinSubstParams;
+    type Parameter = ProteinParameter;
     const N: usize = 20;
-
-    fn create(params: &ProteinSubstParams) -> ProteinSubstModel {
-        let q = match params.model_type {
-            ProteinModelType::WAG => wag_q(),
-            ProteinModelType::BLOSUM => blosum_q(),
-            ProteinModelType::HIVB => hivb_q(),
-            _ => {
-                unreachable!("Protein substitution model should have been defined by now.")
-            }
-        };
-        ProteinSubstModel {
-            q,
-            params: params.clone(),
-        }
-    }
 
     fn new(model_type: ProteinModelType, _: &[f64]) -> Result<Self>
     where
@@ -116,6 +101,10 @@ impl SubstitutionModel for ProteinSubstModel {
         &self.params.pi
     }
 
+    fn set_freqs(&mut self, freqs: FreqVector) {
+        self.params.set_freqs(freqs);
+    }
+
     fn q(&self) -> &SubstMatrix {
         &self.q
     }
@@ -123,5 +112,40 @@ impl SubstitutionModel for ProteinSubstModel {
     fn normalise(&mut self) {
         let factor = -(self.params.freqs().transpose() * self.q.diagonal())[(0, 0)];
         self.q /= factor;
+    }
+
+    fn update(&mut self) {
+        let mut model = ProteinSubstModel::create(&self.params);
+        model.normalise();
+        self.q = model.q;
+    }
+
+    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)> {
+        vec![]
+    }
+
+    fn param(&self, param_name: &Self::Parameter) -> f64 {
+        self.params.param(param_name)
+    }
+
+    fn set_param(&mut self, param_name: &Self::Parameter, value: f64) {
+        self.params.set_param(param_name, value);
+    }
+}
+
+impl ProteinSubstModel {
+    fn create(params: &ProteinSubstParams) -> ProteinSubstModel {
+        let q = match params.model_type {
+            ProteinModelType::WAG => wag_q(),
+            ProteinModelType::BLOSUM => blosum_q(),
+            ProteinModelType::HIVB => hivb_q(),
+            _ => {
+                unreachable!("Protein substitution model should have been defined by now.")
+            }
+        };
+        ProteinSubstModel {
+            q,
+            params: params.clone(),
+        }
     }
 }

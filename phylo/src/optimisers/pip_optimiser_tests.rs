@@ -88,13 +88,13 @@ fn optimisation_against_python_no_gaps() {
     let o = PIPOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
-    let params = o.model.params;
-    assert_eq!(params.subst_params.rtc, params.subst_params.rag);
-    assert_eq!(params.subst_params.rca, params.subst_params.rta);
-    assert_eq!(params.subst_params.rca, params.subst_params.rcg);
-    assert_eq!(params.subst_params.rca, params.subst_params.rtg);
-    assert_ne!(params.mu, 1.2);
-    assert_ne!(params.lambda, 0.45);
+    let params = &o.model.params.subst_model.params;
+    assert_eq!(params.rtc, params.rag);
+    assert_eq!(params.rca, params.rta);
+    assert_eq!(params.rca, params.rcg);
+    assert_eq!(params.rca, params.rtg);
+    assert_ne!(o.model.params.mu, 1.2);
+    assert_ne!(o.model.params.lambda, 0.45);
     assert!(o.final_logl > -361.1613531649497);
     assert_relative_eq!(
         o.final_logl,
@@ -127,7 +127,7 @@ fn optimisation_pip_gtr() {
     assert_relative_eq!(initial_logl, -9988.486546494, epsilon = 1e0); // value from the python script
     assert_relative_eq!(o.initial_logl, initial_logl);
     assert!(o.final_logl > initial_logl);
-    let subst_params = o.model.params.subst_params;
+    let subst_params = o.model.params.subst_model.params;
     // comparing to optimised parameter values from check_parameter_optimisation_gtr
     assert_relative_eq!(subst_params.rtc, 1.03398, epsilon = 1e-4);
     assert_relative_eq!(subst_params.rta, 0.03189, epsilon = 1e-4);

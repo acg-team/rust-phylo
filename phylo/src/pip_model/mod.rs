@@ -32,7 +32,6 @@ impl<SubstModel: SubstitutionModel> PIPModel<SubstModel>
 where
     SubstModel: Clone,
     SubstModel::ModelType: Clone,
-    SubstModel::Params: Clone,
 {
     pub fn new(model: SubstModel::ModelType, params: &[f64]) -> Result<Self>
     where
@@ -43,7 +42,7 @@ where
     }
 
     pub(crate) fn create(params: &PIPParams<SubstModel>) -> PIPModel<SubstModel> {
-        let mut subst_model = SubstModel::create(&params.subst_params);
+        let mut subst_model = params.subst_model.clone();
         subst_model.normalise();
         let (index, q, _) = Self::make_pip_q(
             *SubstitutionModel::index(&subst_model),
@@ -83,7 +82,6 @@ where
 impl<SubstModel: SubstitutionModel> EvoModel for PIPModel<SubstModel>
 where
     SubstModel: Clone,
-    SubstModel::Params: Clone,
     SubstModel::ModelType: Clone,
 {
     type Params = PIPParams<SubstModel>;
@@ -135,7 +133,6 @@ pub struct PIPModelInfo<SubstModel: SubstitutionModel> {
 
 impl<SubstModel: SubstitutionModel + Clone> PIPModelInfo<SubstModel>
 where
-    SubstModel::Params: Clone,
     SubstModel::ModelType: Clone,
 {
     pub fn new(info: &PhyloInfo, model: &PIPModel<SubstModel>) -> Result<Self> {
@@ -214,7 +211,6 @@ pub struct PIPCost<'a, SubstModel: SubstitutionModel> {
 impl<'a, SubstModel: SubstitutionModel> PhyloCostFunction for PIPCost<'a, SubstModel>
 where
     SubstModel: Clone,
-    SubstModel::Params: Clone,
     SubstModel::ModelType: Clone,
 {
     fn cost(&self, info: &PhyloInfo) -> f64 {
@@ -226,7 +222,6 @@ impl<'a, SubstModel: SubstitutionModel> PIPCost<'a, SubstModel>
 where
     SubstModel: Clone,
     SubstModel::ModelType: Clone,
-    SubstModel::Params: Clone,
 {
     fn logl(&self, info: &PhyloInfo) -> (f64, PIPModelInfo<SubstModel>) {
         let mut tmp_info = PIPModelInfo::<SubstModel>::new(info, self.model).unwrap();

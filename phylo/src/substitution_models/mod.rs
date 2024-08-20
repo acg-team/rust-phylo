@@ -5,7 +5,7 @@ use std::ops::Mul;
 use nalgebra::{DMatrix, DVector};
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::{EvoModel, EvoModelParams};
+use crate::evolutionary_models::EvoModel;
 use crate::likelihood::PhyloCostFunction;
 use crate::tree::{
     Node,
@@ -26,33 +26,47 @@ macro_rules! frequencies {
     };
 }
 
-pub trait SubstModelParams {
-    type ModelType;
-    fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
-    where
-        Self: Sized;
-}
+// pub trait SubstModelParams {
+//     type ModelType;
+//     fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
+//     where
+//         Self: Sized;
+// }
 
 pub trait SubstitutionModel {
     type ModelType;
-    type Params: SubstModelParams<ModelType = Self::ModelType> + EvoModelParams;
+    type Parameter;
     const N: usize;
 
-    fn create(params: &Self::Params) -> Self;
     fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
     where
         Self: Sized;
+    fn update(&mut self);
+
     fn index(&self) -> &[usize; 255];
+
     fn freqs(&self) -> &FreqVector;
+
+    fn set_freqs(&mut self, freqs: FreqVector);
+
+    fn param(&self, param_name: &Self::Parameter) -> f64;
+
+    fn set_param(&mut self, param_name: &Self::Parameter, value: f64);
+
+    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)>;
+
     fn q(&self) -> &SubstMatrix;
+
     fn normalise(&mut self);
 
     fn p(&self, time: f64) -> SubstMatrix {
         (self.q().clone() * time).exp()
     }
+
     fn rate(&self, i: u8, j: u8) -> f64 {
         self.q()[(self.index()[i as usize], self.index()[j as usize])]
     }
+
     fn generate_scorings(
         &self,
         times: &[f64],
@@ -102,15 +116,14 @@ pub trait ParsimonyModel {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SubstModel<Params: SubstModelParams> {
+pub struct SubstModel<Params> {
     pub(crate) params: Params,
     pub(crate) q: SubstMatrix,
 }
 
-impl<Params: SubstModelParams> EvoModel for SubstModel<Params>
+impl<Params> EvoModel for SubstModel<Params>
 where
     SubstModel<Params>: SubstitutionModel,
-    Params: SubstModelParams<ModelType = <SubstModel<Params> as SubstitutionModel>::ModelType>,
 {
     type Params = Params;
     const N: usize = <SubstModel<Params> as SubstitutionModel>::N;
@@ -140,7 +153,7 @@ where
     }
 }
 
-impl<Params: SubstModelParams> ParsimonyModel for SubstModel<Params>
+impl<Params> ParsimonyModel for SubstModel<Params>
 where
     SubstModel<Params>: SubstitutionModel,
 {

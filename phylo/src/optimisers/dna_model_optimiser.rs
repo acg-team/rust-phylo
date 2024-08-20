@@ -27,12 +27,12 @@ impl CostFunction for DNAParamOptimiser<'_> {
     type Output = f64;
 
     fn cost(&self, value: &Self::Param) -> Result<Self::Output> {
-        let mut gtr_params = self.model.params.clone();
+        let mut model = self.model.clone();
         for param_name in self.parameter {
-            gtr_params.set_value(param_name, *value);
+            model.set_param(param_name, *value);
         }
+        model.update();
         let mut likelihood = self.likelihood.clone();
-        let model = DNASubstModel::create(&gtr_params);
         likelihood.model = &model;
         Ok(-likelihood.cost(self.info))
     }
@@ -113,7 +113,7 @@ impl<'a> DNAModelOptimiser<'a> {
                 let gss = BrentOpt::new(1e-10, 100.0);
                 let res = Executor::new(optimiser, gss)
                     .configure(|_| {
-                        IterState::new().param(opt_params.value(param_set.first().unwrap()))
+                        IterState::new().param(opt_params.param(param_set.first().unwrap()))
                     })
                     .run()?;
                 let logl = -res.state().best_cost;
@@ -122,7 +122,7 @@ impl<'a> DNAModelOptimiser<'a> {
                 }
                 let value = res.state().best_param.unwrap();
                 for param_id in param_set {
-                    opt_params.set_value(param_id, value);
+                    opt_params.set_param(param_id, value);
                 }
                 final_logl = logl;
                 debug!(

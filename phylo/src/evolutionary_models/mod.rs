@@ -106,8 +106,8 @@ pub trait EvoModel {
 pub trait EvoModelParams {
     type Parameter;
     fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)>;
-    fn value(&self, param_name: &Self::Parameter) -> f64;
-    fn set_value(&mut self, param_name: &Self::Parameter, value: f64);
+    fn param(&self, param_name: &Self::Parameter) -> f64;
+    fn set_param(&mut self, param_name: &Self::Parameter, value: f64);
     fn freqs(&self) -> &FreqVector;
     fn set_freqs(&mut self, pi: FreqVector);
 }

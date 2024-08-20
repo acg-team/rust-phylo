@@ -25,7 +25,6 @@ where
 impl<'a, SubstModel: SubstitutionModel + Clone> CostFunction for PIPParamOptimiser<'a, SubstModel>
 where
     SubstModel::ModelType: Clone,
-    SubstModel::Params: Clone,
     PIPParams<SubstModel>: EvoModelParams,
 {
     type Param = f64;
@@ -34,7 +33,7 @@ where
     fn cost(&self, value: &f64) -> Result<f64> {
         let mut params = self.model.params().clone();
         for param_name in self.parameter {
-            params.set_value(param_name, *value);
+            params.set_param(param_name, *value);
         }
         let mut likelihood = self.likelihood.clone();
 
@@ -60,7 +59,6 @@ impl<'a, SubstModel: SubstitutionModel + Clone>
     for PIPOptimiser<'a, SubstModel>
 where
     SubstModel::ModelType: Clone + Display,
-    SubstModel::Params: Clone,
     PIPParams<SubstModel>: EvoModelParams + Display,
 {
     fn new(
@@ -103,7 +101,7 @@ where
                 let gss = BrentOpt::new(1e-10, 20.0);
                 let res = Executor::new(optimiser, gss)
                     .configure(|_| {
-                        IterState::new().param(opt_params.value(param_set.first().unwrap()))
+                        IterState::new().param(opt_params.param(param_set.first().unwrap()))
                     })
                     .run()?;
                 let logl = -res.state().best_cost;
@@ -112,7 +110,7 @@ where
                 }
                 let value = res.state().best_param.unwrap();
                 for param_id in param_set {
-                    opt_params.set_value(param_id, value);
+                    opt_params.set_param(param_id, value);
                 }
                 final_logl = logl;
                 debug!(
