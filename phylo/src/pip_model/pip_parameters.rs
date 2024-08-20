@@ -144,9 +144,7 @@ impl<SubstModel: SubstitutionModel> Display for PIPParams<SubstModel> {
         write!(
             f,
             "lambda = {:.5},\nmu = {:.5},\nstationary freqs = \n{}",
-            self.lambda,
-            self.mu,
-            self.pi.transpose()
+            self.lambda, self.mu, self.pi
         )
     }
 }
