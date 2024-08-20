@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use log::warn;
+use log::{info, warn};
 
 use crate::evolutionary_models::EvoModelParams;
 
@@ -98,10 +98,18 @@ impl EvoModelParams for DNASubstParams {
     }
 
     fn set_freqs(&mut self, pi: FreqVector) {
-        if pi.sum() != 1.0 {
-            warn!("Frequencies must sum to 1.0, not setting values");
-        } else {
-            self.pi = pi;
+        match self.model_type {
+            JC69 | K80 => {
+                info!("Model does not have frequency parameters.")
+            }
+            HKY | TN93 | GTR => {
+                if pi.sum() != 1.0 {
+                    warn!("Frequencies must sum to 1.0, not setting values");
+                } else {
+                    self.pi = pi;
+                }
+            }
+            _ => unreachable!(),
         }
     }
 
