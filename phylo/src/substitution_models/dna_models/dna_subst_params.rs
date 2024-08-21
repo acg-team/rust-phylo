@@ -2,10 +2,7 @@ use std::fmt::Display;
 
 use log::{info, warn};
 
-use crate::evolutionary_models::{
-    DNAModelType::{self, *},
-    EvoModelParams,
-};
+use crate::evolutionary_models::DNAModelType::{self, *};
 use crate::substitution_models::{
     gtr_params, hky_params, jc69_params, k80_params, tn93_params, FreqVector,
 };
@@ -56,10 +53,8 @@ impl DNASubstParams {
     }
 }
 
-impl EvoModelParams for DNASubstParams {
-    type Parameter = DNAParameter;
-
-    fn param(&self, param_name: &DNAParameter) -> f64 {
+impl DNASubstParams {
+    pub(crate) fn param(&self, param_name: &DNAParameter) -> f64 {
         match param_name {
             Pit => self.pi[0],
             Pic => self.pi[1],
@@ -75,7 +70,7 @@ impl EvoModelParams for DNASubstParams {
         }
     }
 
-    fn set_param(&mut self, param_name: &DNAParameter, value: f64) {
+    pub(crate) fn set_param(&mut self, param_name: &DNAParameter, value: f64) {
         match param_name {
             Pit | Pic | Pia | Pig => {
                 warn!("Cannot set frequencies individually. Use set_freqs() instead.")
@@ -90,11 +85,11 @@ impl EvoModelParams for DNASubstParams {
         }
     }
 
-    fn freqs(&self) -> &FreqVector {
+    pub(crate) fn freqs(&self) -> &FreqVector {
         &self.pi
     }
 
-    fn set_freqs(&mut self, pi: FreqVector) {
+    pub(crate) fn set_freqs(&mut self, pi: FreqVector) {
         match self.model_type {
             JC69 | K80 => {
                 info!("Model does not have frequency parameters.")
@@ -106,33 +101,6 @@ impl EvoModelParams for DNASubstParams {
                     self.pi = pi;
                 }
             }
-            _ => unreachable!(),
-        }
-    }
-
-    fn parameter_definition(&self) -> Vec<(&'static str, Vec<DNAParameter>)> {
-        match self.model_type {
-            DNAModelType::JC69 => vec![],
-            DNAModelType::K80 => vec![
-                ("alpha", vec![Rtc, Rag]),
-                ("beta", vec![Rta, Rtg, Rca, Rcg]),
-            ],
-            DNAModelType::HKY => vec![
-                ("alpha", vec![Rtc, Rag]),
-                ("beta", vec![Rta, Rtg, Rca, Rcg]),
-            ],
-            DNAModelType::TN93 => vec![
-                ("alpha1", vec![Rtc]),
-                ("alpha2", vec![Rag]),
-                ("beta", vec![Rta, Rtg, Rca, Rcg]),
-            ],
-            DNAModelType::GTR => vec![
-                ("rca", vec![Rca]),
-                ("rcg", vec![Rcg]),
-                ("rta", vec![Rta]),
-                ("rtc", vec![Rtc]),
-                ("rtg", vec![Rtg]),
-            ],
             _ => unreachable!(),
         }
     }

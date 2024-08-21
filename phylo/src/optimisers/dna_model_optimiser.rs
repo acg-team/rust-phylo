@@ -2,10 +2,7 @@ use argmin::core::{CostFunction, Executor, IterState, State};
 use argmin::solver::brent::BrentOpt;
 use log::{debug, info, warn};
 
-use crate::evolutionary_models::{
-    EvoModelParams,
-    FrequencyOptimisation::{self, *},
-};
+use crate::evolutionary_models::FrequencyOptimisation::{self, *};
 use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::{ModelOptimisationResult, ModelOptimiser};
 use crate::phylo_info::PhyloInfo;
@@ -70,7 +67,7 @@ impl<'a> ModelOptimiser<'a, SubstLikelihoodCost<'a, DNASubstModel>, DNASubstMode
         let mut start_params = self.likelihood.model.params.clone();
         let model_type = start_params.model_type;
         info!("Optimising {} parameters.", model_type);
-        let param_sets = self.likelihood.model.params.parameter_definition();
+        let param_sets = self.likelihood.model.parameter_definition();
         match self.freq_opt {
             Fixed => {}
             Empirical => {

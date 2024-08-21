@@ -21,7 +21,7 @@ pub type ProteinLikelihoodCost<'a> = SubstLikelihoodCost<'a, ProteinSubstModel>;
 
 impl SubstitutionModel for ProteinSubstModel {
     type ModelType = ProteinModelType;
-    type Parameter = protein_subst_params::ProteinParameter;
+    type Parameter = ProteinParameter;
     const N: usize = 20;
 
     fn new(model_type: ProteinModelType, _: &[f64]) -> Result<Self>
