@@ -9,11 +9,13 @@ use crate::alignment::Mapping;
 use crate::evolutionary_models::{EvoModel, EvoModelParams};
 use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::PhyloInfo;
-use crate::substitution_models::dna_models::DNASubstModel;
-use crate::substitution_models::protein_models::ProteinSubstModel;
-use crate::substitution_models::{FreqVector, SubstMatrix, SubstitutionModel};
-use crate::tree::Node;
-use crate::tree::NodeIdx::{Internal as Int, Leaf};
+use crate::substitution_models::{
+    DNASubstModel, FreqVector, ProteinSubstModel, SubstMatrix, SubstitutionModel,
+};
+use crate::tree::{
+    Node,
+    NodeIdx::{Internal as Int, Leaf},
+};
 use crate::Result;
 
 mod pip_parameters;

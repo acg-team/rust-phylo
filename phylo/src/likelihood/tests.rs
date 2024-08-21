@@ -12,9 +12,10 @@ use crate::evolutionary_models::{
 };
 use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder};
-use crate::substitution_models::dna_models::DNASubstModel;
-use crate::substitution_models::protein_models::{ProteinLikelihoodCost, ProteinSubstModel};
-use crate::substitution_models::{SubstLikelihoodCost, SubstMatrix, SubstitutionModel};
+use crate::substitution_models::{
+    DNASubstModel, ProteinLikelihoodCost, ProteinSubstModel, SubstLikelihoodCost, SubstMatrix,
+    SubstitutionModel,
+};
 use crate::tree::{tree_parser, Tree};
 
 #[cfg(test)]

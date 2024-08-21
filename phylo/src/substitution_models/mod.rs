@@ -5,7 +5,7 @@ use std::ops::Mul;
 use nalgebra::{DMatrix, DVector};
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::{EvoModel, EvoModelParams};
+use crate::evolutionary_models::EvoModel;
 use crate::likelihood::PhyloCostFunction;
 use crate::tree::{
     Node,
@@ -14,7 +14,9 @@ use crate::tree::{
 use crate::{f64_h, phylo_info::PhyloInfo, Result, Rounding};
 
 pub mod dna_models;
+pub use dna_models::*;
 pub mod protein_models;
+pub use protein_models::*;
 
 pub type SubstMatrix = DMatrix<f64>;
 pub type FreqVector = DVector<f64>;
@@ -113,16 +115,16 @@ pub trait ParsimonyModel {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SubstModel<Params: EvoModelParams> {
+pub struct SubstModel<Params> {
     pub(crate) params: Params,
     pub(crate) q: SubstMatrix,
 }
 
-impl<Params: EvoModelParams> EvoModel for SubstModel<Params>
+impl<Params> EvoModel for SubstModel<Params>
 where
     SubstModel<Params>: SubstitutionModel,
 {
-    type Parameter = Params::Parameter;
+    type Parameter = <SubstModel<Params> as SubstitutionModel>::Parameter;
     const N: usize = <SubstModel<Params> as SubstitutionModel>::N;
 
     fn p(&self, time: f64) -> SubstMatrix {
@@ -138,15 +140,15 @@ where
     }
 
     fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)> {
-        self.params.parameter_definition()
+        SubstitutionModel::parameter_definition(self)
     }
 
     fn param(&self, param_name: &Self::Parameter) -> f64 {
-        self.params.param(param_name)
+        SubstitutionModel::param(self, param_name)
     }
 
     fn set_param(&mut self, param_name: &Self::Parameter, value: f64) {
-        self.params.set_param(param_name, value);
+        SubstitutionModel::set_param(self, param_name, value);
     }
 
     fn freqs(&self) -> &FreqVector {
@@ -154,7 +156,7 @@ where
     }
 
     fn set_freqs(&mut self, pi: FreqVector) {
-        self.params.set_freqs(pi);
+        SubstitutionModel::set_freqs(self, pi);
     }
 
     fn index(&self) -> &[usize; 255] {
@@ -162,7 +164,7 @@ where
     }
 }
 
-impl<Params: EvoModelParams> ParsimonyModel for SubstModel<Params>
+impl<Params> ParsimonyModel for SubstModel<Params>
 where
     SubstModel<Params>: SubstitutionModel,
 {

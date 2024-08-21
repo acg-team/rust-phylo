@@ -1,7 +1,7 @@
 use crate::frequencies;
-use crate::substitution_models::{FreqVector, SubstMatrix};
-
-use crate::substitution_models::protein_models::{ProteinFrequencyArray, ProteinSubstArray};
+use crate::substitution_models::{
+    FreqVector, ProteinFrequencyArray, ProteinSubstArray, SubstMatrix,
+};
 
 pub fn wag_q() -> SubstMatrix {
     SubstMatrix::from_row_slice(20, 20, &WAG_ARR)

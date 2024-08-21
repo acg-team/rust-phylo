@@ -2,11 +2,12 @@ use std::fmt::Display;
 
 use log::{info, warn};
 
-use crate::evolutionary_models::EvoModelParams;
-
+use crate::evolutionary_models::{
+    DNAModelType::{self, *},
+    EvoModelParams,
+};
 use crate::substitution_models::{
-    dna_models::DNAModelType::{self, *},
-    FreqVector,
+    gtr_params, hky_params, jc69_params, k80_params, tn93_params, FreqVector,
 };
 use crate::Result;
 
@@ -26,8 +27,6 @@ pub enum DNAParameter {
     Lambda,
 }
 use DNAParameter::*;
-
-use super::{gtr_params, hky_params, jc69_params, k80_params, tn93_params};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DNASubstParams {

@@ -13,12 +13,10 @@ use crate::evolutionary_models::{
     EvoModel,
     ProteinModelType::{self, *},
 };
-use crate::substitution_models::dna_models::dna_model_generics::{
-    gtr_params, hky_params, jc69_params, k80_params, tn93_params,
+use crate::substitution_models::{
+    gtr_params, hky_params, jc69_params, k80_params, tn93_params, DNASubstModel, FreqVector,
+    ParsimonyModel, ProteinSubstArray, ProteinSubstModel, SubstMatrix, SubstitutionModel,
 };
-use crate::substitution_models::dna_models::DNASubstModel;
-use crate::substitution_models::protein_models::{ProteinSubstArray, ProteinSubstModel};
-use crate::substitution_models::{FreqVector, ParsimonyModel, SubstMatrix, SubstitutionModel};
 use crate::Rounding as R;
 
 #[cfg(test)]

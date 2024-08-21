@@ -8,8 +8,7 @@ use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::{FrequencyOptimisation, ModelOptimiser, PIPOptimiser};
 use crate::phylo_info::PhyloInfoBuilder;
 use crate::pip_model::{PIPCost, PIPModel};
-use crate::substitution_models::dna_models::DNASubstModel;
-use crate::substitution_models::protein_models::ProteinSubstModel;
+use crate::substitution_models::{DNASubstModel, ProteinSubstModel};
 
 #[test]
 fn check_parameter_optimisation_pip_arpiptest() {

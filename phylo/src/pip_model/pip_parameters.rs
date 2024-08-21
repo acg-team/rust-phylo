@@ -3,10 +3,11 @@ use std::fmt::Display;
 use anyhow::bail;
 
 use crate::evolutionary_models::EvoModelParams;
-use crate::substitution_models::dna_models::DNAParameter::{self, *};
-use crate::substitution_models::dna_models::DNASubstModel;
-use crate::substitution_models::protein_models::{ProteinParameter, ProteinSubstModel};
-use crate::substitution_models::{FreqVector, SubstitutionModel};
+
+use crate::substitution_models::{
+    DNAParameter::{self, *},
+    DNASubstModel, FreqVector, ProteinParameter, ProteinSubstModel, SubstitutionModel,
+};
 use crate::Result;
 
 #[derive(Clone, Debug, PartialEq)]

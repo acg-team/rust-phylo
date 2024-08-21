@@ -7,9 +7,8 @@ use crate::substitution_models::{
 };
 use crate::Result;
 
-pub(crate) mod dna_substitution_parameters;
-pub(crate) use dna_substitution_parameters::*;
-
+pub(crate) mod dna_subst_params;
+pub(crate) use dna_subst_params::*;
 pub(crate) mod dna_model_generics;
 pub(crate) use dna_model_generics::*;
 

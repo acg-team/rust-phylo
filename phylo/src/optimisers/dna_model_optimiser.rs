@@ -9,8 +9,9 @@ use crate::evolutionary_models::{
 use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::{ModelOptimisationResult, ModelOptimiser};
 use crate::phylo_info::PhyloInfo;
-use crate::substitution_models::dna_models::{DNAParameter, DNASubstModel, DNASubstParams};
-use crate::substitution_models::{SubstLikelihoodCost, SubstitutionModel};
+use crate::substitution_models::{
+    DNAParameter, DNASubstModel, DNASubstParams, SubstLikelihoodCost, SubstitutionModel,
+};
 use crate::Result;
 
 pub type DNAOptimisationResult = ModelOptimisationResult<DNASubstModel>;

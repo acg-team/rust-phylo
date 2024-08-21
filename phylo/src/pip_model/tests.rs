@@ -17,11 +17,10 @@ use crate::frequencies;
 use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder};
 use crate::pip_model::{PIPCost, PIPDNAModel, PIPModel, PIPModelInfo, PIPProteinModel};
-use crate::substitution_models::dna_models::DNASubstModel;
-use crate::substitution_models::protein_models::{
-    ProteinSubstModel, BLOSUM_PI_ARR, HIVB_PI_ARR, WAG_PI_ARR,
+use crate::substitution_models::{
+    DNASubstModel, FreqVector, ProteinSubstModel, SubstMatrix, SubstitutionModel, BLOSUM_PI_ARR,
+    HIVB_PI_ARR, WAG_PI_ARR,
 };
-use crate::substitution_models::{FreqVector, SubstMatrix, SubstitutionModel};
 use crate::tree::{
     tree_parser,
     NodeIdx::{self, Internal as I},

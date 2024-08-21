@@ -6,9 +6,7 @@ use crate::evolutionary_models::DNAModelType;
 use crate::optimisers::{BranchOptimiser, PhyloOptimiser};
 use crate::phylo_info::PhyloInfoBuilder;
 use crate::pip_model::{PIPCost, PIPDNAModel};
-use crate::substitution_models::{
-    dna_models::DNASubstModel, SubstLikelihoodCost, SubstitutionModel,
-};
+use crate::substitution_models::{DNASubstModel, SubstLikelihoodCost, SubstitutionModel};
 use crate::tree::tree_parser::from_newick_string;
 use crate::tree::NodeIdx::Internal as Int;
 
