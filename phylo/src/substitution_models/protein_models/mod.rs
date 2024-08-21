@@ -103,6 +103,7 @@ impl SubstitutionModel for ProteinSubstModel {
 
     fn set_freqs(&mut self, freqs: FreqVector) {
         self.params.set_freqs(freqs);
+        self.update();
     }
 
     fn q(&self) -> &SubstMatrix {
@@ -130,6 +131,7 @@ impl SubstitutionModel for ProteinSubstModel {
 
     fn set_param(&mut self, param_name: &Self::Parameter, value: f64) {
         self.params.set_param(param_name, value);
+        self.update();
     }
 }
 

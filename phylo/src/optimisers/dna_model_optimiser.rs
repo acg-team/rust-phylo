@@ -31,8 +31,8 @@ impl CostFunction for DNAParamOptimiser<'_> {
         for param_name in self.parameter {
             model.set_param(param_name, *value);
         }
-        model.update();
         let mut likelihood = self.likelihood.clone();
+
         likelihood.model = &model;
         Ok(-likelihood.cost(self.info))
     }

@@ -6,7 +6,7 @@ use std::vec;
 use nalgebra::{DMatrix, DVector};
 
 use crate::alignment::Mapping;
-use crate::evolutionary_models::EvoModel;
+use crate::evolutionary_models::{EvoModel, EvoModelParams};
 use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::dna_models::DNASubstModel;
@@ -32,6 +32,7 @@ impl<SubstModel: SubstitutionModel> PIPModel<SubstModel>
 where
     SubstModel: Clone,
     SubstModel::ModelType: Clone,
+    PIPParams<SubstModel>: EvoModelParams,
 {
     pub fn new(model: SubstModel::ModelType, params: &[f64]) -> Result<Self>
     where
@@ -61,7 +62,7 @@ where
         subst_model: &SubstModel,
         mu: f64,
     ) -> ([usize; 255], SubstMatrix, FreqVector) {
-        let n = PIPModel::<SubstModel>::N - 1;
+        let n = <PIPModel<SubstModel> as EvoModel>::N - 1;
         let mut index = index;
         index[b'-' as usize] = n;
         let mut q = SubstitutionModel::q(subst_model)
@@ -83,8 +84,9 @@ impl<SubstModel: SubstitutionModel> EvoModel for PIPModel<SubstModel>
 where
     SubstModel: Clone,
     SubstModel::ModelType: Clone,
+    PIPParams<SubstModel>: EvoModelParams,
 {
-    type Params = PIPParams<SubstModel>;
+    type Parameter = <PIPParams<SubstModel> as EvoModelParams>::Parameter;
     const N: usize = SubstModel::N + 1;
 
     fn p(&self, time: f64) -> SubstMatrix {
@@ -99,16 +101,28 @@ where
         self.q[(self.index[i as usize], self.index[j as usize])]
     }
 
+    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)> {
+        self.params.parameter_definition()
+    }
+
+    fn param(&self, param_name: &Self::Parameter) -> f64 {
+        self.params.param(param_name)
+    }
+
+    fn set_param(&mut self, param_name: &Self::Parameter, value: f64) {
+        self.params.set_param(param_name, value);
+    }
+
     fn freqs(&self) -> &FreqVector {
         &self.params.pi
     }
 
-    fn index(&self) -> &[usize; 255] {
-        &self.index
+    fn set_freqs(&mut self, pi: FreqVector) {
+        self.params.set_freqs(pi);
     }
 
-    fn params(&self) -> &PIPParams<SubstModel> {
-        &self.params
+    fn index(&self) -> &[usize; 255] {
+        &self.index
     }
 }
 
@@ -134,6 +148,7 @@ pub struct PIPModelInfo<SubstModel: SubstitutionModel> {
 impl<SubstModel: SubstitutionModel + Clone> PIPModelInfo<SubstModel>
 where
     SubstModel::ModelType: Clone,
+    PIPModel<SubstModel>: EvoModel,
 {
     pub fn new(info: &PhyloInfo, model: &PIPModel<SubstModel>) -> Result<Self> {
         let n = PIPModel::<SubstModel>::N;
@@ -212,6 +227,7 @@ impl<'a, SubstModel: SubstitutionModel> PhyloCostFunction for PIPCost<'a, SubstM
 where
     SubstModel: Clone,
     SubstModel::ModelType: Clone,
+    PIPModel<SubstModel>: EvoModel,
 {
     fn cost(&self, info: &PhyloInfo) -> f64 {
         self.logl(info).0
@@ -222,6 +238,7 @@ impl<'a, SubstModel: SubstitutionModel> PIPCost<'a, SubstModel>
 where
     SubstModel: Clone,
     SubstModel::ModelType: Clone,
+    PIPModel<SubstModel>: EvoModel,
 {
     fn logl(&self, info: &PhyloInfo) -> (f64, PIPModelInfo<SubstModel>) {
         let mut tmp_info = PIPModelInfo::<SubstModel>::new(info, self.model).unwrap();

@@ -4,7 +4,7 @@ use argmin::core::{CostFunction, Executor, IterState, State};
 use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
-use crate::evolutionary_models::{EvoModel, EvoModelParams, FrequencyOptimisation};
+use crate::evolutionary_models::{EvoModelParams, FrequencyOptimisation};
 use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::{ModelOptimisationResult, ModelOptimiser};
 use crate::phylo_info::PhyloInfo;
@@ -31,7 +31,7 @@ where
     type Output = f64;
 
     fn cost(&self, value: &f64) -> Result<f64> {
-        let mut params = self.model.params().clone();
+        let mut params = self.model.params.clone();
         for param_name in self.parameter {
             params.set_param(param_name, *value);
         }

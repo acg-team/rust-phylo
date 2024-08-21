@@ -93,14 +93,17 @@ impl From<&str> for ProteinModelType {
 
 // TODO: change pi to a row vector
 pub trait EvoModel {
-    type Params;
+    type Parameter;
     const N: usize;
     fn p(&self, time: f64) -> SubstMatrix;
     fn q(&self) -> &SubstMatrix;
     fn rate(&self, i: u8, j: u8) -> f64;
+    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)>;
+    fn param(&self, param_name: &Self::Parameter) -> f64;
+    fn set_param(&mut self, param_name: &Self::Parameter, value: f64);
     fn freqs(&self) -> &FreqVector;
+    fn set_freqs(&mut self, pi: FreqVector);
     fn index(&self) -> &[usize; 255];
-    fn params(&self) -> &Self::Params;
 }
 
 pub trait EvoModelParams {

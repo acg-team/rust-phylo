@@ -5,7 +5,7 @@ use std::ops::Mul;
 use nalgebra::{DMatrix, DVector};
 use ordered_float::OrderedFloat;
 
-use crate::evolutionary_models::EvoModel;
+use crate::evolutionary_models::{EvoModel, EvoModelParams};
 use crate::likelihood::PhyloCostFunction;
 use crate::tree::{
     Node,
@@ -116,16 +116,16 @@ pub trait ParsimonyModel {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SubstModel<Params> {
+pub struct SubstModel<Params: EvoModelParams> {
     pub(crate) params: Params,
     pub(crate) q: SubstMatrix,
 }
 
-impl<Params> EvoModel for SubstModel<Params>
+impl<Params: EvoModelParams> EvoModel for SubstModel<Params>
 where
     SubstModel<Params>: SubstitutionModel,
 {
-    type Params = Params;
+    type Parameter = Params::Parameter;
     const N: usize = <SubstModel<Params> as SubstitutionModel>::N;
 
     fn p(&self, time: f64) -> SubstMatrix {
@@ -140,20 +140,32 @@ where
         SubstitutionModel::rate(self, i, j)
     }
 
+    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)> {
+        self.params.parameter_definition()
+    }
+
+    fn param(&self, param_name: &Self::Parameter) -> f64 {
+        self.params.param(param_name)
+    }
+
+    fn set_param(&mut self, param_name: &Self::Parameter, value: f64) {
+        self.params.set_param(param_name, value);
+    }
+
     fn freqs(&self) -> &FreqVector {
         SubstitutionModel::freqs(self)
+    }
+
+    fn set_freqs(&mut self, pi: FreqVector) {
+        self.params.set_freqs(pi);
     }
 
     fn index(&self) -> &[usize; 255] {
         SubstitutionModel::index(self)
     }
-
-    fn params(&self) -> &Self::Params {
-        &self.params
-    }
 }
 
-impl<Params> ParsimonyModel for SubstModel<Params>
+impl<Params: EvoModelParams> ParsimonyModel for SubstModel<Params>
 where
     SubstModel<Params>: SubstitutionModel,
 {

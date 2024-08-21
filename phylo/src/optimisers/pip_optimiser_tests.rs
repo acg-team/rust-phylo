@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use approx::assert_relative_eq;
 
-use crate::evolutionary_models::{DNAModelType::*, ProteinModelType::*};
+use crate::evolutionary_models::DNAModelType::*;
+use crate::evolutionary_models::ProteinModelType::*;
 use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::{FrequencyOptimisation, ModelOptimiser, PIPOptimiser};
 use crate::phylo_info::PhyloInfoBuilder;

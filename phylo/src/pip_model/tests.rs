@@ -49,6 +49,7 @@ fn compare_pip_subst_rates<SubstModel: SubstitutionModel + Clone>(
     subst_model: &SubstModel,
 ) where
     SubstModel::ModelType: Clone,
+    PIPModel<SubstModel>: EvoModel,
 {
     for &char in chars {
         assert!(pip_model.rate(char, char) < 0.0);

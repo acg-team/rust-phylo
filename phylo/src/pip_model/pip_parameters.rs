@@ -76,6 +76,7 @@ impl EvoModelParams for PIPDNAParams {
             Mu => self.mu = value,
             _ => {
                 self.subst_model.set_param(param_name, value);
+                self.subst_model.update();
             }
         }
     }

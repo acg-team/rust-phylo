@@ -49,7 +49,7 @@ impl SubstitutionModel for DNASubstModel {
 
     fn set_freqs(&mut self, pi: FreqVector) {
         self.params.set_freqs(pi);
-        self.update()
+        self.update();
     }
 
     fn index(&self) -> &'static [usize; 255] {
