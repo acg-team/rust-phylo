@@ -93,8 +93,28 @@ impl SubstitutionModel for ProteinSubstModel {
         Ok(model)
     }
 
-    fn index(&self) -> &'static [usize; 255] {
-        &AMINOACID_INDEX
+    fn update(&mut self) {
+        let mut model = ProteinSubstModel::create(&self.params);
+        model.normalise();
+        self.q = model.q;
+    }
+
+    fn normalise(&mut self) {
+        let factor = -(self.params.freqs().transpose() * self.q.diagonal())[(0, 0)];
+        self.q /= factor;
+    }
+
+    fn q(&self) -> &SubstMatrix {
+        &self.q
+    }
+
+    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)> {
+        vec![]
+    }
+
+    fn set_param(&mut self, param_name: &Self::Parameter, value: f64) {
+        self.params.set_param(param_name, value);
+        self.update();
     }
 
     fn freqs(&self) -> &FreqVector {
@@ -106,32 +126,12 @@ impl SubstitutionModel for ProteinSubstModel {
         self.update();
     }
 
-    fn q(&self) -> &SubstMatrix {
-        &self.q
-    }
-
-    fn normalise(&mut self) {
-        let factor = -(self.params.freqs().transpose() * self.q.diagonal())[(0, 0)];
-        self.q /= factor;
-    }
-
-    fn update(&mut self) {
-        let mut model = ProteinSubstModel::create(&self.params);
-        model.normalise();
-        self.q = model.q;
-    }
-
-    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)> {
-        vec![]
-    }
-
     fn param(&self, param_name: &Self::Parameter) -> f64 {
         self.params.param(param_name)
     }
 
-    fn set_param(&mut self, param_name: &Self::Parameter, value: f64) {
-        self.params.set_param(param_name, value);
-        self.update();
+    fn index(&self) -> &'static [usize; 255] {
+        &AMINOACID_INDEX
     }
 }
 

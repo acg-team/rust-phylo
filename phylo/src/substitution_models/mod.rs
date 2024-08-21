@@ -26,13 +26,6 @@ macro_rules! frequencies {
     };
 }
 
-// pub trait SubstModelParams {
-//     type ModelType;
-//     fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
-//     where
-//         Self: Sized;
-// }
-
 pub trait SubstitutionModel {
     type ModelType;
     type Parameter;
@@ -41,21 +34,8 @@ pub trait SubstitutionModel {
     fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
     where
         Self: Sized;
+
     fn update(&mut self);
-
-    fn index(&self) -> &[usize; 255];
-
-    fn freqs(&self) -> &FreqVector;
-
-    fn set_freqs(&mut self, freqs: FreqVector);
-
-    fn param(&self, param_name: &Self::Parameter) -> f64;
-
-    fn set_param(&mut self, param_name: &Self::Parameter, value: f64);
-
-    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)>;
-
-    fn q(&self) -> &SubstMatrix;
 
     fn normalise(&mut self);
 
@@ -63,9 +43,23 @@ pub trait SubstitutionModel {
         (self.q().clone() * time).exp()
     }
 
+    fn q(&self) -> &SubstMatrix;
+
     fn rate(&self, i: u8, j: u8) -> f64 {
         self.q()[(self.index()[i as usize], self.index()[j as usize])]
     }
+
+    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)>;
+
+    fn param(&self, param_name: &Self::Parameter) -> f64;
+
+    fn set_param(&mut self, param_name: &Self::Parameter, value: f64);
+
+    fn freqs(&self) -> &FreqVector;
+
+    fn set_freqs(&mut self, freqs: FreqVector);
+
+    fn index(&self) -> &[usize; 255];
 
     fn generate_scorings(
         &self,
@@ -80,9 +74,11 @@ pub trait SubstitutionModel {
             )
         }))
     }
+
     fn scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
         self.scoring_matrix_corrected(time, false, rounding)
     }
+
     fn scoring_matrix_corrected(
         &self,
         time: f64,
@@ -112,6 +108,7 @@ pub trait ParsimonyModel {
         zero_diag: bool,
         rounding: &Rounding,
     ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)>;
+
     fn scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64);
 }
 

@@ -20,7 +20,6 @@ pub type DNALikelihoodCost<'a> = SubstLikelihoodCost<'a, DNASubstModel>;
 impl SubstitutionModel for DNASubstModel {
     type ModelType = DNAModelType;
     type Parameter = DNAParameter;
-
     const N: usize = 4;
 
     fn new(model_type: DNAModelType, params: &[f64]) -> Result<Self>
@@ -43,28 +42,6 @@ impl SubstitutionModel for DNASubstModel {
         Ok(DNASubstModel::create(&params))
     }
 
-    fn freqs(&self) -> &FreqVector {
-        &self.params.pi
-    }
-
-    fn set_freqs(&mut self, pi: FreqVector) {
-        self.params.set_freqs(pi);
-        self.update();
-    }
-
-    fn index(&self) -> &'static [usize; 255] {
-        &NUCLEOTIDE_INDEX
-    }
-
-    fn q(&self) -> &SubstMatrix {
-        &self.q
-    }
-
-    fn normalise(&mut self) {
-        let factor = -(self.params.freqs().transpose() * self.q.diagonal())[(0, 0)];
-        self.q /= factor;
-    }
-
     fn update(&mut self) {
         let q = match self.params.model_type {
             DNAModelType::JC69 => jc69_q(),
@@ -79,6 +56,19 @@ impl SubstitutionModel for DNASubstModel {
         self.q = q;
     }
 
+    fn normalise(&mut self) {
+        let factor = -(self.params.freqs().transpose() * self.q.diagonal())[(0, 0)];
+        self.q /= factor;
+    }
+
+    fn q(&self) -> &SubstMatrix {
+        &self.q
+    }
+
+    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)> {
+        self.params.parameter_definition()
+    }
+
     fn param(&self, param_name: &Self::Parameter) -> f64 {
         self.params.param(param_name)
     }
@@ -88,8 +78,17 @@ impl SubstitutionModel for DNASubstModel {
         self.update();
     }
 
-    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)> {
-        self.params.parameter_definition()
+    fn freqs(&self) -> &FreqVector {
+        &self.params.pi
+    }
+
+    fn set_freqs(&mut self, pi: FreqVector) {
+        self.params.set_freqs(pi);
+        self.update();
+    }
+
+    fn index(&self) -> &'static [usize; 255] {
+        &NUCLEOTIDE_INDEX
     }
 }
 
