@@ -9,8 +9,8 @@ use crate::Result;
 
 pub(crate) mod dna_subst_params;
 pub(crate) use dna_subst_params::*;
-pub(crate) mod dna_model_generics;
-pub(crate) use dna_model_generics::*;
+pub(crate) mod dna_generics;
+pub(crate) use dna_generics::*;
 
 pub type DNASubstModel = SubstModel<DNASubstParams>;
 pub type DNASubstModelInfo = SubstModelInfo<DNASubstModel>;
