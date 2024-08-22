@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use argmin::core::{CostFunction, Executor, IterState, State};
 use argmin::solver::brent::BrentOpt;
 use log::{debug, info, warn};
@@ -6,25 +8,24 @@ use crate::evolutionary_models::FrequencyOptimisation::{self, *};
 use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::{ModelOptimisationResult, ModelOptimiser};
 use crate::phylo_info::PhyloInfo;
-use crate::substitution_models::{
-    DNAParameter, DNASubstModel, SubstLikelihoodCost, SubstitutionModel,
-};
+use crate::substitution_models::{SubstLikelihoodCost, SubstModel, SubstitutionModel};
 use crate::Result;
 
-pub type DNAOptimisationResult = ModelOptimisationResult<DNASubstModel>;
-
-pub(crate) struct DNAParamOptimiser<'a> {
-    pub(crate) likelihood: &'a SubstLikelihoodCost<'a, DNASubstModel>,
+pub(crate) struct SubstParamOptimiser<'a, SubstModel: SubstitutionModel> {
+    pub(crate) likelihood: &'a SubstLikelihoodCost<'a, SubstModel>,
     pub(crate) info: &'a PhyloInfo,
-    pub(crate) model: &'a DNASubstModel,
-    pub(crate) parameter: &'a [DNAParameter],
+    pub(crate) model: &'a SubstModel,
+    pub(crate) parameter: &'a [<SubstModel as SubstitutionModel>::Parameter],
 }
 
-impl CostFunction for DNAParamOptimiser<'_> {
+impl<Params> CostFunction for SubstParamOptimiser<'_, SubstModel<Params>>
+where
+    SubstModel<Params>: SubstitutionModel + Clone,
+{
     type Param = f64;
     type Output = f64;
 
-    fn cost(&self, value: &Self::Param) -> Result<Self::Output> {
+    fn cost(&self, value: &f64) -> Result<Self::Output> {
         let mut model = self.model.clone();
         for param_name in self.parameter {
             model.set_param(param_name, *value);
@@ -40,22 +41,25 @@ impl CostFunction for DNAParamOptimiser<'_> {
     }
 }
 
-pub struct DNAModelOptimiser<'a> {
+pub struct SubstModelOptimiser<'a, SubstModel: SubstitutionModel> {
     pub(crate) epsilon: f64,
-    pub(crate) likelihood: &'a SubstLikelihoodCost<'a, DNASubstModel>,
+    pub(crate) likelihood: &'a SubstLikelihoodCost<'a, SubstModel>,
     pub(crate) info: PhyloInfo,
     pub(crate) freq_opt: FrequencyOptimisation,
 }
-
-impl<'a> ModelOptimiser<'a, SubstLikelihoodCost<'a, DNASubstModel>, DNASubstModel>
-    for DNAModelOptimiser<'a>
+impl<'a, Params> ModelOptimiser<'a, SubstLikelihoodCost<'a, SubstModel<Params>>, SubstModel<Params>>
+    for SubstModelOptimiser<'a, SubstModel<Params>>
+where
+    Params: Display,
+    SubstModel<Params>: SubstitutionModel + Clone,
+    <SubstModel<Params> as SubstitutionModel>::ModelType: Display,
 {
     fn new(
-        likelihood: &'a SubstLikelihoodCost<'a, DNASubstModel>,
+        likelihood: &'a SubstLikelihoodCost<'a, SubstModel<Params>>,
         phylo_info: &PhyloInfo,
         freq_opt: FrequencyOptimisation,
     ) -> Self {
-        DNAModelOptimiser {
+        SubstModelOptimiser {
             epsilon: 1e-3,
             freq_opt,
             likelihood,
@@ -63,11 +67,11 @@ impl<'a> ModelOptimiser<'a, SubstLikelihoodCost<'a, DNASubstModel>, DNASubstMode
         }
     }
 
-    fn run(self) -> Result<DNAOptimisationResult> {
+    fn run(self) -> Result<ModelOptimisationResult<SubstModel<Params>>> {
         let likelihood = self.likelihood.clone();
         let mut model = likelihood.model.clone();
-        info!("Optimising {} parameters.", model.params.model_type);
-        let param_sets = self.likelihood.model.parameter_definition();
+        info!("Optimising {} parameters.", model.model_type());
+        let param_sets = model.parameter_definition();
         match self.freq_opt {
             Fixed => {}
             Empirical => {
@@ -91,7 +95,7 @@ impl<'a> ModelOptimiser<'a, SubstLikelihoodCost<'a, DNASubstModel>, DNASubstMode
             debug!("Iteration: {}", iterations);
             prev_logl = final_logl;
             for (param_name, param_set) in param_sets.iter() {
-                let optimiser = DNAParamOptimiser {
+                let optimiser = SubstParamOptimiser {
                     likelihood: self.likelihood,
                     model: &model,
                     info: &self.info,
@@ -121,7 +125,7 @@ impl<'a> ModelOptimiser<'a, SubstLikelihoodCost<'a, DNASubstModel>, DNASubstMode
             "Final logl: {}, achieved in {} iteration(s).",
             final_logl, iterations
         );
-        Ok(DNAOptimisationResult {
+        Ok(ModelOptimisationResult::<SubstModel<Params>> {
             model,
             initial_logl,
             final_logl,

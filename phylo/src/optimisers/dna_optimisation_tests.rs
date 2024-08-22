@@ -2,12 +2,14 @@ use std::path::PathBuf;
 
 use approx::assert_relative_eq;
 
-use crate::evolutionary_models::{DNAModelType::*, FrequencyOptimisation};
+use crate::evolutionary_models::{DNAModelType::*, FrequencyOptimisation, ProteinModelType::*};
 use crate::likelihood::PhyloCostFunction;
-use crate::optimisers::dna_model_optimiser::DNAModelOptimiser;
+use crate::optimisers::dna_model_optimiser::SubstModelOptimiser;
 use crate::optimisers::ModelOptimiser;
 use crate::phylo_info::PhyloInfoBuilder;
-use crate::substitution_models::{DNALikelihoodCost, DNASubstModel, SubstitutionModel};
+use crate::substitution_models::{
+    DNALikelihoodCost, DNASubstModel, ProteinSubstModel, SubstLikelihoodCost, SubstitutionModel,
+};
 
 #[test]
 fn check_likelihood_opt_k80() {
@@ -22,7 +24,7 @@ fn check_likelihood_opt_k80() {
     // let cost =
     //     ProteinLikelihoodCost::new(&ProteinSubstModel::new(ProteinModelType::BLOSUM, &[]).unwrap());
     let unopt_logl = llik.cost(&info);
-    let o = DNAModelOptimiser::new(&llik, &info, FrequencyOptimisation::Fixed)
+    let o = SubstModelOptimiser::new(&llik, &info, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
     assert!(o.final_logl > unopt_logl);
@@ -45,7 +47,7 @@ fn frequencies_unchanged_opt_k80() {
     .build()
     .unwrap();
     let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
-    let o = DNAModelOptimiser::new(
+    let o = SubstModelOptimiser::new(
         &DNALikelihoodCost::new(&model),
         &info,
         FrequencyOptimisation::Empirical,
@@ -64,7 +66,7 @@ fn parameter_definition_after_optim_k80() {
     .build()
     .unwrap();
     let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
-    let o = DNAModelOptimiser::new(
+    let o = SubstModelOptimiser::new(
         &DNALikelihoodCost::new(&model),
         &info,
         FrequencyOptimisation::Fixed,
@@ -92,7 +94,7 @@ fn gtr_on_k80_data() {
         &[0.25, 0.35, 0.3, 0.1, 0.88, 0.03, 0.00001, 0.07, 0.02, 1.0],
     )
     .unwrap();
-    let o = DNAModelOptimiser::new(
+    let o = SubstModelOptimiser::new(
         &DNALikelihoodCost::new(&model),
         &info,
         FrequencyOptimisation::Empirical,
@@ -117,7 +119,7 @@ fn parameter_definition_after_optim_hky() {
     let model = DNASubstModel::new(HKY, &[0.26, 0.2, 0.4, 0.14, 4.0, 1.0]).unwrap();
     let llik = DNALikelihoodCost::new(&model);
     let start_logl = llik.cost(&info);
-    let o = DNAModelOptimiser::new(&llik, &info, FrequencyOptimisation::Empirical)
+    let o = SubstModelOptimiser::new(&llik, &info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     let params = &o.model.params;
@@ -141,7 +143,7 @@ fn parameter_definition_after_optim_tn93() {
     let model = DNASubstModel::new(TN93, &[0.26, 0.2, 0.4, 0.14, 4.0, 2.0, 1.0]).unwrap();
     let llik = DNALikelihoodCost::new(&model);
     let start_logl = llik.cost(&info);
-    let o = DNAModelOptimiser::new(&llik, &info, FrequencyOptimisation::Empirical)
+    let o = SubstModelOptimiser::new(&llik, &info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     let params = &o.model.params;
@@ -198,7 +200,7 @@ fn check_parameter_optimisation_gtr() {
         ],
     )
     .unwrap();
-    let o = DNAModelOptimiser::new(
+    let o = SubstModelOptimiser::new(
         &DNALikelihoodCost::new(&model),
         &info,
         FrequencyOptimisation::Fixed,
@@ -208,7 +210,7 @@ fn check_parameter_optimisation_gtr() {
     assert!(o.final_logl > phyml_logl);
     assert!(o.final_logl > paml_logl);
 
-    let o2 = DNAModelOptimiser::new(
+    let o2 = SubstModelOptimiser::new(
         &DNALikelihoodCost::new(&o.model),
         &info,
         FrequencyOptimisation::Fixed,
@@ -229,7 +231,7 @@ fn frequencies_fixed_opt_gtr() {
     .unwrap();
     let model =
         DNASubstModel::new(GTR, &[0.25, 0.35, 0.3, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
-    let o = DNAModelOptimiser::new(
+    let o = SubstModelOptimiser::new(
         &DNALikelihoodCost::new(&model),
         &info,
         FrequencyOptimisation::Fixed,
