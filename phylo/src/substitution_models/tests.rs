@@ -320,6 +320,28 @@ fn dna_normalisation() {
     );
 }
 
+#[test]
+fn dna_normalised_param_change() {
+    let mut k80 = DNASubstModel::new(K80, &[3.0, 1.5]).unwrap();
+    assert_eq!(
+        (k80.q.diagonal().transpose().mul(k80.freqs()))[(0, 0)],
+        -1.0
+    );
+    let old_params = k80.params.clone();
+    assert_eq!(old_params.rtc, 3.0);
+    assert_eq!(old_params.rag, 3.0);
+    assert_eq!(old_params.rta, 1.5);
+    k80.set_param(&DNAParameter::Rtc, 10.0);
+    k80.set_param(&DNAParameter::Rag, 10.0);
+    assert_eq!(
+        (k80.q.diagonal().transpose().mul(k80.freqs()))[(0, 0)],
+        -1.0
+    );
+    assert_eq!(k80.params.rtc, 10.0);
+    assert_eq!(k80.params.rag, 10.0);
+    assert_eq!(k80.params.rta, old_params.rta);
+}
+
 #[rstest]
 #[case::wag(WAG, 1e-4)]
 #[case::blosum(BLOSUM, 1e-3)]
