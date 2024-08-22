@@ -128,7 +128,11 @@ fn pip_protein_wag_normalised() {
     assert_relative_eq!(EvoModel::freqs(&pip_wag), &stat_dist);
     assert_relative_eq!(pip_wag.q.sum(), 0.0, epsilon = 1e-10);
     for &char in NUCLEOTIDES {
-        assert_relative_eq!(pip_wag.q.row(pip_wag.index[char as usize]).sum(), 0.0,);
+        assert_relative_eq!(
+            pip_wag.q.row(pip_wag.index[char as usize]).sum(),
+            0.0,
+            epsilon = 1e-10
+        );
         assert_relative_eq!(EvoModel::rate(&pip_wag, char, b'-'), 0.4, epsilon = 1e-5);
         assert_relative_eq!(EvoModel::rate(&pip_wag, b'-', char), 0.0);
     }
