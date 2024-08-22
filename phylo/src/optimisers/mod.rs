@@ -7,8 +7,8 @@ use crate::Result;
 
 pub mod blen_optimiser;
 pub use blen_optimiser::*;
-pub mod dna_model_optimiser;
-pub use dna_model_optimiser::*;
+pub mod subst_model_optimiser;
+pub use subst_model_optimiser::*;
 pub mod pip_optimiser;
 pub use pip_optimiser::*;
 
@@ -40,6 +40,6 @@ pub trait ModelOptimiser<'a, LC: PhyloCostFunction, M: EvoModel> {
 #[cfg(test)]
 mod blen_optimiser_tests;
 #[cfg(test)]
-mod dna_optimisation_tests;
-#[cfg(test)]
 mod pip_optimiser_tests;
+#[cfg(test)]
+mod subst_optimiser_tests;
