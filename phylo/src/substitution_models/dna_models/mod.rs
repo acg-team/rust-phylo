@@ -61,6 +61,10 @@ impl SubstitutionModel for DNASubstModel {
         self.q /= factor;
     }
 
+    fn model_type(&self) -> &Self::ModelType {
+        &self.params.model_type
+    }
+
     fn q(&self) -> &SubstMatrix {
         &self.q
     }

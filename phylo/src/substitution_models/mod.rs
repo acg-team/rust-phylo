@@ -41,6 +41,8 @@ pub trait SubstitutionModel {
 
     fn normalise(&mut self);
 
+    fn model_type(&self) -> &Self::ModelType;
+
     fn p(&self, time: f64) -> SubstMatrix {
         (self.q().clone() * time).exp()
     }
