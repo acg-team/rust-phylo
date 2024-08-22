@@ -240,3 +240,47 @@ fn frequencies_fixed_opt_gtr() {
     .unwrap();
     assert!(o.model.params.pi.as_slice() == [0.25, 0.35, 0.3, 0.1]);
 }
+
+#[test]
+fn frequencies_fixed_protein() {
+    let info = PhyloInfoBuilder::with_attrs(
+        PathBuf::from("./data/sequences_protein1.fasta"),
+        PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+    )
+    .build()
+    .unwrap();
+    let model = ProteinSubstModel::new(WAG, &[]).unwrap();
+    let initial_llik = SubstLikelihoodCost::new(&model).cost(&info);
+    let o = SubstModelOptimiser::new(
+        &SubstLikelihoodCost::new(&model),
+        &info,
+        FrequencyOptimisation::Fixed,
+    )
+    .run()
+    .unwrap();
+    assert_eq!(initial_llik, o.initial_logl);
+    assert_eq!(initial_llik, o.final_logl);
+    assert_eq!(model.freqs(), o.model.freqs());
+}
+
+#[test]
+fn frequencies_empirical_protein() {
+    let info = PhyloInfoBuilder::with_attrs(
+        PathBuf::from("./data/sequences_protein1.fasta"),
+        PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+    )
+    .build()
+    .unwrap();
+    let model = ProteinSubstModel::new(WAG, &[]).unwrap();
+    let initial_llik = SubstLikelihoodCost::new(&model).cost(&info);
+    let o = SubstModelOptimiser::new(
+        &SubstLikelihoodCost::new(&model),
+        &info,
+        FrequencyOptimisation::Empirical,
+    )
+    .run()
+    .unwrap();
+    assert_ne!(initial_llik, o.initial_logl);
+    assert_ne!(initial_llik, o.final_logl);
+    assert_ne!(model.freqs(), o.model.freqs());
+}
