@@ -187,7 +187,7 @@ pub struct SubstLikelihoodCost<'a, SubstModel: SubstitutionModel + 'a> {
     pub(crate) model: &'a SubstModel,
 }
 
-impl<'a, SubstModel: SubstitutionModel + EvoModel + 'a> PhyloCostFunction
+impl<'a, SubstModel: SubstitutionModel + 'a> PhyloCostFunction
     for SubstLikelihoodCost<'a, SubstModel>
 {
     fn cost(&self, info: &PhyloInfo) -> f64 {
@@ -195,7 +195,7 @@ impl<'a, SubstModel: SubstitutionModel + EvoModel + 'a> PhyloCostFunction
     }
 }
 
-impl<'a, SubstModel: SubstitutionModel + EvoModel> SubstLikelihoodCost<'a, SubstModel> {
+impl<'a, SubstModel: SubstitutionModel> SubstLikelihoodCost<'a, SubstModel> {
     #[allow(dead_code)]
     pub(crate) fn new(model: &'a SubstModel) -> Self {
         SubstLikelihoodCost { model }
@@ -287,7 +287,7 @@ pub struct SubstModelInfo<SubstModel: SubstitutionModel> {
     leaf_sequence_info: HashMap<String, DMatrix<f64>>,
 }
 
-impl<SubstModel: SubstitutionModel + EvoModel> SubstModelInfo<SubstModel> {
+impl<SubstModel: SubstitutionModel> SubstModelInfo<SubstModel> {
     pub fn new(info: &PhyloInfo, model: &SubstModel) -> Result<Self> {
         let node_count = info.tree.len();
         let msa_length = info.msa_length();
