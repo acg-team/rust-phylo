@@ -4,7 +4,7 @@ use approx::assert_relative_eq;
 
 use crate::evolutionary_models::{DNAModelType::*, FrequencyOptimisation, ProteinModelType::*};
 use crate::likelihood::PhyloCostFunction;
-use crate::optimisers::dna_model_optimiser::SubstModelOptimiser;
+use crate::optimisers::subst_model_optimiser::SubstModelOptimiser;
 use crate::optimisers::ModelOptimiser;
 use crate::phylo_info::PhyloInfoBuilder;
 use crate::substitution_models::{
@@ -280,7 +280,7 @@ fn frequencies_empirical_protein() {
     )
     .run()
     .unwrap();
-    assert_ne!(initial_llik, o.initial_logl);
+    assert_eq!(initial_llik, o.initial_logl);
     assert_ne!(initial_llik, o.final_logl);
     assert_ne!(model.freqs(), o.model.freqs());
 }

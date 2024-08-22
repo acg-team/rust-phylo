@@ -69,9 +69,11 @@ where
 
     fn run(self) -> Result<ModelOptimisationResult<SubstModel<Params>>> {
         let likelihood = self.likelihood.clone();
+        let initial_logl = self.likelihood.cost(&self.info);
         let mut model = likelihood.model.clone();
         info!("Optimising {} parameters.", model.model_type());
-        let param_sets = model.parameter_definition();
+        info!("Initial logl: {}.", initial_logl);
+
         match self.freq_opt {
             Fixed => {}
             Empirical => {
@@ -84,12 +86,14 @@ where
             }
         }
 
+        let mut likelihood = self.likelihood.clone();
+        likelihood.model = &model;
+
         let mut prev_logl = f64::NEG_INFINITY;
-        let initial_logl = self.likelihood.cost(&self.info);
-        info!("Initial logl: {}.", initial_logl);
-        let mut final_logl = initial_logl;
+        let mut final_logl = likelihood.cost(&self.info);
         let mut iterations = 0;
 
+        let param_sets = model.parameter_definition();
         while (prev_logl - final_logl).abs() > self.epsilon {
             iterations += 1;
             debug!("Iteration: {}", iterations);
