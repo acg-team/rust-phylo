@@ -1,8 +1,13 @@
 use std::path::PathBuf;
 
 use approx::assert_relative_eq;
+use rstest::rstest;
 
-use crate::evolutionary_models::{DNAModelType::*, FrequencyOptimisation, ProteinModelType::*};
+use crate::evolutionary_models::{
+    DNAModelType::*,
+    FrequencyOptimisation,
+    ProteinModelType::{self, *},
+};
 use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::subst_model_optimiser::SubstModelOptimiser;
 use crate::optimisers::ModelOptimiser;
@@ -241,15 +246,18 @@ fn frequencies_fixed_opt_gtr() {
     assert!(o.model.params.pi.as_slice() == [0.25, 0.35, 0.3, 0.1]);
 }
 
-#[test]
-fn frequencies_fixed_protein() {
+#[rstest]
+#[case::wag(WAG)]
+#[case::blosum(BLOSUM)]
+#[case::hivb(HIVB)]
+fn frequencies_fixed_protein(#[case] model_type: ProteinModelType) {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sequences_protein1.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
     )
     .build()
     .unwrap();
-    let model = ProteinSubstModel::new(WAG, &[]).unwrap();
+    let model = ProteinSubstModel::new(model_type, &[]).unwrap();
     let initial_llik = SubstLikelihoodCost::new(&model).cost(&info);
     let o = SubstModelOptimiser::new(
         &SubstLikelihoodCost::new(&model),
@@ -263,15 +271,18 @@ fn frequencies_fixed_protein() {
     assert_eq!(model.freqs(), o.model.freqs());
 }
 
-#[test]
-fn frequencies_empirical_protein() {
+#[rstest]
+#[case::wag(WAG)]
+#[case::blosum(BLOSUM)]
+#[case::hivb(HIVB)]
+fn frequencies_empirical_protein(#[case] model_type: ProteinModelType) {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sequences_protein1.fasta"),
         PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
     )
     .build()
     .unwrap();
-    let model = ProteinSubstModel::new(WAG, &[]).unwrap();
+    let model = ProteinSubstModel::new(model_type, &[]).unwrap();
     let initial_llik = SubstLikelihoodCost::new(&model).cost(&info);
     let o = SubstModelOptimiser::new(
         &SubstLikelihoodCost::new(&model),
