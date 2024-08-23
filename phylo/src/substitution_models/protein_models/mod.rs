@@ -12,9 +12,6 @@ pub(crate) use protein_generics::*;
 pub(crate) mod protein_subst_params;
 pub(crate) use protein_subst_params::*;
 
-pub(crate) type ProteinSubstArray = [f64; 400];
-pub(crate) type ProteinFrequencyArray = [f64; 20];
-
 pub type ProteinSubstModel = SubstModel<ProteinSubstParams>;
 pub type ProteinSubstModelInfo = SubstModelInfo<ProteinSubstModel>;
 pub type ProteinLikelihoodCost<'a> = SubstLikelihoodCost<'a, ProteinSubstModel>;

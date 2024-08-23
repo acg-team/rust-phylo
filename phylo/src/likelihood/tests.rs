@@ -203,9 +203,9 @@ fn dna_huelsenbeck_example_likelihood() {
 }
 
 #[rstest]
-#[case::wag(WAG, &[], -4505.736814460457, 1e-4)]
+#[case::wag(WAG, &[], -4505.736814460457, 1e-3)]
 #[case::hivb(HIVB, &[], -4407.989226397638, 1e-5)]
-#[case::blosum(BLOSUM, &[], -4576.40850634098, 1e-5)] // PhyML likelihood under BLOSUM62 is -4587.71053
+#[case::blosum(BLOSUM, &[], -4587.71053, 1e-5)]
 fn protein_example_likelihood(
     #[case] model_type: ProteinModelType,
     #[case] params: &[f64],

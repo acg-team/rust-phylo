@@ -1,3 +1,4 @@
+use approx::relative_eq;
 use log::warn;
 use std::fmt::Display;
 
@@ -41,7 +42,7 @@ impl ProteinSubstParams {
     }
 
     pub(crate) fn set_freqs(&mut self, pi: FreqVector) {
-        if pi.sum() != 1.0 {
+        if !relative_eq!(pi.sum(), 1.0, epsilon = 1e-10) {
             warn!("Frequencies must sum to 1.0, not setting values");
         } else {
             self.pi = pi;
@@ -50,9 +51,9 @@ impl ProteinSubstParams {
 
     pub(crate) fn q(&self) -> SubstMatrix {
         match self.model_type {
-            ProteinModelType::WAG => wag_q(),
-            ProteinModelType::BLOSUM => blosum_q(),
-            ProteinModelType::HIVB => hivb_q(),
+            ProteinModelType::WAG => wag_q(self),
+            ProteinModelType::BLOSUM => blosum_q(self),
+            ProteinModelType::HIVB => hivb_q(self),
             _ => {
                 unreachable!("Protein substitution model should have been defined by now.")
             }

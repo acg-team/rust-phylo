@@ -14,8 +14,7 @@ use crate::evolutionary_models::{
 };
 use crate::substitution_models::{
     gtr_params, hky_params, jc69_params, k80_params, tn93_params, DNAParameter, DNASubstModel,
-    FreqVector, ParsimonyModel, ProteinSubstArray, ProteinSubstModel, SubstMatrix,
-    SubstitutionModel,
+    FreqVector, ParsimonyModel, ProteinExch, ProteinSubstModel, SubstMatrix, SubstitutionModel,
 };
 use crate::Rounding as R;
 
@@ -406,7 +405,7 @@ fn protein_normalisation(#[case] model_type: ProteinModelType, #[case] epsilon: 
     );
 }
 
-const TRUE_MATRIX: ProteinSubstArray = [
+const TRUE_MATRIX: ProteinExch = [
     0.0, 6.0, 6.0, 5.0, 6.0, 6.0, 5.0, 4.0, 7.0, 7.0, 6.0, 5.0, 6.0, 7.0, 5.0, 4.0, 4.0, 9.0, 7.0,
     4.0, 5.0, 0.0, 6.0, 7.0, 7.0, 5.0, 6.0, 5.0, 5.0, 7.0, 5.0, 3.0, 7.0, 8.0, 6.0, 5.0, 6.0, 6.0,
     7.0, 6.0, 5.0, 6.0, 0.0, 4.0, 8.0, 5.0, 5.0, 5.0, 5.0, 6.0, 7.0, 4.0, 8.0, 8.0, 7.0, 4.0, 4.0,

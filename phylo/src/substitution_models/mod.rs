@@ -227,7 +227,7 @@ impl<'a, SubstModel: SubstitutionModel> SubstLikelihoodCost<'a, SubstModel> {
             };
         }
         let root_info = &tmp_values.node_info[usize::from(&info.tree.root)];
-        let likelihood = SubstitutionModel::freqs(model).transpose().mul(root_info);
+        let likelihood = model.freqs().transpose().mul(root_info);
         debug_assert_eq!(likelihood.ncols(), info.msa_length());
         debug_assert_eq!(likelihood.nrows(), 1);
         likelihood.map(|x| x.ln()).sum()

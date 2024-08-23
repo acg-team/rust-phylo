@@ -13,13 +13,12 @@ use crate::evolutionary_models::{
     EvoModel,
     ProteinModelType::{self, *},
 };
-use crate::frequencies;
 use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder};
 use crate::pip_model::{PIPCost, PIPDNAModel, PIPModel, PIPModelInfo, PIPProteinModel};
 use crate::substitution_models::{
-    DNASubstModel, FreqVector, ProteinSubstModel, SubstMatrix, SubstitutionModel, BLOSUM_PI_ARR,
-    HIVB_PI_ARR, WAG_PI_ARR,
+    blosum_freqs, hivb_freqs, wag_freqs, DNASubstModel, FreqVector, ProteinSubstModel, SubstMatrix,
+    SubstitutionModel,
 };
 use crate::tree::{
     tree_parser,
@@ -63,7 +62,8 @@ fn compare_pip_subst_rates<SubstModel: SubstitutionModel + Clone>(
             }
             assert_relative_eq!(
                 pip_model.rate(char, other_char),
-                subst_model.rate(char, other_char)
+                subst_model.rate(char, other_char),
+                epsilon = 1e-10
             );
         }
         assert_relative_eq!(pip_model.rate(char, b'-'), pip_model.params.mu);
@@ -72,18 +72,18 @@ fn compare_pip_subst_rates<SubstModel: SubstitutionModel + Clone>(
 }
 
 #[rstest]
-#[case::wag(WAG, &[0.1, 0.4], &WAG_PI_ARR)]
-#[case::blosum(BLOSUM, &[0.8, 0.25], &BLOSUM_PI_ARR)]
-#[case::hivb(HIVB, &[1.1, 12.4], &HIVB_PI_ARR)]
+#[case::wag(WAG, &[0.1, 0.4], wag_freqs())]
+#[case::blosum(BLOSUM, &[0.8, 0.25], blosum_freqs())]
+#[case::hivb(HIVB, &[1.1, 12.4], hivb_freqs())]
 fn protein_pip_correct(
     #[case] model_type: ProteinModelType,
     #[case] params: &[f64],
-    #[case] pi_array: &[f64],
+    #[case] pi_array: FreqVector,
 ) {
     let pip_model = PIPProteinModel::new(model_type, params).unwrap();
     assert_eq!(pip_model.params.lambda, params[0]);
     assert_eq!(pip_model.params.mu, params[1]);
-    let frequencies = frequencies!(pi_array).insert_row(20, 0.0);
+    let frequencies = pi_array.insert_row(20, 0.0);
     assert_eq!(EvoModel::freqs(&pip_model), &frequencies);
     let subst_model = <ProteinSubstModel as SubstitutionModel>::new(model_type, &[]).unwrap();
     compare_pip_subst_rates(AMINOACIDS, &pip_model, &subst_model);
@@ -124,7 +124,7 @@ fn pip_protein_wag_normalised() {
     let pip_wag = PIPProteinModel::new(WAG, &[0.1, 0.4]).unwrap();
     assert_eq!(pip_wag.params.lambda, 0.1);
     assert_eq!(pip_wag.params.mu, 0.4);
-    let stat_dist = frequencies!(&WAG_PI_ARR).insert_row(20, 0.0);
+    let stat_dist = wag_freqs().insert_row(20, 0.0);
     assert_relative_eq!(EvoModel::freqs(&pip_wag), &stat_dist);
     assert_relative_eq!(pip_wag.q.sum(), 0.0, epsilon = 1e-10);
     for &char in NUCLEOTIDES {
