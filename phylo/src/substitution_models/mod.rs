@@ -29,7 +29,10 @@ macro_rules! frequencies {
     };
 }
 
-pub trait SubstitutionModel {
+pub trait SubstitutionModel
+where
+    Self::ModelType: Display,
+{
     type ModelType;
     type Parameter;
     const N: usize;
@@ -43,6 +46,10 @@ pub trait SubstitutionModel {
     fn normalise(&mut self);
 
     fn model_type(&self) -> &Self::ModelType;
+
+    fn designation(&self) -> String {
+        format!("{}", self.model_type())
+    }
 
     fn p(&self, time: f64) -> SubstMatrix {
         (self.q().clone() * time).exp()
@@ -134,7 +141,23 @@ where
     SubstModel<Params>: SubstitutionModel,
 {
     type Parameter = <SubstModel<Params> as SubstitutionModel>::Parameter;
+    type ModelType = <SubstModel<Params> as SubstitutionModel>::ModelType;
     const N: usize = <SubstModel<Params> as SubstitutionModel>::N;
+
+    fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        SubstitutionModel::new(model_type, params)
+    }
+
+    fn model_type(&self) -> &Self::ModelType {
+        SubstitutionModel::model_type(self)
+    }
+
+    fn description(&self) -> String {
+        SubstitutionModel::designation(self)
+    }
 
     fn p(&self, time: f64) -> SubstMatrix {
         SubstitutionModel::p(self, time)

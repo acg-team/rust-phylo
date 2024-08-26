@@ -7,7 +7,7 @@ use log::{debug, info, warn};
 use crate::evolutionary_models::EvoModel;
 use crate::evolutionary_models::FrequencyOptimisation::{self, *};
 use crate::likelihood::PhyloCostFunction;
-use crate::optimisers::{ModelOptimisationResult, ModelOptimiser};
+use crate::optimisers::{EvoModelOptimisationResult, EvoModelOptimiser};
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{SubstModel, SubstitutionModel};
 use crate::Result;
@@ -45,7 +45,7 @@ pub struct SubstModelOptimiser<'a, SM: SubstitutionModel + EvoModel + PhyloCostF
     pub(crate) freq_opt: FrequencyOptimisation,
 }
 
-impl<'a, Params> ModelOptimiser<'a, SubstModel<Params>>
+impl<'a, Params> EvoModelOptimiser<'a, SubstModel<Params>>
     for SubstModelOptimiser<'a, SubstModel<Params>>
 where
     Params: Display,
@@ -65,10 +65,13 @@ where
         }
     }
 
-    fn run(self) -> Result<ModelOptimisationResult<SubstModel<Params>>> {
+    fn run(self) -> Result<EvoModelOptimisationResult<SubstModel<Params>>> {
         let mut model = self.model.clone();
         let initial_logl = model.cost(&self.info);
-        info!("Optimising {} parameters.", model.model_type());
+        info!(
+            "Optimising {} parameters.",
+            SubstitutionModel::model_type(&model)
+        );
         info!("Initial logl: {}.", initial_logl);
 
         match self.freq_opt {
@@ -124,7 +127,7 @@ where
             "Final logl: {}, achieved in {} iteration(s).",
             final_logl, iterations
         );
-        Ok(ModelOptimisationResult::<SubstModel<Params>> {
+        Ok(EvoModelOptimisationResult::<SubstModel<Params>> {
             model,
             initial_logl,
             final_logl,

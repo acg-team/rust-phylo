@@ -6,28 +6,17 @@ use log::{debug, info, warn};
 
 use crate::evolutionary_models::{EvoModel, FrequencyOptimisation};
 use crate::likelihood::PhyloCostFunction;
-use crate::optimisers::{ModelOptimisationResult, ModelOptimiser};
+use crate::optimisers::{EvoModelOptimisationResult, EvoModelOptimiser};
 use crate::phylo_info::PhyloInfo;
-use crate::pip_model::{PIPModel, PIPParams};
-use crate::substitution_models::SubstitutionModel;
 use crate::Result;
 
-pub(crate) struct PIPParamOptimiser<'a, SM: SubstitutionModel>
-where
-    PIPModel<SM>: EvoModel,
-    SM: Clone,
-    SM::ModelType: Clone,
-{
-    pub(crate) model: &'a PIPModel<SM>,
+pub(crate) struct PIPParamOptimiser<'a, EM: EvoModel + PhyloCostFunction> {
+    pub(crate) model: &'a EM,
     pub(crate) info: &'a PhyloInfo,
-    pub(crate) parameter: &'a [<PIPModel<SM> as EvoModel>::Parameter],
+    pub(crate) parameter: &'a [EM::Parameter],
 }
 
-impl<'a, SM: SubstitutionModel + Clone> CostFunction for PIPParamOptimiser<'a, SM>
-where
-    SM::ModelType: Clone,
-    PIPModel<SM>: EvoModel + Clone,
-{
+impl<'a, EM: EvoModel + PhyloCostFunction + Clone> CostFunction for PIPParamOptimiser<'a, EM> {
     type Param = f64;
     type Output = f64;
 
@@ -44,26 +33,20 @@ where
     }
 }
 
-pub struct PIPOptimiser<'a, SM: SubstitutionModel>
-where
-    PIPModel<SM>: EvoModel,
-    SM: Clone,
-    SM::ModelType: Clone,
-{
+pub struct ModelOptimiser<'a, EM: EvoModel + PhyloCostFunction + Clone> {
     pub(crate) epsilon: f64,
-    pub(crate) model: &'a PIPModel<SM>,
+    pub(crate) model: &'a EM,
     pub(crate) info: PhyloInfo,
     pub(crate) freq_opt: FrequencyOptimisation,
 }
 
-impl<'a, SM: SubstitutionModel + Clone> ModelOptimiser<'a, PIPModel<SM>> for PIPOptimiser<'a, SM>
+impl<'a, EM: EvoModel + PhyloCostFunction + Clone + Display> EvoModelOptimiser<'a, EM>
+    for ModelOptimiser<'a, EM>
 where
-    SM::ModelType: Clone + Display,
-    PIPParams<SM>: Display,
-    PIPModel<SM>: EvoModel + Clone,
-    <PIPModel<SM> as EvoModel>::Parameter: Debug,
+    EM::Parameter: Debug,
+    EM::ModelType: Display,
 {
-    fn new(model: &'a PIPModel<SM>, info: &PhyloInfo, freq_opt: FrequencyOptimisation) -> Self {
+    fn new(model: &'a EM, info: &PhyloInfo, freq_opt: FrequencyOptimisation) -> Self {
         Self {
             epsilon: 1e-3,
             model,
@@ -72,13 +55,10 @@ where
         }
     }
 
-    fn run(self) -> Result<ModelOptimisationResult<PIPModel<SM>>> {
+    fn run(self) -> Result<EvoModelOptimisationResult<EM>> {
         let mut model = self.model.clone();
         let initial_logl = model.cost(&self.info);
-        info!(
-            "Optimising PIP with {} parameters.",
-            model.params.subst_model.model_type()
-        );
+        info!("Optimising {} parameters.", model.description());
         info!("Initial logl: {}.", initial_logl);
 
         match self.freq_opt {
@@ -125,14 +105,14 @@ where
                     "Optimised parameter {:?} to value {} with logl {}",
                     param_name, value, final_logl
                 );
-                debug!("New parameters: {}\n", model.params);
+                debug!("New parameters: {}\n", model);
             }
         }
         info!(
             "Final logl: {}, achieved in {} iteration(s).",
             final_logl, iterations
         );
-        Ok(ModelOptimisationResult::<PIPModel<SM>> {
+        Ok(EvoModelOptimisationResult::<EM> {
             model,
             initial_logl,
             final_logl,

@@ -2,10 +2,9 @@ use std::path::PathBuf;
 
 use approx::assert_relative_eq;
 
-use crate::evolutionary_models::DNAModelType::*;
-use crate::evolutionary_models::ProteinModelType::*;
+use crate::evolutionary_models::{DNAModelType::*, EvoModel, ProteinModelType::*};
 use crate::likelihood::PhyloCostFunction;
-use crate::optimisers::{FrequencyOptimisation, ModelOptimiser, PIPOptimiser};
+use crate::optimisers::{EvoModelOptimiser, FrequencyOptimisation, ModelOptimiser};
 use crate::phylo_info::PhyloInfoBuilder;
 use crate::pip_model::PIPModel;
 use crate::substitution_models::{DNASubstModel, ProteinSubstModel};
@@ -26,7 +25,7 @@ fn check_parameter_optimisation_pip_arpiptest() {
         ],
     )
     .unwrap();
-    let o = PIPOptimiser::new(&pip_gtr, info, FrequencyOptimisation::Empirical)
+    let o = ModelOptimiser::new(&pip_gtr, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     let initial_logl = pip_gtr.cost(info);
@@ -53,7 +52,7 @@ fn optimisation_pip_propip_example() {
 
     let initial_logl = pip_gtr.cost(info);
     assert_relative_eq!(initial_logl, -1241.9555557710014, epsilon = 1e-1);
-    let o = PIPOptimiser::new(&pip_gtr, info, FrequencyOptimisation::Fixed)
+    let o = ModelOptimiser::new(&pip_gtr, info, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
     assert_eq!(o.initial_logl, initial_logl);
@@ -78,7 +77,7 @@ fn optimisation_against_python_no_gaps() {
         -361.1613531649497, // value from the python script
         epsilon = 1e-1
     );
-    let o = PIPOptimiser::new(&pip_hky, info, FrequencyOptimisation::Fixed)
+    let o = ModelOptimiser::new(&pip_hky, info, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
     let params = &o.model.params.subst_model.params;
@@ -112,7 +111,7 @@ fn optimisation_pip_gtr() {
     )
     .unwrap();
     let initial_logl = pip_gtr.cost(info);
-    let o = PIPOptimiser::new(&pip_gtr, info, FrequencyOptimisation::Fixed)
+    let o = ModelOptimiser::new(&pip_gtr, info, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
 
@@ -140,7 +139,7 @@ fn protein_example_pip_opt() {
     .unwrap();
     let pip = PIPModel::<ProteinSubstModel>::new(WAG, &[2.0, 0.1]).unwrap();
     let initial_logl = pip.cost(info);
-    let o = PIPOptimiser::new(&pip, info, FrequencyOptimisation::Empirical)
+    let o = ModelOptimiser::new(&pip, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     assert!(o.final_logl > initial_logl);

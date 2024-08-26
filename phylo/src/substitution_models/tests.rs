@@ -520,3 +520,11 @@ fn matrix_zero_diagonals() {
         assert_eq!(element, 0.0);
     }
 }
+
+#[test]
+fn designation() {
+    let model = DNASubstModel::new(K80, &[1.0, 2.0]).unwrap();
+    assert_eq!(model.designation(), "K80");
+    let model = ProteinSubstModel::new(WAG, &[]).unwrap();
+    assert_eq!(model.designation(), "WAG");
+}

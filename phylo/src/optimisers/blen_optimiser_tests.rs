@@ -2,11 +2,11 @@ use std::path::PathBuf;
 
 use approx::assert_relative_eq;
 
-use crate::evolutionary_models::DNAModelType;
+use crate::evolutionary_models::{DNAModelType, EvoModel};
 use crate::optimisers::{BranchOptimiser, PhyloOptimiser};
 use crate::phylo_info::PhyloInfoBuilder;
 use crate::pip_model::PIPDNAModel;
-use crate::substitution_models::{DNASubstModel, SubstitutionModel};
+use crate::substitution_models::DNASubstModel;
 use crate::tree::tree_parser::from_newick_string;
 use crate::tree::NodeIdx::Internal as Int;
 

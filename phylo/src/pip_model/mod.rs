@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::marker::PhantomData;
 use std::ops::Mul;
 use std::vec;
@@ -22,9 +23,8 @@ mod pip_parameters;
 pub use pip_parameters::*;
 
 #[derive(Clone)]
-pub struct PIPModel<SM: SubstitutionModel>
+pub struct PIPModel<SM: SubstitutionModel + Clone>
 where
-    SM: Clone,
     SM::ModelType: Clone,
 {
     pub(crate) q: SubstMatrix,
@@ -35,15 +35,31 @@ where
 pub type PIPDNAModel = PIPModel<DNASubstModel>;
 pub type PIPProteinModel = PIPModel<ProteinSubstModel>;
 
-impl<SM: SubstitutionModel> EvoModel for PIPModel<SM>
+impl<SM: SubstitutionModel + Clone> EvoModel for PIPModel<SM>
 where
-    SM: Clone,
-    SM::ModelType: Clone,
+    SM::ModelType: Clone + Display,
     PIPParameter: Into<SM::Parameter>,
     SM::Parameter: Into<PIPParameter>,
 {
     type Parameter = PIPParameter;
+    type ModelType = SM::ModelType;
     const N: usize = SM::N + 1;
+
+    fn new(model: SM::ModelType, params: &[f64]) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        let params = PIPParams::<SM>::new(model, params)?;
+        Ok(Self::create(&params))
+    }
+
+    fn model_type(&self) -> &Self::ModelType {
+        &self.params.model_type
+    }
+
+    fn description(&self) -> String {
+        format!("PIP with {}", self.params.model_type)
+    }
 
     fn p(&self, time: f64) -> SubstMatrix {
         (self.q.clone() * time).exp()
@@ -99,21 +115,22 @@ where
     }
 }
 
-impl<SM: SubstitutionModel> PIPModel<SM>
+impl<SM: SubstitutionModel + Display + Clone> Display for PIPModel<SM>
 where
-    SM: Clone,
     SM::ModelType: Clone,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.params)
+    }
+}
+
+impl<SM: SubstitutionModel + Clone> PIPModel<SM>
+where
+    SM::ModelType: Clone,
+    PIPParams<SM>: Clone,
     PIPParameter: Into<SM::Parameter>,
     SM::Parameter: Into<PIPParameter>,
 {
-    pub fn new(model: SM::ModelType, params: &[f64]) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        let params = PIPParams::<SM>::new(model, params)?;
-        Ok(Self::create(&params))
-    }
-
     pub(crate) fn create(params: &PIPParams<SM>) -> PIPModel<SM> {
         let mut subst_model = params.subst_model.clone();
         subst_model.normalise();

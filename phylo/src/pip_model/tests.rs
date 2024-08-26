@@ -636,3 +636,11 @@ fn pip_likelihood_protein_example() {
     let model_wag = PIPProteinModel::new(WAG, &[0.5, 0.25]).unwrap();
     assert!(model_wag.cost(&info) <= 0.0);
 }
+
+#[test]
+fn designation() {
+    let model = PIPDNAModel::new(K80, &[0.5, 0.25, 1.0, 2.0]).unwrap();
+    assert_eq!(model.description(), "PIP with K80");
+    let model = PIPProteinModel::new(WAG, &[0.5, 0.25]).unwrap();
+    assert_eq!(model.description(), "PIP with WAG");
+}

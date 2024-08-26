@@ -10,7 +10,7 @@ use crate::evolutionary_models::{
 };
 use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::subst_model_optimiser::SubstModelOptimiser;
-use crate::optimisers::ModelOptimiser;
+use crate::optimisers::EvoModelOptimiser;
 use crate::phylo_info::PhyloInfoBuilder;
 use crate::substitution_models::{DNASubstModel, ProteinSubstModel, SubstitutionModel};
 
