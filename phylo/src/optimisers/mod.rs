@@ -7,10 +7,8 @@ use crate::Result;
 
 pub mod blen_optimiser;
 pub use blen_optimiser::*;
-pub mod subst_model_optimiser;
-pub use subst_model_optimiser::*;
-pub mod pip_optimiser;
-pub use pip_optimiser::*;
+pub mod model_optimiser;
+pub use model_optimiser::*;
 
 pub struct PhyloOptimisationResult {
     pub initial_logl: f64,
@@ -20,8 +18,8 @@ pub struct PhyloOptimisationResult {
     pub alignment: Alignment,
 }
 
-pub trait PhyloOptimiser<'a> {
-    fn new(cost: &'a dyn PhyloCostFunction, info: &PhyloInfo) -> Self;
+pub trait PhyloOptimiser<'a, EM: PhyloCostFunction> {
+    fn new(cost: &'a EM, info: &PhyloInfo) -> Self;
     fn run(self) -> Result<PhyloOptimisationResult>;
 }
 
@@ -32,7 +30,7 @@ pub struct EvoModelOptimisationResult<EM: EvoModel> {
     pub model: EM,
 }
 
-pub trait EvoModelOptimiser<'a, EM: EvoModel> {
+pub trait EvoModelOptimiser<'a, EM: EvoModel + PhyloCostFunction> {
     fn new(model: &'a EM, info: &PhyloInfo, frequencies: FrequencyOptimisation) -> Self;
     fn run(self) -> Result<EvoModelOptimisationResult<EM>>;
 }
@@ -40,6 +38,4 @@ pub trait EvoModelOptimiser<'a, EM: EvoModel> {
 #[cfg(test)]
 mod blen_optimiser_tests;
 #[cfg(test)]
-mod pip_optimiser_tests;
-#[cfg(test)]
-mod subst_optimiser_tests;
+mod model_optimiser_tests;

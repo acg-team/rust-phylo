@@ -8,20 +8,20 @@ use crate::phylo_info::PhyloInfo;
 use crate::tree::NodeIdx;
 use crate::Result;
 
-pub(crate) struct SingleBranchOptimiser<'a> {
-    pub(crate) c: &'a dyn PhyloCostFunction,
+pub(crate) struct SingleBranchOptimiser<'a, EM: PhyloCostFunction> {
+    pub(crate) model: &'a EM,
     pub(crate) info: &'a PhyloInfo,
     pub(crate) branch: &'a NodeIdx,
 }
 
-impl<'a> CostFunction for SingleBranchOptimiser<'a> {
+impl<'a, EM: PhyloCostFunction> CostFunction for SingleBranchOptimiser<'a, EM> {
     type Param = f64;
     type Output = f64;
 
-    fn cost(&self, value: &Self::Param) -> Result<Self::Output> {
+    fn cost(&self, value: &f64) -> Result<f64> {
         let mut info = self.info.clone();
         info.tree.set_branch_length(self.branch, *value);
-        Ok(-self.c.cost(&info))
+        Ok(-self.model.cost(&info))
     }
 
     fn parallelize(&self) -> bool {
@@ -29,18 +29,18 @@ impl<'a> CostFunction for SingleBranchOptimiser<'a> {
     }
 }
 
-pub struct BranchOptimiser<'a> {
+pub struct BranchOptimiser<'a, EM: PhyloCostFunction> {
     pub(crate) epsilon: f64,
-    pub(crate) c: &'a dyn PhyloCostFunction,
+    pub(crate) model: &'a EM,
     pub(crate) info: PhyloInfo,
 }
 
-impl<'a> PhyloOptimiser<'a> for BranchOptimiser<'a> {
-    fn new(cost: &'a dyn PhyloCostFunction, phylo_info: &PhyloInfo) -> Self {
+impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for BranchOptimiser<'a, EM> {
+    fn new(model: &'a EM, info: &PhyloInfo) -> Self {
         BranchOptimiser {
             epsilon: 1e-3,
-            c: cost,
-            info: phylo_info.clone(),
+            model,
+            info: info.clone(),
         }
     }
 
@@ -48,7 +48,7 @@ impl<'a> PhyloOptimiser<'a> for BranchOptimiser<'a> {
         info!("Optimising branch lengths.");
         let mut info = self.info.clone();
 
-        let initial_logl = self.c.cost(&info);
+        let initial_logl = self.model.cost(&info);
         info!("Initial logl: {}.", initial_logl);
         let mut final_logl = initial_logl;
         let mut prev_logl = f64::NEG_INFINITY;
@@ -89,7 +89,7 @@ impl<'a> PhyloOptimiser<'a> for BranchOptimiser<'a> {
     }
 }
 
-impl<'a> BranchOptimiser<'a> {
+impl<'a, EM: PhyloCostFunction> BranchOptimiser<'a, EM> {
     fn optimise_branch(&self, branch: &NodeIdx, info: &PhyloInfo) -> Result<(f64, f64)> {
         let start_blen = info.tree.blen(branch);
         let (start, end) = if start_blen == 0.0 {
@@ -98,7 +98,7 @@ impl<'a> BranchOptimiser<'a> {
             (start_blen * 0.1, start_blen * 10.0)
         };
         let optimiser = SingleBranchOptimiser {
-            c: self.c,
+            model: self.model,
             info,
             branch,
         };
