@@ -20,8 +20,6 @@ pub enum DNAParameter {
     Rca,
     Rcg,
     Rag,
-    Mu,
-    Lambda,
 }
 use DNAParameter::*;
 
@@ -66,7 +64,6 @@ impl DNASubstParams {
             Rca => self.rca,
             Rcg => self.rcg,
             Rag => self.rag,
-            _ => panic!("Invalid parameter name."),
         }
     }
 
@@ -81,7 +78,6 @@ impl DNASubstParams {
             Rca => self.rca = value,
             Rcg => self.rcg = value,
             Rag => self.rag = value,
-            _ => panic!("Invalid parameter name."),
         }
     }
 

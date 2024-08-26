@@ -11,8 +11,6 @@ use crate::Result;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ProteinParameter {
     Pi,
-    Mu,
-    Lambda,
 }
 
 #[derive(Clone, Debug, PartialEq)]

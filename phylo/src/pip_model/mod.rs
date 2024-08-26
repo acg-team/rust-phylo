@@ -6,7 +6,7 @@ use std::vec;
 use nalgebra::{DMatrix, DVector};
 
 use crate::alignment::Mapping;
-use crate::evolutionary_models::{EvoModel, EvoModelParams};
+use crate::evolutionary_models::EvoModel;
 use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{
@@ -21,30 +21,100 @@ use crate::Result;
 mod pip_parameters;
 pub use pip_parameters::*;
 
-pub struct PIPModel<SubstModel: SubstitutionModel> {
+#[derive(Clone)]
+pub struct PIPModel<SM: SubstitutionModel>
+where
+    SM: Clone,
+    SM::ModelType: Clone,
+{
     pub(crate) q: SubstMatrix,
     pub(crate) index: [usize; 255],
-    pub params: PIPParams<SubstModel>,
+    pub params: PIPParams<SM>,
 }
 
 pub type PIPDNAModel = PIPModel<DNASubstModel>;
 pub type PIPProteinModel = PIPModel<ProteinSubstModel>;
 
-impl<SubstModel: SubstitutionModel> PIPModel<SubstModel>
+impl<SM: SubstitutionModel> EvoModel for PIPModel<SM>
 where
-    SubstModel: Clone,
-    SubstModel::ModelType: Clone,
-    PIPParams<SubstModel>: EvoModelParams,
+    SM: Clone,
+    SM::ModelType: Clone,
+    PIPParameter: Into<SM::Parameter>,
+    SM::Parameter: Into<PIPParameter>,
 {
-    pub fn new(model: SubstModel::ModelType, params: &[f64]) -> Result<Self>
+    type Parameter = PIPParameter;
+    const N: usize = SM::N + 1;
+
+    fn p(&self, time: f64) -> SubstMatrix {
+        (self.q.clone() * time).exp()
+    }
+
+    fn q(&self) -> &SubstMatrix {
+        &self.q
+    }
+
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q[(self.index[i as usize], self.index[j as usize])]
+    }
+
+    fn freqs(&self) -> &FreqVector {
+        &self.params.pi
+    }
+
+    fn set_freqs(&mut self, pi: FreqVector) {
+        self.params.set_freqs(pi);
+        self.update();
+    }
+
+    fn index(&self) -> &[usize; 255] {
+        &self.index
+    }
+
+    fn parameter_definition(&self) -> Vec<(&'static str, Vec<PIPParameter>)> {
+        SubstitutionModel::parameter_definition(&self.params.subst_model)
+            .into_iter()
+            .map(|(name, param)| {
+                (
+                    name,
+                    param
+                        .into_iter()
+                        .map(|param| param.into())
+                        .collect::<Vec<PIPParameter>>(),
+                )
+            })
+            .chain([
+                ("mu", vec![PIPParameter::Mu]),
+                ("lambda", vec![PIPParameter::Lambda]),
+            ])
+            .collect()
+    }
+
+    fn param(&self, param_name: &PIPParameter) -> f64 {
+        self.params.param(param_name)
+    }
+
+    fn set_param(&mut self, param_name: &PIPParameter, value: f64) {
+        self.params.set_param(param_name, value);
+        self.update();
+    }
+}
+
+impl<SM: SubstitutionModel> PIPModel<SM>
+where
+    SM: Clone,
+    SM::ModelType: Clone,
+    PIPParameter: Into<SM::Parameter>,
+    SM::Parameter: Into<PIPParameter>,
+{
+    pub fn new(model: SM::ModelType, params: &[f64]) -> Result<Self>
     where
         Self: Sized,
     {
-        let params = PIPParams::<SubstModel>::new(model, params)?;
+        let params = PIPParams::<SM>::new(model, params)?;
         Ok(Self::create(&params))
     }
 
-    pub(crate) fn create(params: &PIPParams<SubstModel>) -> PIPModel<SubstModel> {
+    pub(crate) fn create(params: &PIPParams<SM>) -> PIPModel<SM> {
         let mut subst_model = params.subst_model.clone();
         subst_model.normalise();
         let (index, q, _) = Self::make_pip_q(
@@ -59,15 +129,27 @@ where
         }
     }
 
+    fn update(&mut self) {
+        let (index, q, pi) = Self::make_pip_q(
+            *SubstitutionModel::index(&self.params.subst_model),
+            &self.params.subst_model,
+            self.params.mu,
+        );
+        self.index = index;
+        self.q = q;
+        self.params.pi = pi;
+    }
+
     fn make_pip_q(
         index: [usize; 255],
-        subst_model: &SubstModel,
+        subst_model: &SM,
         mu: f64,
     ) -> ([usize; 255], SubstMatrix, FreqVector) {
-        let n = <PIPModel<SubstModel> as EvoModel>::N - 1;
+        let n = SM::N;
         let mut index = index;
         index[b'-' as usize] = n;
-        let mut q = SubstitutionModel::q(subst_model)
+        let mut q = subst_model
+            .q()
             .clone()
             .insert_column(n, mu)
             .insert_row(n, 0.0);
@@ -75,62 +157,14 @@ where
         for i in 0..(n + 1) {
             q[(i, i)] = -q.row(i).sum();
         }
-        let pi = SubstitutionModel::freqs(subst_model)
-            .clone()
-            .insert_row(n, 0.0);
+        let pi = subst_model.freqs().clone().insert_row(n, 0.0);
         (index, q, pi)
     }
 }
 
-impl<SubstModel: SubstitutionModel> EvoModel for PIPModel<SubstModel>
-where
-    SubstModel: Clone,
-    SubstModel::ModelType: Clone,
-    PIPParams<SubstModel>: EvoModelParams,
-{
-    type Parameter = <PIPParams<SubstModel> as EvoModelParams>::Parameter;
-    const N: usize = SubstModel::N + 1;
-
-    fn p(&self, time: f64) -> SubstMatrix {
-        (self.q.clone() * time).exp()
-    }
-
-    fn q(&self) -> &SubstMatrix {
-        &self.q
-    }
-
-    fn rate(&self, i: u8, j: u8) -> f64 {
-        self.q[(self.index[i as usize], self.index[j as usize])]
-    }
-
-    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)> {
-        self.params.parameter_definition()
-    }
-
-    fn param(&self, param_name: &Self::Parameter) -> f64 {
-        self.params.param(param_name)
-    }
-
-    fn set_param(&mut self, param_name: &Self::Parameter, value: f64) {
-        self.params.set_param(param_name, value);
-    }
-
-    fn freqs(&self) -> &FreqVector {
-        &self.params.pi
-    }
-
-    fn set_freqs(&mut self, pi: FreqVector) {
-        self.params.set_freqs(pi);
-    }
-
-    fn index(&self) -> &[usize; 255] {
-        &self.index
-    }
-}
-
 #[derive(Debug)]
-pub struct PIPModelInfo<SubstModel: SubstitutionModel> {
-    phantom: PhantomData<SubstModel>,
+pub struct PIPModelInfo<SM: SubstitutionModel> {
+    phantom: PhantomData<SM>,
     tree_length: f64,
     ins_probs: Vec<f64>,
     surv_probs: Vec<f64>,
@@ -147,13 +181,13 @@ pub struct PIPModelInfo<SubstModel: SubstitutionModel> {
     models_valid: Vec<bool>,
 }
 
-impl<SubstModel: SubstitutionModel + Clone> PIPModelInfo<SubstModel>
+impl<SM: SubstitutionModel + Clone> PIPModelInfo<SM>
 where
-    SubstModel::ModelType: Clone,
-    PIPModel<SubstModel>: EvoModel,
+    SM::ModelType: Clone,
+    PIPModel<SM>: EvoModel,
 {
-    pub fn new(info: &PhyloInfo, model: &PIPModel<SubstModel>) -> Result<Self> {
-        let n = PIPModel::<SubstModel>::N;
+    pub fn new(info: &PhyloInfo, model: &PIPModel<SM>) -> Result<Self> {
+        let n = PIPModel::<SM>::N;
         let node_count = info.tree.len();
         let msa_length = info.msa_length();
         let mut leaf_seq_info: HashMap<String, DMatrix<f64>> = HashMap::new();
@@ -185,7 +219,7 @@ where
             })
             .collect();
 
-        Ok(PIPModelInfo::<SubstModel> {
+        Ok(PIPModelInfo::<SM> {
             tree_length: info.tree.all_branch_lengths().iter().sum(),
             ftilde,
             ins_probs: vec![0.0; node_count],
@@ -221,33 +255,37 @@ where
 }
 
 #[derive(Clone)]
-pub struct PIPCost<'a, SubstModel: SubstitutionModel> {
-    pub model: &'a PIPModel<SubstModel>,
+pub struct PIPCost<'a, SM: SubstitutionModel>
+where
+    SM: Clone,
+    SM::ModelType: Clone,
+{
+    pub model: &'a PIPModel<SM>,
 }
 
-impl<'a, SubstModel: SubstitutionModel> PhyloCostFunction for PIPCost<'a, SubstModel>
+impl<'a, SM: SubstitutionModel> PhyloCostFunction for PIPCost<'a, SM>
 where
-    SubstModel: Clone,
-    SubstModel::ModelType: Clone,
-    PIPModel<SubstModel>: EvoModel,
+    SM: Clone,
+    SM::ModelType: Clone,
+    PIPModel<SM>: EvoModel,
 {
     fn cost(&self, info: &PhyloInfo) -> f64 {
         self.logl(info).0
     }
 }
 
-impl<'a, SubstModel: SubstitutionModel> PIPCost<'a, SubstModel>
+impl<'a, SM: SubstitutionModel> PIPCost<'a, SM>
 where
-    SubstModel: Clone,
-    SubstModel::ModelType: Clone,
-    PIPModel<SubstModel>: EvoModel,
+    SM: Clone,
+    SM::ModelType: Clone,
+    PIPModel<SM>: EvoModel,
 {
-    fn logl(&self, info: &PhyloInfo) -> (f64, PIPModelInfo<SubstModel>) {
-        let mut tmp_info = PIPModelInfo::<SubstModel>::new(info, self.model).unwrap();
+    fn logl(&self, info: &PhyloInfo) -> (f64, PIPModelInfo<SM>) {
+        let mut tmp_info = PIPModelInfo::<SM>::new(info, self.model).unwrap();
         (self.logl_with_tmp(info, &mut tmp_info), tmp_info)
     }
 
-    fn logl_with_tmp(&self, info: &PhyloInfo, tmp: &mut PIPModelInfo<SubstModel>) -> f64 {
+    fn logl_with_tmp(&self, info: &PhyloInfo, tmp: &mut PIPModelInfo<SM>) -> f64 {
         tmp.tree_length = info.tree.height;
         for node_idx in info.tree.postorder() {
             match node_idx {
@@ -275,12 +313,7 @@ where
         tmp.p[root_idx].map(|x| x.ln()).sum() + ln_phi
     }
 
-    fn set_root(
-        &self,
-        node: &Node,
-        model: &PIPModel<SubstModel>,
-        tmp: &mut PIPModelInfo<SubstModel>,
-    ) {
+    fn set_root(&self, node: &Node, model: &PIPModel<SM>, tmp: &mut PIPModelInfo<SM>) {
         self.set_model(node, model, tmp);
         let idx = usize::from(node.idx);
         if !tmp.valid[idx] {
@@ -296,12 +329,7 @@ where
         }
     }
 
-    fn set_internal(
-        &self,
-        node: &Node,
-        model: &PIPModel<SubstModel>,
-        tmp: &mut PIPModelInfo<SubstModel>,
-    ) {
+    fn set_internal(&self, node: &Node, model: &PIPModel<SM>, tmp: &mut PIPModelInfo<SM>) {
         self.set_model(node, model, tmp);
         let us_idx = usize::from(node.idx);
         if !tmp.valid[us_idx] {
@@ -321,8 +349,8 @@ where
         &self,
         node: &Node,
         leaf_map: &Mapping,
-        model: &PIPModel<SubstModel>,
-        tmp: &mut PIPModelInfo<SubstModel>,
+        model: &PIPModel<SM>,
+        tmp: &mut PIPModelInfo<SM>,
     ) {
         let idx = usize::from(node.idx);
         if !tmp.valid[idx] {
@@ -340,14 +368,14 @@ where
                 .tr_mul(model.freqs())
                 .component_mul(&tmp.anc[idx].column(0));
             tmp.p[idx] = tmp.f[idx].clone() * tmp.surv_probs[idx] * tmp.ins_probs[idx];
-            tmp.c0_ftilde[idx][PIPModel::<SubstModel>::N - 1] = 1.0;
+            tmp.c0_ftilde[idx][PIPModel::<SM>::N - 1] = 1.0;
             tmp.c0_f[idx] = 0.0;
             tmp.c0_p[idx] = (1.0 - tmp.surv_probs[idx]) * tmp.ins_probs[idx];
             tmp.valid[idx] = true;
         }
     }
 
-    fn set_p(&self, node: &Node, tmp: &mut PIPModelInfo<SubstModel>) {
+    fn set_p(&self, node: &Node, tmp: &mut PIPModelInfo<SM>) {
         let idx = usize::from(node.idx);
         tmp.p[idx] = tmp.f[idx].clone().component_mul(&tmp.anc[idx].column(0))
             * tmp.surv_probs[idx]
@@ -358,12 +386,7 @@ where
             tmp.anc[idx].column(1).component_mul(&x_p) + tmp.anc[idx].column(2).component_mul(&y_p);
     }
 
-    fn set_ftilde(
-        &self,
-        node: &Node,
-        model: &PIPModel<SubstModel>,
-        tmp: &mut PIPModelInfo<SubstModel>,
-    ) {
+    fn set_ftilde(&self, node: &Node, model: &PIPModel<SM>, tmp: &mut PIPModelInfo<SM>) {
         let idx = usize::from(node.idx);
         let x_idx = usize::from(&node.children[0]);
         let y_idx = usize::from(&node.children[1]);
@@ -373,12 +396,7 @@ where
         tmp.f[idx] = tmp.ftilde[idx].tr_mul(model.freqs());
     }
 
-    fn set_model(
-        &self,
-        node: &Node,
-        model: &PIPModel<SubstModel>,
-        tmp: &mut PIPModelInfo<SubstModel>,
-    ) {
+    fn set_model(&self, node: &Node, model: &PIPModel<SM>, tmp: &mut PIPModelInfo<SM>) {
         let idx = usize::from(node.idx);
         if !tmp.models_valid[idx] {
             tmp.models[idx] = model.p(tmp.branches[idx]);
@@ -386,7 +404,7 @@ where
         }
     }
 
-    fn set_ancestors(&self, node: &Node, tmp: &mut PIPModelInfo<SubstModel>) {
+    fn set_ancestors(&self, node: &Node, tmp: &mut PIPModelInfo<SM>) {
         let idx = usize::from(node.idx);
         let x_anc = tmp.anc[usize::from(&node.children[0])].clone();
         let y_anc = tmp.anc[usize::from(&node.children[1])].clone();
@@ -402,12 +420,7 @@ where
         }
     }
 
-    fn set_c0(
-        &self,
-        node: &Node,
-        model: &PIPModel<SubstModel>,
-        tmp: &mut PIPModelInfo<SubstModel>,
-    ) {
+    fn set_c0(&self, node: &Node, model: &PIPModel<SM>, tmp: &mut PIPModelInfo<SM>) {
         let x_idx = usize::from(&node.children[0]);
         let y_idx = usize::from(&node.children[1]);
         let idx = usize::from(node.idx);

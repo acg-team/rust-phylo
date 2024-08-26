@@ -106,14 +106,5 @@ pub trait EvoModel {
     fn index(&self) -> &[usize; 255];
 }
 
-pub trait EvoModelParams {
-    type Parameter;
-    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)>;
-    fn param(&self, param_name: &Self::Parameter) -> f64;
-    fn set_param(&mut self, param_name: &Self::Parameter, value: f64);
-    fn freqs(&self) -> &FreqVector;
-    fn set_freqs(&mut self, pi: FreqVector);
-}
-
 #[cfg(test)]
 pub(crate) mod tests;
