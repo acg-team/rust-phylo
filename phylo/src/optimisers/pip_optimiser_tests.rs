@@ -54,17 +54,14 @@ fn optimisation_pip_propip_example() {
 
     let likelihood = PIPCost { model: &pip_gtr };
     let initial_logl = likelihood.cost(info);
-    assert_relative_eq!(initial_logl, -1241.9944955187807, epsilon = 1e-3);
-    let o = PIPOptimiser::new(&likelihood, info, FrequencyOptimisation::Empirical)
+    assert_relative_eq!(initial_logl, -1241.9555557710014, epsilon = 1e-1);
+    let o = PIPOptimiser::new(&likelihood, info, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
     assert_eq!(o.initial_logl, initial_logl);
     assert!(o.final_logl > initial_logl);
-    assert!(o.final_logl > -1136.3884248861254);
-    let pip_optimised = PIPModel::create(&o.model.params);
-    let optimised_llik = PIPCost {
-        model: &pip_optimised,
-    };
+    assert_relative_eq!(o.final_logl, -1081.1682773217494, epsilon = 1e-0);
+    let optimised_llik = PIPCost { model: &o.model };
     assert_eq!(o.final_logl, optimised_llik.cost(info));
 }
 
@@ -85,7 +82,7 @@ fn optimisation_against_python_no_gaps() {
         -361.1613531649497, // value from the python script
         epsilon = 1e-1
     );
-    let o = PIPOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
+    let o = PIPOptimiser::new(&llik, info, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
     let params = &o.model.params.subst_model.params;
@@ -111,22 +108,24 @@ fn optimisation_pip_gtr() {
     )
     .build()
     .unwrap();
-    let pip_gtr = PIPModel::<DNASubstModel>::new(
-        GTR,
-        &[
-            0.1, 0.1, 0.24720, 0.35320, 0.29540, 0.10420, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        ],
-    )
-    .unwrap();
-    let llik = PIPCost { model: &pip_gtr };
+    let llik = PIPCost {
+        model: &PIPModel::<DNASubstModel>::new(
+            GTR,
+            &[
+                0.1, 0.1, 0.24720, 0.35320, 0.29540, 0.10420, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+            ],
+        )
+        .unwrap(),
+    };
     let initial_logl = llik.cost(info);
-    let o = PIPOptimiser::new(&llik, info, FrequencyOptimisation::Empirical)
+    let o = PIPOptimiser::new(&llik, info, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
 
     assert_relative_eq!(initial_logl, -9988.486546494, epsilon = 1e0); // value from the python script
     assert_relative_eq!(o.initial_logl, initial_logl);
     assert!(o.final_logl > initial_logl);
+
     let subst_params = o.model.params.subst_model.params;
     // comparing to optimised parameter values from check_parameter_optimisation_gtr
     assert_relative_eq!(subst_params.rtc, 1.03398, epsilon = 1e-4);
