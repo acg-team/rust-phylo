@@ -11,11 +11,11 @@ use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{SubstLikelihoodCost, SubstModel, SubstitutionModel};
 use crate::Result;
 
-pub(crate) struct SubstParamOptimiser<'a, SubstModel: SubstitutionModel> {
-    pub(crate) likelihood: &'a SubstLikelihoodCost<'a, SubstModel>,
+pub(crate) struct SubstParamOptimiser<'a, SM: SubstitutionModel> {
+    pub(crate) likelihood: &'a SubstLikelihoodCost<'a, SM>,
     pub(crate) info: &'a PhyloInfo,
-    pub(crate) model: &'a SubstModel,
-    pub(crate) parameter: &'a [<SubstModel as SubstitutionModel>::Parameter],
+    pub(crate) model: &'a SM,
+    pub(crate) parameter: &'a [<SM as SubstitutionModel>::Parameter],
 }
 
 impl<Params> CostFunction for SubstParamOptimiser<'_, SubstModel<Params>>
@@ -41,12 +41,13 @@ where
     }
 }
 
-pub struct SubstModelOptimiser<'a, SubstModel: SubstitutionModel> {
+pub struct SubstModelOptimiser<'a, SM: SubstitutionModel> {
     pub(crate) epsilon: f64,
-    pub(crate) likelihood: &'a SubstLikelihoodCost<'a, SubstModel>,
+    pub(crate) likelihood: &'a SubstLikelihoodCost<'a, SM>,
     pub(crate) info: PhyloInfo,
     pub(crate) freq_opt: FrequencyOptimisation,
 }
+
 impl<'a, Params> ModelOptimiser<'a, SubstLikelihoodCost<'a, SubstModel<Params>>, SubstModel<Params>>
     for SubstModelOptimiser<'a, SubstModel<Params>>
 where

@@ -41,13 +41,13 @@ fn tree_newick(newick: &str) -> Tree {
 }
 
 #[cfg(test)]
-fn compare_pip_subst_rates<SubstModel: SubstitutionModel + Clone>(
+fn compare_pip_subst_rates<SM: SubstitutionModel + Clone>(
     chars: &[u8],
-    pip_model: &PIPModel<SubstModel>,
-    subst_model: &SubstModel,
+    pip_model: &PIPModel<SM>,
+    subst_model: &SM,
 ) where
-    SubstModel::ModelType: Clone,
-    PIPModel<SubstModel>: EvoModel,
+    SM::ModelType: Clone,
+    PIPModel<SM>: EvoModel,
 {
     for &char in chars {
         assert!(pip_model.rate(char, char) < 0.0);

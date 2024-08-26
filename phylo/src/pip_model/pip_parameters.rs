@@ -61,9 +61,9 @@ impl From<DNAParameter> for PIPParameter {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct PIPParams<SubstModel: SubstitutionModel> {
-    pub(crate) model_type: SubstModel::ModelType,
-    pub(crate) subst_model: SubstModel,
+pub struct PIPParams<SM: SubstitutionModel> {
+    pub(crate) model_type: SM::ModelType,
+    pub(crate) subst_model: SM,
     pub lambda: f64,
     pub mu: f64,
     pub(crate) pi: FreqVector,
@@ -131,9 +131,9 @@ where
     }
 }
 
-impl<SubstModel: SubstitutionModel> Display for PIPParams<SubstModel>
+impl<SM: SubstitutionModel> Display for PIPParams<SM>
 where
-    SubstModel: Display,
+    SM: Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(

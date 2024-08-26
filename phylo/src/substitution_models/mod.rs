@@ -192,26 +192,24 @@ where
 }
 
 #[derive(Clone)]
-pub struct SubstLikelihoodCost<'a, SubstModel: SubstitutionModel + 'a> {
-    pub(crate) model: &'a SubstModel,
+pub struct SubstLikelihoodCost<'a, SM: SubstitutionModel + 'a> {
+    pub(crate) model: &'a SM,
 }
 
-impl<'a, SubstModel: SubstitutionModel + 'a> PhyloCostFunction
-    for SubstLikelihoodCost<'a, SubstModel>
-{
+impl<'a, SM: SubstitutionModel + 'a> PhyloCostFunction for SubstLikelihoodCost<'a, SM> {
     fn cost(&self, info: &PhyloInfo) -> f64 {
         self.logl(info).0
     }
 }
 
-impl<'a, SubstModel: SubstitutionModel> SubstLikelihoodCost<'a, SubstModel> {
+impl<'a, SM: SubstitutionModel> SubstLikelihoodCost<'a, SM> {
     #[allow(dead_code)]
-    pub(crate) fn new(model: &'a SubstModel) -> Self {
+    pub(crate) fn new(model: &'a SM) -> Self {
         SubstLikelihoodCost { model }
     }
 
-    fn logl(&self, info: &PhyloInfo) -> (f64, SubstModelInfo<SubstModel>) {
-        let mut tmp_info = SubstModelInfo::<SubstModel>::new(info, self.model).unwrap();
+    fn logl(&self, info: &PhyloInfo) -> (f64, SubstModelInfo<SM>) {
+        let mut tmp_info = SubstModelInfo::<SM>::new(info, self.model).unwrap();
         let logl = self.logl_with_tmp(info, self.model, &mut tmp_info);
         (logl, tmp_info)
     }
@@ -219,8 +217,8 @@ impl<'a, SubstModel: SubstitutionModel> SubstLikelihoodCost<'a, SubstModel> {
     fn logl_with_tmp(
         &self,
         info: &PhyloInfo,
-        model: &SubstModel,
-        tmp_values: &mut SubstModelInfo<SubstModel>,
+        model: &SM,
+        tmp_values: &mut SubstModelInfo<SM>,
     ) -> f64 {
         debug_assert_eq!(info.tree.len(), tmp_values.node_info.len());
         for node_idx in info.tree.postorder() {
@@ -240,12 +238,7 @@ impl<'a, SubstModel: SubstitutionModel> SubstLikelihoodCost<'a, SubstModel> {
         likelihood.map(|x| x.ln()).sum()
     }
 
-    fn set_internal(
-        &self,
-        node: &Node,
-        model: &SubstModel,
-        tmp_values: &mut SubstModelInfo<SubstModel>,
-    ) {
+    fn set_internal(&self, node: &Node, model: &SM, tmp_values: &mut SubstModelInfo<SM>) {
         let idx = usize::from(node.idx);
         if tmp_values.node_info_valid[idx] {
             return;
@@ -263,12 +256,7 @@ impl<'a, SubstModel: SubstitutionModel> SubstLikelihoodCost<'a, SubstModel> {
         tmp_values.node_info_valid[idx] = true;
     }
 
-    fn set_leaf(
-        &self,
-        node: &Node,
-        model: &SubstModel,
-        tmp_values: &mut SubstModelInfo<SubstModel>,
-    ) {
+    fn set_leaf(&self, node: &Node, model: &SM, tmp_values: &mut SubstModelInfo<SM>) {
         let idx = usize::from(node.idx);
         if tmp_values.node_info_valid[idx] {
             return;
@@ -287,8 +275,8 @@ impl<'a, SubstModel: SubstitutionModel> SubstLikelihoodCost<'a, SubstModel> {
 
 #[derive(Clone)]
 
-pub struct SubstModelInfo<SubstModel: SubstitutionModel> {
-    phantom: PhantomData<SubstModel>,
+pub struct SubstModelInfo<SM: SubstitutionModel> {
+    phantom: PhantomData<SM>,
     node_info: Vec<DMatrix<f64>>,
     node_info_valid: Vec<bool>,
     node_models: Vec<SubstMatrix>,
@@ -296,8 +284,8 @@ pub struct SubstModelInfo<SubstModel: SubstitutionModel> {
     leaf_sequence_info: HashMap<String, DMatrix<f64>>,
 }
 
-impl<SubstModel: SubstitutionModel> SubstModelInfo<SubstModel> {
-    pub fn new(info: &PhyloInfo, model: &SubstModel) -> Result<Self> {
+impl<SM: SubstitutionModel> SubstModelInfo<SM> {
+    pub fn new(info: &PhyloInfo, model: &SM) -> Result<Self> {
         let node_count = info.tree.len();
         let msa_length = info.msa_length();
 
@@ -306,7 +294,7 @@ impl<SubstModel: SubstitutionModel> SubstModelInfo<SubstModel> {
             let alignment_map = info.msa.leaf_map(&node.idx);
             let leaf_encoding = info.leaf_encoding.get(&node.id).unwrap();
             let mut leaf_seq_w_gaps =
-                DMatrix::<f64>::zeros(<SubstModel as SubstitutionModel>::N, msa_length);
+                DMatrix::<f64>::zeros(<SM as SubstitutionModel>::N, msa_length);
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
                     site_info.copy_from(&leaf_encoding.column(c));
@@ -318,17 +306,17 @@ impl<SubstModel: SubstitutionModel> SubstModelInfo<SubstModel> {
             }
             leaf_sequence_info.insert(node.id.clone(), leaf_seq_w_gaps);
         }
-        Ok(SubstModelInfo::<SubstModel> {
-            phantom: PhantomData::<SubstModel>,
+        Ok(SubstModelInfo::<SM> {
+            phantom: PhantomData::<SM>,
             node_info: vec![
-                DMatrix::<f64>::zeros(<SubstModel as SubstitutionModel>::N, msa_length);
+                DMatrix::<f64>::zeros(<SM as SubstitutionModel>::N, msa_length);
                 node_count
             ],
             node_info_valid: vec![false; node_count],
             node_models: vec![
                 SubstMatrix::zeros(
-                    <SubstModel as SubstitutionModel>::N,
-                    <SubstModel as SubstitutionModel>::N
+                    <SM as SubstitutionModel>::N,
+                    <SM as SubstitutionModel>::N
                 );
                 node_count
             ],
