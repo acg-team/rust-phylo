@@ -3,7 +3,7 @@ use std::vec;
 use crate::alphabets::AMINOACID_INDEX;
 use crate::evolutionary_models::ProteinModelType;
 use crate::substitution_models::{
-    FreqVector, SubstLikelihoodCost, SubstMatrix, SubstModel, SubstModelInfo, SubstitutionModel,
+    FreqVector, SubstMatrix, SubstModel, SubstModelInfo, SubstitutionModel,
 };
 use crate::Result;
 
@@ -14,7 +14,6 @@ pub(crate) use protein_subst_params::*;
 
 pub type ProteinSubstModel = SubstModel<ProteinSubstParams>;
 pub type ProteinSubstModelInfo = SubstModelInfo<ProteinSubstModel>;
-pub type ProteinLikelihoodCost<'a> = SubstLikelihoodCost<'a, ProteinSubstModel>;
 
 impl SubstitutionModel for ProteinSubstModel {
     type ModelType = ProteinModelType;
@@ -40,8 +39,7 @@ impl SubstitutionModel for ProteinSubstModel {
     }
 
     fn normalise(&mut self) {
-        let factor = -(self.params.freqs().transpose() * self.q.diagonal())[(0, 0)];
-        self.q /= factor;
+        self.normalise();
     }
 
     fn model_type(&self) -> &Self::ModelType {

@@ -8,7 +8,7 @@ use crate::evolutionary_models::{EvoModel, FrequencyOptimisation};
 use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::{ModelOptimisationResult, ModelOptimiser};
 use crate::phylo_info::PhyloInfo;
-use crate::pip_model::{PIPCost, PIPModel, PIPParams};
+use crate::pip_model::{PIPModel, PIPParams};
 use crate::substitution_models::SubstitutionModel;
 use crate::Result;
 
@@ -18,7 +18,6 @@ where
     SM: Clone,
     SM::ModelType: Clone,
 {
-    pub(crate) likelihood: &'a PIPCost<'a, SM>,
     pub(crate) model: &'a PIPModel<SM>,
     pub(crate) info: &'a PhyloInfo,
     pub(crate) parameter: &'a [<PIPModel<SM> as EvoModel>::Parameter],
@@ -37,9 +36,7 @@ where
         for param_name in self.parameter {
             model.set_param(param_name, *value);
         }
-        let mut likelihood = self.likelihood.clone();
-        likelihood.model = &model;
-        Ok(-likelihood.cost(self.info))
+        Ok(-model.cost(self.info))
     }
 
     fn parallelize(&self) -> bool {
@@ -54,36 +51,30 @@ where
     SM::ModelType: Clone,
 {
     pub(crate) epsilon: f64,
-    pub(crate) likelihood: &'a PIPCost<'a, SM>,
+    pub(crate) model: &'a PIPModel<SM>,
     pub(crate) info: PhyloInfo,
     pub(crate) freq_opt: FrequencyOptimisation,
 }
 
-impl<'a, SM: SubstitutionModel + Clone> ModelOptimiser<'a, PIPCost<'a, SM>, PIPModel<SM>>
-    for PIPOptimiser<'a, SM>
+impl<'a, SM: SubstitutionModel + Clone> ModelOptimiser<'a, PIPModel<SM>> for PIPOptimiser<'a, SM>
 where
     SM::ModelType: Clone + Display,
     PIPParams<SM>: Display,
     PIPModel<SM>: EvoModel + Clone,
     <PIPModel<SM> as EvoModel>::Parameter: Debug,
 {
-    fn new(
-        likelihood: &'a PIPCost<'a, SM>,
-        phylo_info: &PhyloInfo,
-        freq_opt: FrequencyOptimisation,
-    ) -> Self {
+    fn new(model: &'a PIPModel<SM>, info: &PhyloInfo, freq_opt: FrequencyOptimisation) -> Self {
         Self {
             epsilon: 1e-3,
-            likelihood,
-            info: phylo_info.clone(),
+            model,
+            info: info.clone(),
             freq_opt,
         }
     }
 
     fn run(self) -> Result<ModelOptimisationResult<PIPModel<SM>>> {
-        let mut likelihood = self.likelihood.clone();
-        let initial_logl = self.likelihood.cost(&self.info);
-        let mut model = likelihood.model.clone();
+        let mut model = self.model.clone();
+        let initial_logl = model.cost(&self.info);
         info!(
             "Optimising PIP with {} parameters.",
             model.params.subst_model.model_type()
@@ -102,10 +93,8 @@ where
             }
         }
 
-        likelihood.model = &model;
-
         let mut prev_logl = f64::NEG_INFINITY;
-        let mut final_logl = likelihood.cost(&self.info);
+        let mut final_logl = model.cost(&self.info);
         let mut iterations = 0;
 
         let param_sets = model.parameter_definition();
@@ -115,7 +104,6 @@ where
             prev_logl = final_logl;
             for (param_name, param_set) in param_sets.iter() {
                 let optimiser = PIPParamOptimiser {
-                    likelihood: self.likelihood,
                     model: &model,
                     info: &self.info,
                     parameter: param_set,

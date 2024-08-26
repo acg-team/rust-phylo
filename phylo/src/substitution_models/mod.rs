@@ -191,60 +191,60 @@ where
     }
 }
 
-#[derive(Clone)]
-pub struct SubstLikelihoodCost<'a, SM: SubstitutionModel + 'a> {
-    pub(crate) model: &'a SM,
-}
-
-impl<'a, SM: SubstitutionModel + 'a> PhyloCostFunction for SubstLikelihoodCost<'a, SM> {
+impl<Params> PhyloCostFunction for SubstModel<Params>
+where
+    SubstModel<Params>: SubstitutionModel,
+{
     fn cost(&self, info: &PhyloInfo) -> f64 {
         self.logl(info).0
     }
 }
 
-impl<'a, SM: SubstitutionModel> SubstLikelihoodCost<'a, SM> {
-    #[allow(dead_code)]
-    pub(crate) fn new(model: &'a SM) -> Self {
-        SubstLikelihoodCost { model }
+impl<Params> SubstModel<Params>
+where
+    SubstModel<Params>: SubstitutionModel,
+{
+    fn normalise(&mut self) {
+        let factor = -(SubstitutionModel::freqs(self).transpose() * self.q.diagonal())[(0, 0)];
+        self.q /= factor;
     }
 
-    fn logl(&self, info: &PhyloInfo) -> (f64, SubstModelInfo<SM>) {
-        let mut tmp_info = SubstModelInfo::<SM>::new(info, self.model).unwrap();
-        let logl = self.logl_with_tmp(info, self.model, &mut tmp_info);
+    fn logl(&self, info: &PhyloInfo) -> (f64, SubstModelInfo<SubstModel<Params>>) {
+        let mut tmp_info = SubstModelInfo::<SubstModel<Params>>::new(info, self).unwrap();
+        let logl = self.logl_with_tmp(info, &mut tmp_info);
         (logl, tmp_info)
     }
 
     fn logl_with_tmp(
         &self,
         info: &PhyloInfo,
-        model: &SM,
-        tmp_values: &mut SubstModelInfo<SM>,
+        tmp_values: &mut SubstModelInfo<SubstModel<Params>>,
     ) -> f64 {
         debug_assert_eq!(info.tree.len(), tmp_values.node_info.len());
         for node_idx in info.tree.postorder() {
             match node_idx {
                 Internal(_) => {
-                    self.set_internal(info.tree.node(node_idx), model, tmp_values);
+                    self.set_internal(info.tree.node(node_idx), tmp_values);
                 }
                 Leaf(_) => {
-                    self.set_leaf(info.tree.node(node_idx), model, tmp_values);
+                    self.set_leaf(info.tree.node(node_idx), tmp_values);
                 }
             };
         }
         let root_info = &tmp_values.node_info[usize::from(&info.tree.root)];
-        let likelihood = model.freqs().transpose().mul(root_info);
+        let likelihood = SubstitutionModel::freqs(self).transpose().mul(root_info);
         debug_assert_eq!(likelihood.ncols(), info.msa_length());
         debug_assert_eq!(likelihood.nrows(), 1);
         likelihood.map(|x| x.ln()).sum()
     }
 
-    fn set_internal(&self, node: &Node, model: &SM, tmp_values: &mut SubstModelInfo<SM>) {
+    fn set_internal(&self, node: &Node, tmp_values: &mut SubstModelInfo<SubstModel<Params>>) {
         let idx = usize::from(node.idx);
         if tmp_values.node_info_valid[idx] {
             return;
         }
         if !tmp_values.node_models_valid[idx] {
-            tmp_values.node_models[idx] = SubstitutionModel::p(model, node.blen);
+            tmp_values.node_models[idx] = SubstitutionModel::p(self, node.blen);
             tmp_values.node_models_valid[idx] = true;
         }
         let childx_info = tmp_values.node_info[usize::from(&node.children[0])].clone();
@@ -256,13 +256,13 @@ impl<'a, SM: SubstitutionModel> SubstLikelihoodCost<'a, SM> {
         tmp_values.node_info_valid[idx] = true;
     }
 
-    fn set_leaf(&self, node: &Node, model: &SM, tmp_values: &mut SubstModelInfo<SM>) {
+    fn set_leaf(&self, node: &Node, tmp_values: &mut SubstModelInfo<SubstModel<Params>>) {
         let idx = usize::from(node.idx);
         if tmp_values.node_info_valid[idx] {
             return;
         }
         if !tmp_values.node_models_valid[idx] {
-            tmp_values.node_models[idx] = SubstitutionModel::p(model, node.blen);
+            tmp_values.node_models[idx] = SubstitutionModel::p(self, node.blen);
             tmp_values.node_models_valid[idx] = true;
         }
         tmp_values.node_models[idx].mul_to(

@@ -25,16 +25,16 @@ pub trait PhyloOptimiser<'a> {
     fn run(self) -> Result<PhyloOptimisationResult>;
 }
 
-pub struct ModelOptimisationResult<M: EvoModel> {
+pub struct ModelOptimisationResult<EM: EvoModel> {
     pub initial_logl: f64,
     pub final_logl: f64,
     pub iterations: usize,
-    pub model: M,
+    pub model: EM,
 }
 
-pub trait ModelOptimiser<'a, LC: PhyloCostFunction, M: EvoModel> {
-    fn new(cost: &'a LC, info: &PhyloInfo, frequencies: FrequencyOptimisation) -> Self;
-    fn run(self) -> Result<ModelOptimisationResult<M>>;
+pub trait ModelOptimiser<'a, EM: EvoModel> {
+    fn new(model: &'a EM, info: &PhyloInfo, frequencies: FrequencyOptimisation) -> Self;
+    fn run(self) -> Result<ModelOptimisationResult<EM>>;
 }
 
 #[cfg(test)]

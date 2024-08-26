@@ -382,8 +382,7 @@ fn protein_model_gap(#[case] model_type: ProteinModelType) {
 #[rstest]
 #[case::wag(WAG, 1e-2)]
 #[case::blosum(BLOSUM, 1e-3)]
-// FIXME: This test fails for HIVB
-// #[case::hivb(HIVB, 1e-3)]
+#[case::hivb(HIVB, 1e-3)]
 fn protein_p_matrix(#[case] model_type: ProteinModelType, #[case] epsilon: f64) {
     let model = ProteinSubstModel::new(model_type, &[]).unwrap();
     let p_inf = model.p(1000000.0);

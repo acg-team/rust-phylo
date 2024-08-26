@@ -5,8 +5,8 @@ use approx::assert_relative_eq;
 use crate::evolutionary_models::DNAModelType;
 use crate::optimisers::{BranchOptimiser, PhyloOptimiser};
 use crate::phylo_info::PhyloInfoBuilder;
-use crate::pip_model::{PIPCost, PIPDNAModel};
-use crate::substitution_models::{DNASubstModel, SubstLikelihoodCost, SubstitutionModel};
+use crate::pip_model::PIPDNAModel;
+use crate::substitution_models::{DNASubstModel, SubstitutionModel};
 use crate::tree::tree_parser::from_newick_string;
 use crate::tree::NodeIdx::Internal as Int;
 
@@ -25,8 +25,7 @@ fn branch_optimiser_likelihood_increase_pip() {
         ],
     )
     .unwrap();
-    let cost = PIPCost { model: &model };
-    let o = BranchOptimiser::new(&cost, &info).run().unwrap();
+    let o = BranchOptimiser::new(&model, &info).run().unwrap();
     assert!(o.final_logl > o.initial_logl);
     assert_ne!(o.tree.height, info.tree.height);
     assert_relative_eq!(
@@ -49,8 +48,7 @@ fn branch_optimiser_likelihood_increase() {
         &[0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
     )
     .unwrap();
-    let cost = SubstLikelihoodCost { model: &model };
-    let o = BranchOptimiser::new(&cost, &info).run().unwrap();
+    let o = BranchOptimiser::new(&model, &info).run().unwrap();
     assert!(o.final_logl > o.initial_logl);
     assert_ne!(o.tree.height, info.tree.height);
     assert_relative_eq!(
@@ -69,8 +67,7 @@ fn branch_optimiser_against_phyml() {
     .build()
     .unwrap();
     let model = DNASubstModel::new(DNAModelType::JC69, &[]).unwrap();
-    let cost = SubstLikelihoodCost { model: &model };
-    let o = BranchOptimiser::new(&cost, &info).run().unwrap();
+    let o = BranchOptimiser::new(&model, &info).run().unwrap();
     assert!(o.final_logl > o.initial_logl);
     assert_ne!(o.tree.height, info.tree.height);
     assert_relative_eq!(o.final_logl, -4086.56102, epsilon = 1e-4);

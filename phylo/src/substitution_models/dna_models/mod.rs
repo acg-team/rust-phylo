@@ -3,8 +3,7 @@ use log::{info, warn};
 use crate::alphabets::NUCLEOTIDE_INDEX;
 use crate::evolutionary_models::DNAModelType;
 use crate::substitution_models::{
-    DNAParameter::*, FreqVector, SubstLikelihoodCost, SubstMatrix, SubstModel, SubstModelInfo,
-    SubstitutionModel,
+    DNAParameter::*, FreqVector, SubstMatrix, SubstModel, SubstModelInfo, SubstitutionModel,
 };
 use crate::Result;
 
@@ -15,7 +14,6 @@ pub(crate) use dna_generics::*;
 
 pub type DNASubstModel = SubstModel<DNASubstParams>;
 pub type DNASubstModelInfo = SubstModelInfo<DNASubstModel>;
-pub type DNALikelihoodCost<'a> = SubstLikelihoodCost<'a, DNASubstModel>;
 
 impl SubstitutionModel for DNASubstModel {
     type ModelType = DNAModelType;
@@ -57,8 +55,7 @@ impl SubstitutionModel for DNASubstModel {
     }
 
     fn normalise(&mut self) {
-        let factor = -(self.params.freqs().transpose() * self.q.diagonal())[(0, 0)];
-        self.q /= factor;
+        self.normalise();
     }
 
     fn model_type(&self) -> &Self::ModelType {
@@ -106,7 +103,7 @@ impl SubstitutionModel for DNASubstModel {
     }
 
     fn freqs(&self) -> &FreqVector {
-        &self.params.pi
+        self.params.freqs()
     }
 
     fn set_freqs(&mut self, pi: FreqVector) {
