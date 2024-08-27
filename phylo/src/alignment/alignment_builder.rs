@@ -107,9 +107,7 @@ impl<'a> AlignmentBuilder<'a> {
         let mut upd_map_x = Vec::with_capacity(msa_len);
         let mut upd_map_y = Vec::with_capacity(msa_len);
         for (x, y) in map_x.iter().zip(map_y.iter()) {
-            if x.is_none() && y.is_none() {
-                continue;
-            } else {
+            if x.is_some() || y.is_some() {
                 upd_map_x.push(*x);
                 upd_map_y.push(*y);
             }
