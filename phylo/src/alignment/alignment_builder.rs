@@ -91,7 +91,7 @@ impl<'a> AlignmentBuilder<'a> {
 
     fn stack_maps(msa_len: usize, map_x: &Mapping, map_y: &Mapping) -> Mapping {
         let mut map = Vec::with_capacity(msa_len);
-        let mut ind: usize = 0;
+        let mut ind = 0usize;
         for (x, y) in map_x.iter().zip(map_y.iter()) {
             if x.is_none() && y.is_none() {
                 map.push(None);
