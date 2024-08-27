@@ -28,14 +28,12 @@ impl<'a> AlignmentBuilder<'a> {
     }
 
     pub fn build(self) -> Result<Alignment> {
-        if self.node_map.is_empty() {
-            if self.seqs.aligned {
-                self.build_from_seqs()
-            } else {
-                self.build_from_unaligned()
-            }
-        } else {
+        if !self.node_map.is_empty() {
             self.build_from_map()
+        } else if self.seqs.aligned {
+            self.build_from_seqs()
+        } else {
+            self.build_from_unaligned()
         }
     }
 
