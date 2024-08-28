@@ -29,16 +29,29 @@ impl<'a> AlignmentBuilder<'a> {
 
     pub fn build(self) -> Result<Alignment> {
         if !self.node_map.is_empty() {
-            self.build_from_map()
+            self.compile_from_map()
         } else if self.seqs.aligned {
-            self.build_from_seqs()
+            self.reconstruct_from_aligned_seqs()
         } else {
-            self.build_from_unaligned()
+            self.align_unaligned_seqs()
         }
     }
 
+    /// This assumes that the tree structure matches the alignment structure.
+    fn compile_from_map(self) -> Result<Alignment> {
+        let mut alignment = Alignment {
+            seqs: Sequences::new(Vec::new()),
+            leaf_map: HashMap::new(),
+            node_map: self.node_map,
+        };
+        let leaf_map = alignment.compile_leaf_map(&self.tree.root, self.tree)?;
+        alignment.leaf_map = leaf_map;
+        alignment.seqs = self.seqs.without_gaps();
+        Ok(alignment)
+    }
+
     /// This assumes that the tree structure matches the alignment structure and that the sequences are aligned.
-    fn build_from_seqs(self) -> Result<Alignment> {
+    fn reconstruct_from_aligned_seqs(self) -> Result<Alignment> {
         let msa_len = self.seqs.msa_len();
         let mut stack = HashMap::<NodeIdx, Mapping>::with_capacity(self.tree.len());
         let mut msa = InternalMapping::with_capacity(self.tree.n);
@@ -52,7 +65,7 @@ impl<'a> AlignmentBuilder<'a> {
                     msa.insert(*node_idx, Self::clear_common_gaps(msa_len, &map_x, &map_y));
                 }
                 Leaf(_) => {
-                    let seq = self.seqs.get_by_id(self.tree.node_id(node_idx)).seq();
+                    let seq = self.seqs.record_by_id(self.tree.node_id(node_idx)).seq();
                     stack.insert(*node_idx, align!(seq).clone());
                 }
             }
@@ -71,22 +84,9 @@ impl<'a> AlignmentBuilder<'a> {
         })
     }
 
-    fn build_from_unaligned(self) -> Result<Alignment> {
+    fn align_unaligned_seqs(self) -> Result<Alignment> {
         // TODO: use parsimony to align the sequences.
         bail!("Unaligned sequences are not yet supported.")
-    }
-
-    /// This assumes that the tree structure matches the alignment structure.
-    fn build_from_map(self) -> Result<Alignment> {
-        let mut alignment = Alignment {
-            seqs: Sequences::new(Vec::new()),
-            leaf_map: HashMap::new(),
-            node_map: self.node_map,
-        };
-        let leaf_map = alignment.compile_leaf_map(&self.tree.root, self.tree)?;
-        alignment.leaf_map = leaf_map;
-        alignment.seqs = self.seqs.without_gaps();
-        Ok(alignment)
     }
 
     fn stack_maps(msa_len: usize, map_x: &Mapping, map_y: &Mapping) -> Mapping {
