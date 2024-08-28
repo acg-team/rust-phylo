@@ -92,7 +92,7 @@ impl Alignment {
         };
         let mut records = Vec::with_capacity(map.len());
         for (idx, map) in &map {
-            let rec = self.seqs.get_by_id(tree.node_id(idx));
+            let rec = self.seqs.record_by_id(tree.node_id(idx));
             let aligned_seq = Self::map_sequence(map, rec.seq());
             records.push(Record::with_attrs(rec.id(), rec.desc(), &aligned_seq));
         }
@@ -103,7 +103,7 @@ impl Alignment {
         let order = &tree.preorder_subroot(Some(root));
         let msa_len = match root {
             Int(_) => self.node_map[root].map_x.len(),
-            Leaf(_) => self.seqs.get_by_id(tree.node_id(root)).seq().len(),
+            Leaf(_) => self.seqs.record_by_id(tree.node_id(root)).seq().len(),
         };
         let mut stack = HashMap::<NodeIdx, Mapping>::with_capacity(tree.len());
         stack.insert(*root, (0..msa_len).map(Some).collect());

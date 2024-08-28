@@ -150,7 +150,7 @@ impl Tree {
                     0,
                     None,
                     0.0,
-                    sequences.get(0).id().to_string(),
+                    sequences.record(0).id().to_string(),
                 )],
                 complete: true,
                 n: 1,
@@ -439,8 +439,8 @@ fn compute_distance_matrix(sequences: &Sequences) -> nj_matrices::NJMat {
     let mut distances = DMatrix::zeros(nseqs, nseqs);
     for i in 0..nseqs {
         for j in (i + 1)..nseqs {
-            let seq_i = sequences.get(i).seq();
-            let seq_j = sequences.get(j).seq();
+            let seq_i = sequences.record(i).seq();
+            let seq_j = sequences.record(j).seq();
             let lev_dist = levenshtein(seq_i, seq_j) as f64;
             let proportion_diff = f64::min(
                 lev_dist / (max(seq_i.len(), seq_j.len()) as f64),

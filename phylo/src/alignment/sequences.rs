@@ -1,6 +1,8 @@
-use crate::alphabets::{detect_alphabet, Alphabet, GAP};
-
+use anyhow::bail;
 use bio::io::fasta::Record;
+
+use crate::alphabets::{detect_alphabet, Alphabet, GAP};
+use crate::Result;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Sequences {
@@ -45,16 +47,27 @@ impl Sequences {
         self.s.is_empty()
     }
 
-    pub fn get(&self, idx: usize) -> &Record {
+    pub fn record(&self, idx: usize) -> &Record {
         &self.s[idx]
     }
 
-    pub fn get_mut(&mut self, idx: usize) -> &mut Record {
+    pub fn record_mut(&mut self, idx: usize) -> &mut Record {
         &mut self.s[idx]
     }
 
-    pub fn get_by_id(&self, id: &str) -> &Record {
-        self.s.iter().find(|r| r.id() == id).unwrap()
+    pub fn record_by_id(&self, id: &str) -> &Record {
+        self.s
+            .iter()
+            .find(|r| r.id() == id)
+            .unwrap_or_else(|| panic!("Sequence with id {} not found", id))
+    }
+
+    pub fn try_record_by_id(&self, id: &str) -> Result<&Record> {
+        let rec = self.s.iter().find(|r| r.id() == id);
+        match rec {
+            Some(r) => Ok(r),
+            None => bail!("Sequence with id {} not found", id),
+        }
     }
 
     pub fn msa_len(&self) -> usize {

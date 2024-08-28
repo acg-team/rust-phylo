@@ -99,7 +99,7 @@ fn sequences_from_aligned() {
     assert_eq!(sequences.msa_len(), 6);
     assert!(sequences.aligned);
     for (i, rec) in seqs.iter().enumerate() {
-        assert_eq!(sequences.get(i), rec);
+        assert_eq!(sequences.record(i), rec);
     }
 }
 
@@ -118,7 +118,7 @@ fn sequences_from_unaligned() {
     assert_eq!(sequences.msa_len(), 0);
     assert!(!sequences.aligned);
     for (i, rec) in seqs.iter().enumerate() {
-        assert_eq!(sequences.get(i), rec);
+        assert_eq!(sequences.record(i), rec);
     }
 }
 
@@ -243,7 +243,7 @@ fn compile_msa_leaf() {
         assert_alignment_eq(
             &msa.compile(Some(&tree.idx(&leaf_id).unwrap()), &tree)
                 .unwrap(),
-            &[unaligned_seqs.get_by_id(&leaf_id).clone()],
+            &[unaligned_seqs.record_by_id(&leaf_id).clone()],
         );
     }
 }
