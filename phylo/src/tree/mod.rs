@@ -1,24 +1,25 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use anyhow::bail;
 use approx::relative_eq;
 use bio::alignment::distance::levenshtein;
-use bio::io::fasta::Record;
 use inc_stats::Percentiles;
 use log::info;
 use nalgebra::{max, DMatrix};
 use rand::random;
 
+use crate::alignment::Sequences;
 use crate::tree::{
     nj_matrices::{Mat, NJMat},
     NodeIdx::{Internal as Int, Leaf},
 };
+
 use crate::{Result, Rounding};
 
 mod nj_matrices;
 pub mod tree_parser;
 
-#[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Eq, Ord, Hash)]
+#[derive(PartialEq, Clone, Copy, PartialOrd, Eq, Ord, Hash)]
 pub enum NodeIdx {
     Internal(usize),
     Leaf(usize),
@@ -33,11 +34,26 @@ impl Display for NodeIdx {
     }
 }
 
+impl Debug for NodeIdx {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Int(idx) => write!(f, "Int({})", idx),
+            Leaf(idx) => write!(f, "Leaf({})", idx),
+        }
+    }
+}
+
 impl From<&NodeIdx> for usize {
     fn from(node_idx: &NodeIdx) -> usize {
+        Self::from(*node_idx)
+    }
+}
+
+impl From<NodeIdx> for usize {
+    fn from(node_idx: NodeIdx) -> usize {
         match node_idx {
-            Int(idx) => *idx,
-            Leaf(idx) => *idx,
+            Int(idx) => idx,
+            Leaf(idx) => idx,
         }
     }
 }
@@ -53,9 +69,10 @@ pub struct Node {
 
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.idx {
-            Int(idx) => write!(f, "Internal node {}", idx),
-            Leaf(idx) => write!(f, "Leaf node {}", idx),
+        if self.id.is_empty() {
+            write!(f, "{}", self.idx)
+        } else {
+            write!(f, "{} with id {}", self.idx, self.id)
         }
     }
 }
@@ -110,15 +127,15 @@ impl Node {
 #[derive(Debug, Clone)]
 pub struct Tree {
     pub root: NodeIdx,
-    pub nodes: Vec<Node>,
-    pub postorder: Vec<NodeIdx>,
-    pub preorder: Vec<NodeIdx>,
+    pub(crate) nodes: Vec<Node>,
+    pub(crate) postorder: Vec<NodeIdx>,
+    pub(crate) preorder: Vec<NodeIdx>,
     pub complete: bool,
     pub n: usize,
 }
 
 impl Tree {
-    pub fn new(sequences: &[Record]) -> Result<Self> {
+    pub fn new(sequences: &Sequences) -> Result<Self> {
         let n = sequences.len();
         if n == 0 {
             bail!("No sequences provided, aborting.");
@@ -128,7 +145,12 @@ impl Tree {
                 root: Leaf(0),
                 postorder: vec![Leaf(0)],
                 preorder: vec![Leaf(0)],
-                nodes: vec![Node::new_leaf(0, None, 0.0, sequences[0].id().to_string())],
+                nodes: vec![Node::new_leaf(
+                    0,
+                    None,
+                    0.0,
+                    sequences.get(0).id().to_string(),
+                )],
                 complete: true,
                 n: 1,
             })
@@ -145,6 +167,26 @@ impl Tree {
                 n,
             })
         }
+    }
+
+    pub fn children(&self, node_idx: &NodeIdx) -> &Vec<NodeIdx> {
+        &self.nodes[usize::from(node_idx)].children
+    }
+
+    pub fn node(&self, node_idx: &NodeIdx) -> &Node {
+        &self.nodes[usize::from(node_idx)]
+    }
+
+    pub fn len(&self) -> usize {
+        self.nodes.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.nodes.is_empty()
+    }
+
+    pub fn preorder(&self) -> &Vec<NodeIdx> {
+        &self.preorder
     }
 
     pub fn to_newick(&self) -> String {
@@ -169,13 +211,8 @@ impl Tree {
         }
     }
 
-    pub fn node_id(&self, node_idx: &NodeIdx) -> String {
-        let id = &self.nodes[usize::from(node_idx)].id;
-        if id.is_empty() {
-            String::new()
-        } else {
-            format!(" with id {}", id)
-        }
+    pub fn node_id(&self, node_idx: &NodeIdx) -> &str {
+        &self.nodes[usize::from(node_idx)].id
     }
 
     pub(crate) fn add_parent(
@@ -202,11 +239,11 @@ impl Tree {
         self.nodes[usize::from(idx)].blen = blen;
     }
 
-    pub fn add_parent_to_child_no_blen(&mut self, idx: &NodeIdx, parent_idx: &NodeIdx) {
+    pub(crate) fn add_parent_to_child_no_blen(&mut self, idx: &NodeIdx, parent_idx: &NodeIdx) {
         self.nodes[usize::from(idx)].add_parent(parent_idx);
     }
 
-    pub fn create_postorder(&mut self) {
+    pub(crate) fn create_postorder(&mut self) {
         debug_assert!(self.complete);
         if self.postorder.is_empty() {
             let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
@@ -226,15 +263,19 @@ impl Tree {
         }
     }
 
-    pub fn create_preorder(&mut self) {
+    pub(crate) fn create_preorder(&mut self) {
         debug_assert!(self.complete);
         if self.preorder.is_empty() {
-            self.preorder = self.preorder_subroot(self.root);
+            self.preorder = self.preorder_subroot(Some(self.root));
         }
     }
 
-    pub fn preorder_subroot(&self, subroot_idx: NodeIdx) -> Vec<NodeIdx> {
+    pub fn preorder_subroot(&self, subroot_idx: Option<NodeIdx>) -> Vec<NodeIdx> {
         debug_assert!(self.complete);
+        let subroot_idx = match subroot_idx {
+            Some(idx) => idx,
+            None => self.root,
+        };
         let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
         let mut stack = Vec::<NodeIdx>::with_capacity(self.nodes.len());
         let mut cur_root = subroot_idx;
@@ -263,11 +304,11 @@ impl Tree {
         lengths
     }
 
-    pub fn idx_by_id(&self, id: &str) -> Result<usize> {
+    pub fn idx(&self, id: &str) -> Result<usize> {
         debug_assert!(self.complete);
         let idx = self.nodes.iter().position(|node| node.id == id);
         if let Some(idx) = idx {
-            return Ok((&self.nodes[idx].idx).into());
+            return Ok(idx);
         }
         bail!("No node with id {} found in the tree", id);
     }
@@ -338,7 +379,7 @@ fn rng_len(l: usize) -> usize {
 
 fn build_nj_tree_w_rng_from_matrix(
     mut nj_data: NJMat,
-    sequences: &[Record],
+    sequences: &Sequences,
     rng: fn(usize) -> usize,
 ) -> Result<Tree> {
     let n = nj_data.distances.ncols();
@@ -362,23 +403,25 @@ fn build_nj_tree_w_rng_from_matrix(
     Ok(tree)
 }
 
-fn build_nj_tree_from_matrix(nj_data: NJMat, sequences: &[Record]) -> Result<Tree> {
+fn build_nj_tree_from_matrix(nj_data: NJMat, sequences: &Sequences) -> Result<Tree> {
     build_nj_tree_w_rng_from_matrix(nj_data, sequences, rng_len)
 }
 
-pub fn build_nj_tree(sequences: &[Record]) -> Result<Tree> {
+pub fn build_nj_tree(sequences: &Sequences) -> Result<Tree> {
     let nj_data = compute_distance_matrix(sequences);
     build_nj_tree_from_matrix(nj_data, sequences)
 }
 
-fn compute_distance_matrix(sequences: &[Record]) -> nj_matrices::NJMat {
+fn compute_distance_matrix(sequences: &Sequences) -> nj_matrices::NJMat {
     let nseqs = sequences.len();
     let mut distances = DMatrix::zeros(nseqs, nseqs);
     for i in 0..nseqs {
         for j in (i + 1)..nseqs {
-            let lev_dist = levenshtein(sequences[i].seq(), sequences[j].seq()) as f64;
+            let seq_i = sequences.get(i).seq();
+            let seq_j = sequences.get(j).seq();
+            let lev_dist = levenshtein(seq_i, seq_j) as f64;
             let proportion_diff = f64::min(
-                lev_dist / (max(sequences[i].seq().len(), sequences[j].seq().len()) as f64),
+                lev_dist / (max(seq_i.len(), seq_j.len()) as f64),
                 0.75 - f64::EPSILON,
             );
             let corrected_dist = -3.0 / 4.0 * (1.0 - 4.0 / 3.0 * proportion_diff).ln();

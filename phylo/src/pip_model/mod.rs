@@ -1,8 +1,8 @@
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::ops::Mul;
 use std::vec;
 
-use anyhow::bail;
 use nalgebra::{DMatrix, DVector};
 
 use crate::evolutionary_models::{EvoModelInfo, EvolutionaryModel};
@@ -106,16 +106,6 @@ where
         &self.params.pi
     }
 
-    fn char_probability(&self, char_encoding: &FreqVector) -> FreqVector {
-        let mut probs = self.freqs().clone().component_mul(char_encoding);
-        if probs.sum() == 0.0 {
-            probs.fill_row(SubstModel::N, 1.0);
-        } else {
-            probs.scale_mut(1.0 / probs.sum());
-        }
-        probs
-    }
-
     fn index(&self) -> &[usize; 255] {
         &self.index
     }
@@ -144,30 +134,32 @@ pub struct PIPModelInfo<SubstModel: SubstitutionModel> {
     models_valid: Vec<bool>,
 }
 
-impl<SubstModel: SubstitutionModel> EvoModelInfo for PIPModelInfo<SubstModel>
+impl<SubstModel: SubstitutionModel + Clone> EvoModelInfo for PIPModelInfo<SubstModel>
 where
-    SubstModel: Clone,
     SubstModel::Params: Clone,
     SubstModel::ModelType: Clone,
 {
     type Model = PIPModel<SubstModel>;
 
     fn new(info: &PhyloInfo, model: &Self::Model) -> Result<Self> {
-        if !info.has_msa() {
-            bail!("An MSA is required to set up the likelihood computation.");
-        }
         let node_count = info.tree.nodes.len();
         let msa_length = info.msa_length();
-        let mut leaf_seq_info = info.leaf_encoding.clone();
-        for (_, leaf_seq) in leaf_seq_info.iter_mut() {
-            for mut site_info in leaf_seq.column_iter_mut() {
-                site_info.component_mul_assign(model.freqs());
-                if site_info.sum() == 0.0 {
-                    site_info.fill_row(SubstModel::N, 1.0);
+        let mut leaf_seq_info: HashMap<String, DMatrix<f64>> = HashMap::new();
+        for node in info.tree.leaves() {
+            let alignment_map = info.msa.leaf_map(&node.idx);
+            let leaf_encoding = info.leaf_encoding.get(&node.id).unwrap();
+            let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(SubstModel::N + 1, msa_length);
+            for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
+                if let Some(c) = alignment_map[i] {
+                    let encoding = leaf_encoding.column(c).insert_row(SubstModel::N, 0.0);
+                    site_info.copy_from(&encoding);
+                    site_info.component_mul_assign(model.freqs());
                 } else {
-                    site_info.scale_mut((1.0) / site_info.sum());
+                    site_info.fill_row(SubstModel::N, 1.0);
                 }
+                site_info.scale_mut((1.0) / site_info.sum());
             }
+            leaf_seq_info.insert(node.id.clone(), leaf_seq_w_gaps);
         }
         let ftilde = info
             .tree
@@ -327,16 +319,8 @@ where
             let b = tmp.branches[idx];
             tmp.surv_probs[idx] = Self::survival_probability(mu, b);
             tmp.ins_probs[idx] = Self::insertion_probability(tmp.tree_length, b, mu);
-
-            for (i, c) in self
-                .info
-                .aligned_sequence(&self.info.tree.nodes[idx].id)
-                .unwrap()
-                .seq()
-                .iter()
-                .enumerate()
-            {
-                if *c != b'-' {
+            for (i, c) in self.info.msa.leaf_map(&Leaf(idx)).iter().enumerate() {
+                if c.is_some() {
                     tmp.anc[idx][(i, 0)] = 1.0;
                 }
             }

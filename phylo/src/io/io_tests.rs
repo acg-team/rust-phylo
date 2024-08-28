@@ -6,14 +6,13 @@ use bio::io::fasta;
 use rstest::*;
 use tempfile::tempdir;
 
-use crate::{
-    io::{read_sequences_from_file, write_newick_to_file, write_sequences_to_file},
-    tree::tree_parser::from_newick_string,
-};
+use crate::io::{read_sequences_from_file, write_newick_to_file, write_sequences_to_file};
+use crate::tree::tree_parser::from_newick_string;
 
 #[test]
 fn reading_correct_fasta() {
-    let sequences = read_sequences_from_file(PathBuf::from("./data/sequences_DNA1.fasta")).unwrap();
+    let sequences =
+        read_sequences_from_file(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap();
     assert_eq!(sequences.len(), 4);
     for seq in sequences {
         assert_eq!(seq.seq().len(), 5);
@@ -21,7 +20,7 @@ fn reading_correct_fasta() {
 
     let corr_lengths = [1, 2, 2, 4];
     let sequences =
-        read_sequences_from_file(PathBuf::from("./data/sequences_DNA2_unaligned.fasta")).unwrap();
+        read_sequences_from_file(&PathBuf::from("./data/sequences_DNA2_unaligned.fasta")).unwrap();
     assert_eq!(sequences.len(), 4);
     for (i, seq) in sequences.into_iter().enumerate() {
         assert_eq!(seq.seq().len(), corr_lengths[i]);
@@ -33,12 +32,14 @@ fn reading_correct_fasta() {
 #[case::garbage_sequence("./data/sequences_garbage_non-ascii.fasta")]
 #[case::weird_chars("./data/sequences_garbage_weird_symbols.fasta")]
 fn reading_incorrect_fasta(#[case] input: &str) {
-    assert!(read_sequences_from_file(PathBuf::from(input)).is_err());
+    assert!(read_sequences_from_file(&PathBuf::from(input)).is_err());
 }
 
 #[test]
 fn reading_nonexistent_fasta() {
-    assert!(read_sequences_from_file(PathBuf::from("./data/sequences_nonexistent.fasta")).is_err());
+    assert!(
+        read_sequences_from_file(&PathBuf::from("./data/sequences_nonexistent.fasta")).is_err()
+    );
 }
 
 #[test]
@@ -49,7 +50,7 @@ fn test_write_sequences_to_file() {
     ];
     let temp_dir = tempdir().unwrap();
     let output_path = temp_dir.path().join("output.fasta");
-    write_sequences_to_file(&sequences, output_path.clone()).unwrap();
+    write_sequences_to_file(&sequences, &output_path).unwrap();
     let mut file_content = String::new();
     std::fs::File::open(output_path)
         .unwrap()
@@ -70,7 +71,7 @@ fn test_write_sequences_to_file_bad_path() {
         .path()
         .join("nonexistent_folder")
         .join("output.fasta");
-    assert!(write_sequences_to_file(&sequences, output_path).is_err());
+    assert!(write_sequences_to_file(&sequences, &output_path).is_err());
 }
 
 #[test]
@@ -82,7 +83,7 @@ fn test_write_sequences_to_existing_file() {
     let temp_dir = tempdir().unwrap();
     let output_path = temp_dir.path().join("output.fasta");
     File::create(&output_path).unwrap();
-    assert!(write_sequences_to_file(&sequences, output_path).is_err());
+    assert!(write_sequences_to_file(&sequences, &output_path).is_err());
 }
 
 #[test]

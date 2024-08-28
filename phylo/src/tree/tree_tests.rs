@@ -7,6 +7,7 @@ use nalgebra::{dmatrix, DMatrix};
 use pest::error::ErrorVariant;
 use rand::Rng;
 
+use crate::alignment::Sequences;
 use crate::tree::nj_matrices::NJMat;
 use crate::tree::tree_parser::{self, from_newick_string, ParsingError, Rule};
 use crate::tree::{
@@ -18,13 +19,13 @@ use crate::{cmp_f64, Rounding};
 
 #[cfg(test)]
 fn setup_test_tree() -> Tree {
-    let sequences = vec![
+    let sequences = Sequences::new(vec![
         Record::with_attrs("A0", None, b"AAAAA"),
         Record::with_attrs("B1", None, b"A"),
         Record::with_attrs("C2", None, b"AA"),
         Record::with_attrs("D3", None, b"A"),
         Record::with_attrs("E4", None, b"AAA"),
-    ];
+    ]);
     let mut tree = Tree::new(&sequences).unwrap();
     tree.add_parent(5, &L(0), &L(1), 1.0, 1.0);
     tree.add_parent(6, &L(3), &L(4), 1.0, 1.0);
@@ -55,7 +56,6 @@ fn idx_by_id() {
     .unwrap()
     .pop()
     .unwrap();
-    println!("{:?}", tree.nodes);
     let nodes = [
         ("A", L(3)),
         ("B", L(4)),
@@ -66,23 +66,27 @@ fn idx_by_id() {
         ("G", I(0)),
     ];
     for (id, idx) in nodes.iter() {
-        assert!(tree.idx_by_id(id).is_ok());
-        assert_eq!(tree.idx_by_id(id).unwrap(), usize::from(idx));
+        assert!(tree.idx(id).is_ok());
+        assert_eq!(tree.idx(id).unwrap(), usize::from(idx));
     }
-    assert!(tree.idx_by_id("H").is_err());
+    assert!(tree.idx("H").is_err());
 }
 
 #[test]
 fn subroot_preorder() {
     let tree = setup_test_tree();
-    assert_eq!(tree.preorder_subroot(I(5)), [I(5), L(0), L(1)]);
-    assert_eq!(tree.preorder_subroot(I(6)), [I(6), L(3), L(4)]);
-    assert_eq!(tree.preorder_subroot(I(7)), [I(7), L(2), I(6), L(3), L(4)]);
+    assert_eq!(tree.preorder_subroot(Some(I(5))), [I(5), L(0), L(1)]);
+    assert_eq!(tree.preorder_subroot(Some(I(6))), [I(6), L(3), L(4)]);
     assert_eq!(
-        tree.preorder_subroot(I(8)),
+        tree.preorder_subroot(Some(I(7))),
+        [I(7), L(2), I(6), L(3), L(4)]
+    );
+    assert_eq!(
+        tree.preorder_subroot(Some(I(8))),
         [I(8), I(5), L(0), L(1), I(7), L(2), I(6), L(3), L(4)]
     );
-    assert_eq!(tree.preorder_subroot(I(8)), tree.preorder);
+    assert_eq!(tree.preorder_subroot(Some(I(8))), tree.preorder);
+    assert_eq!(tree.preorder_subroot(None), tree.preorder);
 }
 
 #[test]
@@ -96,7 +100,7 @@ fn postorder() {
 
 #[test]
 fn tree_wo_sequences() {
-    let tree = Tree::new(&[]);
+    let tree = Tree::new(&Sequences::new(vec![]));
     assert!(tree.is_err());
 }
 
@@ -110,12 +114,12 @@ fn nj_correct_web_example() {
                 5.0, 7.0, 0.0, 9.0;
                 10.0, 12.0, 9.0, 0.0],
     };
-    let sequences = vec![
+    let sequences = Sequences::new(vec![
         Record::with_attrs("A0", None, b""),
         Record::with_attrs("B1", None, b""),
         Record::with_attrs("C2", None, b""),
         Record::with_attrs("D3", None, b""),
-    ];
+    ]);
     let nj_tree = build_nj_tree_w_rng_from_matrix(nj_distances, &sequences, |_| 0).unwrap();
     let nodes = vec![
         Node::new_leaf(0, Some(I(4)), 1.0, "A0".to_string()),
@@ -142,13 +146,13 @@ fn nj_correct() {
                 9.0, 10.0, 8.0, 0.0, 3.0;
                 8.0, 9.0, 7.0, 3.0, 0.0],
     };
-    let sequences = vec![
+    let sequences = Sequences::new(vec![
         Record::with_attrs("A0", None, b""),
         Record::with_attrs("B1", None, b""),
         Record::with_attrs("C2", None, b""),
         Record::with_attrs("D3", None, b""),
         Record::with_attrs("E4", None, b""),
-    ];
+    ]);
     let nj_tree = build_nj_tree_w_rng_from_matrix(nj_distances, &sequences, |l| 3 % l).unwrap();
     let nodes = vec![
         Node::new_leaf(0, Some(I(5)), 2.0, "A0".to_string()),
@@ -182,12 +186,12 @@ fn protein_nj_correct() {
                 0.0, 0.0, 0.0, 0.2;
                 0.2, 0.2, 0.2, 0.0],
     };
-    let sequences = vec![
+    let sequences = Sequences::new(vec![
         Record::with_attrs("A0", None, b""),
         Record::with_attrs("B1", None, b""),
         Record::with_attrs("C2", None, b""),
         Record::with_attrs("D3", None, b""),
-    ];
+    ]);
     let tree = build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
     assert_eq!(tree.nodes.len(), 7);
     assert_eq!(tree.postorder.len(), 7);
@@ -207,14 +211,13 @@ fn nj_correct_2() {
                 5.0, 7.0, 0.0, 9.0;
                 10.0, 12.0, 9.0, 0.0],
     };
-    let sequences = vec![
+    let sequences = Sequences::new(vec![
         Record::with_attrs("A", None, b""),
         Record::with_attrs("B", None, b""),
         Record::with_attrs("C", None, b""),
         Record::with_attrs("D", None, b""),
-    ];
+    ]);
     let tree = build_nj_tree_w_rng_from_matrix(nj_distances, &sequences, |_| 0).unwrap();
-    println!("{:?}", tree.root);
     assert_eq!(branch_length(&tree, "A"), 1.0);
     assert_eq!(branch_length(&tree, "B"), 3.0);
     assert_eq!(branch_length(&tree, "C"), 2.0);
@@ -222,7 +225,6 @@ fn nj_correct_2() {
     assert_eq!(tree.nodes[4].blen, 1.0);
     assert_eq!(tree.nodes[5].blen, 1.0);
     assert_eq!(tree.nodes.len(), 7);
-    println!("{:?}", tree.postorder);
     assert_eq!(tree.postorder.len(), 7);
     assert!(is_unique(&tree.postorder));
     assert_eq!(tree.preorder.len(), 7);
@@ -241,13 +243,13 @@ fn nj_correct_wiki_example() {
             9.0, 10.0, 8.0, 0.0, 3.0;
             8.0, 9.0, 7.0, 3.0, 0.0],
     };
-    let sequences = vec![
+    let sequences = Sequences::new(vec![
         Record::with_attrs("a", None, b""),
         Record::with_attrs("b", None, b""),
         Record::with_attrs("c", None, b""),
         Record::with_attrs("d", None, b""),
         Record::with_attrs("e", None, b""),
-    ];
+    ]);
     let tree = build_nj_tree_w_rng_from_matrix(nj_distances, &sequences, |l| l - 1).unwrap();
     assert_eq!(branch_length(&tree, "a"), 2.0);
     assert_eq!(branch_length(&tree, "b"), 3.0);
@@ -265,7 +267,7 @@ fn nj_correct_wiki_example() {
 }
 
 fn branch_length(tree: &Tree, id: &str) -> f64 {
-    tree.nodes[tree.idx_by_id(id).unwrap()].blen
+    tree.nodes[tree.idx(id).unwrap()].blen
 }
 
 #[test]
@@ -566,13 +568,13 @@ fn check_getting_branch_length_percentiles() {
 
 #[test]
 fn compute_distance_matrix_close() {
-    let sequences = vec![
+    let sequences = Sequences::new(vec![
         Record::with_attrs("A0", None, b"C"),
         Record::with_attrs("B1", None, b"A"),
         Record::with_attrs("C2", None, b"AA"),
         Record::with_attrs("D3", None, b"A"),
         Record::with_attrs("E4", None, b"CC"),
-    ];
+    ]);
     let mat = compute_distance_matrix(&sequences);
     let true_mat = dmatrix![
         0.0, 26.728641210756745, 26.728641210756745, 26.728641210756745, 0.8239592165010822;
@@ -585,12 +587,12 @@ fn compute_distance_matrix_close() {
 
 #[test]
 fn compute_distance_matrix_far() {
-    let sequences = vec![
+    let sequences = Sequences::new(vec![
         Record::with_attrs("A0", None, b"AAAAAAAAAAAAAAAAAAAA"),
         Record::with_attrs("B1", None, b"AAAAAAAAAAAAAAAAAAAA"),
         Record::with_attrs("C2", None, b"AAAAAAAAAAAAAAAAAAAAAAAAA"),
         Record::with_attrs("D3", None, b"CAAAAAAAAAAAAAAAAAAA"),
-    ];
+    ]);
     let mat = compute_distance_matrix(&sequences);
     let true_mat = dmatrix![
         0.0, 0.0, 0.2326161962278796, 0.051744653615213576;
@@ -626,10 +628,9 @@ fn test_node_id_string() {
         "cow",
         "elk",
         "fox",
-    ]
-    .map(|s| format!("{}{}", " with id ", s));
+    ];
     for node in &tree.nodes {
-        assert!(ids.contains(&(tree.node_id(&node.idx))));
+        assert!(ids.contains(&tree.node_id(&node.idx)));
     }
     let tree =
         tree_parser::from_newick_string("((ant:17,(bat:31, cow:22):7):10,(elk:33,fox:12):40):0;")
@@ -643,7 +644,7 @@ fn test_node_id_string() {
                 assert!(tree.node_id(&node.idx).is_empty());
             }
             L(_) => {
-                assert!(ids.contains(&(tree.node_id(&node.idx))));
+                assert!(ids.contains(&tree.node_id(&node.idx)));
             }
         }
     }
@@ -655,6 +656,14 @@ fn test_node_idx_display() {
     assert_eq!(format!("{}", L(r1)), format!("leaf node {}", r1));
     let r2 = rand::thread_rng().gen_range(1..100);
     assert_eq!(format!("{}", I(r2)), format!("internal node {}", r2));
+}
+
+#[test]
+fn test_node_idx_debug() {
+    let r1 = rand::thread_rng().gen_range(1..100);
+    assert_eq!(format!("{:?}", L(r1)), format!("Leaf({})", r1));
+    let r2 = rand::thread_rng().gen_range(1..100);
+    assert_eq!(format!("{:?}", I(r2)), format!("Int({})", r2));
 }
 
 #[test]

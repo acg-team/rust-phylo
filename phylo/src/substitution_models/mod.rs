@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::ops::Mul;
 
-use anyhow::bail;
 use nalgebra::{DMatrix, DVector};
 use ordered_float::OrderedFloat;
 
@@ -28,9 +27,7 @@ pub trait SubstitutionModel {
     type ModelType;
     type Params: EvoModelParams<ModelType = Self::ModelType>;
     const N: usize;
-    const ALPHABET: &'static [u8];
 
-    fn char_sets() -> &'static [FreqVector];
     fn create(params: &Self::Params) -> Self;
     fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
     where
@@ -130,14 +127,6 @@ where
         SubstitutionModel::freqs(self)
     }
 
-    fn char_probability(&self, char_encoding: &FreqVector) -> FreqVector {
-        let mut probs = SubstitutionModel::freqs(self)
-            .clone()
-            .component_mul(char_encoding);
-        probs.scale_mut(1.0 / probs.sum());
-        probs
-    }
-
     fn index(&self) -> &[usize; 255] {
         SubstitutionModel::index(self)
     }
@@ -193,22 +182,7 @@ impl<'a, SubstModel: SubstitutionModel + 'a> LikelihoodCostFunction
     }
 
     fn empirical_frequencies(&self) -> FreqVector {
-        let all_counts = self.info.counts();
-        let mut total = all_counts.values().sum::<f64>();
-        let index = SubstitutionModel::index(self.model);
-        let mut freqs = FreqVector::from_column_slice(&vec![0.0; Self::Model::N]);
-        for (&char, &count) in all_counts.iter() {
-            freqs += &Self::Model::char_sets()[char as usize].scale(count);
-        }
-        for &char in Self::Model::ALPHABET {
-            if freqs[index[char as usize]] == 0.0 {
-                freqs[index[char as usize]] += 1.0;
-                total += 1.0;
-            }
-        }
-        let scaler = 1.0 / total;
-        freqs.scale_mut(scaler);
-        freqs
+        self.info.freqs()
     }
 }
 
@@ -318,18 +292,24 @@ impl<SubstModel: SubstitutionModel> EvoModelInfo for SubstModelInfo<SubstModel> 
 
 impl<SubstModel: SubstitutionModel> SubstModelInfo<SubstModel> {
     fn new(info: &PhyloInfo, model: &SubstModel) -> Result<Self> {
-        if !info.has_msa() {
-            bail!("An MSA is required to set up the likelihood computation.");
-        }
-        let node_count = info.tree.nodes.len();
+        let node_count = info.tree.len();
         let msa_length = info.msa_length();
 
-        let mut leaf_sequence_info = info.leaf_encoding.clone();
-        for (_, leaf_seq) in leaf_sequence_info.iter_mut() {
-            for mut site_info in leaf_seq.column_iter_mut() {
-                site_info.component_mul_assign(model.freqs());
+        let mut leaf_sequence_info: HashMap<String, DMatrix<f64>> = HashMap::new();
+        for node in info.tree.leaves() {
+            let alignment_map = info.msa.leaf_map(&node.idx);
+            let leaf_encoding = info.leaf_encoding.get(&node.id).unwrap();
+            let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(SubstModel::N, msa_length);
+            for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
+                if let Some(c) = alignment_map[i] {
+                    site_info.copy_from(&leaf_encoding.column(c));
+                    site_info.component_mul_assign(model.freqs());
+                } else {
+                    site_info.copy_from(model.freqs());
+                }
                 site_info.scale_mut((1.0) / site_info.sum());
             }
+            leaf_sequence_info.insert(node.id.clone(), leaf_seq_w_gaps);
         }
         Ok(SubstModelInfo::<SubstModel> {
             phantom: PhantomData::<SubstModel>,

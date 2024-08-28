@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use crate::alphabets::AMINOACID_INDEX;
 use crate::evolutionary_models::{EvoModelParams, ProteinModelType};
 use crate::substitution_models::{
     FreqVector, SubstMatrix, SubstModel, SubstModelInfo, SubstitutionLikelihoodCost,
@@ -75,11 +76,6 @@ impl SubstitutionModel for ProteinSubstModel {
     type ModelType = ProteinModelType;
     type Params = ProteinSubstParams;
     const N: usize = 20;
-    const ALPHABET: &'static [u8] = b"ACDEFGHIKLMNPQRSTVWY";
-
-    fn char_sets() -> &'static [FreqVector] {
-        &PROTEIN_SETS
-    }
 
     fn create(params: &ProteinSubstParams) -> ProteinSubstModel {
         let q = match params.model_type {

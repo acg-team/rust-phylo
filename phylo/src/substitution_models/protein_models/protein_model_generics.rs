@@ -1,68 +1,7 @@
-use lazy_static::lazy_static;
-
 use crate::frequencies;
-use crate::sequences::{AMINOACIDS, GAP};
 use crate::substitution_models::{FreqVector, SubstMatrix};
 
 use crate::substitution_models::protein_models::{ProteinFrequencyArray, ProteinSubstArray};
-
-lazy_static! {
-    pub static ref AMINOACID_INDEX: [usize; 255] = {
-        let mut index = [0; 255];
-        for (i, &char) in AMINOACIDS.iter().enumerate() {
-            index[char as usize] = i;
-            index[char.to_ascii_lowercase() as usize] = i;
-        }
-        index[GAP as usize] = 20;
-        index
-    };
-    pub static ref PROTEIN_GAP_SETS: Vec<FreqVector> = {
-        let mut map: Vec<FreqVector> = vec![frequencies!(&[0.0; 21]); 255];
-        for (i, elem) in map.iter_mut().enumerate() {
-            let char = i as u8;
-            if char == GAP {
-                elem.set_column(0, &frequencies!(&[0.0; 20]).resize_vertically(21, 1.0));
-            } else {
-                elem.set_column(0, &generic_protein_sets(char).resize_vertically(21, 0.0));
-            }
-        }
-        map
-    };
-    pub static ref PROTEIN_SETS: Vec<FreqVector> = {
-        let mut map: Vec<FreqVector> = vec![frequencies!(&[0.0; 20]); 255];
-        for (i, elem) in map.iter_mut().enumerate() {
-            let char = i as u8;
-            elem.set_column(0, &generic_protein_sets(char));
-        }
-        map
-    };
-}
-
-fn generic_protein_sets(char: u8) -> FreqVector {
-    let index = &AMINOACID_INDEX;
-    if AMINOACIDS.contains(&char.to_ascii_uppercase()) {
-        let mut set = frequencies!(&[0.0; 20]);
-        set.fill_row(index[char as usize], 1.0);
-        set
-    } else if char.to_ascii_uppercase() == b'B' {
-        let mut set = frequencies!(&[0.0; 20]);
-        set.fill_row(index['D' as usize], 0.5);
-        set.fill_row(index['N' as usize], 0.5);
-        set
-    } else if char.to_ascii_uppercase() == b'Z' {
-        let mut set = frequencies!(&[0.0; 20]);
-        set.fill_row(index['E' as usize], 0.5);
-        set.fill_row(index['Q' as usize], 0.5);
-        set
-    } else if char.to_ascii_uppercase() == b'J' {
-        let mut set = frequencies!(&[0.0; 20]);
-        set.fill_row(index['I' as usize], 0.5);
-        set.fill_row(index['L' as usize], 0.5);
-        set
-    } else {
-        frequencies!(&[1.0 / 20.0; 20])
-    }
-}
 
 pub fn wag_q() -> SubstMatrix {
     SubstMatrix::from_row_slice(20, 20, &WAG_ARR)

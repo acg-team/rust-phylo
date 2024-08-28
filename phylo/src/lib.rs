@@ -1,13 +1,13 @@
 use anyhow::Error;
 
 pub mod alignment;
+pub mod alphabets;
 pub mod evolutionary_models;
 pub mod io;
 pub mod likelihood;
 pub mod optimisers;
 pub mod phylo_info;
 pub mod pip_model;
-pub mod sequences;
 pub mod substitution_models;
 pub mod tree;
 
