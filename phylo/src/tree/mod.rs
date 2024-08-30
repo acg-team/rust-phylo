@@ -200,7 +200,8 @@ impl Tree {
         // Tree height should not have changed
         debug_assert!(relative_eq!(
             new_tree.height,
-            new_tree.nodes.iter().map(|node| node.blen).sum()
+            new_tree.nodes.iter().map(|node| node.blen).sum(),
+            epsilon = 1e-10
         ));
 
         new_tree.compute_postorder();

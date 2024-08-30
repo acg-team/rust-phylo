@@ -38,3 +38,5 @@ pub trait EvoModelOptimiser<'a, EM: EvoModel + PhyloCostFunction> {
 mod blen_optimiser_tests;
 #[cfg(test)]
 mod model_optimiser_tests;
+#[cfg(test)]
+mod topo_optimiser_tests;

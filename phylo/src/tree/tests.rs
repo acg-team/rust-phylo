@@ -953,8 +953,6 @@ fn spr_broken() {
     assert!([tree.idx("A"), tree.idx("C")].contains(&ne.children[0]));
     assert!([tree.idx("A"), tree.idx("C")].contains(&ne.children[1]));
     assert_eq!(ne.parent, Some(tree.idx("F")));
-
-    println!("{:?}", new_tree.nodes);
     assert_eq!(new_tree.len(), tree.len());
     assert_relative_eq!(new_tree.height, tree.height);
 }
