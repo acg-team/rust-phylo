@@ -83,8 +83,7 @@ impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for BranchOptimiser<'a, E
             initial_logl,
             final_logl,
             iterations,
-            tree: info.tree.clone(),
-            alignment: info.msa.clone(),
+            i: info,
         })
     }
 }

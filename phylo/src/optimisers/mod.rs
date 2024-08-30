@@ -1,8 +1,6 @@
-use crate::alignment::Alignment;
 use crate::evolutionary_models::{EvoModel, FrequencyOptimisation};
 use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::PhyloInfo;
-use crate::tree::Tree;
 use crate::Result;
 
 pub mod blen_optimiser;
@@ -14,8 +12,7 @@ pub struct PhyloOptimisationResult {
     pub initial_logl: f64,
     pub final_logl: f64,
     pub iterations: usize,
-    pub tree: Tree,
-    pub alignment: Alignment,
+    pub i: PhyloInfo,
 }
 
 pub trait PhyloOptimiser<'a, EM: PhyloCostFunction> {
