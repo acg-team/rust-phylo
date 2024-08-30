@@ -111,18 +111,15 @@ fn idx_by_id_invalid() {
 #[test]
 fn subroot_preorder() {
     let tree = setup_test_tree();
-    assert_eq!(tree.preorder_subroot(Some(&I(5))), [I(5), L(0), L(1)]);
-    assert_eq!(tree.preorder_subroot(Some(&I(6))), [I(6), L(3), L(4)]);
+    assert_eq!(tree.preorder_subroot(&I(5)), [I(5), L(0), L(1)]);
+    assert_eq!(tree.preorder_subroot(&I(6)), [I(6), L(3), L(4)]);
+    assert_eq!(tree.preorder_subroot(&I(7)), [I(7), L(2), I(6), L(3), L(4)]);
     assert_eq!(
-        tree.preorder_subroot(Some(&I(7))),
-        [I(7), L(2), I(6), L(3), L(4)]
-    );
-    assert_eq!(
-        tree.preorder_subroot(Some(&I(8))),
+        tree.preorder_subroot(&I(8)),
         [I(8), I(5), L(0), L(1), I(7), L(2), I(6), L(3), L(4)]
     );
-    assert_eq!(tree.preorder_subroot(Some(&I(8))), tree.preorder);
-    assert_eq!(tree.preorder_subroot(None), tree.preorder);
+    assert_eq!(tree.preorder_subroot(&I(8)), tree.preorder);
+    assert_eq!(tree.preorder_subroot(&tree.root), tree.preorder);
 }
 
 #[test]

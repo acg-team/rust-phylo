@@ -108,7 +108,7 @@ impl Tree {
     }
 
     fn is_subtree(&self, query: &NodeIdx, node: &NodeIdx) -> bool {
-        let order = self.preorder_subroot(Some(node));
+        let order = self.preorder_subroot(node);
         order.contains(query)
     }
 
@@ -314,18 +314,14 @@ impl Tree {
 
     pub(crate) fn compute_preorder(&mut self) {
         debug_assert!(self.complete);
-        self.preorder = self.preorder_subroot(Some(&self.root));
+        self.preorder = self.preorder_subroot(&self.root);
     }
 
-    pub fn preorder_subroot(&self, subroot_idx: Option<&NodeIdx>) -> Vec<NodeIdx> {
+    pub fn preorder_subroot(&self, subroot_idx: &NodeIdx) -> Vec<NodeIdx> {
         debug_assert!(self.complete);
-        let subroot_idx = match subroot_idx {
-            Some(idx) => *idx,
-            None => self.root,
-        };
         let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
         let mut stack = Vec::<NodeIdx>::with_capacity(self.nodes.len());
-        let mut cur_root = subroot_idx;
+        let mut cur_root = *subroot_idx;
         stack.push(cur_root);
         while !stack.is_empty() {
             cur_root = stack.pop().unwrap();
