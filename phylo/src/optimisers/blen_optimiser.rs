@@ -20,7 +20,7 @@ impl<'a, EM: PhyloCostFunction> CostFunction for SingleBranchOptimiser<'a, EM> {
 
     fn cost(&self, value: &f64) -> Result<f64> {
         let mut info = self.info.clone();
-        info.tree.set_branch_length(self.branch, *value);
+        info.tree.set_blen(self.branch, *value);
         Ok(-self.model.cost(&info))
     }
 
@@ -68,7 +68,7 @@ impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for BranchOptimiser<'a, E
                     continue;
                 }
                 final_logl = logl;
-                info.tree.set_branch_length(branch, length);
+                info.tree.set_blen(branch, length);
                 debug!(
                     "Optimised {} branch length to value {:.5} with logl {:.5}",
                     branch, length, final_logl

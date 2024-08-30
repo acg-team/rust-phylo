@@ -253,7 +253,7 @@ impl Tree {
         self.nodes.iter().find(|node| node.id == id).unwrap().idx
     }
 
-    pub fn set_branch_length(&mut self, node_idx: &NodeIdx, blen: f64) {
+    pub fn set_blen(&mut self, node_idx: &NodeIdx, blen: f64) {
         debug_assert!(blen >= 0.0);
         let old_blen = self.nodes[usize::from(node_idx)].blen;
         self.height += blen - old_blen;
