@@ -100,7 +100,7 @@ impl Alignment {
     }
 
     fn compile_leaf_map(&self, root: &NodeIdx, tree: &Tree) -> Result<LeafMapping> {
-        let order = &tree.preorder_subroot(Some(root));
+        let order = &tree.preorder_subroot(root);
         let msa_len = match root {
             Int(_) => self.node_map[root].map_x.len(),
             Leaf(_) => self.seqs.record_by_id(tree.node_id(root)).seq().len(),
