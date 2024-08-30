@@ -89,7 +89,7 @@ impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for BranchOptimiser<'a, E
 }
 
 impl<'a, EM: PhyloCostFunction> BranchOptimiser<'a, EM> {
-    fn optimise_branch(&self, branch: &NodeIdx, info: &PhyloInfo) -> Result<(f64, f64)> {
+    pub(crate) fn optimise_branch(&self, branch: &NodeIdx, info: &PhyloInfo) -> Result<(f64, f64)> {
         let start_blen = info.tree.blen(branch);
         let (start, end) = if start_blen == 0.0 {
             (0.0, 1.0)

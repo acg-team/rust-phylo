@@ -7,6 +7,8 @@ pub mod blen_optimiser;
 pub use blen_optimiser::*;
 pub mod model_optimiser;
 pub use model_optimiser::*;
+pub mod topo_optimiser;
+pub use topo_optimiser::*;
 
 pub struct PhyloOptimisationResult {
     pub initial_logl: f64,
