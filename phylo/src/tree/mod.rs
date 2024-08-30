@@ -13,11 +13,13 @@ use crate::tree::{
     nj_matrices::{Mat, NJMat},
     NodeIdx::{Internal as Int, Leaf},
 };
-
 use crate::{Result, Rounding};
 
 mod nj_matrices;
 pub mod tree_parser;
+
+mod tree_node;
+pub use tree_node::*;
 
 #[derive(PartialEq, Clone, Copy, PartialOrd, Eq, Ord, Hash)]
 pub enum NodeIdx {
@@ -55,72 +57,6 @@ impl From<NodeIdx> for usize {
             Int(idx) => idx,
             Leaf(idx) => idx,
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Node {
-    pub idx: NodeIdx,
-    pub parent: Option<NodeIdx>,
-    pub children: Vec<NodeIdx>,
-    pub blen: f64,
-    pub id: String,
-}
-
-impl Display for Node {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.id.is_empty() {
-            write!(f, "{}", self.idx)
-        } else {
-            write!(f, "{} with id {}", self.idx, self.id)
-        }
-    }
-}
-
-impl PartialEq for Node {
-    fn eq(&self, other: &Self) -> bool {
-        (self.idx == other.idx)
-            && (self.parent == other.parent)
-            && (self.children.iter().min() == other.children.iter().min())
-            && (self.children.iter().max() == other.children.iter().max())
-            && relative_eq!(self.blen, other.blen)
-    }
-}
-
-impl Node {
-    fn new_leaf(idx: usize, parent: Option<NodeIdx>, blen: f64, id: String) -> Self {
-        Self {
-            idx: Leaf(idx),
-            parent,
-            children: Vec::new(),
-            blen,
-            id,
-        }
-    }
-
-    fn new_internal(
-        idx: usize,
-        parent: Option<NodeIdx>,
-        children: Vec<NodeIdx>,
-        blen: f64,
-        id: String,
-    ) -> Self {
-        Self {
-            idx: Int(idx),
-            parent,
-            children,
-            blen,
-            id,
-        }
-    }
-
-    fn new_empty_internal(node_idx: usize) -> Self {
-        Self::new_internal(node_idx, None, Vec::new(), 0.0, "".to_string())
-    }
-
-    fn add_parent(&mut self, parent_idx: &NodeIdx) {
-        debug_assert!(matches!(parent_idx, Int(_)));
-        self.parent = Some(*parent_idx);
     }
 }
 
