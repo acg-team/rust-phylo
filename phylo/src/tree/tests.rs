@@ -932,3 +932,29 @@ fn spr_simple_valid() {
     assert_eq!(regraft_sib.blen, 4.0);
     assert_eq!(regraft_sib.parent, Some(tree.idx("F")));
 }
+
+#[test]
+fn spr_broken() {
+    let tree = from_newick_string(&String::from(
+        "(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);",
+    ))
+    .unwrap()
+    .pop()
+    .unwrap();
+    let new_tree = tree.rooted_spr(&tree.idx("A"), &tree.idx("C")).unwrap();
+    let ng = new_tree.node(&tree.idx("G"));
+    assert!([tree.idx("F"), tree.idx("B")].contains(&ng.children[0]));
+    assert!([tree.idx("F"), tree.idx("B")].contains(&ng.children[1]));
+    let nf = new_tree.node(&tree.idx("F"));
+    assert!([tree.idx("E"), tree.idx("D")].contains(&nf.children[0]));
+    assert!([tree.idx("E"), tree.idx("D")].contains(&nf.children[1]));
+    assert_eq!(nf.parent, Some(tree.idx("G")));
+    let ne = new_tree.node(&tree.idx("E"));
+    assert!([tree.idx("A"), tree.idx("C")].contains(&ne.children[0]));
+    assert!([tree.idx("A"), tree.idx("C")].contains(&ne.children[1]));
+    assert_eq!(ne.parent, Some(tree.idx("F")));
+
+    println!("{:?}", new_tree.nodes);
+    assert_eq!(new_tree.len(), tree.len());
+    assert_relative_eq!(new_tree.height, tree.height);
+}

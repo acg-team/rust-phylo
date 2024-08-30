@@ -187,6 +187,7 @@ impl Tree {
             prune_par.children.retain(|&x| x != prune_sib.idx);
             prune_par.children.push(regraft.idx);
             prune_par.blen = regraft.blen / 2.0;
+            prune_par.parent = regraft.parent;
         }
 
         {
