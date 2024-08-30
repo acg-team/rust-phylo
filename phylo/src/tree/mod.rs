@@ -4,7 +4,6 @@ use anyhow::bail;
 use approx::relative_eq;
 use bio::alignment::distance::levenshtein;
 use inc_stats::Percentiles;
-use log::info;
 use nalgebra::{max, DMatrix};
 use rand::random;
 
@@ -242,13 +241,6 @@ impl Tree {
     pub fn leaf_ids(&self) -> Vec<String> {
         debug_assert!(self.complete);
         self.leaves().iter().map(|node| node.id.clone()).collect()
-    }
-
-    pub fn all_branch_lengths(&self) -> Vec<f64> {
-        debug_assert!(self.complete);
-        let lengths = self.nodes.iter().map(|n| n.blen).collect();
-        info!("Branch lengths are: {:?}", lengths);
-        lengths
     }
 
     pub fn try_idx(&self, id: &str) -> Result<NodeIdx> {

@@ -2,6 +2,7 @@ use std::fs::{self};
 use std::iter::repeat;
 use std::path::PathBuf;
 
+use approx::assert_relative_eq;
 use bio::io::fasta::Record;
 use nalgebra::{dmatrix, DMatrix};
 use pest::error::ErrorVariant;
@@ -355,10 +356,7 @@ fn newick_ladder_second_correct() {
     assert_eq!(trees[0].nodes, nodes);
     assert_eq!(trees[0].postorder.len(), 5);
     assert_eq!(trees[0].preorder.len(), 5);
-    assert_eq!(
-        trees[0].height,
-        trees[0].all_branch_lengths().iter().sum::<f64>()
-    );
+    assert_relative_eq!(trees[0].height, trees[0].iter().map(|n| n.blen).sum());
 }
 
 #[test]
@@ -568,7 +566,7 @@ fn check_getting_branch_lengths() {
         "((((A:1.0,B:1.0)F:1.0,C:2.0)G:1.0,D:3.0)H:1.0,E:4.0)I:1.0;",
     ))
     .unwrap()[0];
-    let mut lengths = tree.all_branch_lengths();
+    let mut lengths = tree.iter().map(|n| n.blen).collect::<Vec<f64>>();
     lengths.sort_by(cmp_f64());
     assert_eq!(lengths, vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 3.0, 4.0]);
 
@@ -576,7 +574,7 @@ fn check_getting_branch_lengths() {
         "((((A:0.11,B:0.22)F:0.33,C:0.44)G:0.55,D:0.66)H:0.77,E:0.88)I:0.99;",
     ))
     .unwrap()[0];
-    let mut lengths = tree.all_branch_lengths();
+    lengths = tree.iter().map(|n| n.blen).collect();
     lengths.sort_by(cmp_f64());
     assert_eq!(
         lengths,
@@ -587,7 +585,7 @@ fn check_getting_branch_lengths() {
         "((A:1.0,B:1.0)E:1.0,(C:1.0,D:1.0)F:1.0)G:1.0;",
     ))
     .unwrap()[0];
-    let mut lengths = tree.all_branch_lengths();
+    lengths = tree.iter().map(|n| n.blen).collect();
     lengths.sort_by(cmp_f64());
     assert_eq!(
         lengths,
@@ -752,7 +750,7 @@ fn test_to_newick_complex() {
         .pop()
         .unwrap();
     assert!(tree.complete);
-    assert_eq!(tree.height, tree.all_branch_lengths().iter().sum::<f64>());
+    assert_relative_eq!(tree.height, tree.iter().map(|n| n.blen).sum());
 }
 
 #[test]
@@ -782,7 +780,7 @@ fn test_parse_huge_newick() {
     assert_eq!(tree.leaves().len(), 762);
     assert_eq!(tree.internals().len(), 761);
     assert!(tree.complete);
-    assert_eq!(tree.height, tree.all_branch_lengths().iter().sum::<f64>());
+    assert_relative_eq!(tree.height, tree.iter().map(|n| n.blen).sum());
 }
 
 #[test]

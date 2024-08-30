@@ -237,7 +237,7 @@ where
             .collect();
 
         Ok(PIPModelInfo::<SM> {
-            tree_length: info.tree.all_branch_lengths().iter().sum(),
+            tree_length: info.tree.iter().map(|n| n.blen).sum(),
             ftilde,
             ins_probs: vec![0.0; node_count],
             surv_probs: vec![0.0; node_count],
