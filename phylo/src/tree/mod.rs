@@ -241,10 +241,10 @@ impl Tree {
     }
 
     pub fn to_newick(&self) -> String {
-        format!("({});", self._to_newick(self.root))
+        format!("({});", self.to_newick_subroot(self.root))
     }
 
-    fn _to_newick(&self, node_idx: NodeIdx) -> String {
+    fn to_newick_subroot(&self, node_idx: NodeIdx) -> String {
         match node_idx {
             NodeIdx::Leaf(idx) => {
                 let node = &self.nodes[idx];
@@ -255,7 +255,7 @@ impl Tree {
                 let children_newick: Vec<String> = node
                     .children
                     .iter()
-                    .map(|&child_idx| self._to_newick(child_idx))
+                    .map(|&child_idx| self.to_newick_subroot(child_idx))
                     .collect();
                 format!("({}){}:{}", children_newick.join(","), &node.id, node.blen)
             }
