@@ -39,7 +39,7 @@ fn setup_test_tree() -> Tree {
 }
 
 #[test]
-fn idx_by_id() {
+fn try_idx_by_id() {
     let tree = from_newick_string(&String::from(
         "(((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0,D:1.0)G:2.0;",
     ))
@@ -56,10 +56,44 @@ fn idx_by_id() {
         ("G", I(0)),
     ];
     for (id, idx) in nodes.iter() {
-        assert!(tree.idx(id).is_ok());
-        assert_eq!(tree.idx(id).unwrap(), *idx);
+        assert!(tree.try_idx(id).is_ok());
+        assert_eq!(tree.try_idx(id).unwrap(), *idx);
     }
-    assert!(tree.idx("H").is_err());
+    assert!(tree.try_idx("H").is_err());
+}
+
+#[test]
+fn idx_by_id_valid() {
+    let tree = from_newick_string(&String::from(
+        "(((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0,D:1.0)G:2.0;",
+    ))
+    .unwrap()
+    .pop()
+    .unwrap();
+    let nodes = [
+        ("A", L(3)),
+        ("B", L(4)),
+        ("C", L(5)),
+        ("D", L(6)),
+        ("E", I(2)),
+        ("F", I(1)),
+        ("G", I(0)),
+    ];
+    for (id, idx) in nodes.iter() {
+        assert_eq!(tree.idx(id), *idx);
+    }
+}
+
+#[test]
+#[should_panic]
+fn idx_by_id_invalid() {
+    let tree = from_newick_string(&String::from(
+        "(((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0,D:1.0)G:2.0;",
+    ))
+    .unwrap()
+    .pop()
+    .unwrap();
+    tree.idx("H");
 }
 
 #[test]
@@ -208,10 +242,10 @@ fn nj_correct_2() {
         Record::with_attrs("D", None, b""),
     ]);
     let tree = build_nj_tree_w_rng_from_matrix(nj_distances, &sequences, |_| 0).unwrap();
-    assert_eq!(tree.blen(&tree.idx("A").unwrap()), 1.0);
-    assert_eq!(tree.blen(&tree.idx("B").unwrap()), 3.0);
-    assert_eq!(tree.blen(&tree.idx("C").unwrap()), 2.0);
-    assert_eq!(tree.blen(&tree.idx("D").unwrap()), 7.0);
+    assert_eq!(tree.blen(&tree.idx("A")), 1.0);
+    assert_eq!(tree.blen(&tree.idx("B")), 3.0);
+    assert_eq!(tree.blen(&tree.idx("C")), 2.0);
+    assert_eq!(tree.blen(&tree.idx("D")), 7.0);
     assert_eq!(tree.blen(&I(4)), 1.0);
     assert_eq!(tree.blen(&I(5)), 1.0);
     assert_eq!(tree.len(), 7);
@@ -241,11 +275,11 @@ fn nj_correct_wiki_example() {
         Record::with_attrs("e", None, b""),
     ]);
     let tree = build_nj_tree_w_rng_from_matrix(nj_distances, &sequences, |l| l - 1).unwrap();
-    assert_eq!(tree.blen(&tree.idx("a").unwrap()), 2.0);
-    assert_eq!(tree.blen(&tree.idx("b").unwrap()), 3.0);
-    assert_eq!(tree.blen(&tree.idx("c").unwrap()), 4.0);
-    assert_eq!(tree.blen(&tree.idx("d").unwrap()), 1.0);
-    assert_eq!(tree.blen(&tree.idx("e").unwrap()), 1.0);
+    assert_eq!(tree.blen(&tree.idx("a")), 2.0);
+    assert_eq!(tree.blen(&tree.idx("b")), 3.0);
+    assert_eq!(tree.blen(&tree.idx("c")), 4.0);
+    assert_eq!(tree.blen(&tree.idx("d")), 1.0);
+    assert_eq!(tree.blen(&tree.idx("e")), 1.0);
     assert_eq!(tree.blen(&I(5)), 3.0);
     assert_eq!(tree.blen(&I(6)), 2.0);
     assert_eq!(tree.blen(&I(7)), 1.0);

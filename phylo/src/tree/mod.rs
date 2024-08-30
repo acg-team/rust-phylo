@@ -315,13 +315,18 @@ impl Tree {
         lengths
     }
 
-    pub fn idx(&self, id: &str) -> Result<NodeIdx> {
+    pub fn try_idx(&self, id: &str) -> Result<NodeIdx> {
         debug_assert!(self.complete);
         let node = self.nodes.iter().find(|node| node.id == id);
         if let Some(node) = node {
             return Ok(node.idx);
         }
         bail!("No node with id {} found in the tree", id);
+    }
+
+    pub fn idx(&self, id: &str) -> NodeIdx {
+        debug_assert!(self.complete);
+        self.nodes.iter().find(|node| node.id == id).unwrap().idx
     }
 
     pub fn set_branch_length(&mut self, node_idx: &NodeIdx, blen: f64) {

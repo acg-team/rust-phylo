@@ -284,7 +284,7 @@ fn pip_hky_likelihood_example_leaf_values() {
     let iota = 0.133;
     let beta = 0.787;
 
-    let idx = &tree.idx("A").unwrap();
+    let idx = &tree.idx("A");
     model.set_leaf(tree.node(idx), info.msa.leaf_map(idx), &mut temp_values);
     assert_values(
         &temp_values,
@@ -295,7 +295,7 @@ fn pip_hky_likelihood_example_leaf_values() {
         &[0.0, 0.33, 0.0, 0.0],
         &[0.0, 0.33 * iota * beta, 0.0, 0.0],
     );
-    let idx = &tree.idx("B").unwrap();
+    let idx = &tree.idx("B");
     model.set_leaf(tree.node(idx), info.msa.leaf_map(idx), &mut temp_values);
     assert_values(
         &temp_values,
@@ -306,7 +306,7 @@ fn pip_hky_likelihood_example_leaf_values() {
         &[0.26, 0.33, 0.0, 0.0],
         &[0.26 * iota * beta, 0.33 * iota * beta, 0.0, 0.0],
     );
-    let idx = &tree.idx("C").unwrap();
+    let idx = &tree.idx("C");
     model.set_leaf(tree.node(idx), info.msa.leaf_map(idx), &mut temp_values);
     let iota = 0.067;
     let beta = 0.885;
@@ -319,7 +319,7 @@ fn pip_hky_likelihood_example_leaf_values() {
         &[0.0, 0.33, 0.0, 0.19],
         &[0.0, 0.33 * iota * beta, 0.0, 0.19 * iota * beta],
     );
-    let idx = &tree.idx("D").unwrap();
+    let idx = &tree.idx("D");
     model.set_leaf(tree.node(idx), info.msa.leaf_map(idx), &mut temp_values);
     assert_values(
         &temp_values,
@@ -349,7 +349,7 @@ fn pip_hky_likelihood_example_internals() {
     }
     let iota = 0.133;
     let beta = 0.787;
-    let idx = &tree.idx("E").unwrap();
+    let idx = &tree.idx("E");
     model.set_internal(tree.node(idx), &mut temp_values);
     assert_values(
         &temp_values,
@@ -365,7 +365,7 @@ fn pip_hky_likelihood_example_internals() {
             0.0,
         ],
     );
-    let idx = &tree.idx("F").unwrap();
+    let idx = &tree.idx("F");
     model.set_internal(tree.node(idx), &mut temp_values);
     let iota_f = 0.2;
     let beta_f = 0.704;
@@ -390,7 +390,7 @@ fn pip_hky_likelihood_example_internals() {
     let beta = 1.0;
     let iota_e = 0.133;
     let beta_e = 0.787;
-    let idx = &tree.idx("R").unwrap();
+    let idx = &tree.idx("R");
     model.set_root(tree.node(idx), &mut temp_values);
     assert_values(
         &temp_values,
@@ -447,19 +447,19 @@ fn pip_hky_likelihood_example_c0() {
     let info = setup_example_phylo_info();
     let mut tmp = PIPModelInfo::<DNASubstModel>::new(&info, &model).unwrap();
     let tree = &info.tree;
-    let idx = &tree.idx("A").unwrap();
+    let idx = &tree.idx("A");
     model.set_leaf(tree.node(idx), info.msa.leaf_map(idx), &mut tmp);
     assert_c0_values(&tmp, idx, &[0.0, 0.0, 0.0, 0.0, 1.0], 0.0, 0.028329);
-    let idx = &tree.idx("B").unwrap();
+    let idx = &tree.idx("B");
     model.set_leaf(tree.node(idx), info.msa.leaf_map(idx), &mut tmp);
     assert_c0_values(&tmp, idx, &[0.0, 0.0, 0.0, 0.0, 1.0], 0.0, 0.028329);
-    let idx = &tree.idx("C").unwrap();
+    let idx = &tree.idx("C");
     model.set_leaf(tree.node(idx), info.msa.leaf_map(idx), &mut tmp);
     assert_c0_values(&tmp, idx, &[0.0, 0.0, 0.0, 0.0, 1.0], 0.0, 0.007705);
-    let idx = &tree.idx("D").unwrap();
+    let idx = &tree.idx("D");
     model.set_leaf(tree.node(idx), info.msa.leaf_map(idx), &mut tmp);
     assert_c0_values(&tmp, idx, &[0.0, 0.0, 0.0, 0.0, 1.0], 0.0, 0.007705);
-    let idx = &tree.idx("E").unwrap();
+    let idx = &tree.idx("E");
     model.set_internal(tree.node(idx), &mut tmp);
     assert_c0_values(
         &tmp,
@@ -468,7 +468,7 @@ fn pip_hky_likelihood_example_c0() {
         0.154,
         0.044448334 + 0.028329 * 2.0,
     );
-    let idx = &tree.idx("F").unwrap();
+    let idx = &tree.idx("F");
     model.set_internal(tree.node(idx), &mut tmp);
     assert_c0_values(
         &tmp,
@@ -477,7 +477,7 @@ fn pip_hky_likelihood_example_c0() {
         0.0488,
         0.06607104 + 0.007705 * 2.0,
     );
-    let idx = &tree.idx("R").unwrap();
+    let idx = &tree.idx("R");
     model.set_root(tree.node(idx), &mut tmp);
     assert_c0_values(
         &tmp,
