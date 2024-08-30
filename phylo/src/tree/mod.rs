@@ -189,31 +189,27 @@ impl Tree {
         self.nodes[usize::from(idx)].add_parent(parent_idx);
     }
 
-    pub(crate) fn create_postorder(&mut self) {
+    pub(crate) fn compute_postorder(&mut self) {
         debug_assert!(self.complete);
-        if self.postorder.is_empty() {
-            let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
-            let mut stack = Vec::<NodeIdx>::with_capacity(self.nodes.len());
-            let mut cur_root = self.root;
-            stack.push(cur_root);
-            while !stack.is_empty() {
-                cur_root = stack.pop().unwrap();
-                order.push(cur_root);
-                if let Int(idx) = cur_root {
-                    stack.push(self.nodes[idx].children[0]);
-                    stack.push(self.nodes[idx].children[1]);
-                }
+        let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
+        let mut stack = Vec::<NodeIdx>::with_capacity(self.nodes.len());
+        let mut cur_root = self.root;
+        stack.push(cur_root);
+        while !stack.is_empty() {
+            cur_root = stack.pop().unwrap();
+            order.push(cur_root);
+            if let Int(idx) = cur_root {
+                stack.push(self.nodes[idx].children[0]);
+                stack.push(self.nodes[idx].children[1]);
             }
-            order.reverse();
-            self.postorder = order;
         }
+        order.reverse();
+        self.postorder = order;
     }
 
-    pub(crate) fn create_preorder(&mut self) {
+    pub(crate) fn compute_preorder(&mut self) {
         debug_assert!(self.complete);
-        if self.preorder.is_empty() {
-            self.preorder = self.preorder_subroot(Some(&self.root));
-        }
+        self.preorder = self.preorder_subroot(Some(&self.root));
     }
 
     pub fn preorder_subroot(&self, subroot_idx: Option<&NodeIdx>) -> Vec<NodeIdx> {
@@ -352,8 +348,8 @@ fn build_nj_tree_w_rng_from_matrix(
     }
     tree.n = n;
     tree.complete = true;
-    tree.create_postorder();
-    tree.create_preorder();
+    tree.compute_postorder();
+    tree.compute_preorder();
     tree.height = tree.nodes.iter().map(|node| node.blen).sum();
     Ok(tree)
 }

@@ -91,8 +91,8 @@ impl Tree {
         self.n = (self.nodes.len() + 1) / 2;
         debug_assert_eq!(self.nodes.len(), self.n * 2 - 1);
         self.complete = true;
-        self.create_postorder();
-        self.create_preorder();
+        self.compute_postorder();
+        self.compute_preorder();
         self.height = self.nodes.iter().map(|n| n.blen).sum();
         Ok(())
     }
@@ -138,8 +138,8 @@ impl Tree {
         self.n = (self.nodes.len() + 1) / 2;
         debug_assert_eq!(self.nodes.len(), self.n * 2 - 1);
         self.complete = true;
-        self.create_postorder();
-        self.create_preorder();
+        self.compute_postorder();
+        self.compute_preorder();
         self.height = self.nodes.iter().map(|n| n.blen).sum();
         Ok(())
     }

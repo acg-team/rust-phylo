@@ -34,8 +34,8 @@ fn setup_test_tree() -> Tree {
     tree.add_parent(8, &I(5), &I(7), 1.0, 1.0);
 
     tree.complete = true;
-    tree.create_postorder();
-    tree.create_preorder();
+    tree.compute_postorder();
+    tree.compute_preorder();
     tree
 }
 
