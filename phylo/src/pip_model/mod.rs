@@ -441,7 +441,7 @@ where
 }
 
 fn log_factorial(n: usize) -> f64 {
-    (1..n + 1).map(|i| (i as f64).ln()).sum::<f64>()
+    (1..n + 1).map(|i| (i as f64).ln()).sum()
 }
 
 #[cfg(test)]
