@@ -107,6 +107,11 @@ impl Tree {
         }
     }
 
+    fn is_subtree(&self, query: &NodeIdx, node: &NodeIdx) -> bool {
+        let order = self.preorder_subroot(Some(node));
+        order.contains(query)
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &Node> {
         self.nodes.iter()
     }
