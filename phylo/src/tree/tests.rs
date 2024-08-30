@@ -39,6 +39,17 @@ fn setup_test_tree() -> Tree {
 }
 
 #[test]
+fn single_leaf_tree_complete() {
+    let sequences = Sequences::new(vec![Record::with_attrs("A0", None, b"AAAAAA")]);
+    let tree = Tree::new(&sequences).unwrap();
+    assert!(tree.complete);
+    assert_eq!(tree.postorder.len(), 1);
+    assert_eq!(tree.preorder.len(), 1);
+    assert_eq!(tree.root, L(0));
+    assert_eq!(tree.nodes.len(), 1);
+}
+
+#[test]
 fn try_idx_by_id() {
     let tree = from_newick_string(&String::from(
         "(((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0,D:1.0)G:2.0;",

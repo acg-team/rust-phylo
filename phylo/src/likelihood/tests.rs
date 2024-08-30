@@ -69,10 +69,7 @@ fn gaps_as_ambigs() {
 #[cfg(test)]
 fn setup_phylo_info_single_leaf() -> PhyloInfo {
     let sequences = Sequences::new(vec![Record::with_attrs("A0", None, b"AAAAAA")]);
-    let mut tree = Tree::new(&sequences).unwrap();
-    tree.complete = true;
-    tree.create_postorder();
-    tree.create_preorder();
+    let tree = Tree::new(&sequences).unwrap();
     PhyloInfoBuilder::build_from_objects(sequences, tree).unwrap()
 }
 
