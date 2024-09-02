@@ -70,6 +70,12 @@ pub struct Tree {
     pub height: f64,
 }
 
+impl Display for Tree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_newick())
+    }
+}
+
 impl Tree {
     pub fn new(sequences: &Sequences) -> Result<Self> {
         let n = sequences.len();
