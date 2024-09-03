@@ -4,10 +4,11 @@ use approx::assert_relative_eq;
 use bio::io::fasta::Record;
 
 use crate::alignment::Sequences;
+use crate::evolutionary_models::ProteinModelType;
 use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::PhyloOptimiser;
 use crate::phylo_info::PhyloInfoBuilder;
-use crate::substitution_models::DNASubstModel;
+use crate::substitution_models::{DNASubstModel, ProteinSubstModel};
 use crate::tree::tree_parser::from_newick_string;
 use crate::{
     evolutionary_models::{DNAModelType::*, EvoModel},
@@ -107,4 +108,59 @@ fn simple_topology_optimisation() {
     let unopt_logl = model.cost(&info);
     let o = TopologyOptimiser::new(&model, &info).run().unwrap();
     assert!(o.final_logl >= unopt_logl);
+}
+
+#[test]
+fn protein_topology_optimisation_good_start() {
+    // let info = PhyloInfoBuilder::with_attrs(
+    //     PathBuf::from("./data/phyml_protein_nogap_example.fasta"),
+    //     PathBuf::from("./data/phyml_protein_example.newick"),
+    // )
+    // .build()
+    // .unwrap();
+    // let model = ProteinSubstModel::new(ProteinModelType::WAG, &[]).unwrap();
+    // let unopt_logl = model.cost(&info);
+    // let o = TopologyOptimiser::new(&model, &info).run().unwrap();
+    // assert!(o.final_logl >= unopt_logl);
+    // The above ran in 888.89s
+
+    // The optimisation itself takes too long, the tree checked here is the output of the above
+    let info = PhyloInfoBuilder::with_attrs(
+        PathBuf::from("./data/phyml_protein_nogap_example.fasta"),
+        PathBuf::from("./data/phyml_protein_example/phyml_result.newick"),
+    )
+    .build()
+    .unwrap();
+    let model = ProteinSubstModel::new(ProteinModelType::WAG, &[]).unwrap();
+    let logl = model.cost(&info);
+
+    // compare the tree height and logl to the output of PhyML
+    assert_relative_eq!(info.tree.height, 1.05242, epsilon = 1e-2);
+    assert_relative_eq!(logl, -4490.78548891, epsilon = 1e-3);
+}
+
+#[test]
+fn protein_topology_optimisation_nj_start() {
+    // let info = PhyloInfoBuilder::new(PathBuf::from("./data/phyml_protein_nogap_example.fasta"))
+    //     .build()
+    //     .unwrap();
+    // let model = ProteinSubstModel::new(ProteinModelType::WAG, &[]).unwrap();
+    // let unopt_logl = model.cost(&info);
+    // let o = TopologyOptimiser::new(&model, &info).run().unwrap();
+    // assert!(o.final_logl >= unopt_logl);
+    // The above ran in 493.88s
+
+    // The optimisation itself takes too long, the tree checked here is the output of the above
+    let info = PhyloInfoBuilder::with_attrs(
+        PathBuf::from("./data/phyml_protein_nogap_example.fasta"),
+        PathBuf::from("./data/phyml_protein_example/optimisation_nj_start.newick"),
+    )
+    .build()
+    .unwrap();
+    let model = ProteinSubstModel::new(ProteinModelType::WAG, &[]).unwrap();
+    let logl = model.cost(&info);
+
+    // compare the tree height and logl to the output of PhyML
+    assert_relative_eq!(info.tree.height, 1.05242, epsilon = 1e-2);
+    assert_relative_eq!(logl, -4490.78548891, epsilon = 1e0);
 }
