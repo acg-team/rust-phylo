@@ -61,17 +61,7 @@ where
         info!("Optimising {} parameters.", model.description());
         info!("Initial logl: {}.", initial_logl);
 
-        match self.freq_opt {
-            FrequencyOptimisation::Fixed => {}
-            FrequencyOptimisation::Empirical => {
-                info!("Seting stationary frequencies to empirical.");
-                model.set_freqs(self.info.freqs());
-            }
-            FrequencyOptimisation::Estimated => {
-                warn!("Stationary frequency estimation not available, falling back on empirical.");
-                model.set_freqs(self.info.freqs());
-            }
-        }
+        self.opt_frequencies(&mut model);
 
         let mut prev_logl = f64::NEG_INFINITY;
         let mut final_logl = model.cost(&self.info);
@@ -83,20 +73,10 @@ where
             debug!("Iteration: {}", iterations);
             prev_logl = final_logl;
             for (param_name, param_set) in param_sets.iter() {
-                let optimiser = ParamOptimiser {
-                    model: &model,
-                    info: &self.info,
-                    parameter: param_set,
-                };
-                let gss = BrentOpt::new(1e-10, 100.0);
-                let res = Executor::new(optimiser, gss)
-                    .configure(|_| IterState::new().param(model.param(param_set.first().unwrap())))
-                    .run()?;
-                let logl = -res.state().best_cost;
+                let (value, logl) = self.opt_parameter(&model, param_set)?;
                 if logl < final_logl {
                     continue;
                 }
-                let value = res.state().best_param.unwrap();
                 for param_id in param_set {
                     model.set_param(param_id, value);
                 }
@@ -118,5 +98,39 @@ where
             final_logl,
             iterations,
         })
+    }
+}
+
+impl<'a, EM: EvoModel + PhyloCostFunction + Clone + Display> ModelOptimiser<'a, EM> {
+    fn opt_frequencies(&self, model: &mut EM) {
+        match self.freq_opt {
+            FrequencyOptimisation::Fixed => {}
+            FrequencyOptimisation::Empirical => {
+                info!("Seting stationary frequencies to empirical.");
+                model.set_freqs(self.info.freqs());
+            }
+            FrequencyOptimisation::Estimated => {
+                warn!("Stationary frequency estimation not available, falling back on empirical.");
+                model.set_freqs(self.info.freqs());
+            }
+        }
+    }
+
+    fn opt_parameter(
+        &self,
+        model: &EM,
+        param_set: &Vec<<EM as EvoModel>::Parameter>,
+    ) -> Result<(f64, f64)> {
+        let optimiser = ParamOptimiser {
+            model,
+            info: &self.info,
+            parameter: param_set,
+        };
+        let gss = BrentOpt::new(1e-10, 100.0);
+        let res = Executor::new(optimiser, gss)
+            .configure(|_| IterState::new().param(model.param(param_set.first().unwrap())))
+            .run()?;
+        let logl = -res.state().best_cost;
+        Ok((res.state().best_param.unwrap(), logl))
     }
 }
