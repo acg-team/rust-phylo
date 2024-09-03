@@ -378,22 +378,22 @@ fn optimisation_pip_gtr() {
     assert_relative_eq!(subst_params.rag, 1.00000, epsilon = 1e-4);
 }
 
-// #[test]
-// fn protein_example_pip_opt() {
-//     let info = &PhyloInfoBuilder::with_attrs(
-//         PathBuf::from("./data/phyml_protein_nogap_example.fasta"),
-//         PathBuf::from("./data/phyml_protein_example.newick"),
-//     )
-//     .build()
-//     .unwrap();
-//     let pip = PIPModel::<ProteinSubstModel>::new(WAG, &[2.0, 0.1]).unwrap();
-//     let initial_logl = pip.cost(info);
-//     let o = ModelOptimiser::new(&pip, info, FrequencyOptimisation::Empirical)
-//         .run()
-//         .unwrap();
-//     assert!(o.final_logl > initial_logl);
-//     assert_relative_eq!(o.initial_logl, initial_logl);
-//     assert_ne!(o.model.params.lambda, 2.0);
-//     assert_ne!(o.model.params.mu, 0.1);
-//     assert_eq!(o.model.cost(info), o.final_logl);
-// }
+#[test]
+fn protein_example_pip_opt() {
+    let info = &PhyloInfoBuilder::with_attrs(
+        PathBuf::from("./data/phyml_protein_example/nogap_seqs.fasta"),
+        PathBuf::from("./data/phyml_protein_example/tree.newick"),
+    )
+    .build()
+    .unwrap();
+    let pip = PIPModel::<ProteinSubstModel>::new(WAG, &[2.0, 0.1]).unwrap();
+    let initial_logl = pip.cost(info);
+    let o = ModelOptimiser::new(&pip, info, FrequencyOptimisation::Empirical)
+        .run()
+        .unwrap();
+    assert!(o.final_logl > initial_logl);
+    assert_relative_eq!(o.initial_logl, initial_logl);
+    assert_ne!(o.model.params.lambda, 2.0);
+    assert_ne!(o.model.params.mu, 0.1);
+    assert_eq!(o.model.cost(info), o.final_logl);
+}

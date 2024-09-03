@@ -113,8 +113,8 @@ fn simple_topology_optimisation() {
 #[test]
 fn protein_topology_optimisation_good_start() {
     // let info = PhyloInfoBuilder::with_attrs(
-    //     PathBuf::from("./data/phyml_protein_nogap_example.fasta"),
-    //     PathBuf::from("./data/phyml_protein_example.newick"),
+    //     PathBuf::from("./data/phyml_protein_example/nogap_seqs.fasta"),
+    //     PathBuf::from("./data/phyml_protein_example/tree.newick"),
     // )
     // .build()
     // .unwrap();
@@ -126,7 +126,7 @@ fn protein_topology_optimisation_good_start() {
 
     // The optimisation itself takes too long, the tree checked here is the output of the above
     let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/phyml_protein_nogap_example.fasta"),
+        PathBuf::from("./data/phyml_protein_example/nogap_seqs.fasta"),
         PathBuf::from("./data/phyml_protein_example/phyml_result.newick"),
     )
     .build()
@@ -141,7 +141,7 @@ fn protein_topology_optimisation_good_start() {
 
 #[test]
 fn protein_topology_optimisation_nj_start() {
-    // let info = PhyloInfoBuilder::new(PathBuf::from("./data/phyml_protein_nogap_example.fasta"))
+    // let info = PhyloInfoBuilder::new(PathBuf::from("./data/phyml_protein_example/nogap_seqs.fasta"))
     //     .build()
     //     .unwrap();
     // let model = ProteinSubstModel::new(ProteinModelType::WAG, &[]).unwrap();
@@ -152,7 +152,7 @@ fn protein_topology_optimisation_nj_start() {
 
     // The optimisation itself takes too long, the tree checked here is the output of the above
     let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/phyml_protein_nogap_example.fasta"),
+        PathBuf::from("./data/phyml_protein_example/nogap_seqs.fasta"),
         PathBuf::from("./data/phyml_protein_example/optimisation_nj_start.newick"),
     )
     .build()
