@@ -121,6 +121,7 @@ pub fn write_sequences_to_file(sequences: &[Record], path: &PathBuf) -> Result<(
 }
 
 /// Reads newick trees from a file, returning a vector of trees.
+///
 /// Will read both rooted and unrooted trees, but unrooted trees will be converted to rooted
 /// using zero length branches at the trifurcation.
 /// For example, the unrooted tree "((A:1,B:2):1,(D:1,E:2):1,C:4);" will be converted to the rooted
