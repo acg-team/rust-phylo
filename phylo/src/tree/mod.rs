@@ -66,6 +66,7 @@ pub struct Tree {
     pub(crate) nodes: Vec<Node>,
     postorder: Vec<NodeIdx>,
     preorder: Vec<NodeIdx>,
+    leaf_ids: Vec<String>,
     pub complete: bool,
     pub n: usize,
     pub height: f64,
@@ -97,6 +98,7 @@ impl Tree {
                 complete: true,
                 n: 1,
                 height: 0.0,
+                leaf_ids: vec![sequences.record(0).id().to_string()],
             })
         } else {
             Ok(Self {
@@ -110,6 +112,7 @@ impl Tree {
                 complete: false,
                 n,
                 height: 0.0,
+                leaf_ids: sequences.iter().map(|seq| seq.id().to_string()).collect(),
             })
         }
     }
@@ -385,7 +388,7 @@ impl Tree {
 
     pub fn leaf_ids(&self) -> Vec<String> {
         debug_assert!(self.complete);
-        self.leaves().iter().map(|node| node.id.clone()).collect()
+        self.leaf_ids.clone()
     }
 
     pub fn try_idx(&self, id: &str) -> Result<NodeIdx> {
