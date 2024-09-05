@@ -1011,3 +1011,55 @@ fn partitions() {
         assert!(correct_parts.contains(split));
     }
 }
+
+#[test]
+fn rf_distance_web_example() {
+    // Examples from https://cs.hmc.edu/~hadas/mitcompbio/treedistance.html
+    let tree1 = from_newick_string("(0, (1, (2, (3, 4))));").unwrap()[0].clone();
+    let tree2 = from_newick_string("(0, (1, (3, (2, 4))));").unwrap()[0].clone();
+    assert_eq!(tree1.robinson_foulds(&tree2), 2);
+
+    let tree1 = from_newick_string("(0, ((1, (2, 3)), (7, (6, (4, 5)))));").unwrap()[0].clone();
+    let tree2 = from_newick_string("(0, ((2, (1, 3)), (6, (4, (5, 7)))));").unwrap()[0].clone();
+    assert_eq!(tree1.robinson_foulds(&tree2), 6);
+}
+
+#[test]
+fn rf_distance_simple() {
+    let tree1 = from_newick_string("(A, (B, (C, (D, E))));").unwrap()[0].clone();
+    let tree2 = from_newick_string("(C, (D, (E, (B, A))));").unwrap()[0].clone();
+    assert_eq!(tree1.robinson_foulds(&tree2), 2);
+}
+
+#[test]
+fn rf_distance_to_itself() {
+    let tree = from_newick_string("(A, (B, (C, (D, E))));")
+        .unwrap()
+        .pop()
+        .unwrap();
+    assert_eq!(tree.robinson_foulds(&tree), 0);
+}
+
+#[test]
+fn rf_distance_against_raxml() {
+    let folder = PathBuf::from("./data/phyml_protein_example");
+    let tree_orig =
+        read_newick_from_file(&folder.join(PathBuf::from("tree.newick"))).unwrap()[0].clone();
+    let tree_phyml = read_newick_from_file(&folder.join(PathBuf::from("phyml_result.newick")))
+        .unwrap()[0]
+        .clone();
+    let tree_opt_1 =
+        read_newick_from_file(&folder.join(PathBuf::from("optimisation_good_start.newick")))
+            .unwrap()[0]
+            .clone();
+    let tree_opt_2 =
+        read_newick_from_file(&folder.join(PathBuf::from("optimisation_nj_start.newick"))).unwrap()
+            [0]
+        .clone();
+    assert_eq!(tree_orig.robinson_foulds(&tree_phyml), 4);
+    assert_eq!(tree_orig.robinson_foulds(&tree_opt_1), 6);
+    assert_eq!(tree_orig.robinson_foulds(&tree_opt_2), 6);
+    assert_eq!(tree_phyml.robinson_foulds(&tree_opt_1), 2);
+    assert_eq!(tree_phyml.robinson_foulds(&tree_opt_2), 2);
+    assert_eq!(tree_opt_1.robinson_foulds(&tree_opt_2), 0);
+}

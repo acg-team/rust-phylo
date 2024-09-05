@@ -114,6 +114,23 @@ impl Tree {
         }
     }
 
+    pub fn robinson_foulds(&self, other: &Tree) -> usize {
+        let mut dist = 0;
+        let parts = self.partitions();
+        let other_parts = other.partitions();
+        for part in parts.iter() {
+            if !other_parts.contains(part) {
+                dist += 1;
+            }
+        }
+        for other_part in other_parts.iter() {
+            if !parts.contains(other_part) {
+                dist += 1;
+            }
+        }
+        dist / 2
+    }
+
     pub fn partitions(&self) -> HashSet<Vec<String>> {
         let mut partitions = HashSet::new();
         let all_leaves: Vec<String> = self
