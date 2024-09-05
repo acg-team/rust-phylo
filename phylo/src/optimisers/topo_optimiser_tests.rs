@@ -8,6 +8,7 @@ use crate::evolutionary_models::ProteinModelType;
 use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::PhyloOptimiser;
 use crate::phylo_info::PhyloInfoBuilder;
+use crate::pip_model::PIPModel;
 use crate::substitution_models::{DNASubstModel, ProteinSubstModel};
 use crate::tree::tree_parser::from_newick_string;
 use crate::{
@@ -163,4 +164,23 @@ fn protein_topology_optimisation_nj_start() {
     // compare the tree height and logl to the output of PhyML
     assert_relative_eq!(info.tree.height, 1.05242, epsilon = 1e-2);
     assert_relative_eq!(logl, -4490.78548891, epsilon = 1e0);
+}
+
+#[test]
+fn pip_vs_subst_dna_tree() {
+    let info = &PhyloInfoBuilder::new(PathBuf::from("./data/sim/K80/K80.fasta"))
+        .build()
+        .unwrap();
+    let pip = PIPModel::<DNASubstModel>::new(K80, &[4.0, 1.0]).unwrap();
+    let initial_logl = pip.cost(info);
+    let o_pip = TopologyOptimiser::new(&pip, info).run().unwrap();
+    assert!(o_pip.final_logl > initial_logl);
+    assert_relative_eq!(o_pip.initial_logl, initial_logl);
+
+    let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
+    let initial_logl = model.cost(info);
+    let o_k80 = TopologyOptimiser::new(&model, info).run().unwrap();
+    assert!(o_k80.final_logl > initial_logl);
+    assert_relative_eq!(o_k80.initial_logl, initial_logl);
+    assert_eq!(o_pip.i.tree.robinson_foulds(&o_k80.i.tree), 0);
 }
