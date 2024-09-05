@@ -123,22 +123,13 @@ impl Tree {
                 dist += 1;
             }
         }
-        for other_part in other_parts.iter() {
-            if !parts.contains(other_part) {
-                dist += 1;
-            }
-        }
-        dist / 2
+        dist
     }
 
-    pub fn partitions(&self) -> HashSet<Vec<String>> {
-        let mut partitions = HashSet::new();
-        let all_leaves: Vec<String> = self
-            .preorder
-            .iter()
-            .filter(|idx| matches!(idx, Leaf(_)))
-            .map(|idx| self.node_id(idx).to_string())
-            .collect();
+    pub fn partitions(&self) -> Vec<HashSet<String>> {
+        let mut partitions = Vec::new();
+        let all_leaves: HashSet<String> =
+            self.leaves().iter().map(|node| node.id.clone()).collect();
         // skip root because it is a trivial partition, only generate partitions for internal nodes
         for node in self
             .preorder
@@ -146,21 +137,18 @@ impl Tree {
             .skip(1)
             .filter(|idx| matches!(idx, Int(_)))
         {
-            let mut partition: Vec<String> = self
+            let partition = self
                 .preorder_subroot(node)
                 .iter()
                 .filter(|idx| matches!(idx, Leaf(_)))
                 .map(|idx| self.node_id(idx).to_string())
                 .collect();
-            let mut other_partition: Vec<String> = all_leaves.clone();
-            other_partition.retain(|id| !partition.contains(id));
-            if other_partition.len() == 1 || partition.len() == 1 {
+            let other: HashSet<String> = all_leaves.difference(&partition).cloned().collect();
+            if other.len() == 1 || partition.len() == 1 {
                 continue;
             }
-            partition.sort();
-            other_partition.sort();
-            partitions.insert(partition.clone());
-            partitions.insert(other_partition.clone());
+            partitions.push(partition.clone());
+            partitions.push(other.clone());
         }
         partitions
     }
