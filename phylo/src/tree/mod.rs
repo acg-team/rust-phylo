@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fmt::{Debug, Display};
 
 use anyhow::bail;
@@ -111,6 +112,40 @@ impl Tree {
                 height: 0.0,
             })
         }
+    }
+
+    pub fn partitions(&self) -> HashSet<Vec<String>> {
+        let mut partitions = HashSet::new();
+        let all_leaves: Vec<String> = self
+            .preorder
+            .iter()
+            .filter(|idx| matches!(idx, Leaf(_)))
+            .map(|idx| self.node_id(idx).to_string())
+            .collect();
+        // skip root because it is a trivial partition, only generate partitions for internal nodes
+        for node in self
+            .preorder
+            .iter()
+            .skip(1)
+            .filter(|idx| matches!(idx, Int(_)))
+        {
+            let mut partition: Vec<String> = self
+                .preorder_subroot(node)
+                .iter()
+                .filter(|idx| matches!(idx, Leaf(_)))
+                .map(|idx| self.node_id(idx).to_string())
+                .collect();
+            let mut other_partition: Vec<String> = all_leaves.clone();
+            other_partition.retain(|id| !partition.contains(id));
+            if other_partition.len() == 1 || partition.len() == 1 {
+                continue;
+            }
+            partition.sort();
+            other_partition.sort();
+            partitions.insert(partition.clone());
+            partitions.insert(other_partition.clone());
+        }
+        partitions
     }
 
     fn is_subtree(&self, query: &NodeIdx, node: &NodeIdx) -> bool {

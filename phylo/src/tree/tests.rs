@@ -1,4 +1,4 @@
-use std::fs::{self};
+use std::fs;
 use std::iter::repeat;
 use std::path::PathBuf;
 
@@ -9,6 +9,7 @@ use pest::error::ErrorVariant;
 use rand::Rng;
 
 use crate::alignment::Sequences;
+use crate::io::read_newick_from_file;
 use crate::tree::nj_matrices::NJMat;
 use crate::tree::tree_parser::{self, from_newick_string, ParsingError, Rule};
 use crate::tree::{
@@ -955,4 +956,58 @@ fn spr_broken() {
     assert_eq!(ne.parent, Some(tree.idx("F")));
     assert_eq!(new_tree.len(), tree.len());
     assert_relative_eq!(new_tree.height, tree.height);
+}
+
+#[test]
+fn partitions_simple() {
+    let tree = tree_parser::from_newick_string(
+        "((ant:17,(bat:31, cow:22)batcow:7)antbatcow:10,(elk:33,fox:12)elkfox:40)root:0;",
+    )
+    .unwrap()
+    .pop()
+    .unwrap();
+    let internal_ids: Vec<String> = ["root", "antbatcow", "batcow", "elkfox"]
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect();
+    let correct_parts = [
+        ["bat", "cow"].into_iter().map(&str::to_string).collect(),
+        ["ant", "bat", "cow"]
+            .into_iter()
+            .map(&str::to_string)
+            .collect(),
+        ["ant", "elk", "fox"]
+            .into_iter()
+            .map(&str::to_string)
+            .collect(),
+        ["elk", "fox"].into_iter().map(&str::to_string).collect(),
+    ];
+    let partitions = tree.partitions();
+    for split in partitions.iter() {
+        assert!(split.len() > 1);
+        assert!(split.len() < 4);
+        for id in internal_ids.iter() {
+            assert!(!split.contains(id));
+        }
+        assert!(correct_parts.contains(split));
+    }
+}
+
+#[test]
+fn partitions() {
+    let newick = "((((A:1.0,B:1.0):5.1,(C:3.0,D:4.0):6.2):7.3,H:1.0):1.0);";
+    let tree = from_newick_string(newick).unwrap().pop().unwrap();
+    let partitions = tree.partitions();
+    let correct_parts = [
+        ["A", "B"].into_iter().map(&str::to_string).collect(),
+        ["C", "D"].into_iter().map(&str::to_string).collect(),
+        ["A", "B", "H"].into_iter().map(&str::to_string).collect(),
+        ["C", "D", "H"].into_iter().map(&str::to_string).collect(),
+    ];
+    assert_eq!(partitions.len(), 4);
+    for split in partitions.iter() {
+        assert!(split.len() > 1);
+        assert!(split.len() < 4);
+        assert!(correct_parts.contains(split));
+    }
 }
