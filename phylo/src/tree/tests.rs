@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs;
 use std::iter::repeat;
 use std::path::PathBuf;
@@ -960,32 +961,24 @@ fn spr_broken() {
 
 #[test]
 fn partitions_simple() {
-    let tree = tree_parser::from_newick_string(
-        "((ant:17,(bat:31, cow:22)batcow:7)antbatcow:10,(elk:33,fox:12)elkfox:40)root:0;",
-    )
-    .unwrap()
-    .pop()
-    .unwrap();
+    let newick = "((ant:17,(bat:31, cow:22)batcow:7)antbatcow:10,(elk:33,fox:12)elkfox:40)root:0;";
+    let tree = from_newick_string(newick).unwrap()[0].clone();
     let internal_ids: Vec<String> = ["root", "antbatcow", "batcow", "elkfox"]
         .into_iter()
         .map(|s| s.to_string())
         .collect();
-    let correct_parts = [
-        ["bat", "cow"].into_iter().map(&str::to_string).collect(),
-        ["ant", "bat", "cow"]
-            .into_iter()
-            .map(&str::to_string)
-            .collect(),
-        ["ant", "elk", "fox"]
-            .into_iter()
-            .map(&str::to_string)
-            .collect(),
-        ["elk", "fox"].into_iter().map(&str::to_string).collect(),
-    ];
+    let correct_parts: Vec<HashSet<String>> = [
+        vec!["bat", "cow"],
+        vec!["ant", "bat", "cow"],
+        vec!["ant", "elk", "fox"],
+        vec!["elk", "fox"],
+    ]
+    .into_iter()
+    .map(|set| set.into_iter().map(&str::to_string).collect())
+    .collect();
+
     let partitions = tree.partitions();
-    for split in partitions.iter() {
-        assert!(split.len() > 1);
-        assert!(split.len() < 4);
+    for split in partitions.iter().filter(|p| p.len() > 1 && p.len() < 4) {
         for id in internal_ids.iter() {
             assert!(!split.contains(id));
         }
@@ -996,18 +989,20 @@ fn partitions_simple() {
 #[test]
 fn partitions() {
     let newick = "((((A:1.0,B:1.0):5.1,(C:3.0,D:4.0):6.2):7.3,H:1.0):1.0);";
-    let tree = from_newick_string(newick).unwrap().pop().unwrap();
+    let tree = from_newick_string(newick).unwrap()[0].clone();
+    let correct_parts: Vec<HashSet<String>> = [
+        vec!["A", "B"],
+        vec!["C", "D"],
+        vec!["A", "B", "H"],
+        vec!["C", "D", "H"],
+    ]
+    .into_iter()
+    .map(|set| set.into_iter().map(&str::to_string).collect())
+    .collect();
+
     let partitions = tree.partitions();
-    let correct_parts = [
-        ["A", "B"].into_iter().map(&str::to_string).collect(),
-        ["C", "D"].into_iter().map(&str::to_string).collect(),
-        ["A", "B", "H"].into_iter().map(&str::to_string).collect(),
-        ["C", "D", "H"].into_iter().map(&str::to_string).collect(),
-    ];
-    assert_eq!(partitions.len(), 4);
-    for split in partitions.iter() {
-        assert!(split.len() > 1);
-        assert!(split.len() < 4);
+    assert_eq!(partitions.len(), 14);
+    for split in partitions.iter().filter(|p| p.len() > 1 && p.len() < 4) {
         assert!(correct_parts.contains(split));
     }
 }
@@ -1032,11 +1027,30 @@ fn rf_distance_simple() {
 }
 
 #[test]
+fn rf_distance_zero_diff_taxa() {
+    let tree1 = from_newick_string("(A, (B, (C, (D, E))));").unwrap()[0].clone();
+    let tree2 = from_newick_string("(A, (B, (C, (F, G))));").unwrap()[0].clone();
+    assert_eq!(tree1.robinson_foulds(&tree2), 0);
+}
+
+#[test]
+fn rf_distance_different_sizes() {
+    let tree1 = from_newick_string("(A, (B, (C, (D, E))));").unwrap()[0].clone();
+    let tree2 =
+        from_newick_string("((A, (B, (C, (D, E)))),(F, (G, (H, (I, J)))));").unwrap()[0].clone();
+    assert!(tree1.robinson_foulds(&tree2) == 0);
+}
+
+#[test]
+fn rf_distance_non_zero_diff_taxa() {
+    let tree1 = from_newick_string("(((a,b),c), ((e, f), g));").unwrap()[0].clone();
+    let tree2 = from_newick_string("(((a,c),b), (g, H));").unwrap()[0].clone();
+    assert_eq!(tree1.robinson_foulds(&tree2), 2);
+}
+
+#[test]
 fn rf_distance_to_itself() {
-    let tree = from_newick_string("(A, (B, (C, (D, E))));")
-        .unwrap()
-        .pop()
-        .unwrap();
+    let tree = from_newick_string("(A, (B, (C, (D, E))));").unwrap()[0].clone();
     assert_eq!(tree.robinson_foulds(&tree), 0);
 }
 

@@ -119,8 +119,9 @@ impl Tree {
 
     pub fn robinson_foulds(&self, other: &Tree) -> usize {
         let mut dist = 0;
-        let parts = self.partitions();
-        let other_parts = other.partitions();
+        let common_leaves = self.common_leaf_set(other);
+        let parts = self.filtered_partitions(&common_leaves);
+        let other_parts: Vec<HashSet<String>> = other.filtered_partitions(&common_leaves);
         for part in parts.iter() {
             if !other_parts.contains(part) {
                 dist += 1;
@@ -129,17 +130,27 @@ impl Tree {
         dist
     }
 
+    fn filtered_partitions(&self, common_leaves: &HashSet<String>) -> Vec<HashSet<String>> {
+        self.partitions()
+            .iter()
+            .map(|set| set.intersection(common_leaves).cloned().collect())
+            .filter(|set: &HashSet<String>| !set.is_empty())
+            .collect()
+    }
+
+    fn common_leaf_set(&self, other: &Tree) -> HashSet<String> {
+        HashSet::<String>::from_iter(self.leaf_ids())
+            .intersection(&HashSet::from_iter(other.leaf_ids()))
+            .cloned()
+            .collect()
+    }
+
     pub fn partitions(&self) -> Vec<HashSet<String>> {
         let mut partitions = Vec::new();
         let all_leaves: HashSet<String> =
             self.leaves().iter().map(|node| node.id.clone()).collect();
-        // skip root because it is a trivial partition, only generate partitions for internal nodes
-        for node in self
-            .preorder
-            .iter()
-            .skip(1)
-            .filter(|idx| matches!(idx, Int(_)))
-        {
+        // skip root because it is a trivial partition
+        for node in self.preorder.iter().skip(1) {
             let partition = self
                 .preorder_subroot(node)
                 .iter()
@@ -147,7 +158,7 @@ impl Tree {
                 .map(|idx| self.node_id(idx).to_string())
                 .collect();
             let other: HashSet<String> = all_leaves.difference(&partition).cloned().collect();
-            if other.len() == 1 || partition.len() == 1 {
+            if partitions.contains(&partition) {
                 continue;
             }
             partitions.push(partition.clone());
