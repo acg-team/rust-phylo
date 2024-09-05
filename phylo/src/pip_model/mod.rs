@@ -86,22 +86,11 @@ where
         &self.index
     }
 
-    fn parameter_definition(&self) -> Vec<(&'static str, Vec<PIPParameter>)> {
-        SubstitutionModel::parameter_definition(&self.params.subst_model)
+    fn model_parameters(&self) -> Vec<PIPParameter> {
+        SubstitutionModel::model_parameters(&self.params.subst_model)
             .into_iter()
-            .map(|(name, param)| {
-                (
-                    name,
-                    param
-                        .into_iter()
-                        .map(|param| param.into())
-                        .collect::<Vec<PIPParameter>>(),
-                )
-            })
-            .chain([
-                ("mu", vec![PIPParameter::Mu]),
-                ("lambda", vec![PIPParameter::Lambda]),
-            ])
+            .map(|param| param.into())
+            .chain(vec![PIPParameter::Mu, PIPParameter::Lambda])
             .collect()
     }
 

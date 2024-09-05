@@ -13,7 +13,7 @@ use crate::Result;
 pub(crate) struct ParamOptimiser<'a, EM: EvoModel + PhyloCostFunction> {
     pub(crate) model: &'a EM,
     pub(crate) info: &'a PhyloInfo,
-    pub(crate) parameter: &'a [EM::Parameter],
+    pub(crate) parameter: &'a EM::Parameter,
 }
 
 impl<'a, EM: EvoModel + PhyloCostFunction + Clone> CostFunction for ParamOptimiser<'a, EM> {
@@ -22,9 +22,7 @@ impl<'a, EM: EvoModel + PhyloCostFunction + Clone> CostFunction for ParamOptimis
 
     fn cost(&self, value: &f64) -> Result<f64> {
         let mut model = self.model.clone();
-        for param_name in self.parameter {
-            model.set_param(param_name, *value);
-        }
+        model.set_param(self.parameter, *value);
         Ok(-model.cost(self.info))
     }
 
@@ -67,26 +65,24 @@ where
         let mut final_logl = model.cost(&self.info);
         let mut iterations = 0;
 
-        let param_sets = model.parameter_definition();
+        let parameters = model.model_parameters();
         while (prev_logl - final_logl).abs() > self.epsilon {
             iterations += 1;
             debug!("Iteration: {}", iterations);
             prev_logl = final_logl;
-            for (param_name, param_set) in param_sets.iter() {
-                let (value, logl) = self.opt_parameter(&model, param_set)?;
+            for param_name in parameters.iter() {
+                let (value, logl) = self.opt_parameter(&model, param_name)?;
                 if logl < final_logl {
                     continue;
                 }
-                for param_id in param_set {
-                    model.set_param(param_id, value);
-                }
+                model.set_param(param_name, value);
                 final_logl = logl;
                 debug!(
                     "Optimised parameter {:?} to value {} with logl {}",
                     param_name, value, final_logl
                 );
-                debug!("New parameters: {}\n", model);
             }
+            debug!("New parameters: {}\n", model);
         }
         info!(
             "Final logl: {}, achieved in {} iteration(s).",
@@ -119,16 +115,16 @@ impl<'a, EM: EvoModel + PhyloCostFunction + Clone + Display> ModelOptimiser<'a, 
     fn opt_parameter(
         &self,
         model: &EM,
-        param_set: &Vec<<EM as EvoModel>::Parameter>,
+        parameter: &<EM as EvoModel>::Parameter,
     ) -> Result<(f64, f64)> {
         let optimiser = ParamOptimiser {
             model,
             info: &self.info,
-            parameter: param_set,
+            parameter,
         };
         let gss = BrentOpt::new(1e-10, 100.0);
         let res = Executor::new(optimiser, gss)
-            .configure(|_| IterState::new().param(model.param(param_set.first().unwrap())))
+            .configure(|_| IterState::new().param(model.param(parameter)))
             .run()?;
         let logl = -res.state().best_cost;
         Ok((res.state().best_param.unwrap(), logl))

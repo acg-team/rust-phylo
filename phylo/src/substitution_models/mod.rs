@@ -61,7 +61,7 @@ where
         self.q()[(self.index()[i as usize], self.index()[j as usize])]
     }
 
-    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)>;
+    fn model_parameters(&self) -> Vec<Self::Parameter>;
 
     fn param(&self, param_name: &Self::Parameter) -> f64;
 
@@ -171,8 +171,8 @@ where
         SubstitutionModel::rate(self, i, j)
     }
 
-    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)> {
-        SubstitutionModel::parameter_definition(self)
+    fn model_parameters(&self) -> Vec<Self::Parameter> {
+        SubstitutionModel::model_parameters(self)
     }
 
     fn param(&self, param_name: &Self::Parameter) -> f64 {

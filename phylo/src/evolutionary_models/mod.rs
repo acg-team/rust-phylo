@@ -106,7 +106,7 @@ pub trait EvoModel {
     fn p(&self, time: f64) -> SubstMatrix;
     fn q(&self) -> &SubstMatrix;
     fn rate(&self, i: u8, j: u8) -> f64;
-    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)>;
+    fn model_parameters(&self) -> Vec<Self::Parameter>;
     fn param(&self, param_name: &Self::Parameter) -> f64;
     fn set_param(&mut self, param_name: &Self::Parameter, value: f64);
     fn freqs(&self) -> &FreqVector;

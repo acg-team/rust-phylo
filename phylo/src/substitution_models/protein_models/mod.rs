@@ -50,7 +50,7 @@ impl SubstitutionModel for ProteinSubstModel {
         &self.q
     }
 
-    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)> {
+    fn model_parameters(&self) -> Vec<Self::Parameter> {
         vec![]
     }
 

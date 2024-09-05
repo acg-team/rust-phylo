@@ -55,7 +55,6 @@ impl From<DNAParameter> for PIPParameter {
             Rca => PIPParameter::Rca,
             Rcg => PIPParameter::Rcg,
             Rag => PIPParameter::Rag,
-            _ => unreachable!(),
         }
     }
 }
