@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use log::{info, warn};
 
 use crate::alphabets::NUCLEOTIDE_INDEX;
@@ -52,6 +54,9 @@ impl SubstitutionModel for DNASubstModel {
             }
         };
         self.q = q;
+        if !self.tmp.borrow().empty {
+            self.tmp.borrow_mut().node_models_valid.fill(false);
+        }
     }
 
     fn normalise(&mut self) {
@@ -115,6 +120,7 @@ impl DNASubstModel {
         DNASubstModel {
             params: params.clone(),
             q,
+            tmp: RefCell::new(DNASubstModelInfo::empty()),
         }
     }
 }

@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::marker::PhantomData;
@@ -8,9 +9,10 @@ use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::PhyloCostFunction;
+use crate::tree::NodeIdx;
 use crate::tree::{
-    Node,
     NodeIdx::{Internal, Leaf},
+    Tree,
 };
 use crate::{f64_h, phylo_info::PhyloInfo, Result, Rounding};
 
@@ -125,12 +127,19 @@ pub trait ParsimonyModel {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SubstModel<Params> {
+pub struct SubstModel<Params>
+where
+    SubstModel<Params>: SubstitutionModel,
+{
     pub(crate) params: Params,
     pub(crate) q: SubstMatrix,
+    tmp: RefCell<SubstModelInfo<SubstModel<Params>>>,
 }
 
-impl<Params: Display> Display for SubstModel<Params> {
+impl<Params: Display> Display for SubstModel<Params>
+where
+    SubstModel<Params>: SubstitutionModel,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.params)
     }
@@ -219,7 +228,7 @@ where
     SubstModel<Params>: SubstitutionModel,
 {
     fn cost(&self, info: &PhyloInfo) -> f64 {
-        self.logl(info).0
+        self.logl(info)
     }
 }
 
@@ -232,73 +241,82 @@ where
         self.q /= factor;
     }
 
-    fn logl(&self, info: &PhyloInfo) -> (f64, SubstModelInfo<SubstModel<Params>>) {
-        let mut tmp_info = SubstModelInfo::<SubstModel<Params>>::new(info, self).unwrap();
-        let logl = self.logl_with_tmp(info, &mut tmp_info);
-        (logl, tmp_info)
-    }
-
-    fn logl_with_tmp(
-        &self,
-        info: &PhyloInfo,
-        tmp_values: &mut SubstModelInfo<SubstModel<Params>>,
-    ) -> f64 {
-        debug_assert_eq!(info.tree.len(), tmp_values.node_info.len());
+    fn logl(&self, info: &PhyloInfo) -> f64 {
+        if self.tmp.borrow().node_info.is_empty() {
+            self.tmp
+                .replace(SubstModelInfo::<SubstModel<Params>>::new(info, self).unwrap());
+        }
         for node_idx in info.tree.postorder() {
             match node_idx {
                 Internal(_) => {
-                    self.set_internal(info.tree.node(node_idx), tmp_values);
+                    self.set_internal(&info.tree, node_idx);
                 }
                 Leaf(_) => {
-                    self.set_leaf(info.tree.node(node_idx), tmp_values);
+                    self.set_leaf(&info.tree, node_idx);
                 }
             };
         }
+        let tmp_values = self.tmp.borrow();
+        debug_assert_eq!(info.tree.len(), tmp_values.node_info.len());
         let root_info = &tmp_values.node_info[usize::from(&info.tree.root)];
         let likelihood = SubstitutionModel::freqs(self).transpose().mul(root_info);
         debug_assert_eq!(likelihood.ncols(), info.msa_length());
         debug_assert_eq!(likelihood.nrows(), 1);
+        drop(tmp_values);
         likelihood.map(|x| x.ln()).sum()
     }
 
-    fn set_internal(&self, node: &Node, tmp_values: &mut SubstModelInfo<SubstModel<Params>>) {
-        let idx = usize::from(node.idx);
+    fn set_internal(&self, tree: &Tree, node_idx: &NodeIdx) {
+        let node = tree.node(node_idx);
+        let childx_info = self.tmp.borrow().node_info[usize::from(&node.children[0])].clone();
+        let childy_info = self.tmp.borrow().node_info[usize::from(&node.children[1])].clone();
+
+        let idx = usize::from(node_idx);
+
+        let mut tmp_values = self.tmp.borrow_mut();
+        if tree.dirty[idx] || !tmp_values.node_models_valid[idx] {
+            tmp_values.node_models[idx] = SubstitutionModel::p(self, node.blen);
+            tmp_values.node_models_valid[idx] = true;
+            tmp_values.node_info_valid[idx] = false;
+        }
         if tmp_values.node_info_valid[idx] {
             return;
         }
-        if !tmp_values.node_models_valid[idx] {
-            tmp_values.node_models[idx] = SubstitutionModel::p(self, node.blen);
-            tmp_values.node_models_valid[idx] = true;
-        }
-        let childx_info = tmp_values.node_info[usize::from(&node.children[0])].clone();
-        let childy_info = tmp_values.node_info[usize::from(&node.children[1])].clone();
-        tmp_values.node_models[idx].mul_to(
-            &(childx_info.component_mul(&childy_info)),
-            &mut tmp_values.node_info[idx],
-        );
+        tmp_values.node_info[idx] =
+            (&tmp_values.node_models[idx]).mul(childx_info.component_mul(&childy_info));
         tmp_values.node_info_valid[idx] = true;
+        if let Some(parent_idx) = node.parent {
+            tmp_values.node_info_valid[usize::from(parent_idx)] = false;
+        }
+        drop(tmp_values);
     }
 
-    fn set_leaf(&self, node: &Node, tmp_values: &mut SubstModelInfo<SubstModel<Params>>) {
+    fn set_leaf(&self, tree: &Tree, node_idx: &NodeIdx) {
+        let node = tree.node(node_idx);
+        let mut tmp_values = self.tmp.borrow_mut();
         let idx = usize::from(node.idx);
+
+        if tree.dirty[idx] || !tmp_values.node_models_valid[idx] {
+            tmp_values.node_models[idx] = SubstitutionModel::p(self, node.blen);
+            tmp_values.node_models_valid[idx] = true;
+            tmp_values.node_info_valid[idx] = false;
+        }
         if tmp_values.node_info_valid[idx] {
             return;
         }
-        if !tmp_values.node_models_valid[idx] {
-            tmp_values.node_models[idx] = SubstitutionModel::p(self, node.blen);
-            tmp_values.node_models_valid[idx] = true;
-        }
-        tmp_values.node_models[idx].mul_to(
-            tmp_values.leaf_sequence_info.get(&node.id).unwrap(),
-            &mut tmp_values.node_info[idx],
-        );
+        tmp_values.node_info[idx] = (&tmp_values.node_models[idx])
+            .mul(tmp_values.leaf_sequence_info.get(&node.id).unwrap());
         tmp_values.node_info_valid[idx] = true;
+        if let Some(parent_idx) = node.parent {
+            tmp_values.node_info_valid[usize::from(parent_idx)] = false;
+        }
+        drop(tmp_values);
     }
 }
 
-#[derive(Clone)]
-
+#[derive(Debug, Clone, PartialEq)]
 pub struct SubstModelInfo<SM: SubstitutionModel> {
+    empty: bool,
     phantom: PhantomData<SM>,
     node_info: Vec<DMatrix<f64>>,
     node_info_valid: Vec<bool>,
@@ -308,6 +326,18 @@ pub struct SubstModelInfo<SM: SubstitutionModel> {
 }
 
 impl<SM: SubstitutionModel> SubstModelInfo<SM> {
+    pub fn empty() -> Self {
+        SubstModelInfo::<SM> {
+            empty: true,
+            phantom: PhantomData::<SM>,
+            node_info: Vec::new(),
+            node_info_valid: Vec::new(),
+            node_models: Vec::new(),
+            node_models_valid: Vec::new(),
+            leaf_sequence_info: HashMap::new(),
+        }
+    }
+
     pub fn new(info: &PhyloInfo, model: &SM) -> Result<Self> {
         let node_count = info.tree.len();
         let msa_length = info.msa_length();
@@ -330,6 +360,7 @@ impl<SM: SubstitutionModel> SubstModelInfo<SM> {
             leaf_sequence_info.insert(node.id.clone(), leaf_seq_w_gaps);
         }
         Ok(SubstModelInfo::<SM> {
+            empty: false,
             phantom: PhantomData::<SM>,
             node_info: vec![
                 DMatrix::<f64>::zeros(<SM as SubstitutionModel>::N, msa_length);

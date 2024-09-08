@@ -40,6 +40,7 @@ fn dna_simple_likelihood() {
     let info = &setup_simple_phylo_info(1.0, 1.0);
     let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
     assert_relative_eq!(jc69.cost(info), -2.5832498829317445, epsilon = 1e-6);
+    let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
     let info = &setup_simple_phylo_info(1.0, 2.0);
     assert_relative_eq!(jc69.cost(info), -2.719098272533848, epsilon = 1e-6);
 }
