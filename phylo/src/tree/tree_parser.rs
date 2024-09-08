@@ -71,6 +71,7 @@ impl Tree {
             n: 0,
             height: 0.0,
             leaf_ids: Vec::new(),
+            dirty: Vec::new(),
         }
     }
 
@@ -89,13 +90,18 @@ impl Tree {
             _ => unreachable!(),
         }
 
+        self.complete();
+        Ok(())
+    }
+
+    fn complete(&mut self) {
         self.n = (self.nodes.len() + 1) / 2;
         debug_assert_eq!(self.nodes.len(), self.n * 2 - 1);
         self.complete = true;
         self.compute_postorder();
         self.compute_preorder();
         self.height = self.nodes.iter().map(|n| n.blen).sum();
-        Ok(())
+        self.dirty = vec![false; self.n * 2 - 1];
     }
 
     fn parse_unrooted_rule(
@@ -136,12 +142,7 @@ impl Tree {
         self.nodes[node_idx].children = new_children;
         self.root = Int(node_idx);
 
-        self.n = (self.nodes.len() + 1) / 2;
-        debug_assert_eq!(self.nodes.len(), self.n * 2 - 1);
-        self.complete = true;
-        self.compute_postorder();
-        self.compute_preorder();
-        self.height = self.nodes.iter().map(|n| n.blen).sum();
+        self.complete();
         Ok(())
     }
 

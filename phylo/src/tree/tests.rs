@@ -677,6 +677,7 @@ fn test_to_newick_simple() {
         n: 3,
         height: 8.5,
         leaf_ids: vec!["A".to_string(), "B".to_string()],
+        dirty: vec![false; 3],
     };
     assert_eq!(tree.to_newick(), "((A:1,B:5.5)C:2);");
 }

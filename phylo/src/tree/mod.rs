@@ -70,6 +70,7 @@ pub struct Tree {
     pub complete: bool,
     pub n: usize,
     pub height: f64,
+    pub(crate) dirty: Vec<bool>,
 }
 
 impl Display for Tree {
@@ -99,6 +100,7 @@ impl Tree {
                 n: 1,
                 height: 0.0,
                 leaf_ids: vec![sequences.record(0).id().to_string()],
+                dirty: vec![false],
             })
         } else {
             Ok(Self {
@@ -113,8 +115,13 @@ impl Tree {
                 n,
                 height: 0.0,
                 leaf_ids: sequences.iter().map(|seq| seq.id().to_string()).collect(),
+                dirty: vec![false; 2 * n - 1],
             })
         }
+    }
+
+    pub fn clean(&mut self, clean: bool) {
+        self.dirty.fill(clean);
     }
 
     pub fn robinson_foulds(&self, other: &Tree) -> usize {
@@ -220,6 +227,12 @@ impl Tree {
         let regraft_par = self.node(&regraft.parent.unwrap());
 
         let mut new_tree = self.clone();
+
+        {
+            new_tree.dirty[usize::from(prune_sib.idx)] = true;
+            new_tree.dirty[usize::from(prune_par.idx)] = true;
+        }
+
         {
             // Sibling of pruned node connects to common parent, branch length is updated
             let prune_sib = new_tree.node_mut(&prune_sib.idx);
@@ -418,9 +431,11 @@ impl Tree {
 
     pub fn set_blen(&mut self, node_idx: &NodeIdx, blen: f64) {
         debug_assert!(blen >= 0.0);
-        let old_blen = self.nodes[usize::from(node_idx)].blen;
+        let idx = usize::from(node_idx);
+        let old_blen = self.nodes[idx].blen;
         self.height += blen - old_blen;
-        self.nodes[usize::from(node_idx)].blen = blen;
+        self.nodes[idx].blen = blen;
+        self.dirty[idx] = true;
     }
 
     pub fn blen(&self, node_idx: &NodeIdx) -> f64 {

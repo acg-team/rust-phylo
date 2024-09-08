@@ -64,6 +64,7 @@ impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for BranchOptimiser<'a, E
                     continue;
                 }
                 let (logl, length) = self.optimise_branch(branch, &info)?;
+                info.tree.clean(true);
                 if logl < final_logl {
                     continue;
                 }

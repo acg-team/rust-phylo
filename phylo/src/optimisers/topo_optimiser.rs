@@ -73,6 +73,7 @@ impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for TopologyOptimiser<'a,
                 if best_logl > final_logl {
                     final_logl = best_logl;
                     info.tree = best_tree;
+                    info.tree.clean(true);
                 }
             }
         }
