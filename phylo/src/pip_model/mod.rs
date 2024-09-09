@@ -268,6 +268,10 @@ where
     fn cost(&self, info: &PhyloInfo) -> f64 {
         self.logl(info).0
     }
+
+    fn reset(&self) {
+        // TODO: Implement reset once the tmp storage is used properly
+    }
 }
 
 impl<SM: SubstitutionModel + Clone> PIPModel<SM>

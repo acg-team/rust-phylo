@@ -230,6 +230,10 @@ where
     fn cost(&self, info: &PhyloInfo) -> f64 {
         self.logl(info)
     }
+
+    fn reset(&self) {
+        self.tmp.borrow_mut().reset();
+    }
 }
 
 impl<Params> SubstModel<Params>
