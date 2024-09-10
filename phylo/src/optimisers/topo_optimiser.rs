@@ -29,8 +29,8 @@ impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for TopologyOptimiser<'a,
 
         let initial_logl = self.model.cost(&info);
         info!("Initial logl: {}.", initial_logl);
-        let mut final_logl = initial_logl;
-        let mut prev_logl = f64::NEG_INFINITY;
+        let mut curr_cost = initial_logl;
+        let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
 
         // No pruning on the root branch
@@ -41,13 +41,14 @@ impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for TopologyOptimiser<'a,
             .filter(|&n| n != &info.tree.root)
             .cloned()
             .collect();
-        while (prev_logl - final_logl).abs() > self.epsilon {
+        while (curr_cost - prev_cost) > self.epsilon {
             iterations += 1;
-            debug!("Iteration: {}", iterations);
-            prev_logl = final_logl;
+            info!("Iteration: {}.", iterations);
+            prev_cost = curr_cost;
+            info!("Current logl: {}.", curr_cost);
             for prune_branch in &prune_locations {
                 if info.tree.children(&info.tree.root).contains(prune_branch) {
-                    // due to topology change in the prev iteration current node may have become the direct child of root
+                    // due to topology change the current node may have become the direct child of root
                     continue;
                 }
                 let regraft_locations = Self::find_regraft_options(prune_branch, &info);
@@ -56,14 +57,14 @@ impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for TopologyOptimiser<'a,
                     let mut new_info = info.clone();
                     new_info.tree = info.tree.rooted_spr(prune_branch, regraft_branch).unwrap();
                     let mut logl = self.model.cost(&new_info);
-                    if logl <= prev_logl {
+                    if logl <= curr_cost {
                         // reoptimise branch lengths at the regraft location
                         let o = BranchOptimiser::new(self.model, &new_info);
                         let (blen_logl, blen) = o.optimise_branch(regraft_branch, &new_info)?;
-                        if blen_logl > prev_logl {
+                        if blen_logl > logl {
                             new_info.tree.set_blen(regraft_branch, blen);
+                            logl = blen_logl;
                         }
-                        logl = blen_logl;
                     }
                     moves.push((logl, new_info.tree.clone()));
                 }
@@ -71,26 +72,33 @@ impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for TopologyOptimiser<'a,
                     .into_iter()
                     .max_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap())
                     .unwrap();
-                if best_logl > final_logl {
-                    final_logl = best_logl;
+                if best_logl > curr_cost {
+                    curr_cost = best_logl;
                     info.tree = best_tree;
-                    info.tree.clean(true);
+                    debug!("Regrafted {} with new logl {}.", prune_branch, curr_cost);
+                } else {
+                    debug!(
+                        "No improvement regrafting {}, best logl {}.",
+                        prune_branch, best_logl
+                    );
                 }
+                // Optimise branch lengths on the final tree
+                let o = BranchOptimiser::new(self.model, &info).run()?;
+                if o.final_logl > curr_cost {
+                    curr_cost = o.final_logl;
+                    info = o.i;
+                }
+                info.tree.clean(true);
             }
         }
-        // Optimise branch lengths on the final tree
-        let o = BranchOptimiser::new(self.model, &info).run()?;
-        if o.final_logl > final_logl {
-            final_logl = o.final_logl;
-            info = o.i;
-        }
+
         info!(
             "Final logl: {}, achieved in {} iteration(s).",
-            final_logl, iterations
+            curr_cost, iterations
         );
         Ok(PhyloOptimisationResult {
             initial_logl,
-            final_logl,
+            final_logl: curr_cost,
             iterations,
             i: info,
         })
