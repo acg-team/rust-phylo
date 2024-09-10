@@ -48,10 +48,11 @@ fn primate_topology_opt_simulated_from_tree() {
         );
     }
     assert_relative_eq!(o.i.tree.height, phyml_info.tree.height, epsilon = 1e-5);
+    assert_eq!(o.i.tree.robinson_foulds(&phyml_info.tree), 0);
 }
 
 #[test]
-fn primate_topology_from_wrong_tree() {
+fn primate_topology_opt_simulated_from_wrong_tree() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/K80/K80.fasta"),
         PathBuf::from("./data/sim/wrong_tree.newick"),
@@ -61,34 +62,42 @@ fn primate_topology_from_wrong_tree() {
     let model = DNASubstModel::new(JC69, &[]).unwrap();
     let unopt_logl = model.cost(&info);
     let o = TopologyOptimiser::new(&model, &info).run().unwrap();
+
+    model.reset();
     assert!(o.final_logl >= unopt_logl);
-    // Likelihood from PhyML
+    assert_relative_eq!(o.final_logl, model.cost(&o.i), epsilon = 1e-5);
+
+    let phyml_info = PhyloInfoBuilder::with_attrs(
+        PathBuf::from("./data/sim/K80/K80.fasta"),
+        PathBuf::from("./data/sim/K80/phyml_tree.newick"),
+    )
+    .build()
+    .unwrap();
+    model.reset();
+    assert_relative_eq!(o.final_logl, model.cost(&phyml_info), epsilon = 1e-5);
     assert_relative_eq!(o.final_logl, -4038.721121221992, epsilon = 1e-5);
 
-    let opt_tree = &o.i.tree;
-    let phyml_tree = from_newick_string(&String::from(
-        "((Gorilla:0.05864183,(Orangutan:0.21100967,Gibbon:0.27996761)0.999800:0.09804101)0.986100:0.03441881,Human:0.05073325,Chimpanzee:0.06040307);",
-    ))
-    .unwrap()
-    .pop()
-    .unwrap();
-    let taxa = ["Gorilla", "Orangutan", "Gibbon", "Human"];
+    let taxa = ["Gorilla", "Orangutan", "Gibbon", "Chimpanzee"];
     for taxon in taxa.iter() {
         assert_relative_eq!(
-            opt_tree.node(&opt_tree.idx(taxon)).blen,
-            phyml_tree.node(&phyml_tree.idx(taxon)).blen,
-            epsilon = 1e-3
+            o.i.tree.by_id(taxon).blen,
+            phyml_info.tree.by_id(taxon).blen,
+            epsilon = 1e-5
         );
     }
-    // Different branch length due to different rooting, adding up to the same height
-    let human = opt_tree.node(&opt_tree.idx("Human"));
+    // Slightly different rooting leads to a different breakdown of branches,
+    // but sum is still same
     assert_relative_eq!(
-        opt_tree.node(&opt_tree.idx("Chimpanzee")).blen
-            + opt_tree.node(&human.parent.unwrap()).blen,
-        phyml_tree.node(&phyml_tree.idx("Chimpanzee")).blen,
+        o.i.tree.by_id("Human").blen
+            + o.i
+                .tree
+                .node(&(o.i.tree.by_id("Chimpanzee")).parent.unwrap())
+                .blen,
+        phyml_info.tree.by_id("Human").blen,
         epsilon = 1e-5
     );
-    assert_relative_eq!(opt_tree.height, phyml_tree.height, epsilon = 1e-5);
+    assert_relative_eq!(o.i.tree.height, phyml_info.tree.height, epsilon = 1e-4);
+    assert_eq!(o.i.tree.robinson_foulds(&phyml_info.tree), 0);
 }
 
 #[test]
