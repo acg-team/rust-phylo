@@ -509,7 +509,7 @@ fn rng_len(l: usize) -> usize {
     random::<usize>() % l
 }
 
-fn build_nj_tree_w_rng_from_matrix(
+fn build_nj_tree_from_matrix(
     mut nj_data: NJMat,
     sequences: &Sequences,
     rng: fn(usize) -> usize,
@@ -536,13 +536,9 @@ fn build_nj_tree_w_rng_from_matrix(
     Ok(tree)
 }
 
-fn build_nj_tree_from_matrix(nj_data: NJMat, sequences: &Sequences) -> Result<Tree> {
-    build_nj_tree_w_rng_from_matrix(nj_data, sequences, rng_len)
-}
-
 pub fn build_nj_tree(sequences: &Sequences) -> Result<Tree> {
     let nj_data = compute_distance_matrix(sequences);
-    build_nj_tree_from_matrix(nj_data, sequences)
+    build_nj_tree_from_matrix(nj_data, sequences, rng_len)
 }
 
 fn compute_distance_matrix(sequences: &Sequences) -> nj_matrices::NJMat {
