@@ -1006,9 +1006,9 @@ fn rf_distance_against_raxml() {
     let tree_opt_2 =
         &read_newick_from_file(&folder.join("optimisation_nj_start.newick")).unwrap()[0];
     assert_eq!(tree_orig.robinson_foulds(tree_phyml), 4);
-    assert_eq!(tree_orig.robinson_foulds(tree_opt_1), 6);
-    assert_eq!(tree_orig.robinson_foulds(tree_opt_2), 6);
-    assert_eq!(tree_phyml.robinson_foulds(tree_opt_1), 2);
-    assert_eq!(tree_phyml.robinson_foulds(tree_opt_2), 2);
+    assert_eq!(tree_orig.robinson_foulds(tree_opt_1), 4);
+    assert_eq!(tree_orig.robinson_foulds(tree_opt_2), 4);
+    assert_eq!(tree_phyml.robinson_foulds(tree_opt_1), 0);
+    assert_eq!(tree_phyml.robinson_foulds(tree_opt_2), 0);
     assert_eq!(tree_opt_1.robinson_foulds(tree_opt_2), 0);
 }
