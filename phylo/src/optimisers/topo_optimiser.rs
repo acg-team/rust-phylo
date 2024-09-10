@@ -22,6 +22,7 @@ impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for TopologyOptimiser<'a,
     }
 
     fn run(self) -> Result<PhyloOptimisationResult> {
+        self.model.reset();
         debug_assert!(self.info.tree.len() > 3);
         info!("Optimising tree topology with SPRs.");
         let mut info = self.info.clone();

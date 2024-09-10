@@ -45,6 +45,7 @@ impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for BranchOptimiser<'a, E
     }
 
     fn run(self) -> Result<PhyloOptimisationResult> {
+        self.model.reset();
         info!("Optimising branch lengths.");
         let mut info = self.info.clone();
 
