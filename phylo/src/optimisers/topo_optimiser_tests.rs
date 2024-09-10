@@ -256,33 +256,56 @@ fn pip_vs_subst_dna_tree() {
 
 #[test]
 fn pip_vs_subst_protein_tree_nogaps() {
-    // let info = PhyloInfoBuilder::new(PathBuf::from(
-    //     "./data/phyml_protein_example/nogap_seqs.fasta",
-    // ))
-    // .build()
-    // .unwrap();
-    // let model = PIPModel::<ProteinSubstModel>::new(WAG, &[50.0, 0.1]).unwrap();
-    // let unopt_logl = model.cost(&info);
-    // let o = TopologyOptimiser::new(&model, &info).run().unwrap();
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let out_tree = fldr.join("optimisation_pip_nj_start.newick");
+    // use crate::io::write_newick_to_file;
+    // let info = PhyloInfoBuilder::new(fldr.join("nogap_seqs.fasta"))
+    //     .build()
+    //     .unwrap();
+    // let pip = PIPModel::<ProteinSubstModel>::new(WAG, &[50.0, 0.1]).unwrap();
+    // let unopt_logl = pip.cost(&info);
+    // let o = TopologyOptimiser::new(&pip, &info).run().unwrap();
+    // let _ = write_newick_to_file(&[o.i.tree.clone()], out_tree);
     // assert!(o.final_logl >= unopt_logl);
-    // The above ran in 308.93s
+    // let pip_opt_info = o.i;
+    // Ran in ~830.78s
 
-    let pip_info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/phyml_protein_example/nogap_seqs.fasta"),
-        PathBuf::from("./data/phyml_protein_example/optimisation_pip_nj_start.newick"),
+    // Optimisation takes too long, tree checked is output of above
+    let pip_opt_info = PhyloInfoBuilder::with_attrs(fldr.join("nogap_seqs.fasta"), out_tree)
+        .build()
+        .unwrap();
+
+    let subst_opt_info = PhyloInfoBuilder::with_attrs(
+        fldr.join("nogap_seqs.fasta"),
+        fldr.join("optimisation_nj_start.newick"),
     )
     .build()
     .unwrap();
 
-    let subst_info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/phyml_protein_example/nogap_seqs.fasta"),
-        PathBuf::from("./data/phyml_protein_example/optimisation_nj_start.newick"),
-    )
-    .build()
-    .unwrap();
-    // compare the tree created with a substitution model to the one with PIP
-    // the trees are not identical, but very close
-    assert!(pip_info.tree.robinson_foulds(&subst_info.tree) <= 2);
+    // compare tree created with a substitution model to the one with PIP
+    assert_eq!(pip_opt_info.tree.robinson_foulds(&subst_opt_info.tree), 0);
+
+    // Check that likelihoods under same model are similar for both trees
+    let wag = ProteinSubstModel::new(WAG, &[]).unwrap();
+    let pip_reopt_result = BranchOptimiser::new(&wag, &pip_opt_info).run().unwrap();
+    wag.reset();
+    assert_relative_eq!(
+        wag.cost(&subst_opt_info),
+        pip_reopt_result.final_logl,
+        epsilon = 1e-5
+    );
+
+    // Check that the likelihoods under the same model are similar for both trees
+    let pip_wag = PIPModel::<ProteinSubstModel>::new(WAG, &[50.0, 0.1]).unwrap();
+    let o2_subst = BranchOptimiser::new(&pip_wag, &subst_opt_info)
+        .run()
+        .unwrap();
+    pip_wag.reset();
+    assert_relative_eq!(
+        pip_wag.cost(&pip_opt_info),
+        o2_subst.final_logl,
+        epsilon = 1e-5
+    );
 }
 
 #[test]
