@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use approx::assert_relative_eq;
 use bio::io::fasta::Record;
@@ -14,21 +14,18 @@ use crate::tree::tree_parser::from_newick_string;
 
 #[test]
 fn k80_topo_optimisation() {
-    let tree = from_newick_string(&String::from(
-        "(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);",
-    ))
-    .unwrap()[0]
-        .clone();
+    let tree =
+        from_newick_string("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);").unwrap()[0].clone();
     let sequences = Sequences::new(vec![
         Record::with_attrs("A", None, b"CTATATATAC"),
         Record::with_attrs("B", None, b"ATATATATAA"),
         Record::with_attrs("C", None, b"TTATATATAT"),
         Record::with_attrs("D", None, b"TTATATATAT"),
     ]);
-    let info = &PhyloInfoBuilder::build_from_objects(sequences, tree).unwrap();
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree).unwrap();
     let k80 = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
-    let unopt_logl = k80.cost(info);
-    let o = TopologyOptimiser::new(&k80, info).run().unwrap();
+    let unopt_logl = k80.cost(&info);
+    let o = TopologyOptimiser::new(&k80, &info).run().unwrap();
 
     k80.reset();
     assert!(o.final_logl >= unopt_logl);
@@ -37,12 +34,12 @@ fn k80_topo_optimisation() {
 
 #[test]
 fn k80_sim_topo_optimisation_from_nj() {
-    let info = &PhyloInfoBuilder::new(PathBuf::from("./data/sim/K80/K80.fasta"))
+    let info = PhyloInfoBuilder::new(Path::new("./data/sim/K80/K80.fasta").to_path_buf())
         .build()
         .unwrap();
     let k80 = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
-    let unopt_logl = k80.cost(info);
-    let o = TopologyOptimiser::new(&k80, info).run().unwrap();
+    let unopt_logl = k80.cost(&info);
+    let o = TopologyOptimiser::new(&k80, &info).run().unwrap();
 
     k80.reset();
     assert!(o.final_logl >= unopt_logl);
@@ -52,29 +49,25 @@ fn k80_sim_topo_optimisation_from_nj() {
 
 #[test]
 fn topology_opt_simulated_from_tree() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/K80/K80.fasta"),
-        PathBuf::from("./data/sim/tree.newick"),
-    )
-    .build()
-    .unwrap();
-    let model = DNASubstModel::new(JC69, &[]).unwrap();
-    let unopt_logl = model.cost(&info);
-    let o = TopologyOptimiser::new(&model, &info).run().unwrap();
+    let fldr = Path::new("./data/sim/K80");
+    let info = PhyloInfoBuilder::with_attrs(fldr.join("K80.fasta"), fldr.join("../tree.newick"))
+        .build()
+        .unwrap();
+    let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
+    let unopt_logl = jc69.cost(&info);
+    let o = TopologyOptimiser::new(&jc69, &info).run().unwrap();
 
-    model.reset();
+    jc69.reset();
     assert!(o.final_logl >= unopt_logl);
-    assert_relative_eq!(o.final_logl, model.cost(&o.i), epsilon = 1e-5);
+    assert_relative_eq!(o.final_logl, jc69.cost(&o.i), epsilon = 1e-5);
 
-    let phyml_info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/K80/K80.fasta"),
-        PathBuf::from("./data/sim/K80/phyml_tree.newick"),
-    )
-    .build()
-    .unwrap();
+    let phyml_info =
+        PhyloInfoBuilder::with_attrs(fldr.join("K80.fasta"), fldr.join("phyml_tree.newick"))
+            .build()
+            .unwrap();
 
-    model.reset();
-    assert_relative_eq!(o.final_logl, model.cost(&phyml_info), epsilon = 1e-5);
+    jc69.reset();
+    assert_relative_eq!(o.final_logl, jc69.cost(&phyml_info), epsilon = 1e-5);
     assert_relative_eq!(o.final_logl, -4038.721121221992, epsilon = 1e-5);
 
     let taxa = ["Gorilla", "Orangutan", "Gibbon", "Human", "Chimpanzee"];
@@ -91,28 +84,25 @@ fn topology_opt_simulated_from_tree() {
 
 #[test]
 fn topology_opt_simulated_from_wrong_tree() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/K80/K80.fasta"),
-        PathBuf::from("./data/sim/wrong_tree.newick"),
-    )
-    .build()
-    .unwrap();
-    let model = DNASubstModel::new(JC69, &[]).unwrap();
-    let unopt_logl = model.cost(&info);
-    let o = TopologyOptimiser::new(&model, &info).run().unwrap();
+    let fldr = Path::new("./data/sim/K80");
+    let info =
+        PhyloInfoBuilder::with_attrs(fldr.join("K80.fasta"), fldr.join("../wrong_tree.newick"))
+            .build()
+            .unwrap();
+    let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
+    let unopt_logl = jc69.cost(&info);
+    let o = TopologyOptimiser::new(&jc69, &info).run().unwrap();
 
-    model.reset();
+    jc69.reset();
     assert!(o.final_logl >= unopt_logl);
-    assert_relative_eq!(o.final_logl, model.cost(&o.i), epsilon = 1e-5);
+    assert_relative_eq!(o.final_logl, jc69.cost(&o.i), epsilon = 1e-5);
 
-    let phyml_info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/K80/K80.fasta"),
-        PathBuf::from("./data/sim/K80/phyml_tree.newick"),
-    )
-    .build()
-    .unwrap();
-    model.reset();
-    assert_relative_eq!(o.final_logl, model.cost(&phyml_info), epsilon = 1e-5);
+    let phyml_info =
+        PhyloInfoBuilder::with_attrs(fldr.join("K80.fasta"), fldr.join("phyml_tree.newick"))
+            .build()
+            .unwrap();
+    jc69.reset();
+    assert_relative_eq!(o.final_logl, jc69.cost(&phyml_info), epsilon = 1e-5);
     assert_relative_eq!(o.final_logl, -4038.721121221992, epsilon = 1e-5);
 
     let taxa = ["Gorilla", "Orangutan", "Gibbon", "Chimpanzee"];
