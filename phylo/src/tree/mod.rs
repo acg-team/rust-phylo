@@ -295,6 +295,10 @@ impl Tree {
         &self.nodes[usize::from(node_idx)]
     }
 
+    pub fn by_id(&self, id: &str) -> &Node {
+        self.nodes.iter().find(|node| node.id == id).unwrap()
+    }
+
     pub fn node_mut(&mut self, node_idx: &NodeIdx) -> &mut Node {
         &mut self.nodes[usize::from(node_idx)]
     }
