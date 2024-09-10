@@ -6,15 +6,14 @@ use bio::io::fasta::Record;
 use crate::alignment::Sequences;
 use crate::evolutionary_models::{DNAModelType::*, EvoModel, ProteinModelType::*};
 use crate::likelihood::PhyloCostFunction;
-// use crate::optimisers::{EvoModelOptimiser, FrequencyOptimisation::*, ModelOptimiser};
-use crate::optimisers::{PhyloOptimiser, TopologyOptimiser};
+use crate::optimisers::{BranchOptimiser, PhyloOptimiser, TopologyOptimiser};
 use crate::phylo_info::PhyloInfoBuilder;
 use crate::pip_model::PIPModel;
 use crate::substitution_models::{DNASubstModel, ProteinSubstModel};
 use crate::tree::tree_parser::from_newick_string;
 
 #[test]
-fn primate_topology_from_right_tree() {
+fn primate_topology_opt_simulated_from_tree() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/K80/K80.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
@@ -24,26 +23,31 @@ fn primate_topology_from_right_tree() {
     let model = DNASubstModel::new(JC69, &[]).unwrap();
     let unopt_logl = model.cost(&info);
     let o = TopologyOptimiser::new(&model, &info).run().unwrap();
-    assert!(o.final_logl >= unopt_logl);
-    // Likelihood from PhyML
-    assert_relative_eq!(o.final_logl, -4038.721121221992, epsilon = 1e-6);
 
-    let opt_tree = &o.i.tree;
-    let phyml_tree = from_newick_string(&String::from(
-        "((Gorilla:0.05864183,(Orangutan:0.21100967,Gibbon:0.27996761)0.999800:0.09804101)0.986100:0.03441881,Human:0.05073325,Chimpanzee:0.06040307);",
-    ))
-    .unwrap()
-    .pop()
+    model.reset();
+    assert!(o.final_logl >= unopt_logl);
+    assert_relative_eq!(o.final_logl, model.cost(&o.i), epsilon = 1e-5);
+
+    let phyml_info = PhyloInfoBuilder::with_attrs(
+        PathBuf::from("./data/sim/K80/K80.fasta"),
+        PathBuf::from("./data/sim/K80/phyml_tree.newick"),
+    )
+    .build()
     .unwrap();
+
+    model.reset();
+    assert_relative_eq!(o.final_logl, model.cost(&phyml_info), epsilon = 1e-5);
+    assert_relative_eq!(o.final_logl, -4038.721121221992, epsilon = 1e-5);
+
     let taxa = ["Gorilla", "Orangutan", "Gibbon", "Human", "Chimpanzee"];
     for taxon in taxa.iter() {
         assert_relative_eq!(
-            opt_tree.node(&opt_tree.idx(taxon)).blen,
-            phyml_tree.node(&phyml_tree.idx(taxon)).blen,
+            o.i.tree.node(&o.i.tree.idx(taxon)).blen,
+            phyml_info.tree.node(&phyml_info.tree.idx(taxon)).blen,
             epsilon = 1e-5
         );
     }
-    assert_relative_eq!(opt_tree.height, phyml_tree.height, epsilon = 1e-5);
+    assert_relative_eq!(o.i.tree.height, phyml_info.tree.height, epsilon = 1e-5);
 }
 
 #[test]
