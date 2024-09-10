@@ -221,21 +221,37 @@ fn protein_topology_optimisation_nj_start() {
 
 #[test]
 fn pip_vs_subst_dna_tree() {
-    let info = &PhyloInfoBuilder::new(PathBuf::from("./data/sim/K80/K80.fasta"))
+    let info = &PhyloInfoBuilder::new(Path::new("./data/sim/K80/K80.fasta").to_path_buf())
         .build()
         .unwrap();
-    let pip = PIPModel::<DNASubstModel>::new(K80, &[4.0, 1.0]).unwrap();
-    let initial_logl = pip.cost(info);
-    let o_pip = TopologyOptimiser::new(&pip, info).run().unwrap();
-    assert!(o_pip.final_logl > initial_logl);
-    assert_relative_eq!(o_pip.initial_logl, initial_logl);
-
     let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
-    let initial_logl = model.cost(info);
-    let o_k80 = TopologyOptimiser::new(&model, info).run().unwrap();
-    assert!(o_k80.final_logl > initial_logl);
-    assert_relative_eq!(o_k80.initial_logl, initial_logl);
-    assert_eq!(o_pip.i.tree.robinson_foulds(&o_k80.i.tree), 0);
+    let k80_opt_res = TopologyOptimiser::new(&model, info).run().unwrap();
+
+    let pip = PIPModel::<DNASubstModel>::new(K80, &[0.5, 0.4, 4.0, 1.0]).unwrap();
+    let pip_opt_res = TopologyOptimiser::new(&pip, info).run().unwrap();
+
+    // Tree topologies under PIP+K80 and K80 should match
+    assert_eq!(pip_opt_res.i.tree.robinson_foulds(&k80_opt_res.i.tree), 0);
+
+    // Check that likelihoods under substitution model are similar for both trees
+    // but reoptimise branch lengths for PIP tree because they are not comparable
+    model.reset();
+    let o_pip_blen = BranchOptimiser::new(&model, &pip_opt_res.i).run().unwrap();
+    assert_relative_eq!(
+        k80_opt_res.final_logl,
+        o_pip_blen.final_logl,
+        epsilon = 1e-6
+    );
+
+    // Check that likelihoods under PIP are similar for both trees
+    // but reoptimise branch lengths for substitution tree because they are not comparable
+    pip.reset();
+    let o_k80_blen = BranchOptimiser::new(&pip, &k80_opt_res.i).run().unwrap();
+    assert_relative_eq!(
+        pip_opt_res.final_logl,
+        o_k80_blen.final_logl,
+        epsilon = 1e-6
+    );
 }
 
 #[test]
