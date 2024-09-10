@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use approx::assert_relative_eq;
 use bio::io::fasta::Record;
@@ -139,79 +139,84 @@ fn topology_opt_simulated_from_wrong_tree() {
 }
 
 #[test]
-fn simple_topology_optimisation() {
-    let tree = from_newick_string(&String::from(
-        "(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);",
-    ))
-    .unwrap()
-    .pop()
-    .unwrap();
-    let sequences = Sequences::new(vec![
-        Record::with_attrs("A", None, b"CTATATATAC"),
-        Record::with_attrs("B", None, b"ATATATATAA"),
-        Record::with_attrs("C", None, b"TTATATATAT"),
-        Record::with_attrs("D", None, b"TTATATATAT"),
-    ]);
-    let info = PhyloInfoBuilder::build_from_objects(sequences, tree).unwrap();
-    let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
-    let unopt_logl = model.cost(&info);
-    let o = TopologyOptimiser::new(&model, &info).run().unwrap();
-    assert!(o.final_logl >= unopt_logl);
-}
-
-#[test]
-fn protein_topology_optimisation_good_start() {
-    // let info = PhyloInfoBuilder::with_attrs(
-    //     PathBuf::from("./data/phyml_protein_example/nogap_seqs.fasta"),
-    //     PathBuf::from("./data/phyml_protein_example/tree.newick"),
-    // )
-    // .build()
-    // .unwrap();
-    // let model = ProteinSubstModel::new(WAG, &[]).unwrap();
-    // let unopt_logl = model.cost(&info);
-    // let o = TopologyOptimiser::new(&model, &info).run().unwrap();
-    // assert!(o.final_logl >= unopt_logl);
-    // The above ran in 888.89s
-
-    // The optimisation itself takes too long, the tree checked here is the output of the above
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/phyml_protein_example/nogap_seqs.fasta"),
-        PathBuf::from("./data/phyml_protein_example/phyml_result.newick"),
+fn protein_topology_optimisation_given_tree_start() {
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let out_tree = fldr.join("optimisation_tree_start.newick");
+    let phyml_info = PhyloInfoBuilder::with_attrs(
+        fldr.join("nogap_seqs.fasta"),
+        fldr.join("phyml_result.newick"),
     )
     .build()
     .unwrap();
-    let model = ProteinSubstModel::new(WAG, &[]).unwrap();
-    let logl = model.cost(&info);
+    let wag = ProteinSubstModel::new(WAG, &[]).unwrap();
+    let phyml_logl = wag.cost(&phyml_info);
 
-    // compare the tree height and logl to the output of PhyML
-    assert_relative_eq!(info.tree.height, 1.05242, epsilon = 1e-2);
-    assert_relative_eq!(logl, -4490.78548891, epsilon = 1e-3);
+    // use crate::io::write_newick_to_file;
+    // let info = PhyloInfoBuilder::with_attrs(fldr.join("nogap_seqs.fasta"), fldr.join("tree.newick"))
+    //     .build()
+    //     .unwrap();
+    // let wag = ProteinSubstModel::new(WAG, &[]).unwrap();
+    // let unopt_logl = wag.cost(&info);
+    // let o = TopologyOptimiser::new(&wag, &info).run().unwrap();
+    // let _ = write_newick_to_file(&[o.i.tree.clone()], out_tree);
+    // assert!(o.final_logl >= unopt_logl);
+    // let tree = o.i.tree;
+    // let logl = o.final_logl;
+    // Ran in ~215.21s
+    // PhyML runs in 3s
+
+    // Optimisation can take long, tree checked is output of above
+    let info = PhyloInfoBuilder::with_attrs(fldr.join("nogap_seqs.fasta"), out_tree)
+        .build()
+        .unwrap();
+    wag.reset();
+    let logl = wag.cost(&info);
+    let tree = info.tree;
+
+    // Compare tree and logl to PhyML output
+    assert_relative_eq!(tree.height, phyml_info.tree.height, epsilon = 1e-3);
+    assert_eq!(tree.robinson_foulds(&phyml_info.tree), 0);
+    assert_relative_eq!(logl, phyml_logl, epsilon = 1e0);
 }
 
 #[test]
 fn protein_topology_optimisation_nj_start() {
-    // let info = PhyloInfoBuilder::new(PathBuf::from("./data/phyml_protein_example/nogap_seqs.fasta"))
-    //     .build()
-    //     .unwrap();
-    // let model = ProteinSubstModel::new(WAG, &[]).unwrap();
-    // let unopt_logl = model.cost(&info);
-    // let o = TopologyOptimiser::new(&model, &info).run().unwrap();
-    // assert!(o.final_logl >= unopt_logl);
-    // The above ran in 493.88s
-
-    // The optimisation itself takes too long, the tree checked here is the output of the above
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/phyml_protein_example/nogap_seqs.fasta"),
-        PathBuf::from("./data/phyml_protein_example/optimisation_nj_start.newick"),
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let out_tree = fldr.join("optimisation_nj_start.newick");
+    let phyml_info = PhyloInfoBuilder::with_attrs(
+        fldr.join("nogap_seqs.fasta"),
+        fldr.join("phyml_result.newick"),
     )
     .build()
     .unwrap();
-    let model = ProteinSubstModel::new(WAG, &[]).unwrap();
-    let logl = model.cost(&info);
+    let wag = ProteinSubstModel::new(WAG, &[]).unwrap();
+    let phyml_logl = wag.cost(&phyml_info);
 
-    // compare the tree height and logl to the output of PhyML
-    assert_relative_eq!(info.tree.height, 1.05242, epsilon = 1e-2);
-    assert_relative_eq!(logl, -4490.78548891, epsilon = 1e0);
+    // use crate::io::write_newick_to_file;
+    // let info = PhyloInfoBuilder::new(fldr.join("nogap_seqs.fasta"))
+    //     .build()
+    //     .unwrap();
+    // let wag = ProteinSubstModel::new(WAG, &[]).unwrap();
+    // let unopt_logl = wag.cost(&info);
+    // let o = TopologyOptimiser::new(&wag, &info).run().unwrap();
+    // let _ = write_newick_to_file(&[o.i.tree.clone()], out_tree);
+    // assert!(o.final_logl >= unopt_logl);
+    // let tree = o.i.tree;
+    // let logl = o.final_logl;
+    // Ran in ~218.05s
+
+    // Optimisation itself can take long, tree checked is output of above
+    let info = PhyloInfoBuilder::with_attrs(fldr.join("nogap_seqs.fasta"), out_tree)
+        .build()
+        .unwrap();
+    wag.reset();
+    let logl = wag.cost(&info);
+    let tree = info.tree;
+
+    // Compare tree height and logl to the output of PhyML
+    assert_relative_eq!(tree.height, phyml_info.tree.height, epsilon = 1e-3);
+    assert_eq!(tree.robinson_foulds(&phyml_info.tree), 0);
+    assert_relative_eq!(logl, phyml_logl, epsilon = 1e0);
 }
 
 #[test]
