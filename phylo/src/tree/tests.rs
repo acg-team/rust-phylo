@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::fs;
 use std::iter::repeat;
-use std::path::PathBuf;
+use std::path::Path;
 
 use approx::assert_relative_eq;
 use bio::io::fasta::Record;
@@ -12,11 +12,11 @@ use rand::Rng;
 use crate::alignment::Sequences;
 use crate::io::read_newick_from_file;
 use crate::tree::nj_matrices::NJMat;
+use crate::tree::rng_len;
 use crate::tree::tree_parser::{from_newick_string, ParsingError, Rule};
 use crate::tree::{
-    argmin_wo_diagonal, build_nj_tree_from_matrix, build_nj_tree_w_rng_from_matrix,
-    compute_distance_matrix, percentiles, percentiles_rounded, Node, NodeIdx,
-    NodeIdx::Internal as I, NodeIdx::Leaf as L, Tree,
+    argmin_wo_diagonal, build_nj_tree_from_matrix, compute_distance_matrix, percentiles,
+    percentiles_rounded, Node, NodeIdx, NodeIdx::Internal as I, NodeIdx::Leaf as L, Tree,
 };
 use crate::{cmp_f64, Rounding};
 
@@ -84,7 +84,7 @@ fn idx_by_id_valid() {
         ("G", I(0)),
     ];
     for (id, idx) in nodes.iter() {
-        assert_eq!(tree.idx(id), *idx);
+        assert_eq!(tree.by_id(id).idx, *idx);
     }
 }
 
@@ -92,7 +92,7 @@ fn idx_by_id_valid() {
 #[should_panic]
 fn idx_by_id_invalid() {
     let tree = &from_newick_string("(((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0,D:1.0)G:2.0;").unwrap()[0];
-    tree.idx("H");
+    tree.by_id("H");
 }
 
 #[test]
@@ -140,7 +140,7 @@ fn nj_correct_web_example() {
         Record::with_attrs("C2", None, b""),
         Record::with_attrs("D3", None, b""),
     ]);
-    let nj_tree = build_nj_tree_w_rng_from_matrix(nj_distances, &sequences, |_| 0).unwrap();
+    let nj_tree = build_nj_tree_from_matrix(nj_distances, &sequences, |_| 0).unwrap();
     let nodes = vec![
         Node::new_leaf(0, Some(I(4)), 1.0, "A0".to_string()),
         Node::new_leaf(1, Some(I(4)), 3.0, "B1".to_string()),
@@ -173,7 +173,7 @@ fn nj_correct() {
         Record::with_attrs("D3", None, b""),
         Record::with_attrs("E4", None, b""),
     ]);
-    let nj_tree = build_nj_tree_w_rng_from_matrix(nj_distances, &sequences, |l| 3 % l).unwrap();
+    let nj_tree = build_nj_tree_from_matrix(nj_distances, &sequences, |l| 3 % l).unwrap();
     let nodes = vec![
         Node::new_leaf(0, Some(I(5)), 2.0, "A0".to_string()),
         Node::new_leaf(1, Some(I(5)), 3.0, "B1".to_string()),
@@ -212,7 +212,7 @@ fn protein_nj_correct() {
         Record::with_attrs("C2", None, b""),
         Record::with_attrs("D3", None, b""),
     ]);
-    let tree = build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
+    let tree = build_nj_tree_from_matrix(nj_distances, &sequences, rng_len).unwrap();
     assert_eq!(tree.len(), 7);
     assert_eq!(tree.postorder.len(), 7);
     assert!(is_unique(&tree.postorder));
@@ -237,11 +237,11 @@ fn nj_correct_2() {
         Record::with_attrs("C", None, b""),
         Record::with_attrs("D", None, b""),
     ]);
-    let tree = build_nj_tree_w_rng_from_matrix(nj_distances, &sequences, |_| 0).unwrap();
-    assert_eq!(tree.blen(&tree.idx("A")), 1.0);
-    assert_eq!(tree.blen(&tree.idx("B")), 3.0);
-    assert_eq!(tree.blen(&tree.idx("C")), 2.0);
-    assert_eq!(tree.blen(&tree.idx("D")), 7.0);
+    let tree = build_nj_tree_from_matrix(nj_distances, &sequences, |_| 0).unwrap();
+    assert_eq!(tree.blen_by_id("A"), 1.0);
+    assert_eq!(tree.blen_by_id("B"), 3.0);
+    assert_eq!(tree.blen_by_id("C"), 2.0);
+    assert_eq!(tree.blen_by_id("D"), 7.0);
     assert_eq!(tree.blen(&I(4)), 1.0);
     assert_eq!(tree.blen(&I(5)), 1.0);
     assert_eq!(tree.len(), 7);
@@ -270,12 +270,12 @@ fn nj_correct_wiki_example() {
         Record::with_attrs("d", None, b""),
         Record::with_attrs("e", None, b""),
     ]);
-    let tree = build_nj_tree_w_rng_from_matrix(nj_distances, &sequences, |l| l - 1).unwrap();
-    assert_eq!(tree.blen(&tree.idx("a")), 2.0);
-    assert_eq!(tree.blen(&tree.idx("b")), 3.0);
-    assert_eq!(tree.blen(&tree.idx("c")), 4.0);
-    assert_eq!(tree.blen(&tree.idx("d")), 1.0);
-    assert_eq!(tree.blen(&tree.idx("e")), 1.0);
+    let tree = build_nj_tree_from_matrix(nj_distances, &sequences, |l| l - 1).unwrap();
+    assert_eq!(tree.blen_by_id("a"), 2.0);
+    assert_eq!(tree.blen_by_id("b"), 3.0);
+    assert_eq!(tree.blen_by_id("c"), 4.0);
+    assert_eq!(tree.blen_by_id("d"), 1.0);
+    assert_eq!(tree.blen_by_id("e"), 1.0);
     assert_eq!(tree.blen(&I(5)), 3.0);
     assert_eq!(tree.blen(&I(6)), 2.0);
     assert_eq!(tree.blen(&I(7)), 1.0);
@@ -715,9 +715,8 @@ fn check_same_trees_after_newick() {
 
 #[test]
 fn test_parse_huge_newick() {
-    let path = PathBuf::from(
-        "./data/real_examples/initial_msa_env_aa_one_seq_pP_subtypeB.fas.timetree.nwk",
-    );
+    let path =
+        Path::new("./data/real_examples/initial_msa_env_aa_one_seq_pP_subtypeB.fas.timetree.nwk");
     let newick = fs::read_to_string(path).unwrap();
     let trees = from_newick_string(&newick);
     assert!(trees.is_ok());
@@ -732,9 +731,8 @@ fn test_parse_huge_newick() {
 
 #[test]
 fn test_generate_huge_newick() {
-    let path = PathBuf::from(
-        "./data/real_examples/initial_msa_env_aa_one_seq_pP_subtypeB.fas.timetree.nwk",
-    );
+    let path =
+        Path::new("./data/real_examples/initial_msa_env_aa_one_seq_pP_subtypeB.fas.timetree.nwk");
     let newick = fs::read_to_string(path).unwrap();
     let trees = from_newick_string(&newick);
     let tree = &trees.unwrap()[0];
@@ -999,17 +997,14 @@ fn rf_distance_to_itself() {
 
 #[test]
 fn rf_distance_against_raxml() {
-    let folder = PathBuf::from("./data/phyml_protein_example");
-    let tree_orig = &read_newick_from_file(&folder.join(PathBuf::from("tree.newick"))).unwrap()[0];
-    let tree_phyml =
-        &read_newick_from_file(&folder.join(PathBuf::from("phyml_result.newick"))).unwrap()[0];
+    let folder = Path::new("./data/phyml_protein_example");
+    let tree_orig = &read_newick_from_file(&folder.join("tree.newick")).unwrap()[0];
+    let tree_phyml = &read_newick_from_file(&folder.join("phyml_result.newick")).unwrap()[0];
 
     let tree_opt_1 =
-        &read_newick_from_file(&folder.join(PathBuf::from("optimisation_good_start.newick")))
-            .unwrap()[0];
+        &read_newick_from_file(&folder.join("optimisation_tree_start.newick")).unwrap()[0];
     let tree_opt_2 =
-        &read_newick_from_file(&folder.join(PathBuf::from("optimisation_nj_start.newick")))
-            .unwrap()[0];
+        &read_newick_from_file(&folder.join("optimisation_nj_start.newick")).unwrap()[0];
     assert_eq!(tree_orig.robinson_foulds(tree_phyml), 4);
     assert_eq!(tree_orig.robinson_foulds(tree_opt_1), 6);
     assert_eq!(tree_orig.robinson_foulds(tree_opt_2), 6);

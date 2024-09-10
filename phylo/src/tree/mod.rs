@@ -428,7 +428,8 @@ impl Tree {
         bail!("No node with id {} found in the tree", id);
     }
 
-    pub fn idx(&self, id: &str) -> NodeIdx {
+    #[allow(dead_code)]
+    pub(crate) fn idx(&self, id: &str) -> NodeIdx {
         debug_assert!(self.complete);
         self.nodes.iter().find(|node| node.id == id).unwrap().idx
     }
@@ -442,8 +443,13 @@ impl Tree {
         self.dirty[idx] = true;
     }
 
-    pub fn blen(&self, node_idx: &NodeIdx) -> f64 {
+    pub(crate) fn blen(&self, node_idx: &NodeIdx) -> f64 {
         self.nodes[usize::from(node_idx)].blen
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn blen_by_id(&self, id: &str) -> f64 {
+        self.nodes[usize::from(self.idx(id))].blen
     }
 
     pub fn leaves(&self) -> Vec<&Node> {
