@@ -300,48 +300,52 @@ fn pip_vs_subst_protein_tree_nogaps() {
 
 #[test]
 fn protein_optimise_model_tree() {
-    // let info = PhyloInfoBuilder::new(PathBuf::from("./data/phyml_protein_example/seqs.fasta"))
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let out_tree = fldr.join("optimisation_pip_nj_start_gaps.newick");
+    let out_tree_model_optim = fldr.join("optimisation_pip_nj_start_model_optim_gaps.newick");
+
+    // use crate::io::write_newick_to_file;
+    // use crate::optimisers::{EvoModelOptimiser, FrequencyOptimisation::Empirical, ModelOptimiser};
+    // let info = PhyloInfoBuilder::new(fldr.join("seqs.fasta"))
     //     .build()
     //     .unwrap();
-    // let model = PIPModel::<ProteinSubstModel>::new(WAG, &[1.4, 0.5]).unwrap();
-    // let unopt_logl = model.cost(&info);
-    // let o = ModelOptimiser::new(&model, &info, Empirical).run().unwrap();
+    // let pip = PIPModel::<ProteinSubstModel>::new(WAG, &[1.4, 0.5]).unwrap();
+    // let unopt_logl = pip.cost(&info);
+
+    // let o = ModelOptimiser::new(&pip, &info, Empirical).run().unwrap();
     // let model_opt_logl = o.final_logl;
     // assert!(model_opt_logl >= unopt_logl);
     // let o = TopologyOptimiser::new(&o.model, &info).run().unwrap();
     // assert!(model_opt_logl >= unopt_logl);
     // assert!(o.final_logl >= unopt_logl);
-    // // The above ran in 703.87s
+    // let _ = write_newick_to_file(&[o.i.tree.clone()], out_tree_model_optim);
+    // let with_model_optim = o.i;
+    // The above ran in 1189.44s
 
-    // let info = PhyloInfoBuilder::new(PathBuf::from("./data/phyml_protein_example/seqs.fasta"))
+    // let info = PhyloInfoBuilder::new(fldr.join("seqs.fasta"))
     //     .build()
     //     .unwrap();
-    // let model = PIPModel::<ProteinSubstModel>::new(WAG, &[1.4, 0.5]).unwrap();
-    // let unopt_logl = model.cost(&info);
-    // let o = TopologyOptimiser::new(&model, &info).run().unwrap();
+    // let pip = PIPModel::<ProteinSubstModel>::new(WAG, &[1.4, 0.5]).unwrap();
+    // let unopt_logl = pip.cost(&info);
+    // let o = TopologyOptimiser::new(&pip, &info).run().unwrap();
     // assert!(o.final_logl >= unopt_logl);
-    // The above ran in 497.22s
+    // let _ = write_newick_to_file(&[o.i.tree.clone()], out_tree);
+    // let wo_model_optim = o.i;
+    // The above ran in 1109.95s
 
-    let optim_model = PIPModel::<ProteinSubstModel>::new(WAG, &[49.56941, 0.09352]).unwrap();
-    let with_model_optim = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/phyml_protein_example/seqs.fasta"),
-        PathBuf::from(
-            "./data/phyml_protein_example/optimisation_pip_nj_start_model_optim_gaps.newick",
-        ),
-    )
-    .build()
-    .unwrap();
+    let pip_optim = PIPModel::<ProteinSubstModel>::new(WAG, &[49.56941, 0.09352]).unwrap();
+    let pip = ProteinSubstModel::new(WAG, &[1.4, 0.5]).unwrap();
+    let with_model_optim =
+        PhyloInfoBuilder::with_attrs(fldr.join("seqs.fasta"), out_tree_model_optim)
+            .build()
+            .unwrap();
+    let wo_model_optim = PhyloInfoBuilder::with_attrs(fldr.join("seqs.fasta"), out_tree)
+        .build()
+        .unwrap();
 
-    let model = ProteinSubstModel::new(WAG, &[1.4, 0.5]).unwrap();
-    let wo_model_optim = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/phyml_protein_example/seqs.fasta"),
-        PathBuf::from(
-            "./data/phyml_protein_example/optimisation_pip_nj_start_model_optim_gaps.newick",
-        ),
-    )
-    .build()
-    .unwrap();
-
-    assert!(with_model_optim.tree.robinson_foulds(&wo_model_optim.tree) == 0);
-    assert!(optim_model.cost(&with_model_optim) > model.cost(&wo_model_optim));
+    assert_eq!(
+        with_model_optim.tree.robinson_foulds(&wo_model_optim.tree),
+        0
+    );
+    assert!(pip_optim.cost(&with_model_optim) > pip.cost(&wo_model_optim));
 }
