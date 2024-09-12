@@ -353,7 +353,7 @@ impl<SM: SubstitutionModel> SubstModelInfo<SM> {
         }
     }
 
-    pub fn new(info: &PhyloInfo, model: &SM) -> Result<Self> {
+    pub fn new(info: &PhyloInfo, _model: &SM) -> Result<Self> {
         let node_count = info.tree.len();
         let msa_length = info.msa_length();
 
@@ -361,8 +361,7 @@ impl<SM: SubstitutionModel> SubstModelInfo<SM> {
         for node in info.tree.leaves() {
             let alignment_map = info.msa.leaf_map(&node.idx);
             let leaf_encoding = info.leaf_encoding.get(&node.id).unwrap();
-            let mut leaf_seq_w_gaps =
-                DMatrix::<f64>::zeros(<SM as SubstitutionModel>::N, msa_length);
+            let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(SM::N, msa_length);
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
                     site_info.copy_from(&leaf_encoding.column(c));
@@ -376,18 +375,9 @@ impl<SM: SubstitutionModel> SubstModelInfo<SM> {
         Ok(SubstModelInfo::<SM> {
             empty: false,
             phantom: PhantomData::<SM>,
-            node_info: vec![
-                DMatrix::<f64>::zeros(<SM as SubstitutionModel>::N, msa_length);
-                node_count
-            ],
+            node_info: vec![DMatrix::<f64>::zeros(SM::N, msa_length); node_count],
             node_info_valid: vec![false; node_count],
-            node_models: vec![
-                SubstMatrix::zeros(
-                    <SM as SubstitutionModel>::N,
-                    <SM as SubstitutionModel>::N
-                );
-                node_count
-            ],
+            node_models: vec![SubstMatrix::zeros(SM::N, SM::N); node_count],
             node_models_valid: vec![false; node_count],
             leaf_sequence_info,
         })
