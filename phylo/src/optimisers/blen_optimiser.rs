@@ -50,40 +50,40 @@ impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for BranchOptimiser<'a, E
         let mut info = self.info.clone();
 
         let initial_logl = self.model.cost(&info);
+        self.model.reset();
         info!("Initial logl: {}.", initial_logl);
-        let mut final_logl = initial_logl;
-        let mut prev_logl = f64::NEG_INFINITY;
+        let mut curr_cost = initial_logl;
+        let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
 
         let nodes: Vec<NodeIdx> = info.tree.iter().map(|node| node.idx).collect();
-        while (prev_logl - final_logl).abs() > self.epsilon {
+        while (curr_cost - prev_cost) > self.epsilon {
             iterations += 1;
             debug!("Iteration: {}", iterations);
-            prev_logl = final_logl;
+            prev_cost = curr_cost;
             for branch in &nodes {
                 if info.tree.root == *branch {
                     continue;
                 }
                 let (logl, length) = self.optimise_branch(branch, &info)?;
-                info.tree.clean(true);
-                if logl < final_logl {
-                    continue;
+                if logl > curr_cost {
+                    curr_cost = logl;
+                    info.tree.set_blen(branch, length);
+                    debug!(
+                        "Optimised {} branch length to value {:.5} with logl {:.5}",
+                        branch, length, curr_cost
+                    );
                 }
-                final_logl = logl;
-                info.tree.set_blen(branch, length);
-                debug!(
-                    "Optimised {} branch length to value {:.5} with logl {:.5}",
-                    branch, length, final_logl
-                );
+                info.tree.clean(true);
             }
         }
         info!(
             "Final logl: {}, achieved in {} iteration(s).",
-            final_logl, iterations
+            curr_cost, iterations
         );
         Ok(PhyloOptimisationResult {
             initial_logl,
-            final_logl,
+            final_logl: curr_cost,
             iterations,
             i: info,
         })
