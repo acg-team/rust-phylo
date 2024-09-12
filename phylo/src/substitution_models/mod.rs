@@ -246,7 +246,7 @@ where
     }
 
     fn logl(&self, info: &PhyloInfo) -> f64 {
-        if self.tmp.borrow().node_info.is_empty() {
+        if self.tmp.borrow().empty {
             self.tmp
                 .replace(SubstModelInfo::<SubstModel<Params>>::new(info, self).unwrap());
         }
@@ -296,24 +296,35 @@ where
     }
 
     fn set_leaf(&self, tree: &Tree, node_idx: &NodeIdx) {
-        let node = tree.node(node_idx);
         let mut tmp_values = self.tmp.borrow_mut();
-        let idx = usize::from(node.idx);
+        let idx = usize::from(node_idx);
 
         if tree.dirty[idx] || !tmp_values.node_models_valid[idx] {
-            tmp_values.node_models[idx] = SubstitutionModel::p(self, node.blen);
+            tmp_values.node_models[idx] = SubstitutionModel::p(self, tree.blen(node_idx));
             tmp_values.node_models_valid[idx] = true;
             tmp_values.node_info_valid[idx] = false;
         }
         if tmp_values.node_info_valid[idx] {
             return;
         }
-        tmp_values.node_info[idx] = (&tmp_values.node_models[idx])
-            .mul(tmp_values.leaf_sequence_info.get(&node.id).unwrap());
-        tmp_values.node_info_valid[idx] = true;
-        if let Some(parent_idx) = node.parent {
+
+        // get leaf sequence encoding times stationary frequencies
+        let mut leaf_seq = tmp_values
+            .leaf_sequence_info
+            .get(tree.node_id(node_idx))
+            .unwrap()
+            .clone();
+        leaf_seq.column_iter_mut().for_each(|mut site_info| {
+            site_info.component_mul_assign(SubstitutionModel::freqs(self));
+            site_info.scale_mut((1.0) / site_info.sum());
+        });
+        tmp_values.node_info[idx] = (&tmp_values.node_models[idx]).mul(leaf_seq);
+
+        if let Some(parent_idx) = tree.parent(node_idx) {
             tmp_values.node_info_valid[usize::from(parent_idx)] = false;
         }
+
+        tmp_values.node_info_valid[idx] = true;
         drop(tmp_values);
     }
 }
@@ -355,9 +366,8 @@ impl<SM: SubstitutionModel> SubstModelInfo<SM> {
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
                     site_info.copy_from(&leaf_encoding.column(c));
-                    site_info.component_mul_assign(SubstitutionModel::freqs(model));
                 } else {
-                    site_info.copy_from(SubstitutionModel::freqs(model));
+                    site_info.fill(1.0);
                 }
                 site_info.scale_mut((1.0) / site_info.sum());
             }
@@ -384,6 +394,7 @@ impl<SM: SubstitutionModel> SubstModelInfo<SM> {
     }
 
     pub fn reset(&mut self) {
+        self.empty = true;
         self.node_info.iter_mut().for_each(|x| x.fill(0.0));
         self.node_info_valid.fill(false);
         self.node_models.iter_mut().for_each(|x| x.fill(0.0));
