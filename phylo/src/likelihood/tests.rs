@@ -10,10 +10,11 @@ use crate::evolutionary_models::{
     DNAModelType::{self, *},
     ProteinModelType::{self, *},
 };
+use crate::frequencies;
 use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder};
 use crate::substitution_models::{
-    DNASubstModel, ProteinSubstModel, SubstMatrix, SubstitutionModel,
+    DNAParameter, DNASubstModel, FreqVector, ProteinSubstModel, SubstMatrix, SubstitutionModel,
 };
 use crate::tree::{tree_parser, Tree};
 
@@ -43,6 +44,56 @@ fn dna_simple_likelihood() {
     let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
     let info = &setup_simple_phylo_info(1.0, 2.0);
     assert_relative_eq!(jc69.cost(info), -2.719098272533848, epsilon = 1e-6);
+}
+
+#[rstest]
+#[case::hky(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5])]
+#[case::tn93(TN93, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
+#[case::gtr(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
+fn change_likelihood_on_freq_change(#[case] mtype: DNAModelType, #[case] params: &[f64]) {
+    // likelihood should change when frequencies are changed in models with free freqs
+    let info = setup_cb_example_phylo_info();
+    let mut model = DNASubstModel::new(mtype, params).unwrap();
+    let logl = model.cost(&info);
+    model.set_freqs(frequencies!(&[0.1, 0.2, 0.3, 0.4]));
+    assert_ne!(logl, model.cost(&info));
+}
+
+#[rstest]
+#[case::jc69(JC69, &[])]
+#[case::k80(K80, &[2.0, 0.5])]
+fn same_likelihood_on_freq_change(#[case] mtype: DNAModelType, #[case] params: &[f64]) {
+    // likelihood should stay the same when frequencies are changed in models with fixed
+    let info = setup_cb_example_phylo_info();
+    let mut model = DNASubstModel::new(mtype, params).unwrap();
+    let logl = model.cost(&info);
+    model.set_freqs(frequencies!(&[0.1, 0.2, 0.3, 0.4]));
+    assert_eq!(logl, model.cost(&info));
+}
+
+#[rstest]
+#[case::k80(K80, &[2.0, 0.5])]
+#[case::hky(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5])]
+#[case::tn93(TN93, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
+#[case::gtr(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
+fn change_likelihood_on_param_change_(#[case] mtype: DNAModelType, #[case] params: &[f64]) {
+    // likelihood should change when parameters are changed
+    let info = setup_cb_example_phylo_info();
+    let mut model = DNASubstModel::new(mtype, params).unwrap();
+    let logl = model.cost(&info);
+    model.set_param(&DNAParameter::Rca, 100.0);
+    assert_ne!(logl, model.cost(&info));
+}
+
+#[rstest]
+#[case::jc69(JC69, &[])]
+fn same_likelihood_on_param_change(#[case] mtype: DNAModelType, #[case] params: &[f64]) {
+    // likelihood should not change when parameters are changed for jc69
+    let info = setup_cb_example_phylo_info();
+    let mut model = DNASubstModel::new(mtype, params).unwrap();
+    let logl = model.cost(&info);
+    model.set_param(&DNAParameter::Rca, 100.0);
+    assert_eq!(logl, model.cost(&info));
 }
 
 #[test]
