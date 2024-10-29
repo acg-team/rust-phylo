@@ -38,6 +38,9 @@ impl SubstitutionModel for ProteinSubstModel {
     fn update(&mut self) {
         self.q = self.params.q();
         self.normalise();
+        if !self.tmp.borrow().empty {
+            self.tmp.borrow_mut().node_models_valid.fill(false);
+        }
     }
 
     fn normalise(&mut self) {
