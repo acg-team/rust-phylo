@@ -249,7 +249,7 @@ fn pip_vs_subst_protein_tree_nogaps() {
     // let pip = PIPModel::<ProteinSubstModel>::new(WAG, &[50.0, 0.1]).unwrap();
     // let unopt_logl = pip.cost(&info, false);
     // let o = TopologyOptimiser::new(&pip, &info).run().unwrap();
-    // let _ = write_newick_to_file(&[o.i.tree.clone()], out_tree);
+    // assert!(write_newick_to_file(&[o.i.tree.clone()], out_tree).is_ok());
     // assert!(o.final_logl >= unopt_logl);
     // let pip_opt_info = o.i;
     // Ran in ~134.62s
@@ -311,7 +311,7 @@ fn protein_optimise_model_tree() {
     // let o = TopologyOptimiser::new(&o.model, &info).run().unwrap();
     // assert!(model_opt_logl >= unopt_logl);
     // assert!(o.final_logl >= unopt_logl);
-    // let _ = write_newick_to_file(&[o.i.tree.clone()], out_tree_model_optim);
+    // assert!(write_newick_to_file(&[o.i.tree.clone()], out_tree_model_optim).is_ok());
     // let with_model_optim = o.i;
     // The above ran in 258.64s
 
@@ -322,7 +322,7 @@ fn protein_optimise_model_tree() {
     // let unopt_logl = pip.cost(&info, false);
     // let o = TopologyOptimiser::new(&pip, &info).run().unwrap();
     // assert!(o.final_logl >= unopt_logl);
-    // let _ = write_newick_to_file(&[o.i.tree.clone()], out_tree);
+    // assert!(write_newick_to_file(&[o.i.tree.clone()], out_tree).is_ok());
     // let wo_model_optim = o.i;
     // The above ran in 245.48s
 
