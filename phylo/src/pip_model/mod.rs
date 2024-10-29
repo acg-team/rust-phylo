@@ -190,6 +190,7 @@ pub struct PIPModelInfo<SM: SubstitutionModel> {
     valid: Vec<bool>,
     models: Vec<SubstMatrix>,
     models_valid: Vec<bool>,
+    leaf_sequence_info: HashMap<String, DMatrix<f64>>,
 }
 
 impl<SM: SubstitutionModel + Clone> PIPModelInfo<SM>
@@ -213,10 +214,11 @@ where
             valid: vec![],
             models: vec![],
             models_valid: vec![],
+            leaf_sequence_info: HashMap::new(),
         }
     }
 
-    pub fn new(info: &PhyloInfo, model: &PIPModel<SM>) -> Self {
+    pub fn new(info: &PhyloInfo, _model: &PIPModel<SM>) -> Self {
         let n = PIPModel::<SM>::N;
         let node_count = info.tree.len();
         let msa_length = info.msa_length();
@@ -229,7 +231,6 @@ where
                 if let Some(c) = alignment_map[i] {
                     let encoding = leaf_encoding.column(c).insert_row(n - 1, 0.0);
                     site_info.copy_from(&encoding);
-                    site_info.component_mul_assign(model.freqs());
                 } else {
                     site_info.fill_row(n - 1, 1.0);
                 }
@@ -237,21 +238,11 @@ where
             }
             leaf_seq_info.insert(node.id.clone(), leaf_seq_w_gaps);
         }
-        let ftilde = info
-            .tree
-            .iter()
-            .map(|node| match node.idx {
-                Int(_) => DMatrix::<f64>::zeros(n, msa_length),
-                Leaf(_) => leaf_seq_info
-                    .get(info.tree.node_id(&node.idx))
-                    .unwrap()
-                    .clone(),
-            })
-            .collect();
 
         PIPModelInfo::<SM> {
             empty: false,
-            ftilde,
+            phantom: PhantomData,
+            ftilde: vec![DMatrix::<f64>::zeros(SM::N + 1, msa_length); node_count],
             ins_probs: vec![0.0; node_count],
             surv_probs: vec![0.0; node_count],
             f: vec![DVector::<f64>::zeros(msa_length); node_count],
@@ -263,12 +254,11 @@ where
             valid: vec![false; node_count],
             models: vec![SubstMatrix::zeros(n, n); node_count],
             models_valid: vec![false; node_count],
-            phantom: PhantomData,
+            leaf_sequence_info: leaf_seq_info,
         }
     }
 
     pub fn reset(&mut self) {
-        self.empty = true;
         self.ins_probs.fill(0.0);
         self.surv_probs.fill(0.0);
         self.anc.iter_mut().for_each(|x| x.fill(0.0));
@@ -289,7 +279,10 @@ where
     SM::ModelType: Clone,
     PIPModel<SM>: EvoModel,
 {
-    fn cost(&self, info: &PhyloInfo) -> f64 {
+    fn cost(&self, info: &PhyloInfo, reset: bool) -> f64 {
+        if reset {
+            self.reset();
+        }
         self.logl(info)
     }
 
@@ -303,15 +296,10 @@ where
     SM::ModelType: Clone,
     PIPModel<SM>: EvoModel,
 {
-    #[cfg(test)]
-    pub(crate) fn change_info(&self, info: &PhyloInfo) {
+    fn logl(&self, info: &PhyloInfo) -> f64 {
         if self.tmp.borrow().empty {
             self.tmp.replace(PIPModelInfo::<SM>::new(info, self));
         }
-    }
-
-    fn logl(&self, info: &PhyloInfo) -> f64 {
-        self.tmp.replace(PIPModelInfo::<SM>::new(info, self));
 
         for node_idx in info.tree.postorder() {
             match node_idx {
@@ -331,7 +319,7 @@ where
 
         let root_idx = usize::from(&info.tree.root);
 
-        let msa_length = tmp.ftilde[0].ncols();
+        let msa_length = info.msa_length();
         let nu = self.params.lambda * (info.tree.height + 1.0 / self.params.mu);
         let ln_phi = nu.ln() * msa_length as f64 + (tmp.c0_p[root_idx] - 1.0) * nu
             - (log_factorial(msa_length));
@@ -354,7 +342,8 @@ where
             self.set_p(tree, node_idx);
             self.set_c0(tree, node_idx);
 
-            self.tmp.borrow_mut().valid[idx] = true;
+            let mut tmp = self.tmp.borrow_mut();
+            tmp.valid[idx] = true;
         }
     }
 
@@ -374,7 +363,11 @@ where
             self.set_p(tree, node_idx);
             self.set_c0(tree, node_idx);
 
-            self.tmp.borrow_mut().valid[idx] = true;
+            let mut tmp = self.tmp.borrow_mut();
+            if let Some(parent_idx) = tree.parent(node_idx) {
+                tmp.valid[usize::from(parent_idx)] = false;
+            }
+            tmp.valid[idx] = true;
         }
     }
 
@@ -392,6 +385,13 @@ where
                     tmp.anc[idx][(i, 0)] = 1.0;
                 }
             }
+
+            tmp.ftilde[idx] = tmp
+                .leaf_sequence_info
+                .get(tree.node_id(node_idx))
+                .unwrap()
+                .clone();
+
             tmp.f[idx] = tmp.ftilde[idx]
                 .tr_mul(self.freqs())
                 .component_mul(&tmp.anc[idx].column(0));
@@ -399,6 +399,10 @@ where
             tmp.c0_ftilde[idx][PIPModel::<SM>::N - 1] = 1.0;
             tmp.c0_f[idx] = 0.0;
             tmp.c0_p[idx] = (1.0 - tmp.surv_probs[idx]) * tmp.ins_probs[idx];
+
+            if let Some(parent_idx) = tree.parent(node_idx) {
+                tmp.valid[usize::from(parent_idx)] = false;
+            }
             tmp.valid[idx] = true;
         }
     }
@@ -438,7 +442,7 @@ where
 
     fn set_model(&self, tree: &Tree, node_idx: &NodeIdx) {
         let idx = usize::from(node_idx);
-        if !self.tmp.borrow().models_valid[idx] {
+        if tree.dirty[idx] || !self.tmp.borrow().models_valid[idx] {
             let mut tmp = self.tmp.borrow_mut();
             tmp.models[idx] = self.p(tree.blen(node_idx));
             tmp.models_valid[idx] = true;
@@ -449,7 +453,6 @@ where
     fn set_ancestors(&self, tree: &Tree, node_idx: &NodeIdx) {
         let idx = usize::from(node_idx);
         let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
-
         let mut tmp = self.tmp.borrow_mut();
         let x_anc = tmp.anc[children[0]].clone();
         let y_anc = tmp.anc[children[1]].clone();
