@@ -41,7 +41,7 @@ impl PhyloInfo {
     /// The alignment is compiled from the subtree rooted at `subroot`.
     /// If `subroot` is None, the whole alignment is compiled.
     /// Bails if the tree does not contain the subroot or does not match the alignment.
-    pub fn compile_alignment(&self, subroot: Option<NodeIdx>) -> Result<Vec<Record>> {
+    pub fn compile_alignment(&self, subroot: Option<&NodeIdx>) -> Result<Vec<Record>> {
         self.msa.compile(subroot, &self.tree)
     }
 

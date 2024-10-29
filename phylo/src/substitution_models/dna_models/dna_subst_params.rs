@@ -1,11 +1,10 @@
 use std::fmt::Display;
 
-use log::warn;
+use log::{info, warn};
 
-use crate::evolutionary_models::EvoModelParams;
+use crate::evolutionary_models::DNAModelType::{self, *};
 use crate::substitution_models::{
-    dna_models::DNAModelType::{self, *},
-    FreqVector,
+    gtr_params, hky_params, jc69_params, k80_params, tn93_params, FreqVector,
 };
 use crate::Result;
 
@@ -21,12 +20,8 @@ pub enum DNAParameter {
     Rca,
     Rcg,
     Rag,
-    Mu,
-    Lambda,
 }
 use DNAParameter::*;
-
-use super::{gtr_params, hky_params, jc69_params, k80_params, tn93_params};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DNASubstParams {
@@ -40,11 +35,8 @@ pub struct DNASubstParams {
     pub(crate) rag: f64,
 }
 
-impl EvoModelParams for DNASubstParams {
-    type ModelType = DNAModelType;
-    type Parameter = DNAParameter;
-
-    fn new(model_type: &DNAModelType, params: &[f64]) -> Result<Self>
+impl DNASubstParams {
+    pub(crate) fn new(model_type: DNAModelType, params: &[f64]) -> Result<Self>
     where
         Self: Sized,
     {
@@ -57,8 +49,10 @@ impl EvoModelParams for DNASubstParams {
             _ => unreachable!(),
         }
     }
+}
 
-    fn value(&self, param_name: &DNAParameter) -> f64 {
+impl DNASubstParams {
+    pub(crate) fn param(&self, param_name: &DNAParameter) -> f64 {
         match param_name {
             Pit => self.pi[0],
             Pic => self.pi[1],
@@ -70,11 +64,10 @@ impl EvoModelParams for DNASubstParams {
             Rca => self.rca,
             Rcg => self.rcg,
             Rag => self.rag,
-            _ => panic!("Invalid parameter name."),
         }
     }
 
-    fn set_value(&mut self, param_name: &DNAParameter, value: f64) {
+    pub(crate) fn set_param(&mut self, param_name: &DNAParameter, value: f64) {
         match param_name {
             Pit | Pic | Pia | Pig => {
                 warn!("Cannot set frequencies individually. Use set_freqs() instead.")
@@ -85,45 +78,25 @@ impl EvoModelParams for DNASubstParams {
             Rca => self.rca = value,
             Rcg => self.rcg = value,
             Rag => self.rag = value,
-            _ => panic!("Invalid parameter name."),
         }
     }
 
-    fn freqs(&self) -> &FreqVector {
+    pub(crate) fn freqs(&self) -> &FreqVector {
         &self.pi
     }
 
-    fn set_freqs(&mut self, pi: FreqVector) {
-        if pi.sum() != 1.0 {
-            warn!("Frequencies must sum to 1.0, not setting values");
-        } else {
-            self.pi = pi;
-        }
-    }
-
-    fn parameter_definition(model_type: &DNAModelType) -> Vec<(&'static str, Vec<DNAParameter>)> {
-        match model_type {
-            DNAModelType::JC69 => vec![],
-            DNAModelType::K80 => vec![
-                ("alpha", vec![Rtc, Rag]),
-                ("beta", vec![Rta, Rtg, Rca, Rcg]),
-            ],
-            DNAModelType::HKY => vec![
-                ("alpha", vec![Rtc, Rag]),
-                ("beta", vec![Rta, Rtg, Rca, Rcg]),
-            ],
-            DNAModelType::TN93 => vec![
-                ("alpha1", vec![Rtc]),
-                ("alpha2", vec![Rag]),
-                ("beta", vec![Rta, Rtg, Rca, Rcg]),
-            ],
-            DNAModelType::GTR => vec![
-                ("rca", vec![Rca]),
-                ("rcg", vec![Rcg]),
-                ("rta", vec![Rta]),
-                ("rtc", vec![Rtc]),
-                ("rtg", vec![Rtg]),
-            ],
+    pub(crate) fn set_freqs(&mut self, pi: FreqVector) {
+        match self.model_type {
+            JC69 | K80 => {
+                info!("Model does not have frequency parameters.")
+            }
+            HKY | TN93 | GTR => {
+                if pi.sum() != 1.0 {
+                    warn!("Frequencies must sum to 1.0, not setting values");
+                } else {
+                    self.pi = pi;
+                }
+            }
             _ => unreachable!(),
         }
     }

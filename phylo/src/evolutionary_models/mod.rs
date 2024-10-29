@@ -2,7 +2,6 @@ use std::fmt::Display;
 
 use log::warn;
 
-use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{FreqVector, SubstMatrix};
 use crate::Result;
 
@@ -93,43 +92,27 @@ impl From<&str> for ProteinModelType {
     }
 }
 
-pub trait EvoModelParams {
-    type ModelType;
-    type Parameter;
-    fn new(model: &Self::ModelType, params: &[f64]) -> Result<Self>
-    where
-        Self: Sized;
-    fn parameter_definition(
-        model_type: &Self::ModelType,
-    ) -> Vec<(&'static str, Vec<Self::Parameter>)>;
-    fn value(&self, param_name: &Self::Parameter) -> f64;
-    fn set_value(&mut self, param_name: &Self::Parameter, value: f64);
-    fn freqs(&self) -> &FreqVector;
-    fn set_freqs(&mut self, pi: FreqVector);
-}
-
 // TODO: change pi to a row vector
-pub trait EvolutionaryModel {
+pub trait EvoModel {
+    type Parameter;
     type ModelType;
-    type Params;
-    fn new(model: Self::ModelType, params: &[f64]) -> Result<Self>
+    const N: usize;
+
+    fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
     where
         Self: Sized;
+    fn model_type(&self) -> &Self::ModelType;
+    fn description(&self) -> String;
     fn p(&self, time: f64) -> SubstMatrix;
     fn q(&self) -> &SubstMatrix;
     fn rate(&self, i: u8, j: u8) -> f64;
+    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)>;
+    fn param(&self, param_name: &Self::Parameter) -> f64;
+    fn set_param(&mut self, param_name: &Self::Parameter, value: f64);
     fn freqs(&self) -> &FreqVector;
+    fn set_freqs(&mut self, pi: FreqVector);
     fn index(&self) -> &[usize; 255];
-    fn params(&self) -> &Self::Params;
-}
-
-pub trait EvoModelInfo {
-    type Model;
-    fn new(info: &PhyloInfo, model: &Self::Model) -> Result<Self>
-    where
-        Self: Sized;
-    fn reset(&mut self);
 }
 
 #[cfg(test)]
-pub(crate) mod evolutionary_models_tests;
+pub(crate) mod tests;

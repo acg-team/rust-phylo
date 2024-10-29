@@ -1,5 +1,6 @@
 use std::{fmt::Debug, fmt::Display, path::PathBuf};
 
+use approx::assert_relative_eq;
 use assert_matches::assert_matches;
 use bio::io::fasta::Record;
 
@@ -345,4 +346,76 @@ fn check_empirical_frequencies() {
     let freqs = info.freqs();
     assert_eq!(freqs.clone().sum(), 1.0);
     assert_eq!(freqs, frequencies!(&[5.0, 5.0, 7.0, 3.0]).scale(1.0 / 20.0));
+}
+
+#[test]
+fn empirical_frequencies_no_ambigs() {
+    let sequences = Sequences::new(vec![
+        Record::with_attrs("one", None, b"CCCCCCCC"),
+        Record::with_attrs("two", None, b"AAAAAAAA"),
+        Record::with_attrs("three", None, b"TTTTTTTT"),
+        Record::with_attrs("four", None, b"GGGGGGGG"),
+    ]);
+    let newick = "((one:2,two:2):1,(three:1,four:1):2);".to_string();
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    assert_relative_eq!(info.freqs(), frequencies!(&[0.25; 4]), epsilon = 1e-6);
+}
+
+#[test]
+fn empirical_frequencies_ambig_x() {
+    let sequences = Sequences::new(vec![
+        Record::with_attrs("on", None, b"XXXXXXXX"),
+        Record::with_attrs("tw", None, b"XXXXXXXX"),
+        Record::with_attrs("th", None, b"NNNNNNNN"),
+        Record::with_attrs("fo", None, b"NNNNNNNN"),
+    ]);
+    let newick = "((on:2,tw:2):1,(th:1,fo:1):2);".to_string();
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    assert_relative_eq!(info.freqs(), frequencies!(&[0.25; 4]), epsilon = 1e-6);
+}
+
+#[test]
+fn empirical_frequencies_ambig_n() {
+    let sequences = Sequences::new(vec![
+        Record::with_attrs("on", None, b"AAAAAAAAAA"),
+        Record::with_attrs("tw", None, b"XXXXXXXXXX"),
+        Record::with_attrs("th", None, b"CCCCCCCCCC"),
+        Record::with_attrs("fo", None, b"NNNNNNNNNN"),
+    ]);
+    let newick = "(((on:2,tw:2):1,th:1):4,fo:1);".to_string();
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    assert_relative_eq!(
+        info.freqs(),
+        frequencies!(&[0.125, 0.375, 0.375, 0.125]),
+        epsilon = 1e-6
+    );
+}
+
+#[test]
+fn empirical_frequencies_ambig_other() {
+    let sequences = Sequences::new(vec![
+        Record::with_attrs("A", None, b"VVVVVVVVVV"),
+        Record::with_attrs("B", None, b"TTTTVVVTVV"),
+    ]);
+    let newick = "(A:2,B:2):1.0;".to_string();
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    assert_relative_eq!(info.freqs(), frequencies!(&[0.25; 4]), epsilon = 1e-6);
+    let sequences = Sequences::new(vec![
+        Record::with_attrs("A", None, b"SSSSSSSSSSSSSSSSSSSS"),
+        Record::with_attrs("B", None, b"WWWWWWWWWWWWWWWWWWWW"),
+    ]);
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    assert_relative_eq!(info.freqs(), frequencies!(&[0.25; 4]), epsilon = 1e-6);
+}
+
+#[test]
+fn empirical_frequencies_no_aas() {
+    let sequences = Sequences::new(vec![Record::with_attrs("A", None, b"BBBBBBBBB")]);
+    let newick = "A:1.0;".to_string();
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    assert_relative_eq!(
+        info.freqs(),
+        frequencies!(&[3.0 / 10.0, 3.0 / 10.0, 1.0 / 10.0, 3.0 / 10.0]),
+        epsilon = 1e-6
+    );
 }

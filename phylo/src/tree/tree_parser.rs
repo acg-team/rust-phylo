@@ -49,6 +49,7 @@ pub fn from_newick_string(newick_string: &str) -> Result<Vec<Tree>> {
                     if res.is_err() {
                         bail!(ParsingError(res.err().unwrap()));
                     }
+
                     trees.push(tree);
                 }
             }
@@ -68,6 +69,7 @@ impl Tree {
             preorder: Vec::new(),
             complete: false,
             n: 0,
+            height: 0.0,
         }
     }
 
@@ -91,6 +93,7 @@ impl Tree {
         self.complete = true;
         self.create_postorder();
         self.create_preorder();
+        self.height = self.nodes.iter().map(|n| n.blen).sum();
         Ok(())
     }
 
@@ -137,6 +140,7 @@ impl Tree {
         self.complete = true;
         self.create_postorder();
         self.create_preorder();
+        self.height = self.nodes.iter().map(|n| n.blen).sum();
         Ok(())
     }
 

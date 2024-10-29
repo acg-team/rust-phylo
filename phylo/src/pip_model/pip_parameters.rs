@@ -2,22 +2,68 @@ use std::fmt::Display;
 
 use anyhow::bail;
 
-use crate::evolutionary_models::{DNAModelType, EvoModelParams, ProteinModelType};
-use crate::substitution_models::dna_models::DNASubstModel;
-use crate::substitution_models::dna_models::{
+use crate::substitution_models::{
     DNAParameter::{self, *},
-    DNASubstParams,
+    DNASubstModel, FreqVector, ProteinParameter, ProteinSubstModel, SubstitutionModel,
 };
-use crate::substitution_models::protein_models::{
-    ProteinParameter, ProteinSubstModel, ProteinSubstParams,
-};
-use crate::substitution_models::{FreqVector, SubstitutionModel};
 use crate::Result;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PIPParameter {
+    Lambda,
+    Mu,
+    Rtc,
+    Rta,
+    Rtg,
+    Rca,
+    Rcg,
+    Rag,
+}
+
+impl From<PIPParameter> for ProteinParameter {
+    fn from(_val: PIPParameter) -> Self {
+        unreachable!()
+    }
+}
+
+impl From<ProteinParameter> for PIPParameter {
+    fn from(_val: ProteinParameter) -> Self {
+        unreachable!()
+    }
+}
+
+impl From<PIPParameter> for DNAParameter {
+    fn from(val: PIPParameter) -> Self {
+        match val {
+            PIPParameter::Rtc => Rtc,
+            PIPParameter::Rta => Rta,
+            PIPParameter::Rtg => Rtg,
+            PIPParameter::Rca => Rca,
+            PIPParameter::Rcg => Rcg,
+            PIPParameter::Rag => Rag,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl From<DNAParameter> for PIPParameter {
+    fn from(param: DNAParameter) -> Self {
+        match param {
+            Rtc => PIPParameter::Rtc,
+            Rta => PIPParameter::Rta,
+            Rtg => PIPParameter::Rtg,
+            Rca => PIPParameter::Rca,
+            Rcg => PIPParameter::Rcg,
+            Rag => PIPParameter::Rag,
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
-pub struct PIPParams<SubstModel: SubstitutionModel> {
-    pub(crate) model_type: SubstModel::ModelType,
-    pub subst_params: SubstModel::Params,
+pub struct PIPParams<SM: SubstitutionModel> {
+    pub(crate) model_type: SM::ModelType,
+    pub(crate) subst_model: SM,
     pub lambda: f64,
     pub mu: f64,
     pub(crate) pi: FreqVector,
@@ -35,131 +81,65 @@ fn check_pip_params(params: &[f64]) -> Result<(f64, f64)> {
     Ok((lambda, mu))
 }
 
-impl<SubstModel: SubstitutionModel + Clone> PIPParams<SubstModel>
+impl<SM: SubstitutionModel + Clone> PIPParams<SM>
 where
-    SubstModel::ModelType: Clone,
+    SM::ModelType: Clone,
+    PIPParameter: Into<SM::Parameter>,
+    SM::Parameter: Into<PIPParameter>,
 {
-    pub(crate) fn new(model_type: &SubstModel::ModelType, params: &[f64]) -> Result<Self> {
+    pub(crate) fn new(model_type: SM::ModelType, params: &[f64]) -> Result<Self> {
         let (lambda, mu) = check_pip_params(params)?;
-        let subst_params = SubstModel::Params::new(model_type, &params[2..])?;
-        let pi = subst_params.freqs().clone().insert_row(SubstModel::N, 0.0);
+        let subst_model = SM::new(model_type.clone(), &params[2..])?;
+
+        let pi = subst_model.freqs().clone().insert_row(SM::N, 0.0);
         Ok(Self {
-            model_type: model_type.clone(),
+            model_type,
             lambda,
             mu,
-            subst_params,
+            subst_model,
             pi,
         })
     }
 
-    fn freqs(&self) -> &FreqVector {
+    #[allow(dead_code)]
+    pub(crate) fn freqs(&self) -> &FreqVector {
         &self.pi
     }
 
-    fn set_freqs(&mut self, pi: FreqVector) {
-        self.pi = pi.clone();
-        self.subst_params
-            .set_freqs(pi.clone().remove_row(SubstModel::N));
+    pub(crate) fn set_freqs(&mut self, pi: FreqVector) {
+        self.pi = pi.clone().insert_row(SM::N, 0.0);
+        self.subst_model.set_freqs(pi.clone());
+        self.subst_model.update();
+    }
+
+    pub(crate) fn param(&self, param_name: &PIPParameter) -> f64 {
+        match param_name {
+            PIPParameter::Lambda => self.lambda,
+            PIPParameter::Mu => self.mu,
+            _ => self.subst_model.param(&(*param_name).into()),
+        }
+    }
+
+    pub(crate) fn set_param(&mut self, param_name: &PIPParameter, value: f64) {
+        match param_name {
+            PIPParameter::Lambda => self.lambda = value,
+            PIPParameter::Mu => self.mu = value,
+            _ => {
+                self.subst_model.set_param(&(*param_name).into(), value);
+            }
+        }
     }
 }
 
-impl EvoModelParams for PIPDNAParams {
-    type ModelType = DNAModelType;
-    type Parameter = DNAParameter;
-
-    fn new(model_type: &DNAModelType, params: &[f64]) -> Result<Self> {
-        PIPParams::new(model_type, params)
-    }
-
-    fn value(&self, param_name: &DNAParameter) -> f64 {
-        match param_name {
-            Lambda => self.lambda,
-            Mu => self.mu,
-            _ => self.subst_params.value(param_name),
-        }
-    }
-
-    fn set_value(&mut self, param_name: &DNAParameter, value: f64) {
-        match param_name {
-            Lambda => self.lambda = value,
-            Mu => self.mu = value,
-            _ => self.subst_params.set_value(param_name, value),
-        }
-    }
-
-    fn freqs(&self) -> &FreqVector {
-        self.freqs()
-    }
-
-    fn set_freqs(&mut self, pi: FreqVector) {
-        self.set_freqs(pi)
-    }
-
-    fn parameter_definition(model_type: &DNAModelType) -> Vec<(&'static str, Vec<DNAParameter>)> {
-        DNASubstParams::parameter_definition(model_type)
-            .into_iter()
-            .chain([
-                ("mu", vec![DNAParameter::Mu]),
-                ("lambda", vec![DNAParameter::Lambda]),
-            ])
-            .collect()
-    }
-}
-
-impl EvoModelParams for PIPProteinParams {
-    type ModelType = ProteinModelType;
-    type Parameter = ProteinParameter;
-
-    fn new(model_type: &ProteinModelType, params: &[f64]) -> Result<Self> {
-        PIPParams::new(model_type, params)
-    }
-
-    fn value(&self, param_name: &ProteinParameter) -> f64 {
-        match param_name {
-            ProteinParameter::Lambda => self.lambda,
-            ProteinParameter::Mu => self.mu,
-            _ => self.subst_params.value(param_name),
-        }
-    }
-
-    fn set_value(&mut self, param_name: &ProteinParameter, value: f64) {
-        match param_name {
-            ProteinParameter::Lambda => self.lambda = value,
-            ProteinParameter::Mu => self.mu = value,
-            _ => self.subst_params.set_value(param_name, value),
-        }
-    }
-
-    fn freqs(&self) -> &FreqVector {
-        self.freqs()
-    }
-
-    fn set_freqs(&mut self, pi: FreqVector) {
-        self.set_freqs(pi)
-    }
-
-    fn parameter_definition(
-        model_type: &ProteinModelType,
-    ) -> Vec<(&'static str, Vec<ProteinParameter>)> {
-        ProteinSubstParams::parameter_definition(model_type)
-            .into_iter()
-            .chain([
-                ("mu", vec![ProteinParameter::Mu]),
-                ("lambda", vec![ProteinParameter::Lambda]),
-            ])
-            .collect()
-    }
-}
-
-impl<SubstModel: SubstitutionModel> Display for PIPParams<SubstModel>
+impl<SM: SubstitutionModel> Display for PIPParams<SM>
 where
-    SubstModel::Params: std::fmt::Debug,
+    SM: Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "[lambda = {:.5},\nmu = {:.5},\nsubst model parameters = \n{:?}]",
-            self.lambda, self.mu, self.subst_params
+            "lambda = {:.5},\nmu = {:.5},\n Substitution model: {}",
+            self.lambda, self.mu, self.subst_model
         )
     }
 }

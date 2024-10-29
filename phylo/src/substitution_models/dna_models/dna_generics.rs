@@ -4,7 +4,7 @@ use anyhow::bail;
 use log::warn;
 
 use crate::evolutionary_models::DNAModelType;
-use crate::substitution_models::{dna_models::DNASubstParams, FreqVector, SubstMatrix};
+use crate::substitution_models::{DNASubstParams, FreqVector, SubstMatrix};
 use crate::{frequencies, Result};
 
 fn make_freqs(pi_array: &[f64]) -> Result<FreqVector> {

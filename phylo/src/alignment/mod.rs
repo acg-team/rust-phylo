@@ -79,30 +79,34 @@ impl Alignment {
         self.leaf_map.get(node).unwrap()
     }
 
-    pub(crate) fn compile(&self, subroot_opt: Option<NodeIdx>, tree: &Tree) -> Result<Vec<Record>> {
-        let subroot = subroot_opt.unwrap_or(tree.root);
-        let map = if subroot == tree.root {
+    pub(crate) fn compile(
+        &self,
+        subroot_opt: Option<&NodeIdx>,
+        tree: &Tree,
+    ) -> Result<Vec<Record>> {
+        let subroot = subroot_opt.unwrap_or(&tree.root);
+        let map = if subroot == &tree.root {
             self.leaf_map.clone()
         } else {
             self.compile_leaf_map(subroot, tree)?
         };
         let mut records = Vec::with_capacity(map.len());
         for (idx, map) in &map {
-            let rec = self.seqs.get_by_id(tree.node_id(idx));
+            let rec = self.seqs.record_by_id(tree.node_id(idx));
             let aligned_seq = Self::map_sequence(map, rec.seq());
             records.push(Record::with_attrs(rec.id(), rec.desc(), &aligned_seq));
         }
         Ok(records)
     }
 
-    fn compile_leaf_map(&self, root: NodeIdx, tree: &Tree) -> Result<LeafMapping> {
+    fn compile_leaf_map(&self, root: &NodeIdx, tree: &Tree) -> Result<LeafMapping> {
         let order = &tree.preorder_subroot(Some(root));
         let msa_len = match root {
-            Int(_) => self.node_map[&root].map_x.len(),
-            Leaf(_) => self.seqs.get_by_id(tree.node_id(&root)).seq().len(),
+            Int(_) => self.node_map[root].map_x.len(),
+            Leaf(_) => self.seqs.record_by_id(tree.node_id(root)).seq().len(),
         };
         let mut stack = HashMap::<NodeIdx, Mapping>::with_capacity(tree.len());
-        stack.insert(root, (0..msa_len).map(Some).collect());
+        stack.insert(*root, (0..msa_len).map(Some).collect());
         let mut leaf_map = LeafMapping::with_capacity(tree.n);
         for idx in order {
             match idx {

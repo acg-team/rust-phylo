@@ -186,4 +186,4 @@ pub fn write_newick_to_file(trees: &[Tree], path: PathBuf) -> Result<()> {
 }
 
 #[cfg(test)]
-mod io_tests;
+mod tests;

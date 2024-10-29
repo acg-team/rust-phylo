@@ -128,10 +128,11 @@ impl Node {
 pub struct Tree {
     pub root: NodeIdx,
     pub(crate) nodes: Vec<Node>,
-    pub(crate) postorder: Vec<NodeIdx>,
-    pub(crate) preorder: Vec<NodeIdx>,
+    postorder: Vec<NodeIdx>,
+    preorder: Vec<NodeIdx>,
     pub complete: bool,
     pub n: usize,
+    pub height: f64,
 }
 
 impl Tree {
@@ -149,10 +150,11 @@ impl Tree {
                     0,
                     None,
                     0.0,
-                    sequences.get(0).id().to_string(),
+                    sequences.record(0).id().to_string(),
                 )],
                 complete: true,
                 n: 1,
+                height: 0.0,
             })
         } else {
             Ok(Self {
@@ -165,8 +167,13 @@ impl Tree {
                     .collect(),
                 complete: false,
                 n,
+                height: 0.0,
             })
         }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Node> {
+        self.nodes.iter()
     }
 
     pub fn children(&self, node_idx: &NodeIdx) -> &Vec<NodeIdx> {
@@ -187,6 +194,10 @@ impl Tree {
 
     pub fn preorder(&self) -> &Vec<NodeIdx> {
         &self.preorder
+    }
+
+    pub fn postorder(&self) -> &Vec<NodeIdx> {
+        &self.postorder
     }
 
     pub fn to_newick(&self) -> String {
@@ -266,14 +277,14 @@ impl Tree {
     pub(crate) fn create_preorder(&mut self) {
         debug_assert!(self.complete);
         if self.preorder.is_empty() {
-            self.preorder = self.preorder_subroot(Some(self.root));
+            self.preorder = self.preorder_subroot(Some(&self.root));
         }
     }
 
-    pub fn preorder_subroot(&self, subroot_idx: Option<NodeIdx>) -> Vec<NodeIdx> {
+    pub fn preorder_subroot(&self, subroot_idx: Option<&NodeIdx>) -> Vec<NodeIdx> {
         debug_assert!(self.complete);
         let subroot_idx = match subroot_idx {
-            Some(idx) => idx,
+            Some(idx) => *idx,
             None => self.root,
         };
         let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
@@ -304,21 +315,23 @@ impl Tree {
         lengths
     }
 
-    pub fn idx(&self, id: &str) -> Result<usize> {
+    pub fn idx(&self, id: &str) -> Result<NodeIdx> {
         debug_assert!(self.complete);
-        let idx = self.nodes.iter().position(|node| node.id == id);
-        if let Some(idx) = idx {
-            return Ok(idx);
+        let node = self.nodes.iter().find(|node| node.id == id);
+        if let Some(node) = node {
+            return Ok(node.idx);
         }
         bail!("No node with id {} found in the tree", id);
     }
 
     pub fn set_branch_length(&mut self, node_idx: &NodeIdx, blen: f64) {
         debug_assert!(blen >= 0.0);
+        let old_blen = self.nodes[usize::from(node_idx)].blen;
+        self.height += blen - old_blen;
         self.nodes[usize::from(node_idx)].blen = blen;
     }
 
-    pub fn branch_length(&self, node_idx: &NodeIdx) -> f64 {
+    pub fn blen(&self, node_idx: &NodeIdx) -> f64 {
         self.nodes[usize::from(node_idx)].blen
     }
 
@@ -327,6 +340,14 @@ impl Tree {
         self.nodes
             .iter()
             .filter(|&x| matches!(x.idx, Leaf(_)))
+            .collect()
+    }
+
+    pub fn internals(&self) -> Vec<&Node> {
+        debug_assert!(self.complete);
+        self.nodes
+            .iter()
+            .filter(|&x| matches!(x.idx, Int(_)))
             .collect()
     }
 }
@@ -400,6 +421,7 @@ fn build_nj_tree_w_rng_from_matrix(
     tree.complete = true;
     tree.create_postorder();
     tree.create_preorder();
+    tree.height = tree.nodes.iter().map(|node| node.blen).sum();
     Ok(tree)
 }
 
@@ -417,8 +439,8 @@ fn compute_distance_matrix(sequences: &Sequences) -> nj_matrices::NJMat {
     let mut distances = DMatrix::zeros(nseqs, nseqs);
     for i in 0..nseqs {
         for j in (i + 1)..nseqs {
-            let seq_i = sequences.get(i).seq();
-            let seq_j = sequences.get(j).seq();
+            let seq_i = sequences.record(i).seq();
+            let seq_j = sequences.record(j).seq();
             let lev_dist = levenshtein(seq_i, seq_j) as f64;
             let proportion_diff = f64::min(
                 lev_dist / (max(seq_i.len(), seq_j.len()) as f64),
@@ -436,4 +458,4 @@ fn compute_distance_matrix(sequences: &Sequences) -> nj_matrices::NJMat {
 }
 
 #[cfg(test)]
-mod tree_tests;
+mod tests;

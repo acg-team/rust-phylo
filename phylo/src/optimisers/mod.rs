@@ -1,10 +1,41 @@
-pub mod branch_length_optimiser;
-pub mod dna_model_optimiser;
-pub mod pip_model_optimiser;
+use crate::alignment::Alignment;
+use crate::evolutionary_models::{EvoModel, FrequencyOptimisation};
+use crate::likelihood::PhyloCostFunction;
+use crate::phylo_info::PhyloInfo;
+use crate::tree::Tree;
+use crate::Result;
+
+pub mod blen_optimiser;
+pub use blen_optimiser::*;
+pub mod model_optimiser;
+pub use model_optimiser::*;
+
+pub struct PhyloOptimisationResult {
+    pub initial_logl: f64,
+    pub final_logl: f64,
+    pub iterations: usize,
+    pub tree: Tree,
+    pub alignment: Alignment,
+}
+
+pub trait PhyloOptimiser<'a, EM: PhyloCostFunction> {
+    fn new(cost: &'a EM, info: &PhyloInfo) -> Self;
+    fn run(self) -> Result<PhyloOptimisationResult>;
+}
+
+pub struct EvoModelOptimisationResult<EM: EvoModel> {
+    pub initial_logl: f64,
+    pub final_logl: f64,
+    pub iterations: usize,
+    pub model: EM,
+}
+
+pub trait EvoModelOptimiser<'a, EM: EvoModel + PhyloCostFunction> {
+    fn new(model: &'a EM, info: &PhyloInfo, frequencies: FrequencyOptimisation) -> Self;
+    fn run(self) -> Result<EvoModelOptimisationResult<EM>>;
+}
 
 #[cfg(test)]
-mod branch_length_optimiser_tests;
+mod blen_optimiser_tests;
 #[cfg(test)]
-mod dna_optimisation_tests;
-#[cfg(test)]
-mod pip_dna_optimisation_tests;
+mod model_optimiser_tests;
