@@ -82,7 +82,7 @@ impl<'a, EM: PhyloCostFunction + Clone> PhyloOptimiser<'a, EM> for TopologyOptim
                         prune_branch, best_logl
                     );
                 }
-                // Optimise branch lengths on the final tree
+                // Optimise branch lengths on current tree to match PhyML
                 let o = BranchOptimiser::new(self.model, &info).run()?;
                 if o.final_logl > curr_cost {
                     curr_cost = o.final_logl;
