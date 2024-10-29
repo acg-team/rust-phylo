@@ -23,7 +23,7 @@ impl<'a, EM: EvoModel + PhyloCostFunction + Clone> CostFunction for ParamOptimis
     fn cost(&self, value: &f64) -> Result<f64> {
         let mut model = self.model.clone();
         model.set_param(self.parameter, *value);
-        Ok(-model.cost(self.info))
+        Ok(-model.cost(self.info, false))
     }
 
     fn parallelize(&self) -> bool {
@@ -55,14 +55,14 @@ where
 
     fn run(self) -> Result<EvoModelOptimisationResult<EM>> {
         let mut model = self.model.clone();
-        let initial_logl = model.cost(&self.info);
+        let initial_logl = model.cost(&self.info, true);
         info!("Optimising {} parameters.", model.description());
         info!("Initial logl: {}.", initial_logl);
 
         self.opt_frequencies(&mut model);
 
         let mut prev_logl = f64::NEG_INFINITY;
-        let mut final_logl = model.cost(&self.info);
+        let mut final_logl = model.cost(&self.info, false);
         let mut iterations = 0;
 
         let parameters = model.model_parameters();

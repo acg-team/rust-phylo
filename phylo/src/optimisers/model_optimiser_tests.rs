@@ -24,14 +24,14 @@ fn check_likelihood_opt_k80() {
     .build()
     .unwrap();
     let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
-    let unopt_logl = model.cost(&info);
+    let unopt_logl = model.cost(&info, false);
     let o = ModelOptimiser::new(&model, &info, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
     assert!(o.final_logl > unopt_logl);
 
-    let model = DNASubstModel::new(K80, &[1.884815, 1.0]).unwrap();
-    let expected_logl = model.cost(&info);
+    let model = o.model.clone();
+    let expected_logl = model.cost(&info, false);
 
     assert_relative_eq!(o.final_logl, expected_logl, epsilon = 1e-6);
     assert_relative_eq!(o.final_logl, -4034.5008033, epsilon = 1e-6);
@@ -106,7 +106,7 @@ fn parameter_definition_after_optim_hky() {
     .build()
     .unwrap();
     let model = DNASubstModel::new(HKY, &[0.26, 0.2, 0.4, 0.14, 4.0, 1.0]).unwrap();
-    let start_logl = model.cost(&info);
+    let start_logl = model.cost(&info, false);
     let o = ModelOptimiser::new(&model, &info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
@@ -129,7 +129,7 @@ fn parameter_definition_after_optim_tn93() {
     .build()
     .unwrap();
     let model = DNASubstModel::new(TN93, &[0.26, 0.2, 0.4, 0.14, 4.0, 2.0, 1.0]).unwrap();
-    let start_logl = model.cost(&info);
+    let start_logl = model.cost(&info, false);
     let o = ModelOptimiser::new(&model, &info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
@@ -167,7 +167,7 @@ fn check_parameter_optimisation_gtr() {
         ],
     )
     .unwrap();
-    let phyml_logl = phyml_model.cost(&info);
+    let phyml_logl = phyml_model.cost(&info, false);
     assert_relative_eq!(phyml_logl, -3474.48083, epsilon = 1.0e-5);
 
     let paml_model = DNASubstModel::new(
@@ -177,7 +177,7 @@ fn check_parameter_optimisation_gtr() {
         ],
     )
     .unwrap(); // Original input to paml
-    let paml_logl = paml_model.cost(&info);
+    let paml_logl = paml_model.cost(&info, false);
     assert!(phyml_logl > paml_logl);
 
     let model = DNASubstModel::new(
@@ -228,7 +228,7 @@ fn frequencies_fixed_protein(#[case] model_type: ProteinModelType) {
     .build()
     .unwrap();
     let model = ProteinSubstModel::new(model_type, &[]).unwrap();
-    let initial_llik = model.cost(&info);
+    let initial_llik = model.cost(&info, false);
     let o = ModelOptimiser::new(&model, &info, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
@@ -249,7 +249,7 @@ fn frequencies_empirical_protein(#[case] model_type: ProteinModelType) {
     .build()
     .unwrap();
     let model = ProteinSubstModel::new(model_type, &[]).unwrap();
-    let initial_llik = model.cost(&info);
+    let initial_llik = model.cost(&info, false);
     let o = ModelOptimiser::new(&model, &info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
@@ -277,7 +277,7 @@ fn check_parameter_optimisation_pip_arpiptest() {
     let o = ModelOptimiser::new(&pip_gtr, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
-    let initial_logl = pip_gtr.cost(info);
+    let initial_logl = pip_gtr.cost(info, true);
     assert_eq!(o.initial_logl, initial_logl);
     assert!(o.final_logl > initial_logl);
 }
@@ -299,7 +299,7 @@ fn optimisation_pip_propip_example() {
     )
     .unwrap();
 
-    let initial_logl = pip_gtr.cost(info);
+    let initial_logl = pip_gtr.cost(info, false);
     assert_relative_eq!(initial_logl, -1241.9555557710014, epsilon = 1e-1);
     let o = ModelOptimiser::new(&pip_gtr, info, FrequencyOptimisation::Fixed)
         .run()
@@ -307,7 +307,7 @@ fn optimisation_pip_propip_example() {
     assert_eq!(o.initial_logl, initial_logl);
     assert!(o.final_logl > initial_logl);
     assert_relative_eq!(o.final_logl, -1081.1682773217494, epsilon = 1e-0);
-    assert_eq!(o.final_logl, o.model.cost(info));
+    assert_eq!(o.final_logl, o.model.cost(info, true));
 }
 
 #[test]
@@ -322,7 +322,7 @@ fn optimisation_against_python_no_gaps() {
     let pip_hky =
         PIPModel::<DNASubstModel>::new(HKY, &[1.2, 0.45, 0.25, 0.25, 0.25, 0.25, 1.0]).unwrap();
     assert_relative_eq!(
-        pip_hky.cost(info),
+        pip_hky.cost(info, false),
         -361.1613531649497, // value from the python script
         epsilon = 1e-1
     );
@@ -359,7 +359,7 @@ fn optimisation_pip_gtr() {
         ],
     )
     .unwrap();
-    let initial_logl = pip_gtr.cost(info);
+    let initial_logl = pip_gtr.cost(info, false);
     let o = ModelOptimiser::new(&pip_gtr, info, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
@@ -387,7 +387,7 @@ fn protein_example_pip_opt() {
     .build()
     .unwrap();
     let pip = PIPModel::<ProteinSubstModel>::new(WAG, &[2.0, 0.1]).unwrap();
-    let initial_logl = pip.cost(info);
+    let initial_logl = pip.cost(info, false);
     let o = ModelOptimiser::new(&pip, info, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
@@ -395,5 +395,5 @@ fn protein_example_pip_opt() {
     assert_relative_eq!(o.initial_logl, initial_logl);
     assert_ne!(o.model.params.lambda, 2.0);
     assert_ne!(o.model.params.mu, 0.1);
-    assert_eq!(o.model.cost(info), o.final_logl);
+    assert_eq!(o.model.cost(info, true), o.final_logl);
 }

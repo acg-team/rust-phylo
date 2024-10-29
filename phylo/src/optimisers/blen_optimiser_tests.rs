@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use approx::assert_relative_eq;
 
 use crate::evolutionary_models::{DNAModelType, EvoModel};
+use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::{BranchOptimiser, PhyloOptimiser};
 use crate::phylo_info::PhyloInfoBuilder;
 use crate::pip_model::PIPDNAModel;
@@ -11,7 +12,7 @@ use crate::tree::tree_parser::from_newick_string;
 use crate::tree::NodeIdx::Internal as Int;
 
 #[test]
-fn branch_optimiser_likelihood_increase_pip() {
+fn likelihood_increase_pip() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/GTR/gtr.fasta"),
         PathBuf::from("./data/sim/tree.newick"),
@@ -25,7 +26,9 @@ fn branch_optimiser_likelihood_increase_pip() {
         ],
     )
     .unwrap();
+    assert_relative_eq!(model.cost(&info, false), -5664.780425445042);
     let o = BranchOptimiser::new(&model, &info).run().unwrap();
+    assert_relative_eq!(model.cost(&info, true), o.initial_logl);
     assert!(o.final_logl > o.initial_logl);
     assert_ne!(o.i.tree.height, info.tree.height);
     assert_relative_eq!(
@@ -33,6 +36,7 @@ fn branch_optimiser_likelihood_increase_pip() {
         o.i.tree.iter().map(|n| n.blen).sum(),
         epsilon = 1e-4
     );
+    assert_relative_eq!(model.cost(&o.i, true), o.final_logl);
 }
 
 #[test]

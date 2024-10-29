@@ -13,17 +13,15 @@ use crate::evolutionary_models::{
 use crate::frequencies;
 use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder};
+use crate::pip_model::PIPModel;
 use crate::substitution_models::{
     DNAParameter, DNASubstModel, FreqVector, ProteinSubstModel, SubstMatrix, SubstitutionModel,
 };
-use crate::tree::{tree_parser, Tree};
+use crate::tree::{tree_parser::from_newick_string, Tree};
 
 #[cfg(test)]
 fn tree_newick(newick: &str) -> Tree {
-    tree_parser::from_newick_string(newick)
-        .unwrap()
-        .pop()
-        .unwrap()
+    from_newick_string(newick).unwrap().pop().unwrap()
 }
 
 #[cfg(test)]
@@ -40,10 +38,10 @@ fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
 fn dna_simple_likelihood() {
     let info = &setup_simple_phylo_info(1.0, 1.0);
     let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
-    assert_relative_eq!(jc69.cost(info), -2.5832498829317445, epsilon = 1e-6);
+    assert_relative_eq!(jc69.cost(info, false), -2.5832498829317445, epsilon = 1e-6);
     let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
     let info = &setup_simple_phylo_info(1.0, 2.0);
-    assert_relative_eq!(jc69.cost(info), -2.719098272533848, epsilon = 1e-6);
+    assert_relative_eq!(jc69.cost(info, false), -2.719098272533848, epsilon = 1e-6);
 }
 
 #[rstest]
@@ -54,9 +52,9 @@ fn change_likelihood_on_freq_change(#[case] mtype: DNAModelType, #[case] params:
     // likelihood should change when frequencies are changed in models with free freqs
     let info = setup_cb_example_phylo_info();
     let mut model = DNASubstModel::new(mtype, params).unwrap();
-    let logl = model.cost(&info);
+    let logl = model.cost(&info, false);
     model.set_freqs(frequencies!(&[0.1, 0.2, 0.3, 0.4]));
-    assert_ne!(logl, model.cost(&info));
+    assert_ne!(logl, model.cost(&info, true));
 }
 
 #[rstest]
@@ -66,9 +64,9 @@ fn same_likelihood_on_freq_change(#[case] mtype: DNAModelType, #[case] params: &
     // likelihood should stay the same when frequencies are changed in models with fixed
     let info = setup_cb_example_phylo_info();
     let mut model = DNASubstModel::new(mtype, params).unwrap();
-    let logl = model.cost(&info);
+    let logl = model.cost(&info, false);
     model.set_freqs(frequencies!(&[0.1, 0.2, 0.3, 0.4]));
-    assert_eq!(logl, model.cost(&info));
+    assert_eq!(logl, model.cost(&info, true));
 }
 
 #[rstest]
@@ -80,9 +78,9 @@ fn change_likelihood_on_param_change_(#[case] mtype: DNAModelType, #[case] param
     // likelihood should change when parameters are changed
     let info = setup_cb_example_phylo_info();
     let mut model = DNASubstModel::new(mtype, params).unwrap();
-    let logl = model.cost(&info);
+    let logl = model.cost(&info, false);
     model.set_param(&DNAParameter::Rca, 100.0);
-    assert_ne!(logl, model.cost(&info));
+    assert_ne!(logl, model.cost(&info, true));
 }
 
 #[rstest]
@@ -91,9 +89,9 @@ fn same_likelihood_on_param_change(#[case] mtype: DNAModelType, #[case] params: 
     // likelihood should not change when parameters are changed for jc69
     let info = setup_cb_example_phylo_info();
     let mut model = DNASubstModel::new(mtype, params).unwrap();
-    let logl = model.cost(&info);
+    let logl = model.cost(&info, false);
     model.set_param(&DNAParameter::Rca, 100.0);
-    assert_eq!(logl, model.cost(&info));
+    assert_eq!(logl, model.cost(&info, true));
 }
 
 #[test]
@@ -115,7 +113,7 @@ fn gaps_as_ambigs() {
     ]);
     let tree = tree_newick("((one:2,two:2):1,(three:1,four:1):2);");
     let info_gaps = &PhyloInfoBuilder::build_from_objects(sequences, tree.clone()).unwrap();
-    assert_eq!(jc69.cost(info_ambig), jc69.cost(info_gaps));
+    assert_eq!(jc69.cost(info_ambig, true), jc69.cost(info_gaps, true));
 }
 
 #[cfg(test)]
@@ -129,7 +127,7 @@ fn setup_phylo_info_single_leaf() -> PhyloInfo {
 fn dna_likelihood_one_node() {
     let info = &setup_phylo_info_single_leaf();
     let model = DNASubstModel::new(JC69, &[]).unwrap();
-    assert!(model.cost(info) < 0.0);
+    assert!(model.cost(info, false) < 0.0);
 }
 
 #[cfg(test)]
@@ -174,7 +172,7 @@ fn dna_cb_example_likelihood() {
             -0.097682355,
         ],
     );
-    assert_relative_eq!(model.cost(info), -17.1035117087, epsilon = 1e-6);
+    assert_relative_eq!(model.cost(info, false), -17.1035117087, epsilon = 1e-6);
 }
 
 #[cfg(test)]
@@ -194,7 +192,7 @@ fn setup_mol_evo_example_phylo_info() -> PhyloInfo {
 fn dna_mol_evo_example_likelihood() {
     let info = &setup_mol_evo_example_phylo_info();
     let model = DNASubstModel::new(K80, &[]).unwrap();
-    assert_relative_eq!(model.cost(info), -7.581408, epsilon = 1e-6);
+    assert_relative_eq!(model.cost(info, false), -7.581408, epsilon = 1e-6);
 }
 
 #[test]
@@ -210,15 +208,23 @@ fn dna_ambig_example_likelihood() {
     )
     .build()
     .unwrap();
-    assert_relative_eq!(tn93.cost(info_w_x), -94.46514304131543, epsilon = 1e-6);
+    assert_relative_eq!(
+        tn93.cost(info_w_x, false),
+        -94.46514304131543,
+        epsilon = 1e-6
+    );
     let info_w_n = &PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/ambiguous_example_N.fasta"),
         PathBuf::from("./data/ambiguous_example.newick"),
     )
     .build()
     .unwrap();
-    assert_relative_eq!(tn93.cost(info_w_n), -94.46514304131543, epsilon = 1e-6);
-    assert_relative_eq!(tn93.cost(info_w_x), tn93.cost(info_w_n),);
+    assert_relative_eq!(
+        tn93.cost(info_w_n, true),
+        -94.46514304131543,
+        epsilon = 1e-6
+    );
+    assert_relative_eq!(tn93.cost(info_w_x, true), tn93.cost(info_w_n, true));
 }
 
 #[test]
@@ -231,7 +237,7 @@ fn dna_huelsenbeck_example_likelihood() {
     .build()
     .unwrap();
     let gtr = DNASubstModel::new(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0]).unwrap();
-    assert_relative_eq!(gtr.cost(info), -216.234734, epsilon = 1e-3);
+    assert_relative_eq!(gtr.cost(info, false), -216.234734, epsilon = 1e-3);
 }
 
 #[rstest]
@@ -251,7 +257,7 @@ fn protein_example_likelihood(
     .build()
     .unwrap();
     let model = ProteinSubstModel::new(model_type, params).unwrap();
-    assert_relative_eq!(model.cost(info), expected_llik, epsilon = epsilon);
+    assert_relative_eq!(model.cost(info, false), expected_llik, epsilon = epsilon);
 }
 
 #[cfg(test)]
@@ -283,7 +289,11 @@ fn simple_dna_reroot_info() -> (PhyloInfo, PhyloInfo) {
 fn simple_dna_likelihood_reversibility(#[case] model_type: DNAModelType, #[case] params: &[f64]) {
     let (info, info_rerooted) = &simple_dna_reroot_info();
     let model = DNASubstModel::new(model_type, params).unwrap();
-    assert_relative_eq!(model.cost(info), model.cost(info_rerooted), epsilon = 1e-10,);
+    assert_relative_eq!(
+        model.cost(info, false),
+        model.cost(info_rerooted, true),
+        epsilon = 1e-10,
+    );
 }
 
 #[cfg(test)]
@@ -318,8 +328,8 @@ fn simple_protein_likelihood_reversibility(
     let (info, info_rerooted) = &simple_protein_reroot_info();
     let model = ProteinSubstModel::new(model_type, params).unwrap();
     assert_relative_eq!(
-        model.cost(info),
-        model.cost(info_rerooted),
+        model.cost(info, false),
+        model.cost(info_rerooted, true),
         epsilon = epsilon,
     );
 }
@@ -348,5 +358,71 @@ fn huelsenbeck_example_dna_reversibility_likelihood(
     .build()
     .unwrap();
     let model = DNASubstModel::new(model_type, params).unwrap();
-    assert_relative_eq!(model.cost(info), model.cost(info_rerooted), epsilon = 1e-10,);
+    assert_relative_eq!(
+        model.cost(info, false),
+        model.cost(info_rerooted, true),
+        epsilon = 1e-10,
+    );
+}
+
+#[test]
+
+fn pip_likelihood_correct_after_reset() {
+    use crate::evolutionary_models::EvoModel;
+    let tree1 =
+        from_newick_string("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);").unwrap()[0].clone();
+    let tree2 =
+        from_newick_string("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);").unwrap()[0].clone();
+    let sequences = Sequences::new(vec![
+        Record::with_attrs("A", None, b"P"),
+        Record::with_attrs("B", None, b"P"),
+        Record::with_attrs("C", None, b"P"),
+        Record::with_attrs("D", None, b"P"),
+    ]);
+    let info1 = PhyloInfoBuilder::build_from_objects(sequences.clone(), tree1).unwrap();
+    let info2 = PhyloInfoBuilder::build_from_objects(sequences, tree2).unwrap();
+
+    let pip_wag = PIPModel::<ProteinSubstModel>::new(WAG, &[50.0, 0.1]).unwrap();
+    let c1 = pip_wag.cost(&info1, false);
+    assert_relative_eq!(c1, -1004.2260753055999, epsilon = 1e-5);
+    assert_relative_eq!(c1, pip_wag.cost(&info1, true), epsilon = 1e-5);
+
+    let c2 = pip_wag.cost(&info2, true);
+    assert_ne!(c1, c2);
+    assert_relative_eq!(c2, -1425.1290016747846, epsilon = 1e-5);
+    assert_relative_eq!(c2, pip_wag.cost(&info2, true), epsilon = 1e-5);
+}
+
+#[rstest]
+#[case::wag(WAG, -7.488595394504073, -10.206456536551775)]
+#[case::hivb(HIVB, -7.231597482410509, -9.865559545434952)]
+#[case::blosum(BLOSUM, -7.4408154253528975, -10.33187874481282)]
+
+fn likelihood_correct_after_reset(
+    #[case] model_type: ProteinModelType,
+    #[case] llik1: f64,
+    #[case] llik2: f64,
+) {
+    let tree1 =
+        from_newick_string("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);").unwrap()[0].clone();
+    let tree2 =
+        from_newick_string("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);").unwrap()[0].clone();
+    let sequences = Sequences::new(vec![
+        Record::with_attrs("A", None, b"P"),
+        Record::with_attrs("B", None, b"P"),
+        Record::with_attrs("C", None, b"P"),
+        Record::with_attrs("D", None, b"P"),
+    ]);
+    let info1 = PhyloInfoBuilder::build_from_objects(sequences.clone(), tree1).unwrap();
+    let info2 = PhyloInfoBuilder::build_from_objects(sequences, tree2).unwrap();
+
+    let model = ProteinSubstModel::new(model_type, &[]).unwrap();
+    let c1 = model.cost(&info1, false);
+    assert_relative_eq!(c1, llik1, epsilon = 1e-5);
+    assert_relative_eq!(c1, model.cost(&info1, true), epsilon = 1e-5);
+
+    let c2 = model.cost(&info2, true);
+    assert_ne!(c1, c2);
+    assert_relative_eq!(c2, llik2, epsilon = 1e-5);
+    assert_relative_eq!(c2, model.cost(&info2, true), epsilon = 1e-5);
 }

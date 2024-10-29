@@ -227,7 +227,10 @@ impl<Params> PhyloCostFunction for SubstModel<Params>
 where
     SubstModel<Params>: SubstitutionModel,
 {
-    fn cost(&self, info: &PhyloInfo) -> f64 {
+    fn cost(&self, info: &PhyloInfo, reset: bool) -> f64 {
+        if reset {
+            self.reset();
+        }
         self.logl(info)
     }
 

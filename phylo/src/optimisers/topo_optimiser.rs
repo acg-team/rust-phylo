@@ -12,7 +12,7 @@ pub struct TopologyOptimiser<'a, EM: PhyloCostFunction> {
     pub(crate) info: PhyloInfo,
 }
 
-impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for TopologyOptimiser<'a, EM> {
+impl<'a, EM: PhyloCostFunction + Clone> PhyloOptimiser<'a, EM> for TopologyOptimiser<'a, EM> {
     fn new(model: &'a EM, info: &PhyloInfo) -> Self {
         TopologyOptimiser {
             epsilon: 1e-3,
@@ -22,12 +22,12 @@ impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for TopologyOptimiser<'a,
     }
 
     fn run(self) -> Result<PhyloOptimisationResult> {
-        self.model.reset();
         debug_assert!(self.info.tree.len() > 3);
+
         info!("Optimising tree topology with SPRs.");
         let mut info = self.info.clone();
+        let initial_logl = self.model.cost(&info, true);
 
-        let initial_logl = self.model.cost(&info);
         info!("Initial logl: {}.", initial_logl);
         let mut curr_cost = initial_logl;
         let mut prev_cost = f64::NEG_INFINITY;
@@ -56,9 +56,9 @@ impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for TopologyOptimiser<'a,
                 for regraft_branch in &regraft_locations {
                     let mut new_info = info.clone();
                     new_info.tree = info.tree.rooted_spr(prune_branch, regraft_branch).unwrap();
-                    let mut logl = self.model.cost(&new_info);
+                    let mut logl = self.model.cost(&new_info, false);
                     if logl <= curr_cost {
-                        // reoptimise branch lengths at the regraft location
+                        // reoptimise branch length at the regraft location
                         let o = BranchOptimiser::new(self.model, &new_info);
                         let (blen_logl, blen) = o.optimise_branch(regraft_branch, &new_info)?;
                         if blen_logl > logl {

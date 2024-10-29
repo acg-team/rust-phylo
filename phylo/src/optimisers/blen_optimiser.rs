@@ -21,7 +21,7 @@ impl<'a, EM: PhyloCostFunction> CostFunction for SingleBranchOptimiser<'a, EM> {
     fn cost(&self, value: &f64) -> Result<f64> {
         let mut info = self.info.clone();
         info.tree.set_blen(self.branch, *value);
-        Ok(-self.model.cost(&info))
+        Ok(-self.model.cost(&info, false))
     }
 
     fn parallelize(&self) -> bool {
@@ -35,7 +35,7 @@ pub struct BranchOptimiser<'a, EM: PhyloCostFunction> {
     pub(crate) info: PhyloInfo,
 }
 
-impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for BranchOptimiser<'a, EM> {
+impl<'a, EM: PhyloCostFunction + Clone> PhyloOptimiser<'a, EM> for BranchOptimiser<'a, EM> {
     fn new(model: &'a EM, info: &PhyloInfo) -> Self {
         BranchOptimiser {
             epsilon: 1e-3,
@@ -45,12 +45,10 @@ impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for BranchOptimiser<'a, E
     }
 
     fn run(self) -> Result<PhyloOptimisationResult> {
-        self.model.reset();
         info!("Optimising branch lengths.");
         let mut info = self.info.clone();
+        let initial_logl = self.model.cost(&info, true);
 
-        let initial_logl = self.model.cost(&info);
-        self.model.reset();
         info!("Initial logl: {}.", initial_logl);
         let mut curr_cost = initial_logl;
         let mut prev_cost = f64::NEG_INFINITY;
