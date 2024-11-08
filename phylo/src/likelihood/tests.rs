@@ -9,6 +9,7 @@ use crate::alignment::Sequences;
 use crate::alphabets::protein_alphabet;
 use crate::evolutionary_models::{
     DNAModelType::{self, *},
+    EvoModel,
     ProteinModelType::{self, *},
 };
 use crate::frequencies;
@@ -17,7 +18,7 @@ use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder};
 use crate::pip_model::PIPModel;
 use crate::substitution_models::{
-    DNAParameter, DNASubstModel, FreqVector, ProteinSubstModel, SubstMatrix, SubstitutionModel,
+    DNAParameter, DNASubstModel, FreqVector, ProteinSubstModel, SubstMatrix,
 };
 use crate::tree::{tree_parser::from_newick_string, Tree};
 
@@ -469,6 +470,37 @@ fn only_one_site_one_char() {
     let gtr =
         DNASubstModel::new(GTR, &[0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
     let logl = gtr.cost(&info, false);
+    assert_ne!(logl, f64::NEG_INFINITY);
+    assert!(logl < 0.0);
+}
+
+#[ignore = "long test"]
+#[test]
+fn hiv_large_dataset_subset_valid_likelihood() {
+    let fldr = Path::new("./data/real_examples/");
+    let alignment = fldr.join("HIV-1_env_DNA_mafft_alignment_subset.fasta");
+    let info = PhyloInfoBuilder::new(alignment).build().unwrap();
+    let gtr =
+        DNASubstModel::new(GTR, &[0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
+    let logl = gtr.cost(&info, false);
+    assert_ne!(logl, f64::NEG_INFINITY);
+    assert!(logl < 0.0);
+}
+
+#[ignore = "long test"]
+#[test]
+fn hiv_large_dataset_substitution_subset_pip() {
+    let fldr = Path::new("./data/real_examples/");
+    let alignment = fldr.join("HIV-1_env_DNA_mafft_alignment_subset.fasta");
+    let info = PhyloInfoBuilder::new(alignment).build().unwrap();
+    let pip = PIPModel::<DNASubstModel>::new(
+        GTR,
+        &[
+            0.1, 0.1, 0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+        ],
+    )
+    .unwrap();
+    let logl = pip.cost(&info, false);
     assert_ne!(logl, f64::NEG_INFINITY);
     assert!(logl < 0.0);
 }
