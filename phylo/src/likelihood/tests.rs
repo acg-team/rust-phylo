@@ -1,16 +1,18 @@
 use rstest::*;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use approx::assert_relative_eq;
 use bio::io::fasta::Record;
 
 use crate::alignment::Sequences;
+use crate::alphabets::protein_alphabet;
 use crate::evolutionary_models::{
     DNAModelType::{self, *},
     ProteinModelType::{self, *},
 };
 use crate::frequencies;
+use crate::io::read_sequences_from_file;
 use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder};
 use crate::pip_model::PIPModel;
@@ -18,6 +20,13 @@ use crate::substitution_models::{
     DNAParameter, DNASubstModel, FreqVector, ProteinSubstModel, SubstMatrix, SubstitutionModel,
 };
 use crate::tree::{tree_parser::from_newick_string, Tree};
+
+#[macro_export]
+macro_rules! record {
+    ($e1:expr,$e2:expr) => {
+        Record::with_attrs($e1, None, $e2)
+    };
+}
 
 #[cfg(test)]
 fn tree_newick(newick: &str) -> Tree {
@@ -467,3 +476,137 @@ fn only_one_site_one_char() {
     assert!(logl < 0.0);
 }
 
+#[test]
+fn dna_gaps_against_phyml() {
+    let newick =
+        "(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001)0.000000:0.08716381);".to_string();
+    let sequences = Sequences::new(
+        read_sequences_from_file(&Path::new("./data/").join("sequences_DNA1.fasta")).unwrap(),
+    );
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
+
+    // Compare against value from PhyML
+    assert_relative_eq!(jc69.cost(&info, false), -9.70406054783923);
+}
+
+#[test]
+fn dna_single_char_gaps_against_phyml() {
+    let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
+    let newick =
+        "(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001)0.000000:0.08716381);".to_string();
+
+    let sequences = Sequences::new(vec![
+        record!("A", b"A"),
+        record!("B", b"A"),
+        record!("C", b"A"),
+        record!("D", b"T"),
+    ]);
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    assert_relative_eq!(jc69.cost(&info, true), -2.920437792326963); // Compare against PhyML
+
+    let sequences = Sequences::new(vec![
+        record!("A", b"X"),
+        record!("B", b"X"),
+        record!("C", b"X"),
+        record!("D", b"X"),
+    ]);
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    assert_relative_eq!(jc69.cost(&info, true), 0.0, epsilon = 1e-5); // Compare against PhyML
+
+    let sequences = Sequences::new(vec![
+        record!("A", b"X"),
+        record!("B", b"X"),
+        record!("C", b"X"),
+        record!("D", b"T"),
+    ]);
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    assert_relative_eq!(jc69.cost(&info, true), -1.38629, epsilon = 1e-5); // Compare against PhyML
+
+    let sequences = Sequences::new(vec![
+        record!("A", b"-"),
+        record!("B", b"-"),
+        record!("C", b"A"),
+        record!("D", b"T"),
+    ]);
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    assert_relative_eq!(jc69.cost(&info, true), -2.77259, epsilon = 1e-5); // Compare against PhyML
+
+    let sequences = Sequences::new(vec![
+        record!("A", b"-"),
+        record!("B", b"A"),
+        record!("C", b"A"),
+        record!("D", b"T"),
+    ]);
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    assert_relative_eq!(jc69.cost(&info, true), -2.92044, epsilon = 1e-5); // Compare against PhyML
+}
+
+#[test]
+fn dna_ambig_chars_against_phyml() {
+    let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
+    let newick =
+        "(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001)0.0:0.08716381);".to_string();
+
+    let sequences = Sequences::new(vec![
+        record!("A", b"B"),
+        record!("B", b"A"),
+        record!("C", b"A"),
+        record!("D", b"T"),
+    ]);
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    assert_relative_eq!(jc69.cost(&info, true), -21.28936836, epsilon = 1e-7);
+}
+
+#[test]
+fn dna_x_simple_fully_likely() {
+    let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
+    let newick = "(A:0.05,B:0.0005):0.0;".to_string();
+
+    let sequences = Sequences::new(vec![record!("A", b"X"), record!("B", b"X")]);
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    assert_relative_eq!(jc69.cost(&info, true), 0.0, epsilon = 1e-5);
+}
+
+#[rstest]
+#[case::jc69(JC69, &[])]
+#[case::k80(K80, &[])]
+#[case::hky(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5])]
+#[case::tn93(TN93, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
+#[case::gtr(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
+fn dna_x_fully_likely(#[case] model_type: DNAModelType, #[case] params: &[f64]) {
+    let model = DNASubstModel::new(model_type, params).unwrap();
+    let tree =
+        from_newick_string("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);").unwrap()[0].clone();
+    let sequences = Sequences::new(vec![
+        record!("A", b"X"),
+        record!("B", b"X"),
+        record!("C", b"X"),
+        record!("D", b"X"),
+    ]);
+
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree).unwrap();
+    assert_relative_eq!(model.cost(&info, true), 0.0, epsilon = 1e-5);
+}
+
+#[rstest]
+#[case::wag(WAG)]
+#[case::hivb(HIVB)]
+#[case::blosum(BLOSUM)]
+fn protein_x_fully_likely(#[case] model_type: ProteinModelType) {
+    let model = ProteinSubstModel::new(model_type, &[]).unwrap();
+    let tree =
+        from_newick_string("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);").unwrap()[0].clone();
+    let sequences = Sequences::with_alphabet(
+        vec![
+            record!("A", b"X"),
+            record!("B", b"X"),
+            record!("C", b"X"),
+            record!("D", b"X"),
+        ],
+        protein_alphabet(),
+    );
+
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree).unwrap();
+    assert_relative_eq!(model.cost(&info, true), 0.0, epsilon = 1e-5);
+}
