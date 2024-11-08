@@ -193,6 +193,26 @@ fn setup_aligned_msa() {
 }
 
 #[test]
+fn correct_setup_when_sequences_empty() {
+    let info = PhyloInfoBuilder::with_attrs(
+        PathBuf::from("./data/sequences_some_empty.fasta"),
+        PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+    )
+    .build()
+    .unwrap();
+    assert!(!info.msa.is_empty());
+    info.msa.seqs.iter().for_each(|rec| {
+        assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
+    });
+    let mut sequences =
+        read_sequences_from_file(&PathBuf::from("./data/sequences_some_empty.fasta")).unwrap();
+    sequences.sort();
+    let mut aligned_sequences = info.msa.compile(None, &info.tree).unwrap();
+    aligned_sequences.sort();
+    assert_eq!(aligned_sequences, sequences);
+}
+
+#[test]
 fn test_aligned_check() {
     let sequences = Sequences::new(vec![
         Record::with_attrs("A0", None, b"AAAAA"),
