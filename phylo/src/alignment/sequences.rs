@@ -35,6 +35,25 @@ impl Sequences {
         }
     }
 
+    pub fn with_alphabet(s: Vec<Record>, alphabet: Alphabet) -> Sequences {
+        let len = if s.is_empty() { 0 } else { s[0].seq().len() };
+        if s.iter().filter(|rec| rec.seq().len() != len).count() == 0 {
+            Sequences {
+                s,
+                aligned: true,
+                msa_len: len,
+                alphabet,
+            }
+        } else {
+            Sequences {
+                s,
+                aligned: false,
+                msa_len: 0,
+                alphabet,
+            }
+        }
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &Record> {
         self.s.iter()
     }
