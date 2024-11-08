@@ -94,26 +94,31 @@ fn same_likelihood_on_param_change(#[case] mtype: DNAModelType, #[case] params: 
     assert_eq!(logl, model.cost(&info, true));
 }
 
-#[test]
-fn gaps_as_ambigs() {
+#[rstest]
+#[case::jc69(JC69, &[])]
+#[case::k80(K80, &[])]
+#[case::hky(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5])]
+#[case::tn93(TN93, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
+#[case::gtr(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
+fn gaps_as_ambigs(#[case] mtype: DNAModelType, #[case] params: &[f64]) {
+    let tree = tree_newick("((one:2,two:2):1,(three:1,four:1):2);");
     let sequences = Sequences::new(vec![
         Record::with_attrs("one", None, b"CCCCCCXX"),
         Record::with_attrs("two", None, b"XXAAAAAA"),
         Record::with_attrs("three", None, b"TTTNNTTT"),
         Record::with_attrs("four", None, b"GNGGGGNG"),
     ]);
-    let tree = tree_newick("((one:2,two:2):1,(three:1,four:1):2);");
     let info_ambig = &PhyloInfoBuilder::build_from_objects(sequences, tree.clone()).unwrap();
-    let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
     let sequences = Sequences::new(vec![
         Record::with_attrs("one", None, b"CCCCCC--"),
         Record::with_attrs("two", None, b"--AAAAAA"),
         Record::with_attrs("three", None, b"TTT--TTT"),
         Record::with_attrs("four", None, b"G-GGGG-G"),
     ]);
-    let tree = tree_newick("((one:2,two:2):1,(three:1,four:1):2);");
     let info_gaps = &PhyloInfoBuilder::build_from_objects(sequences, tree.clone()).unwrap();
-    assert_eq!(jc69.cost(info_ambig, true), jc69.cost(info_gaps, true));
+
+    let model = DNASubstModel::new(mtype, params).unwrap();
+    assert_eq!(model.cost(info_ambig, true), model.cost(info_gaps, true));
 }
 
 #[cfg(test)]
@@ -196,7 +201,8 @@ fn dna_mol_evo_example_likelihood() {
 }
 
 #[test]
-fn dna_ambig_example_likelihood() {
+fn dna_ambig_example_likelihood_tn93() {
+    // Checks that likelihoods for different ambiguous characters are the same
     let tn93 = DNASubstModel::new(
         TN93,
         &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
@@ -208,11 +214,27 @@ fn dna_ambig_example_likelihood() {
     )
     .build()
     .unwrap();
-    assert_relative_eq!(
-        tn93.cost(info_w_x, false),
-        -94.46514304131543,
-        epsilon = 1e-6
-    );
+
+    let info_w_n = &PhyloInfoBuilder::with_attrs(
+        PathBuf::from("./data/ambiguous_example_N.fasta"),
+        PathBuf::from("./data/ambiguous_example.newick"),
+    )
+    .build()
+    .unwrap();
+    assert_relative_eq!(tn93.cost(info_w_x, true), tn93.cost(info_w_n, true));
+}
+
+#[test]
+fn dna_ambig_example_likelihood_k80() {
+    // Checks that likelihoods for different ambiguous characters are the same
+    let k80 = DNASubstModel::new(K80, &[2.0, 1.0]).unwrap();
+    let info_w_x = &PhyloInfoBuilder::with_attrs(
+        PathBuf::from("./data/ambiguous_example.fasta"),
+        PathBuf::from("./data/ambiguous_example.newick"),
+    )
+    .build()
+    .unwrap();
+
     let info_w_n = &PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/ambiguous_example_N.fasta"),
         PathBuf::from("./data/ambiguous_example.newick"),
@@ -220,11 +242,11 @@ fn dna_ambig_example_likelihood() {
     .build()
     .unwrap();
     assert_relative_eq!(
-        tn93.cost(info_w_n, true),
-        -94.46514304131543,
+        k80.cost(info_w_x, true),
+        -137.24280493914029,
         epsilon = 1e-6
     );
-    assert_relative_eq!(tn93.cost(info_w_x, true), tn93.cost(info_w_n, true));
+    assert_relative_eq!(k80.cost(info_w_x, true), k80.cost(info_w_n, true));
 }
 
 #[test]
