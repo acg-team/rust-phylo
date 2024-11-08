@@ -253,6 +253,7 @@ where
             self.tmp
                 .replace(SubstModelInfo::<SubstModel<Params>>::new(info, self).unwrap());
         }
+
         for node_idx in info.tree.postorder() {
             match node_idx {
                 Internal(_) => {
@@ -265,11 +266,14 @@ where
         }
         let tmp_values = self.tmp.borrow();
         debug_assert_eq!(info.tree.len(), tmp_values.node_info.len());
-        let root_info = &tmp_values.node_info[usize::from(&info.tree.root)];
-        let likelihood = SubstitutionModel::freqs(self).transpose().mul(root_info);
+
+        let likelihood = SubstitutionModel::freqs(self)
+            .transpose()
+            .mul(&tmp_values.node_info[usize::from(&info.tree.root)]);
+        drop(tmp_values);
+
         debug_assert_eq!(likelihood.ncols(), info.msa_length());
         debug_assert_eq!(likelihood.nrows(), 1);
-        drop(tmp_values);
         likelihood.map(|x| x.ln()).sum()
     }
 
@@ -311,22 +315,15 @@ where
             return;
         }
 
-        // get leaf sequence encoding times stationary frequencies
-        let mut leaf_seq = tmp_values
+        // get leaf sequence encoding
+        let leaf_seq = tmp_values
             .leaf_sequence_info
             .get(tree.node_id(node_idx))
-            .unwrap()
-            .clone();
-        leaf_seq.column_iter_mut().for_each(|mut site_info| {
-            site_info.component_mul_assign(SubstitutionModel::freqs(self));
-            site_info.scale_mut((1.0) / site_info.sum());
-        });
+            .unwrap();
         tmp_values.node_info[idx] = (&tmp_values.node_models[idx]).mul(leaf_seq);
-
         if let Some(parent_idx) = tree.parent(node_idx) {
             tmp_values.node_info_valid[usize::from(parent_idx)] = false;
         }
-
         tmp_values.node_info_valid[idx] = true;
         drop(tmp_values);
     }
@@ -369,9 +366,8 @@ impl<SM: SubstitutionModel> SubstModelInfo<SM> {
                 if let Some(c) = alignment_map[i] {
                     site_info.copy_from(&leaf_encoding.column(c));
                 } else {
-                    site_info.fill(1.0);
+                    site_info.copy_from(info.msa.alphabet().gap_encoding());
                 }
-                site_info.scale_mut((1.0) / site_info.sum());
             }
             leaf_sequence_info.insert(node.id.clone(), leaf_seq_w_gaps);
         }

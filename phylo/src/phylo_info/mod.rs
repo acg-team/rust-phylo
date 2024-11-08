@@ -90,7 +90,9 @@ impl PhyloInfo {
                 .iter()
                 .map(|rec| rec.seq().iter().filter(|&c| c == &char).count())
                 .sum::<usize>() as f64;
-            freqs += alphabet.char_encoding(char).scale(count);
+            let mut char_freq = alphabet.char_encoding(char);
+            char_freq.scale_mut(1.0 / char_freq.sum());
+            freqs += char_freq.scale(count);
         }
         for char in alphabet.symbols().iter() {
             let idx = alphabet.index(char);
@@ -109,6 +111,10 @@ impl PhyloInfo {
         let alphabet = self.msa.alphabet();
         let mut leaf_encoding = HashMap::with_capacity(self.msa.len());
         for seq in self.msa.seqs.iter() {
+            if seq.seq().is_empty() {
+                leaf_encoding.insert(seq.id().to_string(), DMatrix::zeros(0, 0));
+                continue;
+            }
             leaf_encoding.insert(
                 seq.id().to_string(),
                 DMatrix::from_columns(
