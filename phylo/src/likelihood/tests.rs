@@ -448,3 +448,22 @@ fn likelihood_correct_after_reset(
     assert_relative_eq!(c2, llik2, epsilon = 1e-5);
     assert_relative_eq!(c2, model.cost(&info2, true), epsilon = 1e-5);
 }
+
+#[test]
+fn only_one_site_one_char() {
+    // This used to fail on leaf data creation when some of the sequences were empty
+    let sequences = Sequences::new(vec![
+        Record::with_attrs("one", None, b"C"),
+        Record::with_attrs("two", None, b"-"),
+        Record::with_attrs("three", None, b"-"),
+        Record::with_attrs("four", None, b"-"),
+    ]);
+    let newick = "((one:2,two:2):1,(three:1,four:1):2);".to_string();
+    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    let gtr =
+        DNASubstModel::new(GTR, &[0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
+    let logl = gtr.cost(&info, false);
+    assert_ne!(logl, f64::NEG_INFINITY);
+    assert!(logl < 0.0);
+}
+
