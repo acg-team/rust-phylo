@@ -201,6 +201,77 @@ fn check_parameter_optimisation_gtr() {
 }
 
 #[test]
+fn check_parameter_optimisation_k80_vs_phyml() {
+    let info = PhyloInfoBuilder::with_attrs(
+        PathBuf::from("./data/sim/GTR/gtr.fasta"),
+        PathBuf::from("./data/sim/tree.newick"),
+    )
+    .build()
+    .unwrap();
+    // Optimized parameters from PhyML
+    let phyml_model = DNASubstModel::new(K80, &[19.432093, 1.0]).unwrap();
+    let phyml_logl = phyml_model.cost(&info, false);
+    assert_relative_eq!(phyml_logl, -3629.2205979421, epsilon = 1.0e-5);
+
+    let model = DNASubstModel::new(K80, &[2.0, 1.0]).unwrap();
+    let o = ModelOptimiser::new(&model, &info, FrequencyOptimisation::Fixed)
+        .run()
+        .unwrap();
+    assert!(o.final_logl > phyml_logl);
+
+    let o2 = ModelOptimiser::new(&o.model, &info, FrequencyOptimisation::Fixed)
+        .run()
+        .unwrap();
+    assert!(o2.final_logl == o.final_logl);
+    assert!(o2.iterations < 10);
+
+    assert_relative_eq!(o.model.params.rtc, phyml_model.params.rtc, epsilon = 1e-2);
+    assert_relative_eq!(o.model.params.rta, phyml_model.params.rta, epsilon = 1e-5);
+    assert_relative_eq!(o.model.params.rtg, phyml_model.params.rtg, epsilon = 1e-5);
+    assert_relative_eq!(o.model.params.rca, phyml_model.params.rca, epsilon = 1e-5);
+    assert_relative_eq!(o.model.params.rcg, phyml_model.params.rcg, epsilon = 1e-5);
+    assert_relative_eq!(o.model.params.rag, phyml_model.params.rag, epsilon = 1e-2);
+    assert_relative_eq!(o.final_logl, phyml_logl, epsilon = 1e-6);
+}
+
+#[test]
+fn check_parameter_optimisation_hky_vs_phyml() {
+    let info = PhyloInfoBuilder::with_attrs(
+        PathBuf::from("./data/sim/GTR/gtr.fasta"),
+        PathBuf::from("./data/sim/tree.newick"),
+    )
+    .build()
+    .unwrap();
+
+    let model = DNASubstModel::new(HKY, &[0.25, 0.25, 0.25, 0.25, 2.0, 1.0]).unwrap();
+    let o = ModelOptimiser::new(&model, &info, FrequencyOptimisation::Empirical)
+        .run()
+        .unwrap();
+
+    let o2 = ModelOptimiser::new(&o.model, &info, FrequencyOptimisation::Empirical)
+        .run()
+        .unwrap();
+    assert!(o2.final_logl == o.final_logl);
+    assert!(o2.iterations < 10);
+
+    // Optimized parameters from PhyML
+    let phyml_model =
+        DNASubstModel::new(HKY, &[0.24720, 0.35320, 0.29540, 0.10420, 20.357397, 1.0]).unwrap();
+    let phyml_logl = phyml_model.cost(&info, false);
+    assert_relative_eq!(phyml_logl, -3483.9223510041406, epsilon = 1.0e-5);
+
+    assert!(o.final_logl >= phyml_logl);
+    assert_relative_eq!(o.model.freqs(), phyml_model.freqs());
+    assert_relative_eq!(o.model.params.rtc, phyml_model.params.rtc, epsilon = 1e-2);
+    assert_relative_eq!(o.model.params.rta, phyml_model.params.rta, epsilon = 1e-5);
+    assert_relative_eq!(o.model.params.rtg, phyml_model.params.rtg, epsilon = 1e-5);
+    assert_relative_eq!(o.model.params.rca, phyml_model.params.rca, epsilon = 1e-5);
+    assert_relative_eq!(o.model.params.rcg, phyml_model.params.rcg, epsilon = 1e-5);
+    assert_relative_eq!(o.model.params.rag, phyml_model.params.rag, epsilon = 1e-2);
+    assert_relative_eq!(o.final_logl, phyml_logl, epsilon = 1e-5);
+}
+
+#[test]
 fn frequencies_fixed_opt_gtr() {
     let info = PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/sim/GTR/gtr.fasta"),
