@@ -431,22 +431,33 @@ fn optimisation_pip_gtr() {
     )
     .unwrap();
     let initial_logl = pip_gtr.cost(info, false);
-    let o = ModelOptimiser::new(&pip_gtr, info, FrequencyOptimisation::Fixed)
+    let pip_o = ModelOptimiser::new(&pip_gtr, info, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
 
     assert_relative_eq!(initial_logl, -9988.486546494, epsilon = 1e0); // value from the python script
-    assert_relative_eq!(o.initial_logl, initial_logl);
-    assert!(o.final_logl > initial_logl);
+    assert_relative_eq!(pip_o.initial_logl, initial_logl);
+    assert!(pip_o.final_logl > initial_logl);
 
-    let subst_params = o.model.params.subst_model.params;
-    // comparing to optimised parameter values from check_parameter_optimisation_gtr
-    assert_relative_eq!(subst_params.rtc, 1.03398, epsilon = 1e-4);
-    assert_relative_eq!(subst_params.rta, 0.03189, epsilon = 1e-4);
-    assert_relative_eq!(subst_params.rtg, 0.00001, epsilon = 1e-4);
-    assert_relative_eq!(subst_params.rca, 0.07906, epsilon = 1e-4);
-    assert_relative_eq!(subst_params.rcg, 0.04276, epsilon = 1e-4);
-    assert_relative_eq!(subst_params.rag, 1.00000, epsilon = 1e-4);
+    let gtr = DNASubstModel::new(
+        GTR,
+        &[
+            0.24720, 0.35320, 0.29540, 0.10420, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+        ],
+    )
+    .unwrap();
+    let o = ModelOptimiser::new(&gtr, info, FrequencyOptimisation::Fixed)
+        .run()
+        .unwrap();
+
+    let pip_subst_params = pip_o.model.params.subst_model.params;
+    let subst_params = o.model.params;
+    assert_relative_eq!(pip_subst_params.rtc, subst_params.rtc, epsilon = 1e-4);
+    assert_relative_eq!(pip_subst_params.rta, subst_params.rta, epsilon = 1e-4);
+    assert_relative_eq!(pip_subst_params.rtg, subst_params.rtg, epsilon = 1e-4);
+    assert_relative_eq!(pip_subst_params.rca, subst_params.rca, epsilon = 1e-4);
+    assert_relative_eq!(pip_subst_params.rcg, subst_params.rcg, epsilon = 1e-4);
+    assert_relative_eq!(pip_subst_params.rag, subst_params.rag, epsilon = 1e-4);
 }
 
 #[test]
