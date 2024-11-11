@@ -279,6 +279,7 @@ where
     SM::ModelType: Clone,
     PIPModel<SM>: EvoModel,
 {
+    // TODO: add check that the model type matches the data
     fn cost(&self, info: &PhyloInfo, reset: bool) -> f64 {
         if reset {
             self.reset();

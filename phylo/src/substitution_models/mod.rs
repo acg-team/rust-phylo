@@ -227,6 +227,7 @@ impl<Params> PhyloCostFunction for SubstModel<Params>
 where
     SubstModel<Params>: SubstitutionModel,
 {
+    // TODO: add check that the model type matches the data
     fn cost(&self, info: &PhyloInfo, reset: bool) -> f64 {
         if reset {
             self.reset();
