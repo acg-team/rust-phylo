@@ -5,8 +5,12 @@ use bio::io::fasta::Record;
 
 use crate::alignment::Sequences;
 use crate::evolutionary_models::{DNAModelType::*, EvoModel, ProteinModelType::*};
+use crate::io::write_newick_to_file;
 use crate::likelihood::PhyloCostFunction;
-use crate::optimisers::{BranchOptimiser, PhyloOptimiser, TopologyOptimiser};
+use crate::optimisers::{
+    BranchOptimiser, EvoModelOptimiser, FrequencyOptimisation::Empirical, ModelOptimiser,
+    PhyloOptimiser, TopologyOptimiser,
+};
 use crate::phylo_info::PhyloInfoBuilder;
 use crate::pip_model::PIPModel;
 use crate::substitution_models::{DNASubstModel, ProteinSubstModel};
@@ -344,4 +348,90 @@ fn protein_optimise_model_tree() {
     assert!(pip_optim.cost(&with_model_optim, true) > pip_optim.cost(&wo_model_optim, true));
     assert!(pip_optim.cost(&with_model_optim, true) > pip.cost(&with_model_optim, true));
     assert!(pip.cost(&with_model_optim, true) > pip.cost(&wo_model_optim, true));
+}
+
+#[test]
+fn protein_wag_vs_phyml_empirical_freqs() {
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let seq_file = fldr.join("seqs.fasta");
+    let tree_file = fldr.join("jati_wag_empirical.newick");
+
+    let info = PhyloInfoBuilder::new(seq_file.clone()).build().unwrap();
+    let model = ProteinSubstModel::new(WAG, &[]).unwrap();
+    let unopt_logl = model.cost(&info, false);
+
+    let o = ModelOptimiser::new(&model, &info, Empirical).run().unwrap();
+    let model_opt_logl = o.final_logl;
+    assert!(model_opt_logl >= unopt_logl);
+    let model = o.model;
+
+    let result = if let Ok(precomputed) =
+        PhyloInfoBuilder::with_attrs(seq_file.clone(), tree_file.clone()).build()
+    {
+        precomputed
+    } else {
+        let info = PhyloInfoBuilder::new(seq_file.clone()).build().unwrap();
+        let unopt_logl = model.cost(&info, false);
+        let o = TopologyOptimiser::new(&model, &info).run().unwrap();
+        assert!(o.final_logl >= unopt_logl);
+        let result = o.i;
+        // The above ran in 394.21s
+        assert!(write_newick_to_file(&[result.tree.clone()], tree_file.clone()).is_ok());
+        result
+    };
+
+    let phyml_result =
+        PhyloInfoBuilder::with_attrs(seq_file.clone(), fldr.join("phyml_wag_empirical.newick"))
+            .build()
+            .unwrap();
+
+    assert_relative_eq!(
+        model.cost(&result, true),
+        model.cost(&phyml_result, true),
+        epsilon = 1e-5
+    );
+    assert_relative_eq!(model.cost(&result, true), -5258.79254297163, epsilon = 1e-5);
+    assert_relative_eq!(result.tree.height, phyml_result.tree.height, epsilon = 1e-4);
+    assert_eq!(result.tree.robinson_foulds(&phyml_result.tree), 0);
+}
+
+#[test]
+fn protein_wag_vs_phyml_fixed_freqs() {
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let seq_file = fldr.join("seqs.fasta");
+    let tree_file = fldr.join("jati_wag_fixed.newick");
+    let model = ProteinSubstModel::new(WAG, &[]).unwrap();
+
+    let result = if let Ok(precomputed) =
+        PhyloInfoBuilder::with_attrs(seq_file.clone(), tree_file.clone()).build()
+    {
+        precomputed
+    } else {
+        let info = PhyloInfoBuilder::new(seq_file.clone()).build().unwrap();
+        let unopt_logl = model.cost(&info, false);
+        let o = TopologyOptimiser::new(&model, &info).run().unwrap();
+        assert!(o.final_logl >= unopt_logl);
+        let result = o.i;
+        // The above ran in 372.59s
+        assert!(write_newick_to_file(&[result.tree.clone()], tree_file.clone()).is_ok());
+        result
+    };
+
+    let phyml_result =
+        PhyloInfoBuilder::with_attrs(seq_file.clone(), fldr.join("phyml_wag_fixed.newick"))
+            .build()
+            .unwrap();
+
+    assert_relative_eq!(
+        model.cost(&result, true),
+        model.cost(&phyml_result, true),
+        epsilon = 1e-5
+    );
+    assert_relative_eq!(
+        model.cost(&result, true),
+        -5295.084233408107,
+        epsilon = 1e-2
+    );
+    assert_relative_eq!(result.tree.height, phyml_result.tree.height, epsilon = 1e-4);
+    assert_eq!(result.tree.robinson_foulds(&phyml_result.tree), 0);
 }
