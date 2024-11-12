@@ -1,10 +1,10 @@
+use std::collections::HashSet;
 use std::fmt::{Debug, Display};
 
 use anyhow::bail;
 use approx::relative_eq;
 use bio::alignment::distance::levenshtein;
 use inc_stats::Percentiles;
-use log::info;
 use nalgebra::{max, DMatrix};
 use rand::random;
 
@@ -13,11 +13,13 @@ use crate::tree::{
     nj_matrices::{Mat, NJMat},
     NodeIdx::{Internal as Int, Leaf},
 };
-
 use crate::{Result, Rounding};
 
 mod nj_matrices;
 pub mod tree_parser;
+
+mod tree_node;
+pub use tree_node::*;
 
 #[derive(PartialEq, Clone, Copy, PartialOrd, Eq, Ord, Hash)]
 pub enum NodeIdx {
@@ -59,80 +61,22 @@ impl From<NodeIdx> for usize {
 }
 
 #[derive(Debug, Clone)]
-pub struct Node {
-    pub idx: NodeIdx,
-    pub parent: Option<NodeIdx>,
-    pub children: Vec<NodeIdx>,
-    pub blen: f64,
-    pub id: String,
-}
-
-impl Display for Node {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.id.is_empty() {
-            write!(f, "{}", self.idx)
-        } else {
-            write!(f, "{} with id {}", self.idx, self.id)
-        }
-    }
-}
-
-impl PartialEq for Node {
-    fn eq(&self, other: &Self) -> bool {
-        (self.idx == other.idx)
-            && (self.parent == other.parent)
-            && (self.children.iter().min() == other.children.iter().min())
-            && (self.children.iter().max() == other.children.iter().max())
-            && relative_eq!(self.blen, other.blen)
-    }
-}
-
-impl Node {
-    fn new_leaf(idx: usize, parent: Option<NodeIdx>, blen: f64, id: String) -> Self {
-        Self {
-            idx: Leaf(idx),
-            parent,
-            children: Vec::new(),
-            blen,
-            id,
-        }
-    }
-
-    fn new_internal(
-        idx: usize,
-        parent: Option<NodeIdx>,
-        children: Vec<NodeIdx>,
-        blen: f64,
-        id: String,
-    ) -> Self {
-        Self {
-            idx: Int(idx),
-            parent,
-            children,
-            blen,
-            id,
-        }
-    }
-
-    fn new_empty_internal(node_idx: usize) -> Self {
-        Self::new_internal(node_idx, None, Vec::new(), 0.0, "".to_string())
-    }
-
-    fn add_parent(&mut self, parent_idx: &NodeIdx) {
-        debug_assert!(matches!(parent_idx, Int(_)));
-        self.parent = Some(*parent_idx);
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct Tree {
     pub root: NodeIdx,
     pub(crate) nodes: Vec<Node>,
     postorder: Vec<NodeIdx>,
     preorder: Vec<NodeIdx>,
+    leaf_ids: Vec<String>,
     pub complete: bool,
     pub n: usize,
     pub height: f64,
+    pub(crate) dirty: Vec<bool>,
+}
+
+impl Display for Tree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_newick())
+    }
 }
 
 impl Tree {
@@ -155,6 +99,8 @@ impl Tree {
                 complete: true,
                 n: 1,
                 height: 0.0,
+                leaf_ids: vec![sequences.record(0).id().to_string()],
+                dirty: vec![false],
             })
         } else {
             Ok(Self {
@@ -168,8 +114,173 @@ impl Tree {
                 complete: false,
                 n,
                 height: 0.0,
+                leaf_ids: sequences.iter().map(|seq| seq.id().to_string()).collect(),
+                dirty: vec![false; 2 * n - 1],
             })
         }
+    }
+
+    pub fn clean(&mut self, clean: bool) {
+        self.dirty.fill(clean);
+    }
+
+    pub fn robinson_foulds(&self, other: &Tree) -> usize {
+        let mut dist = 0;
+        let common_leaves = self.common_leaf_set(other);
+        let parts = self.filtered_partitions(&common_leaves);
+        let other_parts: Vec<HashSet<String>> = other.filtered_partitions(&common_leaves);
+        for part in parts.iter() {
+            if !other_parts.contains(part) {
+                dist += 1;
+            }
+        }
+        dist
+    }
+
+    fn filtered_partitions(&self, common_leaves: &HashSet<String>) -> Vec<HashSet<String>> {
+        self.partitions()
+            .iter()
+            .map(|set| set.intersection(common_leaves).cloned().collect())
+            .filter(|set: &HashSet<String>| !set.is_empty())
+            .collect()
+    }
+
+    fn common_leaf_set(&self, other: &Tree) -> HashSet<String> {
+        HashSet::<String>::from_iter(self.leaf_ids())
+            .intersection(&HashSet::from_iter(other.leaf_ids()))
+            .cloned()
+            .collect()
+    }
+
+    pub fn partitions(&self) -> Vec<HashSet<String>> {
+        let mut partitions = Vec::new();
+        let all_leaves: HashSet<String> =
+            self.leaves().iter().map(|node| node.id.clone()).collect();
+        // skip root because it is a trivial partition
+        for node in self.preorder.iter().skip(1) {
+            let partition = self
+                .preorder_subroot(node)
+                .iter()
+                .filter(|idx| matches!(idx, Leaf(_)))
+                .map(|idx| self.node_id(idx).to_string())
+                .collect();
+            let other: HashSet<String> = all_leaves.difference(&partition).cloned().collect();
+            if partitions.contains(&partition) {
+                continue;
+            }
+            partitions.push(partition.clone());
+            partitions.push(other.clone());
+        }
+        partitions
+    }
+
+    fn is_subtree(&self, query: &NodeIdx, node: &NodeIdx) -> bool {
+        let order = self.preorder_subroot(node);
+        order.contains(query)
+    }
+
+    pub fn sibling(&self, node_idx: &NodeIdx) -> Option<NodeIdx> {
+        let parent = self.nodes[usize::from(node_idx)].parent?;
+        let siblings = &self.nodes[usize::from(&parent)].children;
+        siblings
+            .iter()
+            .find(|&sibling| sibling != node_idx)
+            .cloned()
+    }
+
+    pub fn rooted_spr(&self, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Result<Tree> {
+        // Prune and regraft nodes must be different
+        if prune_idx == regraft_idx {
+            bail!("Prune and regraft nodes must be different.");
+        }
+        if self.is_subtree(regraft_idx, prune_idx) {
+            bail!("Prune node cannot be a subtree of the regraft node.");
+        }
+
+        let prune = self.node(prune_idx);
+        // Pruned node must have a parent, it is the one being reattached
+        if prune.parent.is_none() {
+            bail!("Cannot prune the root node.");
+        }
+        // Cannot prune direct child of the root node, otherwise branch lengths are undefined
+        if self.node(&prune.parent.unwrap()).parent.is_none() {
+            bail!("Cannot prune direct child of the root node.");
+        }
+        let regraft = self.node(regraft_idx);
+        // Regrafted node must have a parent, the prune parent is attached to that branch
+        if regraft.parent.is_none() {
+            bail!("Cannot regraft to root node.");
+        }
+        if regraft.parent == prune.parent {
+            bail!("Prune and regraft nodes must have different parents.");
+        }
+
+        Ok(self.rooted_spr_unchecked(prune_idx, regraft_idx))
+    }
+
+    fn rooted_spr_unchecked(&self, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Tree {
+        let prune = self.node(prune_idx);
+        let prune_sib = self.node(&self.sibling(&prune.idx).unwrap());
+        let prune_par = self.node(&prune.parent.unwrap());
+        let prune_grpar = self.node(&prune_par.parent.unwrap());
+        let regraft = self.node(regraft_idx);
+        let regraft_par = self.node(&regraft.parent.unwrap());
+
+        let mut new_tree = self.clone();
+
+        {
+            new_tree.dirty[usize::from(prune_sib.idx)] = true;
+            new_tree.dirty[usize::from(prune_par.idx)] = true;
+        }
+
+        {
+            // Sibling of pruned node connects to common parent, branch length is updated
+            let prune_sib = new_tree.node_mut(&prune_sib.idx);
+            prune_sib.parent = prune_par.parent;
+            prune_sib.blen += prune_par.blen;
+        };
+
+        {
+            // Pruned node's parent is removed from its parent's children, pruned nodes sibling is added
+            let prune_grpar = new_tree.node_mut(&prune_grpar.idx);
+            prune_grpar.children.retain(|&x| x != prune_par.idx);
+            prune_grpar.children.push(prune_sib.idx);
+        };
+
+        {
+            // Regrafted branch is split in two, parent of regrafted node is now pruned node's parent
+            let regraft = new_tree.node_mut(&regraft.idx);
+            regraft.parent = Some(prune_par.idx);
+            regraft.blen /= 2.0;
+        }
+
+        {
+            // Regrafted node is removed from its parent's children, pruned node's parent is added
+            let prune_par = new_tree.node_mut(&prune_par.idx);
+            prune_par.children.retain(|&x| x != prune_sib.idx);
+            prune_par.children.push(regraft.idx);
+            prune_par.blen = regraft.blen / 2.0;
+            prune_par.parent = regraft.parent;
+        }
+
+        {
+            // Regrafted node's parent's children are updated
+            let regraft_par = new_tree.node_mut(&regraft_par.idx);
+            regraft_par.children.retain(|&x| x != regraft.idx);
+            regraft_par.children.push(prune_par.idx);
+        }
+
+        // Tree height should not have changed
+        debug_assert!(relative_eq!(
+            new_tree.height,
+            new_tree.nodes.iter().map(|node| node.blen).sum(),
+            epsilon = 1e-10
+        ));
+
+        new_tree.compute_postorder();
+        new_tree.compute_preorder();
+        debug_assert_eq!(new_tree.postorder.len(), self.postorder.len());
+        new_tree
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Node> {
@@ -182,6 +293,14 @@ impl Tree {
 
     pub fn node(&self, node_idx: &NodeIdx) -> &Node {
         &self.nodes[usize::from(node_idx)]
+    }
+
+    pub fn by_id(&self, id: &str) -> &Node {
+        self.nodes.iter().find(|node| node.id == id).unwrap()
+    }
+
+    pub fn node_mut(&mut self, node_idx: &NodeIdx) -> &mut Node {
+        &mut self.nodes[usize::from(node_idx)]
     }
 
     pub fn len(&self) -> usize {
@@ -201,10 +320,10 @@ impl Tree {
     }
 
     pub fn to_newick(&self) -> String {
-        format!("({});", self._to_newick(self.root))
+        format!("({});", self.to_newick_subroot(self.root))
     }
 
-    fn _to_newick(&self, node_idx: NodeIdx) -> String {
+    fn to_newick_subroot(&self, node_idx: NodeIdx) -> String {
         match node_idx {
             NodeIdx::Leaf(idx) => {
                 let node = &self.nodes[idx];
@@ -215,7 +334,7 @@ impl Tree {
                 let children_newick: Vec<String> = node
                     .children
                     .iter()
-                    .map(|&child_idx| self._to_newick(child_idx))
+                    .map(|&child_idx| self.to_newick_subroot(child_idx))
                     .collect();
                 format!("({}){}:{}", children_newick.join(","), &node.id, node.blen)
             }
@@ -254,42 +373,34 @@ impl Tree {
         self.nodes[usize::from(idx)].add_parent(parent_idx);
     }
 
-    pub(crate) fn create_postorder(&mut self) {
+    pub(crate) fn compute_postorder(&mut self) {
         debug_assert!(self.complete);
-        if self.postorder.is_empty() {
-            let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
-            let mut stack = Vec::<NodeIdx>::with_capacity(self.nodes.len());
-            let mut cur_root = self.root;
-            stack.push(cur_root);
-            while !stack.is_empty() {
-                cur_root = stack.pop().unwrap();
-                order.push(cur_root);
-                if let Int(idx) = cur_root {
-                    stack.push(self.nodes[idx].children[0]);
-                    stack.push(self.nodes[idx].children[1]);
-                }
-            }
-            order.reverse();
-            self.postorder = order;
-        }
-    }
-
-    pub(crate) fn create_preorder(&mut self) {
-        debug_assert!(self.complete);
-        if self.preorder.is_empty() {
-            self.preorder = self.preorder_subroot(Some(&self.root));
-        }
-    }
-
-    pub fn preorder_subroot(&self, subroot_idx: Option<&NodeIdx>) -> Vec<NodeIdx> {
-        debug_assert!(self.complete);
-        let subroot_idx = match subroot_idx {
-            Some(idx) => *idx,
-            None => self.root,
-        };
         let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
         let mut stack = Vec::<NodeIdx>::with_capacity(self.nodes.len());
-        let mut cur_root = subroot_idx;
+        let mut cur_root = self.root;
+        stack.push(cur_root);
+        while !stack.is_empty() {
+            cur_root = stack.pop().unwrap();
+            order.push(cur_root);
+            if let Int(idx) = cur_root {
+                stack.push(self.nodes[idx].children[0]);
+                stack.push(self.nodes[idx].children[1]);
+            }
+        }
+        order.reverse();
+        self.postorder = order;
+    }
+
+    pub(crate) fn compute_preorder(&mut self) {
+        debug_assert!(self.complete);
+        self.preorder = self.preorder_subroot(&self.root);
+    }
+
+    pub fn preorder_subroot(&self, subroot_idx: &NodeIdx) -> Vec<NodeIdx> {
+        debug_assert!(self.complete);
+        let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
+        let mut stack = Vec::<NodeIdx>::with_capacity(self.nodes.len());
+        let mut cur_root = *subroot_idx;
         stack.push(cur_root);
         while !stack.is_empty() {
             cur_root = stack.pop().unwrap();
@@ -305,17 +416,10 @@ impl Tree {
 
     pub fn leaf_ids(&self) -> Vec<String> {
         debug_assert!(self.complete);
-        self.leaves().iter().map(|node| node.id.clone()).collect()
+        self.leaf_ids.clone()
     }
 
-    pub fn all_branch_lengths(&self) -> Vec<f64> {
-        debug_assert!(self.complete);
-        let lengths = self.nodes.iter().map(|n| n.blen).collect();
-        info!("Branch lengths are: {:?}", lengths);
-        lengths
-    }
-
-    pub fn idx(&self, id: &str) -> Result<NodeIdx> {
+    pub fn try_idx(&self, id: &str) -> Result<NodeIdx> {
         debug_assert!(self.complete);
         let node = self.nodes.iter().find(|node| node.id == id);
         if let Some(node) = node {
@@ -324,15 +428,32 @@ impl Tree {
         bail!("No node with id {} found in the tree", id);
     }
 
-    pub fn set_branch_length(&mut self, node_idx: &NodeIdx, blen: f64) {
-        debug_assert!(blen >= 0.0);
-        let old_blen = self.nodes[usize::from(node_idx)].blen;
-        self.height += blen - old_blen;
-        self.nodes[usize::from(node_idx)].blen = blen;
+    #[cfg(test)]
+    pub(crate) fn idx(&self, id: &str) -> NodeIdx {
+        debug_assert!(self.complete);
+        self.nodes.iter().find(|node| node.id == id).unwrap().idx
     }
 
-    pub fn blen(&self, node_idx: &NodeIdx) -> f64 {
+    pub fn set_blen(&mut self, node_idx: &NodeIdx, blen: f64) {
+        debug_assert!(blen >= 0.0);
+        let idx = usize::from(node_idx);
+        let old_blen = self.nodes[idx].blen;
+        self.height += blen - old_blen;
+        self.nodes[idx].blen = blen;
+        self.dirty[idx] = true;
+    }
+
+    pub(crate) fn blen(&self, node_idx: &NodeIdx) -> f64 {
         self.nodes[usize::from(node_idx)].blen
+    }
+
+    pub fn parent(&self, node_idx: &NodeIdx) -> Option<NodeIdx> {
+        self.nodes[usize::from(node_idx)].parent
+    }
+
+    #[cfg(test)]
+    pub(crate) fn blen_by_id(&self, id: &str) -> f64 {
+        self.nodes[usize::from(self.idx(id))].blen
     }
 
     pub fn leaves(&self) -> Vec<&Node> {
@@ -398,7 +519,7 @@ fn rng_len(l: usize) -> usize {
     random::<usize>() % l
 }
 
-fn build_nj_tree_w_rng_from_matrix(
+fn build_nj_tree_from_matrix(
     mut nj_data: NJMat,
     sequences: &Sequences,
     rng: fn(usize) -> usize,
@@ -419,19 +540,15 @@ fn build_nj_tree_w_rng_from_matrix(
     }
     tree.n = n;
     tree.complete = true;
-    tree.create_postorder();
-    tree.create_preorder();
+    tree.compute_postorder();
+    tree.compute_preorder();
     tree.height = tree.nodes.iter().map(|node| node.blen).sum();
     Ok(tree)
 }
 
-fn build_nj_tree_from_matrix(nj_data: NJMat, sequences: &Sequences) -> Result<Tree> {
-    build_nj_tree_w_rng_from_matrix(nj_data, sequences, rng_len)
-}
-
 pub fn build_nj_tree(sequences: &Sequences) -> Result<Tree> {
     let nj_data = compute_distance_matrix(sequences);
-    build_nj_tree_from_matrix(nj_data, sequences)
+    build_nj_tree_from_matrix(nj_data, sequences, rng_len)
 }
 
 fn compute_distance_matrix(sequences: &Sequences) -> nj_matrices::NJMat {

@@ -20,8 +20,8 @@ impl<'a, EM: PhyloCostFunction> CostFunction for SingleBranchOptimiser<'a, EM> {
 
     fn cost(&self, value: &f64) -> Result<f64> {
         let mut info = self.info.clone();
-        info.tree.set_branch_length(self.branch, *value);
-        Ok(-self.model.cost(&info))
+        info.tree.set_blen(self.branch, *value);
+        Ok(-self.model.cost(&info, false))
     }
 
     fn parallelize(&self) -> bool {
@@ -35,7 +35,7 @@ pub struct BranchOptimiser<'a, EM: PhyloCostFunction> {
     pub(crate) info: PhyloInfo,
 }
 
-impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for BranchOptimiser<'a, EM> {
+impl<'a, EM: PhyloCostFunction + Clone> PhyloOptimiser<'a, EM> for BranchOptimiser<'a, EM> {
     fn new(model: &'a EM, info: &PhyloInfo) -> Self {
         BranchOptimiser {
             epsilon: 1e-3,
@@ -47,50 +47,49 @@ impl<'a, EM: PhyloCostFunction> PhyloOptimiser<'a, EM> for BranchOptimiser<'a, E
     fn run(self) -> Result<PhyloOptimisationResult> {
         info!("Optimising branch lengths.");
         let mut info = self.info.clone();
+        let initial_logl = self.model.cost(&info, true);
 
-        let initial_logl = self.model.cost(&info);
         info!("Initial logl: {}.", initial_logl);
-        let mut final_logl = initial_logl;
-        let mut prev_logl = f64::NEG_INFINITY;
+        let mut curr_cost = initial_logl;
+        let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
 
         let nodes: Vec<NodeIdx> = info.tree.iter().map(|node| node.idx).collect();
-        while (prev_logl - final_logl).abs() > self.epsilon {
+        while (curr_cost - prev_cost) > self.epsilon {
             iterations += 1;
             debug!("Iteration: {}", iterations);
-            prev_logl = final_logl;
+            prev_cost = curr_cost;
             for branch in &nodes {
                 if info.tree.root == *branch {
                     continue;
                 }
                 let (logl, length) = self.optimise_branch(branch, &info)?;
-                if logl < final_logl {
-                    continue;
+                if logl > curr_cost {
+                    curr_cost = logl;
+                    info.tree.set_blen(branch, length);
+                    debug!(
+                        "Optimised {} branch length to value {:.5} with logl {:.5}",
+                        branch, length, curr_cost
+                    );
                 }
-                final_logl = logl;
-                info.tree.set_branch_length(branch, length);
-                debug!(
-                    "Optimised {} branch length to value {:.5} with logl {:.5}",
-                    branch, length, final_logl
-                );
+                info.tree.clean(true);
             }
         }
         info!(
             "Final logl: {}, achieved in {} iteration(s).",
-            final_logl, iterations
+            curr_cost, iterations
         );
         Ok(PhyloOptimisationResult {
             initial_logl,
-            final_logl,
+            final_logl: curr_cost,
             iterations,
-            tree: info.tree.clone(),
-            alignment: info.msa.clone(),
+            i: info,
         })
     }
 }
 
 impl<'a, EM: PhyloCostFunction> BranchOptimiser<'a, EM> {
-    fn optimise_branch(&self, branch: &NodeIdx, info: &PhyloInfo) -> Result<(f64, f64)> {
+    pub(crate) fn optimise_branch(&self, branch: &NodeIdx, info: &PhyloInfo) -> Result<(f64, f64)> {
         let start_blen = info.tree.blen(branch);
         let (start, end) = if start_blen == 0.0 {
             (0.0, 1.0)

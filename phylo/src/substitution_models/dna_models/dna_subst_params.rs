@@ -10,10 +10,6 @@ use crate::Result;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum DNAParameter {
-    Pit,
-    Pic,
-    Pia,
-    Pig,
     Rtc,
     Rta,
     Rtg,
@@ -54,10 +50,6 @@ impl DNASubstParams {
 impl DNASubstParams {
     pub(crate) fn param(&self, param_name: &DNAParameter) -> f64 {
         match param_name {
-            Pit => self.pi[0],
-            Pic => self.pi[1],
-            Pia => self.pi[2],
-            Pig => self.pi[3],
             Rtc => self.rtc,
             Rta => self.rta,
             Rtg => self.rtg,
@@ -68,10 +60,59 @@ impl DNASubstParams {
     }
 
     pub(crate) fn set_param(&mut self, param_name: &DNAParameter, value: f64) {
+        match self.model_type {
+            JC69 => self.set_jc69_param(param_name, value),
+            K80 => self.set_k80_param(param_name, value),
+            HKY => self.set_hky_param(param_name, value),
+            TN93 => self.set_tn93_param(param_name, value),
+            GTR => self.set_gtr_param(param_name, value),
+            _ => unreachable!(),
+        }
+    }
+
+    fn set_jc69_param(&mut self, _: &DNAParameter, value: f64) {
+        self.rtc = value;
+        self.rta = value;
+        self.rtg = value;
+        self.rca = value;
+        self.rcg = value;
+        self.rag = value;
+    }
+
+    fn set_k80_param(&mut self, param_name: &DNAParameter, value: f64) {
+        self.set_hky_param(param_name, value)
+    }
+
+    fn set_hky_param(&mut self, param_name: &DNAParameter, value: f64) {
         match param_name {
-            Pit | Pic | Pia | Pig => {
-                warn!("Cannot set frequencies individually. Use set_freqs() instead.")
+            Rtc | Rag => {
+                self.rtc = value;
+                self.rag = value;
             }
+            Rta | Rtg | Rca | Rcg => {
+                self.rta = value;
+                self.rtg = value;
+                self.rca = value;
+                self.rcg = value;
+            }
+        }
+    }
+
+    fn set_tn93_param(&mut self, param_name: &DNAParameter, value: f64) {
+        match param_name {
+            Rtc => self.rtc = value,
+            Rag => self.rag = value,
+            Rta | Rtg | Rca | Rcg => {
+                self.rta = value;
+                self.rtg = value;
+                self.rca = value;
+                self.rcg = value;
+            }
+        }
+    }
+
+    fn set_gtr_param(&mut self, param_name: &DNAParameter, value: f64) {
+        match param_name {
             Rtc => self.rtc = value,
             Rta => self.rta = value,
             Rtg => self.rtg = value,
@@ -104,29 +145,26 @@ impl DNASubstParams {
 
 impl Display for DNASubstParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.print_as(self.model_type))
-    }
-}
-
-impl DNASubstParams {
-    pub(crate) fn print_as(&self, model_type: DNAModelType) -> String {
-        match model_type {
-            DNAModelType::JC69 => format!("[lambda = {}]", self.rtc),
-            DNAModelType::K80 => format!("[alpha = {}, beta = {}]", self.rtc, self.rta),
-            DNAModelType::HKY => format!(
+        match self.model_type {
+            DNAModelType::JC69 => write!(f, "[lambda = {}]", self.rtc),
+            DNAModelType::K80 => write!(f, "[alpha = {}, beta = {}]", self.rtc, self.rta),
+            DNAModelType::HKY => write!(
+                f,
                 "[pi = {:?}, alpha = {}, beta = {}]",
                 self.pi.as_slice(),
                 self.rtc,
                 self.rta
             ),
-            DNAModelType::TN93 => format!(
+            DNAModelType::TN93 => write!(
+                f,
                 "[pi = {:?}, alpha1 = {}, alpha2 = {}, beta = {}]",
                 self.pi.as_slice(),
                 self.rtc,
                 self.rag,
                 self.rta
             ),
-            DNAModelType::GTR => format!(
+            DNAModelType::GTR => write!(
+                f,
                 "[pi = {:?}, rtc = {}, rta = {}, rtg = {}, rca = {}, rcg = {}, rag = {}]",
                 self.pi.as_slice(),
                 self.rtc,

@@ -284,8 +284,8 @@ fn make_test_tree() -> Tree {
     tree.add_parent(5, &I(4), &L(2), 1.0, 2.0);
     tree.add_parent(6, &I(5), &L(3), 1.0, 2.0);
     tree.complete = true;
-    tree.create_postorder();
-    tree.create_preorder();
+    tree.compute_postorder();
+    tree.compute_preorder();
     tree
 }
 

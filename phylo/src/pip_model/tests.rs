@@ -1,5 +1,6 @@
 use rstest::*;
 
+use std::cell::RefCell;
 use std::path::PathBuf;
 
 use approx::assert_relative_eq;
@@ -13,18 +14,15 @@ use crate::evolutionary_models::{
     EvoModel,
     ProteinModelType::{self, *},
 };
+use crate::frequencies;
 use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder};
-use crate::pip_model::{PIPDNAModel, PIPModel, PIPModelInfo, PIPProteinModel};
+use crate::pip_model::{PIPDNAModel, PIPModel, PIPModelInfo, PIPParameter, PIPProteinModel};
 use crate::substitution_models::{
     blosum_freqs, hivb_freqs, wag_freqs, DNASubstModel, FreqVector, ProteinSubstModel, SubstMatrix,
     SubstitutionModel,
 };
-use crate::tree::{
-    tree_parser,
-    NodeIdx::{self, Internal as I},
-    Tree,
-};
+use crate::tree::{tree_parser, Tree};
 
 const UNNORMALIZED_PIP_HKY_Q: [f64; 25] = [
     -0.9, 0.11, 0.22, 0.22, 0.0, 0.13, -0.88, 0.26, 0.26, 0.0, 0.33, 0.33, -0.825, 0.165, 0.0,
@@ -277,53 +275,45 @@ fn pip_hky_likelihood_example_leaf_values() {
     let info = setup_example_phylo_info();
     let tree = &info.tree;
     let mut model = PIPDNAModel::new(HKY, &PIP_HKY_PARAMS).unwrap();
+    model.tmp = RefCell::new(PIPModelInfo::new(&info, &model));
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
-
-    let mut temp_values = PIPModelInfo::<DNASubstModel>::new(&info, &model).unwrap();
 
     let iota = 0.133;
     let beta = 0.787;
 
-    let idx = &tree.idx("A").unwrap();
-    model.set_leaf(tree.node(idx), info.msa.leaf_map(idx), &mut temp_values);
+    let _logl = model.logl(&info);
     assert_values(
-        &temp_values,
-        idx,
+        &model.tmp.borrow(),
+        usize::from(tree.idx("A")),
         iota,
         beta,
         &[[0.0, 1.0, 0.0, 0.0], [0.0; 4], [0.0; 4]].concat(),
         &[0.0, 0.33, 0.0, 0.0],
         &[0.0, 0.33 * iota * beta, 0.0, 0.0],
     );
-    let idx = &tree.idx("B").unwrap();
-    model.set_leaf(tree.node(idx), info.msa.leaf_map(idx), &mut temp_values);
     assert_values(
-        &temp_values,
-        idx,
+        &model.tmp.borrow(),
+        usize::from(tree.idx("B")),
         iota,
         beta,
         &[[1.0, 1.0, 0.0, 0.0], [0.0; 4], [0.0; 4]].concat(),
         &[0.26, 0.33, 0.0, 0.0],
         &[0.26 * iota * beta, 0.33 * iota * beta, 0.0, 0.0],
     );
-    let idx = &tree.idx("C").unwrap();
-    model.set_leaf(tree.node(idx), info.msa.leaf_map(idx), &mut temp_values);
     let iota = 0.067;
     let beta = 0.885;
     assert_values(
-        &temp_values,
-        idx,
+        &model.tmp.borrow(),
+        usize::from(tree.idx("C")),
         iota,
         beta,
         &[[0.0, 1.0, 0.0, 1.0], [0.0; 4], [0.0; 4]].concat(),
         &[0.0, 0.33, 0.0, 0.19],
         &[0.0, 0.33 * iota * beta, 0.0, 0.19 * iota * beta],
     );
-    let idx = &tree.idx("D").unwrap();
-    model.set_leaf(tree.node(idx), info.msa.leaf_map(idx), &mut temp_values);
     assert_values(
-        &temp_values,
-        idx,
+        &model.tmp.borrow(),
+        usize::from(tree.idx("D")),
         iota,
         beta,
         &[[0.0, 1.0, 1.0, 1.0], [0.0; 4], [0.0; 4]].concat(),
@@ -339,21 +329,19 @@ fn pip_hky_likelihood_example_leaf_values() {
 
 #[test]
 fn pip_hky_likelihood_example_internals() {
-    let mut model = PIPDNAModel::new(HKY, &PIP_HKY_PARAMS).unwrap();
-    model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
     let info = setup_example_phylo_info();
-    let tree = &info.tree;
-    let mut temp_values = PIPModelInfo::<DNASubstModel>::new(&info, &model).unwrap();
-    for node in info.tree.leaves() {
-        model.set_leaf(node, info.msa.leaf_map(&node.idx), &mut temp_values);
-    }
+    let mut model = PIPDNAModel::new(HKY, &PIP_HKY_PARAMS).unwrap();
+    model.tmp = RefCell::new(PIPModelInfo::new(&info, &model));
+    model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
+
+    let _logl = model.logl(&info);
+    let tmp = model.tmp.borrow();
+
     let iota = 0.133;
     let beta = 0.787;
-    let idx = &tree.idx("E").unwrap();
-    model.set_internal(tree.node(idx), &mut temp_values);
     assert_values(
-        &temp_values,
-        idx,
+        &tmp,
+        usize::from(info.tree.idx("E")),
         iota,
         beta,
         &[1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
@@ -365,15 +353,14 @@ fn pip_hky_likelihood_example_internals() {
             0.0,
         ],
     );
-    let idx = &tree.idx("F").unwrap();
-    model.set_internal(tree.node(idx), &mut temp_values);
+
     let iota_f = 0.2;
     let beta_f = 0.704;
     let iota_d = 0.067;
     let beta_d = 0.885;
     assert_values(
-        &temp_values,
-        idx,
+        &tmp,
+        usize::from(info.tree.idx("F")),
         iota_f,
         beta_f,
         &[0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
@@ -390,11 +377,9 @@ fn pip_hky_likelihood_example_internals() {
     let beta = 1.0;
     let iota_e = 0.133;
     let beta_e = 0.787;
-    let idx = &tree.idx("R").unwrap();
-    model.set_root(tree.node(idx), &mut temp_values);
     assert_values(
-        &temp_values,
-        idx,
+        &tmp,
+        usize::from(info.tree.idx("R")),
         iota,
         beta,
         &[1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0],
@@ -411,14 +396,13 @@ fn pip_hky_likelihood_example_internals() {
 #[cfg(test)]
 fn assert_values<SM: SubstitutionModel>(
     tmp: &PIPModelInfo<SM>,
-    node_idx: &NodeIdx,
+    idx: usize,
     exp_ins: f64,
     exp_surv: f64,
     exp_anc: &[f64],
     exp_f: &[f64],
     exp_p: &[f64],
 ) {
-    let idx = usize::from(node_idx);
     let e = 1e-3;
     assert_relative_eq!(tmp.ins_probs[idx], exp_ins, epsilon = e);
     assert_relative_eq!(tmp.surv_probs[idx], exp_surv, epsilon = e);
@@ -442,61 +426,72 @@ fn assert_values<SM: SubstitutionModel>(
 
 #[test]
 fn pip_hky_likelihood_example_c0() {
-    let mut model = PIPDNAModel::new(HKY, &PIP_HKY_PARAMS).unwrap();
-    model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
     let info = setup_example_phylo_info();
-    let mut tmp = PIPModelInfo::<DNASubstModel>::new(&info, &model).unwrap();
-    let tree = &info.tree;
-    let idx = &tree.idx("A").unwrap();
-    model.set_leaf(tree.node(idx), info.msa.leaf_map(idx), &mut tmp);
-    assert_c0_values(&tmp, idx, &[0.0, 0.0, 0.0, 0.0, 1.0], 0.0, 0.028329);
-    let idx = &tree.idx("B").unwrap();
-    model.set_leaf(tree.node(idx), info.msa.leaf_map(idx), &mut tmp);
-    assert_c0_values(&tmp, idx, &[0.0, 0.0, 0.0, 0.0, 1.0], 0.0, 0.028329);
-    let idx = &tree.idx("C").unwrap();
-    model.set_leaf(tree.node(idx), info.msa.leaf_map(idx), &mut tmp);
-    assert_c0_values(&tmp, idx, &[0.0, 0.0, 0.0, 0.0, 1.0], 0.0, 0.007705);
-    let idx = &tree.idx("D").unwrap();
-    model.set_leaf(tree.node(idx), info.msa.leaf_map(idx), &mut tmp);
-    assert_c0_values(&tmp, idx, &[0.0, 0.0, 0.0, 0.0, 1.0], 0.0, 0.007705);
-    let idx = &tree.idx("E").unwrap();
-    model.set_internal(tree.node(idx), &mut tmp);
+    let mut model = PIPDNAModel::new(HKY, &PIP_HKY_PARAMS).unwrap();
+    model.tmp = RefCell::new(PIPModelInfo::new(&info, &model));
+    model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
+
+    let _logl = model.logl(&info);
+    let tmp = model.tmp.borrow();
     assert_c0_values(
         &tmp,
-        idx,
+        usize::from(info.tree.idx("A")),
+        &[0.0, 0.0, 0.0, 0.0, 1.0],
+        0.0,
+        0.028329,
+    );
+    assert_c0_values(
+        &tmp,
+        usize::from(info.tree.idx("B")),
+        &[0.0, 0.0, 0.0, 0.0, 1.0],
+        0.0,
+        0.028329,
+    );
+    assert_c0_values(
+        &tmp,
+        usize::from(info.tree.idx("C")),
+        &[0.0, 0.0, 0.0, 0.0, 1.0],
+        0.0,
+        0.007705,
+    );
+    assert_c0_values(
+        &tmp,
+        usize::from(info.tree.idx("D")),
+        &[0.0, 0.0, 0.0, 0.0, 1.0],
+        0.0,
+        0.007705,
+    );
+    assert_c0_values(
+        &tmp,
+        usize::from(info.tree.idx("E")),
         &[0.154, 0.154, 0.154, 0.154, 1.0],
         0.154,
         0.044448334 + 0.028329 * 2.0,
     );
-    let idx = &tree.idx("F").unwrap();
-    model.set_internal(tree.node(idx), &mut tmp);
     assert_c0_values(
         &tmp,
-        idx,
+        usize::from(info.tree.idx("F")),
         &[0.0488, 0.0488, 0.0488, 0.0488, 1.0],
         0.0488,
         0.06607104 + 0.007705 * 2.0,
     );
-    let idx = &tree.idx("R").unwrap();
-    model.set_root(tree.node(idx), &mut tmp);
     assert_c0_values(
         &tmp,
-        idx,
+        usize::from(info.tree.idx("R")),
         &[0.268, 0.268, 0.268, 0.268, 1.0],
         0.268,
         0.071556 + 0.044448334 + 0.028329 * 2.0 + 0.06607104 + 0.007705 * 2.0,
-    )
+    );
 }
 
 #[cfg(test)]
 fn assert_c0_values<SM: SubstitutionModel>(
     tmp: &PIPModelInfo<SM>,
-    node_idx: &NodeIdx,
+    idx: usize,
     exp_ftilde: &[f64],
     exp_f: f64,
     exp_p: f64,
 ) {
-    let idx = usize::from(node_idx);
     let e = 1e-3;
     assert_relative_eq!(
         tmp.c0_ftilde[idx],
@@ -509,17 +504,14 @@ fn assert_c0_values<SM: SubstitutionModel>(
 
 #[test]
 fn pip_hky_likelihood_example_final() {
-    let mut model = PIPDNAModel::new(HKY, &PIP_HKY_PARAMS).unwrap();
-    model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
     let info = setup_example_phylo_info();
-    let tree = &info.tree;
-    let mut tmp = PIPModelInfo::<DNASubstModel>::new(&info, &model).unwrap();
-    for node in tree.leaves() {
-        model.set_leaf(node, info.msa.leaf_map(&node.idx), &mut tmp);
-    }
-    model.set_internal(tree.node(&I(1)), &mut tmp);
-    model.set_internal(tree.node(&I(4)), &mut tmp);
-    model.set_root(tree.node(&I(0)), &mut tmp);
+    let mut model = PIPDNAModel::new(HKY, &PIP_HKY_PARAMS).unwrap();
+    model.tmp = RefCell::new(PIPModelInfo::new(&info, &model));
+    model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
+
+    let _logl = model.logl(&info);
+    let tmp = model.tmp.borrow();
+
     assert_relative_eq!(
         tmp.p[0],
         DVector::from_column_slice(&[0.0392204949, 0.000148719, 0.03102171, 0.00527154]),
@@ -527,12 +519,12 @@ fn pip_hky_likelihood_example_final() {
     );
     assert_relative_eq!(tmp.c0_p[0], 0.254143374, epsilon = 1e-3);
     assert_relative_eq!(
-        model.logl_with_tmp(&info, &mut tmp),
+        model.logl(&info),
         -20.769363665853653 - 0.709020450847471,
         epsilon = 1e-3
     );
     assert_relative_eq!(
-        model.logl_with_tmp(&info, &mut tmp),
+        model.logl(&info),
         -21.476307347643274, // value from the python script
         epsilon = 1e-2
     );
@@ -555,7 +547,7 @@ fn pip_hky_likelihood_example_2() {
     let mut model = PIPDNAModel::new(HKY, &PIP_HKY_PARAMS).unwrap();
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
     let info = setup_example_phylo_info_2();
-    assert_relative_eq!(model.cost(&info), -24.9549393298, epsilon = 1e-2);
+    assert_relative_eq!(model.cost(&info, false), -24.9549393298, epsilon = 1e-2);
 }
 
 #[test]
@@ -566,12 +558,17 @@ fn pip_likelihood_huelsenbeck_example() {
     )
     .build()
     .unwrap();
-    let model = PIPDNAModel::new(HKY, &PIP_HKY_PARAMS).unwrap();
-    assert_relative_eq!(model.cost(&info), -372.1419415285655, epsilon = 1e-4);
+    let mut model = PIPDNAModel::new(HKY, &PIP_HKY_PARAMS).unwrap();
+    assert_relative_eq!(model.cost(&info, false), -372.1419415285655, epsilon = 1e-4);
 
-    let model = PIPDNAModel::new(HKY, &[1.2, 0.45, 0.25, 0.25, 0.25, 0.25, 1.0]).unwrap();
+    // Check that model update works
+    model.set_param(&PIPParameter::Lambda, 1.2);
+    model.set_param(&PIPParameter::Mu, 0.45);
+    model.set_freqs(frequencies!(&[0.25, 0.25, 0.25, 0.25]));
+    model.set_param(&PIPParameter::Rag, 1.0);
+
     assert_relative_eq!(
-        model.cost(&info),
+        model.cost(&info, false),
         -361.1613531649497, // value from the python script
         epsilon = 1e-1
     );
@@ -583,7 +580,7 @@ fn pip_likelihood_huelsenbeck_example() {
         ],
     )
     .unwrap();
-    assert_relative_eq!(model.cost(&info), -359.2343309917135, epsilon = 1e-4);
+    assert_relative_eq!(model.cost(&info, true), -359.2343309917135, epsilon = 1e-4);
 }
 
 #[test]
@@ -596,7 +593,7 @@ fn pip_likelihood_huelsenbeck_example_model_comp() {
     .unwrap();
     let hky_as_jc = PIPDNAModel::new(HKY, &[1.1, 0.55, 0.25, 0.25, 0.25, 0.25, 1.0]).unwrap();
     let jc69 = PIPDNAModel::new(JC69, &[1.1, 0.55]).unwrap();
-    assert_relative_eq!(hky_as_jc.cost(&info), jc69.cost(&info),);
+    assert_relative_eq!(hky_as_jc.cost(&info, false), jc69.cost(&info, true));
 }
 
 #[test]
@@ -621,20 +618,28 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
     .build()
     .unwrap();
 
-    assert_relative_eq!(model_gtr.cost(&phylo), model_gtr.cost(&phylo_rerooted),);
-    assert_relative_eq!(model_gtr.cost(&phylo), -359.2343309917135, epsilon = 1e-4);
+    assert_relative_eq!(
+        model_gtr.cost(&phylo, false),
+        model_gtr.cost(&phylo_rerooted, true),
+        epsilon = 1e-4
+    );
+    assert_relative_eq!(
+        model_gtr.cost(&phylo, true),
+        -359.2343309917135,
+        epsilon = 1e-4
+    );
 }
 
 #[test]
 fn pip_likelihood_protein_example() {
     let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/phyml_protein_example.fasta"),
-        PathBuf::from("./data/phyml_protein_example.newick"),
+        PathBuf::from("./data/phyml_protein_example/seqs.fasta"),
+        PathBuf::from("./data/phyml_protein_example/tree.newick"),
     )
     .build()
     .unwrap();
     let model_wag = PIPProteinModel::new(WAG, &[0.5, 0.25]).unwrap();
-    assert!(model_wag.cost(&info) <= 0.0);
+    assert!(model_wag.cost(&info, false) <= 0.0);
 }
 
 #[test]

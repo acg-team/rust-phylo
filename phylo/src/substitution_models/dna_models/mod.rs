@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use log::{info, warn};
 
 use crate::alphabets::NUCLEOTIDE_INDEX;
@@ -52,6 +54,9 @@ impl SubstitutionModel for DNASubstModel {
             }
         };
         self.q = q;
+        if !self.tmp.borrow().empty {
+            self.tmp.borrow_mut().node_models_valid.fill(false);
+        }
     }
 
     fn normalise(&mut self) {
@@ -66,29 +71,13 @@ impl SubstitutionModel for DNASubstModel {
         &self.q
     }
 
-    fn parameter_definition(&self) -> Vec<(&'static str, Vec<DNAParameter>)> {
+    fn model_parameters(&self) -> Vec<DNAParameter> {
         match self.params.model_type {
             DNAModelType::JC69 => vec![],
-            DNAModelType::K80 => vec![
-                ("alpha", vec![Rtc, Rag]),
-                ("beta", vec![Rta, Rtg, Rca, Rcg]),
-            ],
-            DNAModelType::HKY => vec![
-                ("alpha", vec![Rtc, Rag]),
-                ("beta", vec![Rta, Rtg, Rca, Rcg]),
-            ],
-            DNAModelType::TN93 => vec![
-                ("alpha1", vec![Rtc]),
-                ("alpha2", vec![Rag]),
-                ("beta", vec![Rta, Rtg, Rca, Rcg]),
-            ],
-            DNAModelType::GTR => vec![
-                ("rca", vec![Rca]),
-                ("rcg", vec![Rcg]),
-                ("rta", vec![Rta]),
-                ("rtc", vec![Rtc]),
-                ("rtg", vec![Rtg]),
-            ],
+            DNAModelType::K80 => vec![Rtc, Rta],
+            DNAModelType::HKY => vec![Rtc, Rta],
+            DNAModelType::TN93 => vec![Rtc, Rag, Rta],
+            DNAModelType::GTR => vec![Rca, Rcg, Rta, Rtc, Rtg],
             _ => unreachable!(),
         }
     }
@@ -131,6 +120,7 @@ impl DNASubstModel {
         DNASubstModel {
             params: params.clone(),
             q,
+            tmp: RefCell::new(DNASubstModelInfo::empty()),
         }
     }
 }

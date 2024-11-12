@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::vec;
 
 use crate::alphabets::AMINOACID_INDEX;
@@ -28,6 +29,7 @@ impl SubstitutionModel for ProteinSubstModel {
         let mut model = ProteinSubstModel {
             q: params.q(),
             params,
+            tmp: RefCell::new(ProteinSubstModelInfo::empty()),
         };
         model.normalise();
         Ok(model)
@@ -36,6 +38,9 @@ impl SubstitutionModel for ProteinSubstModel {
     fn update(&mut self) {
         self.q = self.params.q();
         self.normalise();
+        if !self.tmp.borrow().empty {
+            self.tmp.borrow_mut().node_models_valid.fill(false);
+        }
     }
 
     fn normalise(&mut self) {
@@ -50,7 +55,7 @@ impl SubstitutionModel for ProteinSubstModel {
         &self.q
     }
 
-    fn parameter_definition(&self) -> Vec<(&'static str, Vec<Self::Parameter>)> {
+    fn model_parameters(&self) -> Vec<Self::Parameter> {
         vec![]
     }
 
