@@ -17,7 +17,8 @@ use crate::substitution_models::{DNASubstModel, ProteinSubstModel};
 use crate::tree::tree_parser::from_newick_string;
 
 #[test]
-fn k80_topo_optimisation() {
+fn k80_sim_data_from_given() {
+    // Check that optimisation on k80 data improves k80 likelihood when starting from a given tree
     let tree =
         from_newick_string("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);").unwrap()[0].clone();
     let sequences = Sequences::new(vec![
@@ -36,7 +37,8 @@ fn k80_topo_optimisation() {
 }
 
 #[test]
-fn k80_sim_topo_optimisation_from_nj() {
+fn k80_sim_data_from_nj() {
+    // Check that optimisation on k80 data improves k80 likelihood when starting from an NJ tree
     let info = PhyloInfoBuilder::new(Path::new("./data/sim/K80/K80.fasta").to_path_buf())
         .build()
         .unwrap();
@@ -50,7 +52,8 @@ fn k80_sim_topo_optimisation_from_nj() {
 }
 
 #[test]
-fn topology_opt_simulated_from_tree() {
+fn k80_sim_data_vs_phyml() {
+    // Check that optimisation on k80 data under JC69 produces similar tree to PhyML with matching likelihood
     let fldr = Path::new("./data/sim/K80");
     let info = PhyloInfoBuilder::with_attrs(fldr.join("K80.fasta"), fldr.join("../tree.newick"))
         .build()
@@ -83,7 +86,9 @@ fn topology_opt_simulated_from_tree() {
 }
 
 #[test]
-fn topology_opt_simulated_from_wrong_tree() {
+fn k80_sim_data_vs_phyml_wrong_start() {
+    // Check that optimisation on k80 data under JC69 produces similar tree to PhyML with matching likelihood
+    // when starting from a wrong tree
     let fldr = Path::new("./data/sim/K80");
     let info =
         PhyloInfoBuilder::with_attrs(fldr.join("K80.fasta"), fldr.join("../wrong_tree.newick"))
@@ -128,7 +133,9 @@ fn topology_opt_simulated_from_wrong_tree() {
 }
 
 #[test]
-fn protein_topology_optimisation_given_tree_start() {
+fn wag_no_gaps_vs_phyml_given_tree_start() {
+    // Check that optimisation on protein data under WAG produces similar tree to PhyML with matching likelihoods
+    // on sequences without gaps
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
     let true_tree_file = fldr.join("true_tree.newick");
@@ -167,7 +174,9 @@ fn protein_topology_optimisation_given_tree_start() {
 }
 
 #[test]
-fn protein_topology_optimisation_nj_start() {
+fn wag_no_gaps_vs_phyml_nj_tree_start() {
+    // Check that optimisation on protein data under WAG produces similar tree to PhyML with matching likelihoods
+    // on sequences without gaps starting from an NJ tree
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
     let tree_file = fldr.join("jati_wag_nogap_nj_start.newick");
@@ -204,6 +213,7 @@ fn protein_topology_optimisation_nj_start() {
 
 #[test]
 fn pip_vs_subst_dna_tree() {
+    // Check that optimisation on k80 data under PIP and substitution model produces similar trees
     let fldr = Path::new("./data/sim/K80");
     let info =
         PhyloInfoBuilder::with_attrs(fldr.join("K80.fasta"), fldr.join("../wrong_tree.newick"))
@@ -238,7 +248,9 @@ fn pip_vs_subst_dna_tree() {
 }
 
 #[test]
-fn pip_vs_subst_protein_tree_nogaps() {
+fn wag_nogaps_pip_vs_subst_tree_nj_start() {
+    // Check that optimisation on protein data under WAG produces similar trees for PIP and substitution model
+    // on sequences without gaps
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
     let pip_tree_file = fldr.join("jati_pip_nogap_pip_vs_wag.newick");
@@ -295,7 +307,8 @@ fn pip_vs_subst_protein_tree_nogaps() {
 }
 
 #[test]
-fn protein_optimise_model_tree() {
+fn protein_pip_optimise_model_tree() {
+    // Check that tree optimisation under PIP has a better likelihood when the model is also optimised
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
 
@@ -342,6 +355,8 @@ fn protein_optimise_model_tree() {
 
 #[test]
 fn protein_wag_vs_phyml_empirical_freqs() {
+    // Check that optimisation on protein data under WAG produces similar tree to PhyML with matching likelihoods
+    // when using empirical frequencies
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
     let tree_file = fldr.join("jati_wag_empirical.newick");
@@ -387,6 +402,8 @@ fn protein_wag_vs_phyml_empirical_freqs() {
 
 #[test]
 fn protein_wag_vs_phyml_fixed_freqs() {
+    // Check that optimisation on protein data under WAG produces similar tree to PhyML with matching likelihoods
+    // when using fixed frequencies
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
     let tree_file = fldr.join("jati_wag_fixed.newick");
