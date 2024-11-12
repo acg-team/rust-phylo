@@ -730,7 +730,7 @@ fn test_parse_huge_newick() {
 }
 
 #[test]
-fn test_generate_huge_newick() {
+fn test_regenerate_huge_newick() {
     let path =
         Path::new("./data/real_examples/initial_msa_env_aa_one_seq_pP_subtypeB.fas.timetree.nwk");
     let newick = fs::read_to_string(path).unwrap();
@@ -998,17 +998,16 @@ fn rf_distance_to_itself() {
 #[test]
 fn rf_distance_against_raxml() {
     let folder = Path::new("./data/phyml_protein_example");
-    let tree_orig = &read_newick_from_file(&folder.join("tree.newick")).unwrap()[0];
-    let tree_phyml = &read_newick_from_file(&folder.join("phyml_result.newick")).unwrap()[0];
+    let tree_orig = &read_newick_from_file(&folder.join("true_tree.newick")).unwrap()[0];
+    let tree_phyml = &read_newick_from_file(&folder.join("phyml_nogap.newick")).unwrap()[0];
 
-    let tree_opt_1 =
-        &read_newick_from_file(&folder.join("optimisation_tree_start.newick")).unwrap()[0];
-    let tree_opt_2 =
-        &read_newick_from_file(&folder.join("optimisation_nj_start.newick")).unwrap()[0];
+    let tree = &read_newick_from_file(&folder.join("jati_wag_nogap.newick")).unwrap()[0];
+    let tree_from_nj =
+        &read_newick_from_file(&folder.join("jati_wag_nogap_nj_start.newick")).unwrap()[0];
     assert_eq!(tree_orig.robinson_foulds(tree_phyml), 4);
-    assert_eq!(tree_orig.robinson_foulds(tree_opt_1), 4);
-    assert_eq!(tree_orig.robinson_foulds(tree_opt_2), 4);
-    assert_eq!(tree_phyml.robinson_foulds(tree_opt_1), 0);
-    assert_eq!(tree_phyml.robinson_foulds(tree_opt_2), 0);
-    assert_eq!(tree_opt_1.robinson_foulds(tree_opt_2), 0);
+    assert_eq!(tree_orig.robinson_foulds(tree), 4);
+    assert_eq!(tree_orig.robinson_foulds(tree_from_nj), 4);
+    assert_eq!(tree_phyml.robinson_foulds(tree), 0);
+    assert_eq!(tree_phyml.robinson_foulds(tree_from_nj), 0);
+    assert_eq!(tree.robinson_foulds(tree_from_nj), 0);
 }

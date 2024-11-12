@@ -281,7 +281,7 @@ fn protein_example_likelihood(
 ) {
     let info = &PhyloInfoBuilder::with_attrs(
         PathBuf::from("./data/phyml_protein_example/nogap_seqs.fasta"),
-        PathBuf::from("./data/phyml_protein_example/tree.newick"),
+        PathBuf::from("./data/phyml_protein_example/true_tree.newick"),
     )
     .build()
     .unwrap();
