@@ -16,41 +16,21 @@ impl Sequences {
     /// Creates a new Sequences object from a vector of bio::io::fasta::Record.
     /// The Sequences object is considered aligned if all sequences have the same length.
     pub fn new(s: Vec<Record>) -> Sequences {
-        let len = if s.is_empty() { 0 } else { s[0].seq().len() };
         let alphabet = detect_alphabet(&s);
-        if s.iter().filter(|rec| rec.seq().len() != len).count() == 0 {
-            Sequences {
-                s,
-                aligned: true,
-                msa_len: len,
-                alphabet,
-            }
-        } else {
-            Sequences {
-                s,
-                aligned: false,
-                msa_len: 0,
-                alphabet,
-            }
-        }
+        Self::with_alphabet(s, alphabet)
     }
 
+    /// Creates a new Sequences object from a vector of bio::io::fasta::Record and a provided alphabet.
+    /// The Sequences object is considered aligned if all sequences have the same length.
     pub fn with_alphabet(s: Vec<Record>, alphabet: Alphabet) -> Sequences {
-        let len = if s.is_empty() { 0 } else { s[0].seq().len() };
-        if s.iter().filter(|rec| rec.seq().len() != len).count() == 0 {
-            Sequences {
-                s,
-                aligned: true,
-                msa_len: len,
-                alphabet,
-            }
-        } else {
-            Sequences {
-                s,
-                aligned: false,
-                msa_len: 0,
-                alphabet,
-            }
+        let msa_len = if s.is_empty() { 0 } else { s[0].seq().len() };
+        // Sequences are aligned if all sequences are the same length
+        let aligned = s.iter().skip(1).all(|r| r.seq().len() == msa_len);
+        Sequences {
+            s,
+            aligned,
+            msa_len,
+            alphabet,
         }
     }
 
