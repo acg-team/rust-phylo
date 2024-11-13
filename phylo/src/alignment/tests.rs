@@ -5,11 +5,19 @@ use rand::thread_rng;
 use crate::alignment::{
     sequences::Sequences, AlignmentBuilder, InternalMapping, LeafMapping, PairwiseAlignment as PA,
 };
-use crate::tree::tree_parser;
+use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, NUCLEOTIDES};
+use crate::evolutionary_models::ModelType::{Protein, DNA};
 use crate::tree::{
+    tree_parser,
     NodeIdx::{Internal as I, Leaf as L},
     Tree,
 };
+
+macro_rules! record {
+    ($e1:expr,$e2:expr,$e3:expr) => {
+        Record::with_attrs($e1, $e2, $e3)
+    };
+}
 
 fn assert_alignment_eq(msa: &[Record], msa2: &[Record]) {
     for rec in msa2.iter() {
@@ -129,6 +137,27 @@ fn sequences_from_empty() {
     assert!(sequences.is_empty());
     assert_eq!(sequences.msa_len(), 0);
     assert!(sequences.aligned);
+}
+
+#[test]
+fn sequences_with_alphabet() {
+    let records = vec![
+        record!("A0", Some("A0 sequence"), b"AAAAAA"),
+        record!("B1", Some("B1 sequence"), b"---A-A"),
+        record!("C2", Some("C2 sequence"), b"AA---A"),
+        record!("D3", Some("D3 sequence"), b"---A-A"),
+        record!("E4", Some("E4 sequence"), b"-A-AAA"),
+    ];
+
+    let dna_seqs = Sequences::with_alphabet(records.clone(), dna_alphabet());
+    assert_eq!(dna_seqs.alphabet().symbols(), NUCLEOTIDES);
+    assert_eq!(*dna_seqs.alphabet(), dna_alphabet());
+    assert!(matches!(dna_seqs.alphabet().model_type(), DNA(_)));
+
+    let protein_seqs = Sequences::with_alphabet(records.clone(), protein_alphabet());
+    assert_eq!(protein_seqs.alphabet().symbols(), AMINOACIDS);
+    assert_eq!(*protein_seqs.alphabet(), protein_alphabet());
+    assert!(matches!(protein_seqs.alphabet().model_type(), Protein(_)));
 }
 
 #[test]
