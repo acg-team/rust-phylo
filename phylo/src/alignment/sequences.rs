@@ -23,9 +23,10 @@ impl Sequences {
     /// Creates a new Sequences object from a vector of bio::io::fasta::Record and a provided alphabet.
     /// The Sequences object is considered aligned if all sequences have the same length.
     pub fn with_alphabet(s: Vec<Record>, alphabet: Alphabet) -> Sequences {
-        let msa_len = if s.is_empty() { 0 } else { s[0].seq().len() };
+        let potential_msa_len = if s.is_empty() { 0 } else { s[0].seq().len() };
         // Sequences are aligned if all sequences are the same length
-        let aligned = s.iter().skip(1).all(|r| r.seq().len() == msa_len);
+        let aligned = s.iter().skip(1).all(|r| r.seq().len() == potential_msa_len);
+        let msa_len = if aligned { potential_msa_len } else { 0 };
         Sequences {
             s,
             aligned,
