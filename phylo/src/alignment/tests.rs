@@ -104,7 +104,6 @@ fn sequences_from_aligned() {
     let sequences = Sequences::new(seqs.clone());
     assert_eq!(sequences.len(), 5);
     assert!(!sequences.is_empty());
-    assert_eq!(sequences.msa_len(), 6);
     assert!(sequences.aligned);
     for (i, rec) in seqs.iter().enumerate() {
         assert_eq!(sequences.record(i), rec);
@@ -123,7 +122,6 @@ fn sequences_from_unaligned() {
     let sequences = Sequences::new(seqs.clone());
     assert_eq!(sequences.len(), 5);
     assert!(!sequences.is_empty());
-    assert_eq!(sequences.msa_len(), 0);
     assert!(!sequences.aligned);
     for (i, rec) in seqs.iter().enumerate() {
         assert_eq!(sequences.record(i), rec);
@@ -135,7 +133,6 @@ fn sequences_from_empty() {
     let sequences = Sequences::new(vec![]);
     assert_eq!(sequences.len(), 0);
     assert!(sequences.is_empty());
-    assert_eq!(sequences.msa_len(), 0);
     assert!(sequences.aligned);
 }
 
@@ -184,6 +181,7 @@ fn build_from_aligned_sequences() {
     assert_eq!(msa.node_map, node_map);
     assert_eq!(msa.leaf_map, leaf_map);
     assert_eq!(msa.seqs, unaligned_seqs);
+    assert_eq!(msa.msa_len(), 5);
 }
 
 #[test]

@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use anyhow::bail;
 use bio::io::fasta::Record;
 use nalgebra::DMatrix;
@@ -27,8 +25,6 @@ pub struct PhyloInfo {
     pub msa: Alignment,
     /// Phylogenetic tree.
     pub tree: Tree,
-    /// Leaf sequence encodings.
-    pub leaf_encoding: HashMap<String, DMatrix<f64>>,
 }
 
 impl PhyloInfo {
@@ -47,7 +43,7 @@ impl PhyloInfo {
 
     /// Returns the encoding of a leaf sequence by its id.
     pub fn leaf_encoding_by_id(&self, id: &str) -> Result<&DMatrix<f64>> {
-        let encoding = self.leaf_encoding.get(id);
+        let encoding = self.msa.leaf_encoding.get(id);
         if encoding.is_none() {
             bail!("No encoding found for leaf with id {}", id);
         }
@@ -102,31 +98,6 @@ impl PhyloInfo {
         }
         freqs.scale_mut(1.0 / freqs.sum());
         freqs
-    }
-
-    /// Creates a the character encoding for each given ungapped sequence.
-    /// Used for the likelihood calculation to avoid having to get the character encoding
-    /// from scratch every time the likelihood is optimised.
-    fn generate_leaf_encoding(&mut self) {
-        let alphabet = self.msa.alphabet();
-        let mut leaf_encoding = HashMap::with_capacity(self.msa.len());
-        for seq in self.msa.seqs.iter() {
-            if seq.seq().is_empty() {
-                leaf_encoding.insert(seq.id().to_string(), DMatrix::zeros(0, 0));
-                continue;
-            }
-            leaf_encoding.insert(
-                seq.id().to_string(),
-                DMatrix::from_columns(
-                    seq.seq()
-                        .iter()
-                        .map(|&c| alphabet.char_encoding(c))
-                        .collect::<Vec<_>>()
-                        .as_slice(),
-                ),
-            );
-        }
-        self.leaf_encoding = leaf_encoding;
     }
 }
 

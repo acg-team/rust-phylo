@@ -1,5 +1,7 @@
 use anyhow::bail;
 use bio::io::fasta::Record;
+use nalgebra::DMatrix;
+use std::collections::HashMap;
 
 use crate::alphabets::{detect_alphabet, Alphabet, GAP};
 use crate::Result;
@@ -8,7 +10,6 @@ use crate::Result;
 pub struct Sequences {
     pub(crate) s: Vec<Record>,
     pub(crate) aligned: bool,
-    pub(crate) msa_len: usize,
     pub(crate) alphabet: Alphabet,
 }
 
@@ -26,11 +27,9 @@ impl Sequences {
         let potential_msa_len = if s.is_empty() { 0 } else { s[0].seq().len() };
         // Sequences are aligned if all sequences are the same length
         let aligned = s.iter().skip(1).all(|r| r.seq().len() == potential_msa_len);
-        let msa_len = if aligned { potential_msa_len } else { 0 };
         Sequences {
             s,
             aligned,
-            msa_len,
             alphabet,
         }
     }
@@ -70,16 +69,12 @@ impl Sequences {
         }
     }
 
-    pub fn msa_len(&self) -> usize {
-        self.msa_len
-    }
-
     pub fn alphabet(&self) -> &Alphabet {
         &self.alphabet
     }
 
     /// Removes all gaps from the sequences and returns a new Sequences object.
-    pub fn without_gaps(self) -> Sequences {
+    pub fn without_gaps(&self) -> Sequences {
         let seqs = self
             .s
             .iter()
@@ -96,8 +91,32 @@ impl Sequences {
         Sequences {
             s: seqs,
             aligned: false,
-            msa_len: 0,
-            alphabet: self.alphabet,
+            alphabet: self.alphabet.clone(),
         }
+    }
+
+    /// Creates a the character encoding for each given ungapped sequence.
+    /// Used for the likelihood calculation to avoid having to get the character encoding
+    /// from scratch every time the likelihood is optimised.
+    pub(crate) fn generate_leaf_encoding(&self) -> HashMap<String, DMatrix<f64>> {
+        let alphabet = self.alphabet();
+        let mut leaf_encoding = HashMap::with_capacity(self.len());
+        for seq in self.iter() {
+            if seq.seq().is_empty() {
+                leaf_encoding.insert(seq.id().to_string(), DMatrix::zeros(0, 0));
+                continue;
+            }
+            leaf_encoding.insert(
+                seq.id().to_string(),
+                DMatrix::from_columns(
+                    seq.seq()
+                        .iter()
+                        .map(|&c| alphabet.char_encoding(c))
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                ),
+            );
+        }
+        leaf_encoding
     }
 }

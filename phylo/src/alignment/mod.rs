@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bio::io::fasta::Record;
+use nalgebra::DMatrix;
 
 use crate::alphabets::Alphabet;
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
@@ -52,6 +53,8 @@ pub struct Alignment {
     pub(crate) seqs: Sequences,
     leaf_map: LeafMapping,
     node_map: InternalMapping,
+    /// Leaf sequence encodings.
+    pub(crate) leaf_encoding: HashMap<String, DMatrix<f64>>,
 }
 
 impl Alignment {

@@ -361,7 +361,7 @@ impl<SM: SubstitutionModel> SubstModelInfo<SM> {
         let mut leaf_sequence_info: HashMap<String, DMatrix<f64>> = HashMap::new();
         for node in info.tree.leaves() {
             let alignment_map = info.msa.leaf_map(&node.idx);
-            let leaf_encoding = info.leaf_encoding.get(&node.id).unwrap();
+            let leaf_encoding = info.msa.leaf_encoding.get(&node.id).unwrap();
             let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(SM::N, msa_length);
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {

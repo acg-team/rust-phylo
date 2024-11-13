@@ -43,16 +43,21 @@ impl<'a> AlignmentBuilder<'a> {
             seqs: Sequences::new(Vec::new()),
             leaf_map: HashMap::new(),
             node_map: self.node_map,
+            leaf_encoding: HashMap::new(),
         };
         let leaf_map = alignment.compile_leaf_map(&self.tree.root, self.tree)?;
         alignment.leaf_map = leaf_map;
         alignment.seqs = self.seqs.without_gaps();
+        alignment.leaf_encoding = alignment.seqs.generate_leaf_encoding();
         Ok(alignment)
     }
 
     /// This assumes that the tree structure matches the alignment structure and that the sequences are aligned.
     fn reconstruct_from_aligned_seqs(self) -> Result<Alignment> {
-        let msa_len = self.seqs.msa_len();
+        if !self.seqs.aligned {
+            bail!("Sequences are not aligned.")
+        }
+        let msa_len = self.seqs.record(0).seq().len();
         let mut stack = HashMap::<NodeIdx, Mapping>::with_capacity(self.tree.len());
         let mut msa = InternalMapping::with_capacity(self.tree.n);
         for node_idx in self.tree.postorder() {
@@ -77,10 +82,13 @@ impl<'a> AlignmentBuilder<'a> {
                 _ => None,
             })
             .collect();
+        let seqs = self.seqs.without_gaps();
+        let leaf_encoding = seqs.generate_leaf_encoding();
         Ok(Alignment {
-            seqs: self.seqs.without_gaps(),
+            seqs,
             leaf_map: leaf_maps,
             node_map: msa,
+            leaf_encoding,
         })
     }
 
