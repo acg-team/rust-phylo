@@ -118,7 +118,7 @@ impl<EM: PhyloCostFunction> TopologyOptimiser<'_, EM> {
         all_locations
             .iter()
             .filter(|&n| {
-                !prune_subtrees.contains(n) && n != sibling && n != parent && n != &info.tree.root
+                n != sibling && n != parent && n != &info.tree.root && !prune_subtrees.contains(n)
             })
             .cloned()
             .collect()
