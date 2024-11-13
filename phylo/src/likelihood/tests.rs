@@ -22,7 +22,6 @@ use crate::substitution_models::{
 };
 use crate::tree::{tree_parser::from_newick_string, Tree};
 
-#[macro_export]
 macro_rules! record {
     ($e1:expr,$e2:expr) => {
         Record::with_attrs($e1, None, $e2)
