@@ -59,7 +59,7 @@ impl<'a, EM: PhyloCostFunction + Clone> PhyloOptimiser<'a, EM> for TopologyOptim
                 let mut moves = Vec::<(f64, Tree)>::with_capacity(regraft_locations.len());
                 for regraft_branch in &regraft_locations {
                     let mut new_info = info.clone();
-                    new_info.tree = info.tree.rooted_spr(prune_branch, regraft_branch).unwrap();
+                    new_info.tree = info.tree.rooted_spr(prune_branch, regraft_branch)?;
                     let mut logl = self.model.cost(&new_info, false);
                     if logl <= curr_cost {
                         // reoptimise branch length at the regraft location
