@@ -30,11 +30,11 @@ fn assert_alignment_eq(msa: &[Record], msa2: &[Record]) {
 fn aligned_seqs(ids: &[&str]) -> Sequences {
     Sequences::new(
         [
-            Record::with_attrs("A0", Some("A0 sequence w 5 nucls"), b"AAAAA"),
-            Record::with_attrs("B1", Some("B1 sequence w 1 nucl "), b"---A-"),
-            Record::with_attrs("C2", Some("C2 sequence w 2 nucls"), b"AA---"),
-            Record::with_attrs("D3", Some("D3 sequence w 1 nucl "), b"---A-"),
-            Record::with_attrs("E4", Some("E4 sequence w 3 nucls"), b"-A-AA"),
+            record!("A0", Some("A0 sequence w 5 nucls"), b"AAAAA"),
+            record!("B1", Some("B1 sequence w 1 nucl "), b"---A-"),
+            record!("C2", Some("C2 sequence w 2 nucls"), b"AA---"),
+            record!("D3", Some("D3 sequence w 1 nucl "), b"---A-"),
+            record!("E4", Some("E4 sequence w 3 nucls"), b"-A-AA"),
         ]
         .into_iter()
         .filter(|rec| ids.contains(&rec.id()))
@@ -58,14 +58,14 @@ fn unaligned_seqs() -> Sequences {
         .s
         .into_iter()
         .map(|rec| {
-            Record::with_attrs(
+            record!(
                 rec.id(),
                 rec.desc(),
                 &rec.seq()
                     .iter()
                     .filter(|&c| c != &b'-')
                     .copied()
-                    .collect::<Vec<u8>>(),
+                    .collect::<Vec<u8>>()
             )
         })
         .choose_multiple(&mut thread_rng(), 5);
@@ -95,11 +95,11 @@ fn maps() -> (InternalMapping, LeafMapping) {
 #[test]
 fn sequences_from_aligned() {
     let seqs = vec![
-        Record::with_attrs("A0", Some("A0 sequence"), b"AAAAAA"),
-        Record::with_attrs("B1", Some("B1 sequence"), b"---A-A"),
-        Record::with_attrs("C2", Some("C2 sequence"), b"AA---A"),
-        Record::with_attrs("D3", Some("D3 sequence"), b"---A-A"),
-        Record::with_attrs("E4", Some("E4 sequence"), b"-A-AAA"),
+        record!("A0", Some("A0 sequence"), b"AAAAAA"),
+        record!("B1", Some("B1 sequence"), b"---A-A"),
+        record!("C2", Some("C2 sequence"), b"AA---A"),
+        record!("D3", Some("D3 sequence"), b"---A-A"),
+        record!("E4", Some("E4 sequence"), b"-A-AAA"),
     ];
     let sequences = Sequences::new(seqs.clone());
     assert_eq!(sequences.len(), 5);
@@ -114,11 +114,11 @@ fn sequences_from_aligned() {
 #[test]
 fn sequences_from_unaligned() {
     let seqs = vec![
-        Record::with_attrs("A0", Some("A0 sequence"), b"AAAAAA"),
-        Record::with_attrs("B1", Some("B1 sequence"), b"AA"),
-        Record::with_attrs("C2", Some("C2 sequence"), b"AAA"),
-        Record::with_attrs("D3", Some("D3 sequence"), b"AA"),
-        Record::with_attrs("E4", Some("E4 sequence"), b"AAAA"),
+        record!("A0", Some("A0 sequence"), b"AAAAAA"),
+        record!("B1", Some("B1 sequence"), b"AA"),
+        record!("C2", Some("C2 sequence"), b"AAA"),
+        record!("D3", Some("D3 sequence"), b"AA"),
+        record!("E4", Some("E4 sequence"), b"AAAA"),
     ];
     let sequences = Sequences::new(seqs.clone());
     assert_eq!(sequences.len(), 5);
@@ -251,8 +251,8 @@ fn compile_msa_int2() {
     let d3 = aligned_seqs(&["D3"]).s.pop().unwrap();
     let e4 = aligned_seqs(&["E4"]).s.pop().unwrap();
     let data = vec![
-        Record::with_attrs(d3.id(), d3.desc(), b"-A-"),
-        Record::with_attrs(e4.id(), e4.desc(), b"AAA"),
+        record!(d3.id(), d3.desc(), b"-A-"),
+        record!(e4.id(), e4.desc(), b"AAA"),
     ];
     assert_alignment_eq(&msa.compile(Some(&tree.idx("I6")), &tree).unwrap(), &data);
 }
