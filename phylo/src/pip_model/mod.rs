@@ -221,7 +221,7 @@ where
     pub fn new(info: &PhyloInfo, _model: &PIPModel<SM>) -> Self {
         let n = PIPModel::<SM>::N;
         let node_count = info.tree.len();
-        let msa_length = info.msa_length();
+        let msa_length = info.msa.len();
         let mut leaf_seq_info: HashMap<String, DMatrix<f64>> = HashMap::new();
         for node in info.tree.leaves() {
             let alignment_map = info.msa.leaf_map(&node.idx);
@@ -320,7 +320,7 @@ where
 
         let root_idx = usize::from(&info.tree.root);
 
-        let msa_length = info.msa_length();
+        let msa_length = info.msa.len();
         let nu = self.params.lambda * (info.tree.height + 1.0 / self.params.mu);
         let ln_phi = nu.ln() * msa_length as f64 + (tmp.c0_p[root_idx] - 1.0) * nu
             - (log_factorial(msa_length));

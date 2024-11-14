@@ -169,6 +169,7 @@ fn build_from_map() {
     assert_eq!(msa.node_map, node_map);
     assert_eq!(msa.leaf_map, leaf_map);
     assert_eq!(msa.seqs, unaligned_seqs);
+    assert_eq!(msa.len(), 5);
 }
 
 #[test]
@@ -181,7 +182,7 @@ fn build_from_aligned_sequences() {
     assert_eq!(msa.node_map, node_map);
     assert_eq!(msa.leaf_map, leaf_map);
     assert_eq!(msa.seqs, unaligned_seqs);
-    assert_eq!(msa.msa_len(), 5);
+    assert_eq!(msa.len(), 5);
 }
 
 #[test]

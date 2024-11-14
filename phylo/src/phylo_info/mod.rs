@@ -21,18 +21,13 @@ pub use phyloinfo_builder::*;
 /// * Add support for unaligned sequences.
 #[derive(Debug, Clone)]
 pub struct PhyloInfo {
-    /// Multiple sequence alignment of the sequences
+    /// Multiple sequence alignment
     pub msa: Alignment,
-    /// Phylogenetic tree.
+    /// Phylogenetic tree
     pub tree: Tree,
 }
 
 impl PhyloInfo {
-    /// Returns the number of sites in the alignment.
-    pub fn msa_length(&self) -> usize {
-        self.msa.msa_len()
-    }
-
     /// Compiles a represenataion of the alignment in a vector of fasta records.
     /// The alignment is compiled from the subtree rooted at `subroot`.
     /// If `subroot` is None, the whole alignment is compiled.
@@ -42,6 +37,7 @@ impl PhyloInfo {
     }
 
     /// Returns the encoding of a leaf sequence by its id.
+    /// TODO: should not be in a DMatrix, better to have a Vec<FreqVector>.
     pub fn leaf_encoding_by_id(&self, id: &str) -> Result<&DMatrix<f64>> {
         let encoding = self.msa.leaf_encoding.get(id);
         if encoding.is_none() {

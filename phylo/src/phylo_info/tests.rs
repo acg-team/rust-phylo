@@ -152,7 +152,7 @@ fn setup_info_multiple_trees() {
     .build()
     .unwrap();
     assert_eq!(res_info.tree.leaves().len(), 4);
-    assert_eq!(res_info.msa.len(), 4);
+    assert_eq!(res_info.msa.seq_count(), 4);
 }
 
 fn downcast_error<T: Display + Debug + Send + Sync + 'static>(

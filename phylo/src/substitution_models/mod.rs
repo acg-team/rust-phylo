@@ -273,7 +273,7 @@ where
             .mul(&tmp_values.node_info[usize::from(&info.tree.root)]);
         drop(tmp_values);
 
-        debug_assert_eq!(likelihood.ncols(), info.msa_length());
+        debug_assert_eq!(likelihood.ncols(), info.msa.len());
         debug_assert_eq!(likelihood.nrows(), 1);
         likelihood.map(|x| x.ln()).sum()
     }
@@ -356,7 +356,7 @@ impl<SM: SubstitutionModel> SubstModelInfo<SM> {
 
     pub fn new(info: &PhyloInfo, _model: &SM) -> Result<Self> {
         let node_count = info.tree.len();
-        let msa_length = info.msa_length();
+        let msa_length = info.msa.len();
 
         let mut leaf_sequence_info: HashMap<String, DMatrix<f64>> = HashMap::new();
         for node in info.tree.leaves() {

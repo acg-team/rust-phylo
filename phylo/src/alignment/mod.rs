@@ -63,19 +63,19 @@ impl Alignment {
     }
 
     pub fn len(&self) -> usize {
-        self.leaf_map.len()
+        self.leaf_map
+            .values()
+            .next()
+            .map(|map| map.len())
+            .unwrap_or(0)
     }
 
     pub fn is_empty(&self) -> bool {
         self.leaf_map.is_empty()
     }
 
-    pub fn msa_len(&self) -> usize {
-        self.leaf_map
-            .values()
-            .next()
-            .map(|map| map.len())
-            .unwrap_or(0)
+    pub fn seq_count(&self) -> usize {
+        self.leaf_map.len()
     }
 
     pub fn leaf_map(&self, node: &NodeIdx) -> &Mapping {

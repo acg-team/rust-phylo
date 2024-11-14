@@ -109,8 +109,8 @@ impl PhyloInfoBuilder {
     ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"))
     ///     .build()
     ///     .unwrap();
-    /// assert_eq!(info.msa.msa_len(), 8);
-    /// assert_eq!(info.msa.len(), 4);
+    /// assert_eq!(info.msa.len(), 8);
+    /// assert_eq!(info.msa.seq_count(), 4);
     /// assert_eq!(info.tree.leaves().len(), 4);
     /// assert_eq!(info.tree.len(), 7);
     /// ```
