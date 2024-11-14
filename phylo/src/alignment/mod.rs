@@ -62,6 +62,27 @@ impl Alignment {
         &self.seqs.alphabet
     }
 
+    /// Returns the length of the MSA, i.e. the number of sites/columns.
+    ///
+    /// # Example
+    /// ```
+    /// use bio::io::fasta::Record;
+    /// use phylo::tree::tree_parser::from_newick_string;
+    /// use phylo::alignment::AlignmentBuilder;
+    /// use phylo::alignment::sequences::Sequences;
+    /// let tree = from_newick_string("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);")
+    ///     .unwrap()
+    ///     .pop()
+    ///     .unwrap();
+    /// let seqs = Sequences::new(vec![
+    ///     Record::with_attrs("A0", Some("A0 sequence"), b"AAAA"),
+    ///     Record::with_attrs("B1", Some("B1 sequence"), b"---A"),
+    ///     Record::with_attrs("C2", Some("C2 sequence"), b"AA--"),
+    /// ]);
+    /// let msa = AlignmentBuilder::new(&tree, seqs).build().unwrap();
+    /// assert_eq!(msa.len(), 4);
+    /// ```
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.leaf_map
             .values()
@@ -70,15 +91,31 @@ impl Alignment {
             .unwrap_or(0)
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.leaf_map.is_empty()
-    }
-
+    /// Returns the number of sequences in the MSA, i.e. the number of rows.
+    ///
+    /// # Example
+    /// ```
+    /// use bio::io::fasta::Record;
+    /// use phylo::tree::tree_parser::from_newick_string;
+    /// use phylo::alignment::AlignmentBuilder;
+    /// use phylo::alignment::sequences::Sequences;
+    /// let tree = from_newick_string("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);")
+    ///     .unwrap()
+    ///     .pop()
+    ///     .unwrap();
+    /// let seqs = Sequences::new(vec![
+    ///     Record::with_attrs("A0", Some("A0 sequence"), b"AAAA"),
+    ///     Record::with_attrs("B1", Some("B1 sequence"), b"---A"),
+    ///     Record::with_attrs("C2", Some("C2 sequence"), b"AA--"),
+    /// ]);
+    /// let msa = AlignmentBuilder::new(&tree, seqs).build().unwrap();
+    /// assert_eq!(msa.seq_count(), 3);
+    /// ```
     pub fn seq_count(&self) -> usize {
         self.leaf_map.len()
     }
 
-    pub fn leaf_map(&self, node: &NodeIdx) -> &Mapping {
+    pub(crate) fn leaf_map(&self, node: &NodeIdx) -> &Mapping {
         self.leaf_map.get(node).unwrap()
     }
 

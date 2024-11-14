@@ -13,6 +13,13 @@ use crate::tree::tree_parser::{self, ParsingError};
 use crate::tree::NodeIdx::{Internal as I, Leaf as L};
 use crate::tree::Tree;
 
+#[cfg(test)]
+fn downcast_error<T: Display + Debug + Send + Sync + 'static>(
+    result: &Result<PhyloInfo, anyhow::Error>,
+) -> &T {
+    (result.as_ref().unwrap_err()).downcast_ref::<T>().unwrap()
+}
+
 #[test]
 fn empirical_frequencies_easy() {
     let sequences = Sequences::new(vec![
@@ -155,12 +162,6 @@ fn setup_info_multiple_trees() {
     assert_eq!(res_info.msa.seq_count(), 4);
 }
 
-fn downcast_error<T: Display + Debug + Send + Sync + 'static>(
-    result: &Result<PhyloInfo, anyhow::Error>,
-) -> &T {
-    (result.as_ref().unwrap_err()).downcast_ref::<T>().unwrap()
-}
-
 #[test]
 fn setup_unaligned() {
     let info = PhyloInfoBuilder::with_attrs(
@@ -179,7 +180,7 @@ fn setup_aligned_msa() {
     )
     .build()
     .unwrap();
-    assert!(!info.msa.is_empty());
+    assert_eq!(info.msa.len(), 5);
     info.msa.seqs.iter().for_each(|rec| {
         assert!(!rec.seq().is_empty());
         assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
@@ -200,7 +201,7 @@ fn correct_setup_when_sequences_empty() {
     )
     .build()
     .unwrap();
-    assert!(!info.msa.is_empty());
+    assert_eq!(info.msa.len(), 1);
     info.msa.seqs.iter().for_each(|rec| {
         assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
     });
@@ -247,7 +248,7 @@ fn check_phyloinfo_creation_newick_msa() {
         tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
     );
     assert!(info.is_ok());
-    assert!(!info.unwrap().msa.is_empty());
+    assert_eq!(info.unwrap().msa.len(), 10);
 }
 
 #[test]
@@ -335,7 +336,7 @@ fn check_phyloinfo_creation_tree_correct_msa() {
         make_test_tree(),
     );
     assert!(info.is_ok());
-    assert!(!info.unwrap().msa.is_empty());
+    assert_eq!(!info.unwrap().msa.len(), 2);
 }
 
 #[test]
