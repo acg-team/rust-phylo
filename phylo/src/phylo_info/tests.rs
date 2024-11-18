@@ -336,7 +336,7 @@ fn check_phyloinfo_creation_tree_correct_msa() {
         make_test_tree(),
     );
     assert!(info.is_ok());
-    assert_eq!(!info.unwrap().msa.len(), 2);
+    assert_eq!(info.unwrap().msa.len(), 2);
 }
 
 #[test]
