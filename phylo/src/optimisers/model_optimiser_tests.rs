@@ -1,6 +1,6 @@
 use rstest::rstest;
 
-use std::path::PathBuf;
+use std::path::Path;
 
 use approx::assert_relative_eq;
 
@@ -17,12 +17,10 @@ use crate::substitution_models::{DNASubstModel, ProteinSubstModel};
 
 #[test]
 fn check_likelihood_opt_k80() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/K80/K80.fasta"),
-        PathBuf::from("./data/sim/tree.newick"),
-    )
-    .build()
-    .unwrap();
+    let fldr = Path::new("./data/sim");
+    let info = PhyloInfoBuilder::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
     let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
     let unopt_logl = model.cost(&info, false);
     let o = ModelOptimiser::new(&model, &info, FrequencyOptimisation::Fixed)
@@ -41,12 +39,10 @@ fn check_likelihood_opt_k80() {
 
 #[test]
 fn frequencies_unchanged_opt_k80() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/K80/K80.fasta"),
-        PathBuf::from("./data/sim/tree.newick"),
-    )
-    .build()
-    .unwrap();
+    let fldr = Path::new("./data/sim");
+    let info = PhyloInfoBuilder::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
     let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
     let o = ModelOptimiser::new(&model, &info, FrequencyOptimisation::Empirical)
         .run()
@@ -56,12 +52,10 @@ fn frequencies_unchanged_opt_k80() {
 
 #[test]
 fn parameter_definition_after_optim_k80() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/K80/K80.fasta"),
-        PathBuf::from("./data/sim/tree.newick"),
-    )
-    .build()
-    .unwrap();
+    let fldr = Path::new("./data/sim");
+    let info = PhyloInfoBuilder::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
     let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
     let o = ModelOptimiser::new(&model, &info, FrequencyOptimisation::Fixed)
         .run()
@@ -76,12 +70,10 @@ fn parameter_definition_after_optim_k80() {
 
 #[test]
 fn gtr_on_k80_data() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/K80/K80.fasta"),
-        PathBuf::from("./data/sim/tree.newick"),
-    )
-    .build()
-    .unwrap();
+    let fldr = Path::new("./data/sim");
+    let info = PhyloInfoBuilder::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
     let model = DNASubstModel::new(
         GTR,
         &[0.25, 0.35, 0.3, 0.1, 0.88, 0.03, 0.00001, 0.07, 0.02, 1.0],
@@ -99,12 +91,10 @@ fn gtr_on_k80_data() {
 
 #[test]
 fn parameter_definition_after_optim_hky() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/GTR/gtr.fasta"),
-        PathBuf::from("./data/sim/tree.newick"),
-    )
-    .build()
-    .unwrap();
+    let fldr = Path::new("./data/sim");
+    let info = PhyloInfoBuilder::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
     let model = DNASubstModel::new(HKY, &[0.26, 0.2, 0.4, 0.14, 4.0, 1.0]).unwrap();
     let start_logl = model.cost(&info, false);
     let o = ModelOptimiser::new(&model, &info, FrequencyOptimisation::Empirical)
@@ -122,12 +112,10 @@ fn parameter_definition_after_optim_hky() {
 
 #[test]
 fn parameter_definition_after_optim_tn93() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/GTR/gtr.fasta"),
-        PathBuf::from("./data/sim/tree.newick"),
-    )
-    .build()
-    .unwrap();
+    let fldr = Path::new("./data/sim");
+    let info = PhyloInfoBuilder::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
     let model = DNASubstModel::new(TN93, &[0.26, 0.2, 0.4, 0.14, 4.0, 2.0, 1.0]).unwrap();
     let start_logl = model.cost(&info, false);
     let o = ModelOptimiser::new(&model, &info, FrequencyOptimisation::Empirical)
@@ -144,12 +132,10 @@ fn parameter_definition_after_optim_tn93() {
 
 #[test]
 fn check_parameter_optimisation_gtr() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/GTR/gtr.fasta"),
-        PathBuf::from("./data/sim/tree.newick"),
-    )
-    .build()
-    .unwrap();
+    let fldr = Path::new("./data/sim");
+    let info = PhyloInfoBuilder::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
     // Optimized parameters from PhyML
     let phyml_model = DNASubstModel::new(
         GTR,
@@ -202,12 +188,10 @@ fn check_parameter_optimisation_gtr() {
 
 #[test]
 fn check_parameter_optimisation_k80_vs_phyml() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/GTR/gtr.fasta"),
-        PathBuf::from("./data/sim/tree.newick"),
-    )
-    .build()
-    .unwrap();
+    let fldr = Path::new("./data/sim");
+    let info = PhyloInfoBuilder::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
     // Optimized parameters from PhyML
     let phyml_model = DNASubstModel::new(K80, &[19.432093, 1.0]).unwrap();
     let phyml_logl = phyml_model.cost(&info, false);
@@ -236,13 +220,10 @@ fn check_parameter_optimisation_k80_vs_phyml() {
 
 #[test]
 fn check_parameter_optimisation_hky_vs_phyml() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/GTR/gtr.fasta"),
-        PathBuf::from("./data/sim/tree.newick"),
-    )
-    .build()
-    .unwrap();
-
+    let fldr = Path::new("./data/sim");
+    let info = PhyloInfoBuilder::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
     let model = DNASubstModel::new(HKY, &[0.25, 0.25, 0.25, 0.25, 2.0, 1.0]).unwrap();
     let o = ModelOptimiser::new(&model, &info, FrequencyOptimisation::Empirical)
         .run()
@@ -273,12 +254,10 @@ fn check_parameter_optimisation_hky_vs_phyml() {
 
 #[test]
 fn frequencies_fixed_opt_gtr() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/GTR/gtr.fasta"),
-        PathBuf::from("./data/sim/tree.newick"),
-    )
-    .build()
-    .unwrap();
+    let fldr = Path::new("./data/sim");
+    let info = PhyloInfoBuilder::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
     let model =
         DNASubstModel::new(GTR, &[0.25, 0.35, 0.3, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
     let o = ModelOptimiser::new(&model, &info, FrequencyOptimisation::Fixed)
@@ -292,9 +271,10 @@ fn frequencies_fixed_opt_gtr() {
 #[case::blosum(BLOSUM)]
 #[case::hivb(HIVB)]
 fn frequencies_fixed_protein(#[case] model_type: ProteinModelType) {
+    let fldr = Path::new("./data");
     let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sequences_protein1.fasta"),
-        PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+        fldr.join("sequences_protein1.fasta"),
+        fldr.join("tree_diff_branch_lengths_2.newick"),
     )
     .build()
     .unwrap();
@@ -313,9 +293,10 @@ fn frequencies_fixed_protein(#[case] model_type: ProteinModelType) {
 #[case::blosum(BLOSUM)]
 #[case::hivb(HIVB)]
 fn frequencies_empirical_protein(#[case] model_type: ProteinModelType) {
+    let fldr = Path::new("./data");
     let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sequences_protein1.fasta"),
-        PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+        fldr.join("sequences_protein1.fasta"),
+        fldr.join("tree_diff_branch_lengths_2.newick"),
     )
     .build()
     .unwrap();
@@ -331,12 +312,10 @@ fn frequencies_empirical_protein(#[case] model_type: ProteinModelType) {
 
 #[test]
 fn check_parameter_optimisation_pip_arpiptest() {
-    let info = &PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/pip/arpip/msa.fasta"),
-        PathBuf::from("./data/pip/arpip/tree.nwk"),
-    )
-    .build()
-    .unwrap();
+    let fldr = Path::new("./data/pip/arpip/");
+    let info = &PhyloInfoBuilder::with_attrs(fldr.join("msa.fasta"), fldr.join("tree.nwk"))
+        .build()
+        .unwrap();
 
     let pip_gtr = PIPModel::<DNASubstModel>::new(
         GTR,
@@ -355,12 +334,10 @@ fn check_parameter_optimisation_pip_arpiptest() {
 
 #[test]
 fn optimisation_pip_propip_example() {
-    let info = &PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/pip/propip/msa.initial.fasta"),
-        PathBuf::from("./data/pip/propip/tree.nwk"),
-    )
-    .build()
-    .unwrap();
+    let fldr = Path::new("./data/pip/propip/");
+    let info = &PhyloInfoBuilder::with_attrs(fldr.join("msa.initial.fasta"), fldr.join("tree.nwk"))
+        .build()
+        .unwrap();
 
     let pip_gtr = PIPModel::<DNASubstModel>::new(
         GTR,
@@ -383,9 +360,10 @@ fn optimisation_pip_propip_example() {
 
 #[test]
 fn optimisation_against_python_no_gaps() {
+    let fldr = Path::new("./data");
     let info = &PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
-        PathBuf::from("./data/Huelsenbeck_example.newick"),
+        fldr.join("Huelsenbeck_example_long_DNA.fasta"),
+        fldr.join("Huelsenbeck_example.newick"),
     )
     .build()
     .unwrap();
@@ -417,12 +395,10 @@ fn optimisation_against_python_no_gaps() {
 
 #[test]
 fn optimisation_pip_gtr() {
-    let info = &PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/GTR/gtr.fasta"),
-        PathBuf::from("./data/sim/tree.newick"),
-    )
-    .build()
-    .unwrap();
+    let fldr = Path::new("./data/sim");
+    let info = PhyloInfoBuilder::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
     let pip_gtr = PIPModel::<DNASubstModel>::new(
         GTR,
         &[
@@ -430,8 +406,8 @@ fn optimisation_pip_gtr() {
         ],
     )
     .unwrap();
-    let initial_logl = pip_gtr.cost(info, false);
-    let pip_o = ModelOptimiser::new(&pip_gtr, info, FrequencyOptimisation::Fixed)
+    let initial_logl = pip_gtr.cost(&info, false);
+    let pip_o = ModelOptimiser::new(&pip_gtr, &info, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
 
@@ -446,7 +422,7 @@ fn optimisation_pip_gtr() {
         ],
     )
     .unwrap();
-    let o = ModelOptimiser::new(&gtr, info, FrequencyOptimisation::Fixed)
+    let o = ModelOptimiser::new(&gtr, &info, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
 
@@ -462,12 +438,11 @@ fn optimisation_pip_gtr() {
 
 #[test]
 fn protein_example_pip_opt() {
-    let info = &PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/phyml_protein_example/nogap_seqs.fasta"),
-        PathBuf::from("./data/phyml_protein_example/true_tree.newick"),
-    )
-    .build()
-    .unwrap();
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let info =
+        &PhyloInfoBuilder::with_attrs(fldr.join("seqs.fasta"), fldr.join("true_tree.newick"))
+            .build()
+            .unwrap();
     let pip = PIPModel::<ProteinSubstModel>::new(WAG, &[2.0, 0.1]).unwrap();
     let initial_logl = pip.cost(info, false);
     let o = ModelOptimiser::new(&pip, info, FrequencyOptimisation::Empirical)
