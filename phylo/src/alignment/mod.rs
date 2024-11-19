@@ -12,24 +12,6 @@ pub use sequences::*;
 pub mod alignment_builder;
 pub use alignment_builder::*;
 
-#[macro_export]
-macro_rules! align {
-    ($e:expr) => {{
-        use $crate::alphabets::GAP;
-        let mut i = 0;
-        $e.iter()
-            .map(|&byte| {
-                if byte == GAP {
-                    None
-                } else {
-                    i += 1;
-                    Some(i - 1)
-                }
-            })
-            .collect::<Vec<_>>()
-    }};
-}
-
 pub type Position = Option<usize>;
 pub type Mapping = Vec<Option<usize>>;
 pub type InternalMapping = HashMap<NodeIdx, PairwiseAlignment>;
@@ -67,10 +49,10 @@ impl Alignment {
     /// # Example
     /// ```
     /// use bio::io::fasta::Record;
-    /// use phylo::tree::tree_parser::from_newick_string;
+    /// use phylo::tree::tree_parser::from_newick;
     /// use phylo::alignment::AlignmentBuilder;
     /// use phylo::alignment::sequences::Sequences;
-    /// let tree = from_newick_string("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);")
+    /// let tree = from_newick("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);")
     ///     .unwrap()
     ///     .pop()
     ///     .unwrap();
@@ -96,10 +78,10 @@ impl Alignment {
     /// # Example
     /// ```
     /// use bio::io::fasta::Record;
-    /// use phylo::tree::tree_parser::from_newick_string;
+    /// use phylo::tree::tree_parser::from_newick;
     /// use phylo::alignment::AlignmentBuilder;
     /// use phylo::alignment::sequences::Sequences;
-    /// let tree = from_newick_string("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);")
+    /// let tree = from_newick("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);")
     ///     .unwrap()
     ///     .pop()
     ///     .unwrap();

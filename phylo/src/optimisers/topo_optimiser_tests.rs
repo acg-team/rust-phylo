@@ -11,23 +11,24 @@ use crate::optimisers::{
     BranchOptimiser, EvoModelOptimiser, FrequencyOptimisation::Empirical, ModelOptimiser,
     PhyloOptimiser, TopologyOptimiser,
 };
-use crate::phylo_info::PhyloInfoBuilder;
+use crate::phylo_info::PhyloInfoBuilder as PIB;
 use crate::pip_model::PIPModel;
 use crate::substitution_models::{DNASubstModel, ProteinSubstModel};
-use crate::tree::tree_parser::from_newick_string;
+use crate::tree::tree_parser::from_newick;
+
+use crate::{record_wo_desc as record, tree};
 
 #[test]
 fn k80_sim_data_from_given() {
     // Check that optimisation on k80 data improves k80 likelihood when starting from a given tree
-    let tree =
-        from_newick_string("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);").unwrap()[0].clone();
+    let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let sequences = Sequences::new(vec![
-        Record::with_attrs("A", None, b"CTATATATAC"),
-        Record::with_attrs("B", None, b"ATATATATAA"),
-        Record::with_attrs("C", None, b"TTATATATAT"),
-        Record::with_attrs("D", None, b"TTATATATAT"),
+        record!("A", b"CTATATATAC"),
+        record!("B", b"ATATATATAA"),
+        record!("C", b"TTATATATAT"),
+        record!("D", b"TTATATATAT"),
     ]);
-    let info = PhyloInfoBuilder::build_from_objects(sequences, tree).unwrap();
+    let info = PIB::build_from_objects(sequences, tree).unwrap();
     let k80 = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
     let unopt_logl = k80.cost(&info, false);
     let o = TopologyOptimiser::new(&k80, &info).run().unwrap();
@@ -39,9 +40,8 @@ fn k80_sim_data_from_given() {
 #[test]
 fn k80_sim_data_from_nj() {
     // Check that optimisation on k80 data improves k80 likelihood when starting from an NJ tree
-    let info = PhyloInfoBuilder::new(Path::new("./data/sim/K80/K80.fasta").to_path_buf())
-        .build()
-        .unwrap();
+    let fldr = Path::new("./data/sim/K80");
+    let info = PIB::new(fldr.join("K80.fasta")).build().unwrap();
     let k80 = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
     let unopt_logl = k80.cost(&info, false);
     let o = TopologyOptimiser::new(&k80, &info).run().unwrap();
@@ -54,8 +54,8 @@ fn k80_sim_data_from_nj() {
 #[test]
 fn k80_sim_data_vs_phyml() {
     // Check that optimisation on k80 data under JC69 produces similar tree to PhyML with matching likelihood
-    let fldr = Path::new("./data/sim/K80");
-    let info = PhyloInfoBuilder::with_attrs(fldr.join("K80.fasta"), fldr.join("../tree.newick"))
+    let fldr = Path::new("./data/sim/");
+    let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("tree.newick"))
         .build()
         .unwrap();
     let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
@@ -65,10 +65,12 @@ fn k80_sim_data_vs_phyml() {
     assert!(o.final_logl >= unopt_logl);
     assert_relative_eq!(o.final_logl, jc69.cost(&o.i, true), epsilon = 1e-5);
 
-    let phyml_info =
-        PhyloInfoBuilder::with_attrs(fldr.join("K80.fasta"), fldr.join("phyml_tree.newick"))
-            .build()
-            .unwrap();
+    let phyml_info = PIB::with_attrs(
+        fldr.join("K80/K80.fasta"),
+        fldr.join("K80/phyml_tree.newick"),
+    )
+    .build()
+    .unwrap();
 
     assert_relative_eq!(o.final_logl, jc69.cost(&phyml_info, true), epsilon = 1e-5);
     assert_relative_eq!(o.final_logl, -4038.721121221992, epsilon = 1e-5);
@@ -89,11 +91,10 @@ fn k80_sim_data_vs_phyml() {
 fn k80_sim_data_vs_phyml_wrong_start() {
     // Check that optimisation on k80 data under JC69 produces similar tree to PhyML with matching likelihood
     // when starting from a wrong tree
-    let fldr = Path::new("./data/sim/K80");
-    let info =
-        PhyloInfoBuilder::with_attrs(fldr.join("K80.fasta"), fldr.join("../wrong_tree.newick"))
-            .build()
-            .unwrap();
+    let fldr = Path::new("./data/sim/");
+    let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("wrong_tree.newick"))
+        .build()
+        .unwrap();
     let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
     let unopt_logl = jc69.cost(&info, false);
     let o = TopologyOptimiser::new(&jc69, &info).run().unwrap();
@@ -101,10 +102,12 @@ fn k80_sim_data_vs_phyml_wrong_start() {
     assert!(o.final_logl >= unopt_logl);
     assert_relative_eq!(o.final_logl, jc69.cost(&o.i, true), epsilon = 1e-5);
 
-    let phyml_info =
-        PhyloInfoBuilder::with_attrs(fldr.join("K80.fasta"), fldr.join("phyml_tree.newick"))
-            .build()
-            .unwrap();
+    let phyml_info = PIB::with_attrs(
+        fldr.join("K80/K80.fasta"),
+        fldr.join("k80/phyml_tree.newick"),
+    )
+    .build()
+    .unwrap();
 
     assert_relative_eq!(o.final_logl, jc69.cost(&phyml_info, true), epsilon = 1e-5);
     assert_relative_eq!(o.final_logl, -4038.721121221992, epsilon = 1e-5);
@@ -142,29 +145,27 @@ fn wag_no_gaps_vs_phyml_given_tree_start() {
     let tree_file = fldr.join("jati_wag_nogap.newick");
 
     let model = ProteinSubstModel::new(WAG, &[]).unwrap();
-    let info = PhyloInfoBuilder::with_attrs(seq_file.clone(), true_tree_file.clone())
+    let info = PIB::with_attrs(seq_file.clone(), true_tree_file.clone())
         .build()
         .unwrap();
     let unopt_logl = model.cost(&info, false);
 
-    let result = if let Ok(precomputed) =
-        PhyloInfoBuilder::with_attrs(seq_file.clone(), tree_file.clone()).build()
-    {
-        precomputed
-    } else {
-        let o = TopologyOptimiser::new(&model, &info).run().unwrap();
-        assert!(o.final_logl >= unopt_logl);
-        assert!(write_newick_to_file(&[o.i.tree.clone()], tree_file.clone()).is_ok());
-        o.i
-    };
+    let result =
+        if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), tree_file.clone()).build() {
+            precomputed
+        } else {
+            let o = TopologyOptimiser::new(&model, &info).run().unwrap();
+            assert!(o.final_logl >= unopt_logl);
+            assert!(write_newick_to_file(&[o.i.tree.clone()], tree_file.clone()).is_ok());
+            o.i
+        };
 
     let logl = model.cost(&result, true);
     assert!(logl >= unopt_logl);
 
-    let phyml_result =
-        PhyloInfoBuilder::with_attrs(seq_file.clone(), fldr.join("phyml_nogap.newick"))
-            .build()
-            .unwrap();
+    let phyml_result = PIB::with_attrs(seq_file.clone(), fldr.join("phyml_nogap.newick"))
+        .build()
+        .unwrap();
     let phyml_logl = model.cost(&phyml_result, true);
 
     // Compare tree and logl to PhyML output
@@ -182,27 +183,25 @@ fn wag_no_gaps_vs_phyml_nj_tree_start() {
     let tree_file = fldr.join("jati_wag_nogap_nj_start.newick");
 
     let model = ProteinSubstModel::new(WAG, &[]).unwrap();
-    let info = PhyloInfoBuilder::new(seq_file.clone()).build().unwrap();
+    let info = PIB::new(seq_file.clone()).build().unwrap();
     let unopt_logl = model.cost(&info, false);
 
-    let result = if let Ok(precomputed) =
-        PhyloInfoBuilder::with_attrs(seq_file.clone(), tree_file.clone()).build()
-    {
-        precomputed
-    } else {
-        let o = TopologyOptimiser::new(&model, &info).run().unwrap();
-        assert!(o.final_logl >= unopt_logl);
-        assert!(write_newick_to_file(&[o.i.tree.clone()], tree_file.clone()).is_ok());
-        o.i
-    };
+    let result =
+        if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), tree_file.clone()).build() {
+            precomputed
+        } else {
+            let o = TopologyOptimiser::new(&model, &info).run().unwrap();
+            assert!(o.final_logl >= unopt_logl);
+            assert!(write_newick_to_file(&[o.i.tree.clone()], tree_file.clone()).is_ok());
+            o.i
+        };
 
     let logl = model.cost(&result, true);
     assert!(logl >= unopt_logl);
 
-    let phyml_result =
-        PhyloInfoBuilder::with_attrs(seq_file.clone(), fldr.join("phyml_nogap.newick"))
-            .build()
-            .unwrap();
+    let phyml_result = PIB::with_attrs(seq_file.clone(), fldr.join("phyml_nogap.newick"))
+        .build()
+        .unwrap();
     let phyml_logl = model.cost(&phyml_result, true);
 
     // Compare tree height and logl to the output of PhyML
@@ -214,11 +213,10 @@ fn wag_no_gaps_vs_phyml_nj_tree_start() {
 #[test]
 fn pip_vs_subst_dna_tree() {
     // Check that optimisation on k80 data under PIP and substitution model produces similar trees
-    let fldr = Path::new("./data/sim/K80");
-    let info =
-        PhyloInfoBuilder::with_attrs(fldr.join("K80.fasta"), fldr.join("../wrong_tree.newick"))
-            .build()
-            .unwrap();
+    let fldr = Path::new("./data/sim");
+    let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("wrong_tree.newick"))
+        .build()
+        .unwrap();
     let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
     let k80_opt_res = TopologyOptimiser::new(&model, &info).run().unwrap();
 
@@ -256,33 +254,31 @@ fn wag_nogaps_pip_vs_subst_tree_nj_start() {
     let pip_tree_file = fldr.join("jati_pip_nogap_pip_vs_wag.newick");
     let wag_tree_file = fldr.join("jati_wag_nogap_pip_vs_wag.newick");
 
-    let info = PhyloInfoBuilder::new(seq_file.clone()).build().unwrap();
+    let info = PIB::new(seq_file.clone()).build().unwrap();
     let pip = PIPModel::<ProteinSubstModel>::new(WAG, &[50.0, 0.1]).unwrap();
     let wag = ProteinSubstModel::new(WAG, &[]).unwrap();
 
     let unopt_pip_logl = pip.cost(&info, true);
-    let result_pip = if let Ok(precomputed) =
-        PhyloInfoBuilder::with_attrs(seq_file.clone(), pip_tree_file.clone()).build()
-    {
-        precomputed
-    } else {
-        let o = TopologyOptimiser::new(&pip, &info).run().unwrap();
-        assert!(o.final_logl >= unopt_pip_logl);
-        assert!(write_newick_to_file(&[o.i.tree.clone()], pip_tree_file.clone()).is_ok());
-        o.i
-    };
+    let result_pip =
+        if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), pip_tree_file.clone()).build() {
+            precomputed
+        } else {
+            let o = TopologyOptimiser::new(&pip, &info).run().unwrap();
+            assert!(o.final_logl >= unopt_pip_logl);
+            assert!(write_newick_to_file(&[o.i.tree.clone()], pip_tree_file.clone()).is_ok());
+            o.i
+        };
 
     let unopt_wag_logl = wag.cost(&info, true);
-    let result_wag = if let Ok(precomputed) =
-        PhyloInfoBuilder::with_attrs(seq_file.clone(), wag_tree_file.clone()).build()
-    {
-        precomputed
-    } else {
-        let o = TopologyOptimiser::new(&wag, &info).run().unwrap();
-        assert!(o.final_logl >= unopt_wag_logl);
-        assert!(write_newick_to_file(&[o.i.tree.clone()], wag_tree_file.clone()).is_ok());
-        o.i
-    };
+    let result_wag =
+        if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), wag_tree_file.clone()).build() {
+            precomputed
+        } else {
+            let o = TopologyOptimiser::new(&wag, &info).run().unwrap();
+            assert!(o.final_logl >= unopt_wag_logl);
+            assert!(write_newick_to_file(&[o.i.tree.clone()], wag_tree_file.clone()).is_ok());
+            o.i
+        };
 
     // Compare tree created with a substitution model to the one with PIP
     assert_eq!(result_pip.tree.robinson_foulds(&result_wag.tree), 0);
@@ -315,35 +311,33 @@ fn protein_pip_optimise_model_tree() {
     let pip = PIPModel::<ProteinSubstModel>::new(WAG, &[1.4, 0.5]).unwrap();
 
     let tree_file = fldr.join("jati_pip_nj_start.newick");
-    let result = if let Ok(precomputed) =
-        PhyloInfoBuilder::with_attrs(seq_file.clone(), tree_file.clone()).build()
-    {
-        precomputed
-    } else {
-        let info = PhyloInfoBuilder::new(seq_file.clone()).build().unwrap();
-        let unopt_logl = pip.cost(&info, true);
-        let o = TopologyOptimiser::new(&pip, &info).run().unwrap();
-        assert!(o.final_logl >= unopt_logl);
-        assert!(write_newick_to_file(&[o.i.tree.clone()], tree_file.clone()).is_ok());
-        o.i
-    };
+    let result =
+        if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), tree_file.clone()).build() {
+            precomputed
+        } else {
+            let info = PIB::new(seq_file.clone()).build().unwrap();
+            let unopt_logl = pip.cost(&info, true);
+            let o = TopologyOptimiser::new(&pip, &info).run().unwrap();
+            assert!(o.final_logl >= unopt_logl);
+            assert!(write_newick_to_file(&[o.i.tree.clone()], tree_file.clone()).is_ok());
+            o.i
+        };
 
     let tree_file = fldr.join("jati_pip_nj_start_model_opt.newick");
-    let result_model_opt = if let Ok(precomputed) =
-        PhyloInfoBuilder::with_attrs(seq_file.clone(), tree_file.clone()).build()
-    {
-        precomputed
-    } else {
-        let info = PhyloInfoBuilder::new(seq_file.clone()).build().unwrap();
-        let unopt_logl = pip.cost(&info, true);
-        let o = ModelOptimiser::new(&pip, &info, Empirical).run().unwrap();
-        let model_opt_logl = o.final_logl;
-        assert!(model_opt_logl >= unopt_logl);
-        let o = TopologyOptimiser::new(&o.model, &info).run().unwrap();
-        assert!(o.final_logl >= unopt_logl);
-        assert!(write_newick_to_file(&[o.i.tree.clone()], tree_file.clone()).is_ok());
-        o.i
-    };
+    let result_model_opt =
+        if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), tree_file.clone()).build() {
+            precomputed
+        } else {
+            let info = PIB::new(seq_file.clone()).build().unwrap();
+            let unopt_logl = pip.cost(&info, true);
+            let o = ModelOptimiser::new(&pip, &info, Empirical).run().unwrap();
+            let model_opt_logl = o.final_logl;
+            assert!(model_opt_logl >= unopt_logl);
+            let o = TopologyOptimiser::new(&o.model, &info).run().unwrap();
+            assert!(o.final_logl >= unopt_logl);
+            assert!(write_newick_to_file(&[o.i.tree.clone()], tree_file.clone()).is_ok());
+            o.i
+        };
 
     let pip_opt = PIPModel::<ProteinSubstModel>::new(WAG, &[49.56941, 0.09352]).unwrap();
 
@@ -361,7 +355,7 @@ fn protein_wag_vs_phyml_empirical_freqs() {
     let seq_file = fldr.join("seqs.fasta");
     let tree_file = fldr.join("jati_wag_empirical.newick");
 
-    let info = PhyloInfoBuilder::new(seq_file.clone()).build().unwrap();
+    let info = PIB::new(seq_file.clone()).build().unwrap();
     let model = ProteinSubstModel::new(WAG, &[]).unwrap();
     let unopt_logl = model.cost(&info, false);
 
@@ -370,25 +364,23 @@ fn protein_wag_vs_phyml_empirical_freqs() {
     assert!(model_opt_logl >= unopt_logl);
     let model = o.model;
 
-    let result = if let Ok(precomputed) =
-        PhyloInfoBuilder::with_attrs(seq_file.clone(), tree_file.clone()).build()
-    {
-        precomputed
-    } else {
-        let info = PhyloInfoBuilder::new(seq_file.clone()).build().unwrap();
-        let unopt_logl = model.cost(&info, false);
-        let o = TopologyOptimiser::new(&model, &info).run().unwrap();
-        assert!(o.final_logl >= unopt_logl);
-        let result = o.i;
-        // The above ran in 394.21s
-        assert!(write_newick_to_file(&[result.tree.clone()], tree_file.clone()).is_ok());
-        result
-    };
+    let result =
+        if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), tree_file.clone()).build() {
+            precomputed
+        } else {
+            let info = PIB::new(seq_file.clone()).build().unwrap();
+            let unopt_logl = model.cost(&info, false);
+            let o = TopologyOptimiser::new(&model, &info).run().unwrap();
+            assert!(o.final_logl >= unopt_logl);
+            let result = o.i;
+            // The above ran in 394.21s
+            assert!(write_newick_to_file(&[result.tree.clone()], tree_file.clone()).is_ok());
+            result
+        };
 
-    let phyml_result =
-        PhyloInfoBuilder::with_attrs(seq_file.clone(), fldr.join("phyml_wag_empirical.newick"))
-            .build()
-            .unwrap();
+    let phyml_result = PIB::with_attrs(seq_file.clone(), fldr.join("phyml_wag_empirical.newick"))
+        .build()
+        .unwrap();
 
     assert_relative_eq!(
         model.cost(&result, true),
@@ -409,25 +401,23 @@ fn protein_wag_vs_phyml_fixed_freqs() {
     let tree_file = fldr.join("jati_wag_fixed.newick");
     let model = ProteinSubstModel::new(WAG, &[]).unwrap();
 
-    let result = if let Ok(precomputed) =
-        PhyloInfoBuilder::with_attrs(seq_file.clone(), tree_file.clone()).build()
-    {
-        precomputed
-    } else {
-        let info = PhyloInfoBuilder::new(seq_file.clone()).build().unwrap();
-        let unopt_logl = model.cost(&info, false);
-        let o = TopologyOptimiser::new(&model, &info).run().unwrap();
-        assert!(o.final_logl >= unopt_logl);
-        let result = o.i;
-        // The above ran in 372.59s
-        assert!(write_newick_to_file(&[result.tree.clone()], tree_file.clone()).is_ok());
-        result
-    };
+    let result =
+        if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), tree_file.clone()).build() {
+            precomputed
+        } else {
+            let info = PIB::new(seq_file.clone()).build().unwrap();
+            let unopt_logl = model.cost(&info, false);
+            let o = TopologyOptimiser::new(&model, &info).run().unwrap();
+            assert!(o.final_logl >= unopt_logl);
+            let result = o.i;
+            // The above ran in 372.59s
+            assert!(write_newick_to_file(&[result.tree.clone()], tree_file.clone()).is_ok());
+            result
+        };
 
-    let phyml_result =
-        PhyloInfoBuilder::with_attrs(seq_file.clone(), fldr.join("phyml_wag_fixed.newick"))
-            .build()
-            .unwrap();
+    let phyml_result = PIB::with_attrs(seq_file.clone(), fldr.join("phyml_wag_fixed.newick"))
+        .build()
+        .unwrap();
 
     assert_relative_eq!(
         model.cost(&result, true),

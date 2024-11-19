@@ -7,11 +7,15 @@ use bio::io::fasta::Record;
 use crate::alignment::Sequences;
 use crate::frequencies;
 use crate::io::{read_sequences_from_file, DataError};
-use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder};
+use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::substitution_models::FreqVector;
-use crate::tree::tree_parser::{self, ParsingError};
-use crate::tree::NodeIdx::{Internal as I, Leaf as L};
-use crate::tree::Tree;
+use crate::tree::{
+    tree_parser::{from_newick, ParsingError},
+    NodeIdx::{Internal as I, Leaf as L},
+    Tree,
+};
+
+use crate::{record_wo_desc as record, tree};
 
 #[cfg(test)]
 fn downcast_error<T: Display + Debug + Send + Sync + 'static>(
@@ -23,16 +27,13 @@ fn downcast_error<T: Display + Debug + Send + Sync + 'static>(
 #[test]
 fn empirical_frequencies_easy() {
     let sequences = Sequences::new(vec![
-        Record::with_attrs("A", None, b"AAAAA"),
-        Record::with_attrs("B", None, b"CCCCC"),
-        Record::with_attrs("C", None, b"GGGGG"),
-        Record::with_attrs("D", None, b"TTTTT"),
+        record!("A", b"AAAAA"),
+        record!("B", b"CCCCC"),
+        record!("C", b"GGGGG"),
+        record!("D", b"TTTTT"),
     ]);
-    let tree = tree_parser::from_newick_string("(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);")
-        .unwrap()
-        .pop()
-        .unwrap();
-    let info = PhyloInfoBuilder::build_from_objects(sequences, tree).unwrap();
+    let tree = tree!("(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);");
+    let info = PIB::build_from_objects(sequences, tree).unwrap();
     let freqs = info.freqs();
     assert_eq!(freqs, frequencies!(&[0.25, 0.25, 0.25, 0.25]));
     assert_eq!(freqs.sum(), 1.0);
@@ -41,16 +42,13 @@ fn empirical_frequencies_easy() {
 #[test]
 fn empirical_frequencies() {
     let sequences = Sequences::new(vec![
-        Record::with_attrs("A", None, b"TT"),
-        Record::with_attrs("B", None, b"CA"),
-        Record::with_attrs("C", None, b"NN"),
-        Record::with_attrs("D", None, b"NN"),
+        record!("A", b"TT"),
+        record!("B", b"CA"),
+        record!("C", b"NN"),
+        record!("D", b"NN"),
     ]);
-    let tree = tree_parser::from_newick_string("(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);")
-        .unwrap()
-        .pop()
-        .unwrap();
-    let info = PhyloInfoBuilder::build_from_objects(sequences, tree).unwrap();
+    let tree = tree!("(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);");
+    let info = PIB::build_from_objects(sequences, tree).unwrap();
     let freqs = info.freqs();
     assert_eq!(
         freqs,
@@ -59,19 +57,12 @@ fn empirical_frequencies() {
     assert_eq!(freqs.sum(), 1.0);
 }
 
-#[cfg(test)]
-fn tree_newick(newick: &str) -> Tree {
-    tree_parser::from_newick_string(newick)
-        .unwrap()
-        .pop()
-        .unwrap()
-}
-
 #[test]
 fn setup_info_correct_unaligned() {
-    let res_info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
-        PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+    let fldr = PathBuf::from("./data");
+    let res_info = PIB::with_attrs(
+        fldr.join("sequences_DNA2_unaligned.fasta"),
+        fldr.join("tree_diff_branch_lengths_2.newick"),
     )
     .build();
     assert!(res_info.is_err());
@@ -79,9 +70,10 @@ fn setup_info_correct_unaligned() {
 
 #[test]
 fn setup_info_mismatched_ids_missing_tips() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
-        PathBuf::from("./data/tree_diff_branch_lengths_1.newick"),
+    let fldr = PathBuf::from("./data");
+    let info = PIB::with_attrs(
+        fldr.join("sequences_DNA2_unaligned.fasta"),
+        fldr.join("tree_diff_branch_lengths_1.newick"),
     )
     .build();
     let error_msg = downcast_error::<DataError>(&info).to_string();
@@ -90,9 +82,10 @@ fn setup_info_mismatched_ids_missing_tips() {
 
 #[test]
 fn setup_info_mismatched_ids_missing_sequences() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
-        PathBuf::from("./data/tree_diff_branch_lengths_3.newick"),
+    let fldr = PathBuf::from("./data");
+    let info = PIB::with_attrs(
+        fldr.join("sequences_DNA2_unaligned.fasta"),
+        fldr.join("tree_diff_branch_lengths_3.newick"),
     )
     .build();
     let error_msg = downcast_error::<DataError>(&info).to_string();
@@ -101,9 +94,10 @@ fn setup_info_mismatched_ids_missing_sequences() {
 
 #[test]
 fn setup_info_missing_sequence_file() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sequences_DNA_nonexistent.fasta"),
-        PathBuf::from("./data/tree_diff_branch_lengths_1.newick"),
+    let fldr = PathBuf::from("./data");
+    let info = PIB::with_attrs(
+        fldr.join("sequences_DNA_nonexistent.fasta"),
+        fldr.join("tree_diff_branch_lengths_1.newick"),
     )
     .build();
     assert_matches!(
@@ -114,9 +108,10 @@ fn setup_info_missing_sequence_file() {
 
 #[test]
 fn setup_info_empty_sequence_file() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sequences_empty.fasta"),
-        PathBuf::from("./data/tree_diff_branch_lengths_1.newick"),
+    let fldr = PathBuf::from("./data");
+    let info = PIB::with_attrs(
+        fldr.join("sequences_empty.fasta"),
+        fldr.join("tree_diff_branch_lengths_1.newick"),
     )
     .build();
     assert_matches!(
@@ -127,9 +122,10 @@ fn setup_info_empty_sequence_file() {
 
 #[test]
 fn setup_info_empty_tree_file() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
-        PathBuf::from("./data/tree_empty.newick"),
+    let fldr = PathBuf::from("./data");
+    let info = PIB::with_attrs(
+        fldr.join("sequences_DNA2_unaligned.fasta"),
+        fldr.join("tree_empty.newick"),
     )
     .build();
     assert_matches!(
@@ -140,9 +136,10 @@ fn setup_info_empty_tree_file() {
 
 #[test]
 fn setup_info_malformed_tree_file() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
-        PathBuf::from("./data/tree_malformed.newick"),
+    let fldr = PathBuf::from("./data");
+    let info = PIB::with_attrs(
+        fldr.join("sequences_DNA2_unaligned.fasta"),
+        fldr.join("tree_malformed.newick"),
     )
     .build();
     assert!(downcast_error::<ParsingError>(&info)
@@ -152,9 +149,10 @@ fn setup_info_malformed_tree_file() {
 
 #[test]
 fn setup_info_multiple_trees() {
-    let res_info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sequences_DNA1.fasta"),
-        PathBuf::from("./data/tree_multiple.newick"),
+    let fldr = PathBuf::from("./data");
+    let res_info = PIB::with_attrs(
+        fldr.join("sequences_DNA1.fasta"),
+        fldr.join("tree_multiple.newick"),
     )
     .build()
     .unwrap();
@@ -164,9 +162,10 @@ fn setup_info_multiple_trees() {
 
 #[test]
 fn setup_unaligned() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sequences_DNA2_unaligned.fasta"),
-        PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+    let fldr = PathBuf::from("./data");
+    let info = PIB::with_attrs(
+        fldr.join("sequences_DNA2_unaligned.fasta"),
+        fldr.join("tree_diff_branch_lengths_2.newick"),
     )
     .build();
     assert!(info.is_err());
@@ -174,9 +173,10 @@ fn setup_unaligned() {
 
 #[test]
 fn setup_aligned_msa() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sequences_DNA1.fasta"),
-        PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+    let fldr = PathBuf::from("./data");
+    let info = PIB::with_attrs(
+        fldr.join("sequences_DNA1.fasta"),
+        fldr.join("tree_diff_branch_lengths_2.newick"),
     )
     .build()
     .unwrap();
@@ -195,9 +195,10 @@ fn setup_aligned_msa() {
 
 #[test]
 fn correct_setup_when_sequences_empty() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sequences_some_empty.fasta"),
-        PathBuf::from("./data/tree_diff_branch_lengths_2.newick"),
+    let fldr = PathBuf::from("./data");
+    let info = PIB::with_attrs(
+        fldr.join("sequences_some_empty.fasta"),
+        fldr.join("tree_diff_branch_lengths_2.newick"),
     )
     .build()
     .unwrap();
@@ -205,8 +206,7 @@ fn correct_setup_when_sequences_empty() {
     info.msa.seqs.iter().for_each(|rec| {
         assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
     });
-    let mut sequences =
-        read_sequences_from_file(&PathBuf::from("./data/sequences_some_empty.fasta")).unwrap();
+    let mut sequences = read_sequences_from_file(&fldr.join("sequences_some_empty.fasta")).unwrap();
     sequences.sort();
     let mut aligned_sequences = info.msa.compile(None, &info.tree).unwrap();
     aligned_sequences.sort();
@@ -216,37 +216,34 @@ fn correct_setup_when_sequences_empty() {
 #[test]
 fn test_aligned_check() {
     let sequences = Sequences::new(vec![
-        Record::with_attrs("A0", None, b"AAAAA"),
-        Record::with_attrs("B1", None, b"A"),
-        Record::with_attrs("C2", None, b"AA"),
-        Record::with_attrs("D3", None, b"A"),
-        Record::with_attrs("E4", None, b"AAA"),
+        record!("A0", b"AAAAA"),
+        record!("B1", b"A"),
+        record!("C2", b"AA"),
+        record!("D3", b"A"),
+        record!("E4", b"AAA"),
     ]);
-    let tree = tree_newick("((A0:2.0,B1:2.0):1.0,(C2:2.0,(D3:1.0,E4:2.5):3.0):2.0):0.0;");
-    let info = PhyloInfoBuilder::build_from_objects(sequences, tree.clone());
+    let tree = tree!("((A0:2.0,B1:2.0):1.0,(C2:2.0,(D3:1.0,E4:2.5):3.0):2.0):0.0;");
+    let info = PIB::build_from_objects(sequences, tree.clone());
     assert!(info.is_err());
     let sequences = Sequences::new(vec![
-        Record::with_attrs("A0", None, b"AAAAA"),
-        Record::with_attrs("B1", None, b"A----"),
-        Record::with_attrs("C2", None, b"AABCD"),
-        Record::with_attrs("D3", None, b"AAAAA"),
-        Record::with_attrs("E4", None, b"AAATT"),
+        record!("A0", b"AAAAA"),
+        record!("B1", b"A----"),
+        record!("C2", b"AABCD"),
+        record!("D3", b"AAAAA"),
+        record!("E4", b"AAATT"),
     ]);
-    let info = PhyloInfoBuilder::build_from_objects(sequences, tree);
+    let info = PIB::build_from_objects(sequences, tree);
     assert!(info.is_ok());
 }
 
 #[test]
 fn check_phyloinfo_creation_newick_msa() {
     let sequences = Sequences::new(vec![
-        Record::with_attrs("A", None, b"CTATATATAC"),
-        Record::with_attrs("B", None, b"ATATATATAA"),
-        Record::with_attrs("C", None, b"TTATATATAT"),
+        record!("A", b"CTATATATAC"),
+        record!("B", b"ATATATATAA"),
+        record!("C", b"TTATATATAT"),
     ]);
-    let info = PhyloInfoBuilder::build_from_objects(
-        sequences,
-        tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
-    );
+    let info = PIB::build_from_objects(sequences, tree!("((A:2.0,B:2.0):1.0,C:2.0):0.0;"));
     assert!(info.is_ok());
     assert_eq!(info.unwrap().msa.len(), 10);
 }
@@ -255,22 +252,18 @@ fn check_phyloinfo_creation_newick_msa() {
 #[should_panic]
 fn check_phyloinfo_creation_tree_no_msa() {
     let sequences = Sequences::new(vec![
-        Record::with_attrs("A", None, b"CTATATAAC"),
-        Record::with_attrs("B", None, b"ATATATATAA"),
-        Record::with_attrs("C", None, b"TTATATATAT"),
+        record!("A", b"CTATATAAC"),
+        record!("B", b"ATATATATAA"),
+        record!("C", b"TTATATATAT"),
     ]);
-    PhyloInfoBuilder::build_from_objects(sequences, tree_newick("((A:2.0,B:2.0):1.0,C:2.0):0.0;"))
-        .unwrap();
+    PIB::build_from_objects(sequences, tree!("((A:2.0,B:2.0):1.0,C:2.0):0.0;")).unwrap();
 }
 
 #[test]
 fn check_phyloinfo_creation_tree_no_seqs() {
-    let info = PhyloInfoBuilder::build_from_objects(
+    let info = PIB::build_from_objects(
         Sequences::new(vec![]),
-        tree_parser::from_newick_string("((A:2.0,B:2.0):1.0,C:2.0):0.0;")
-            .unwrap()
-            .pop()
-            .unwrap(),
+        tree!("((A:2.0,B:2.0):1.0,C:2.0):0.0;"),
     );
     assert!(info.is_err());
 }
@@ -278,27 +271,21 @@ fn check_phyloinfo_creation_tree_no_seqs() {
 #[test]
 fn check_phyloinfo_creation_newick_mismatch_ids() {
     let sequences = Sequences::new(vec![
-        Record::with_attrs("D", None, b"CTATATAAC"),
-        Record::with_attrs("E", None, b"ATATATATAA"),
-        Record::with_attrs("F", None, b"TTATATATAT"),
+        record!("D", b"CTATATAAC"),
+        record!("E", b"ATATATATAA"),
+        record!("F", b"TTATATATAT"),
     ]);
-    let info = PhyloInfoBuilder::build_from_objects(
-        sequences,
-        tree_parser::from_newick_string("((A:2.0,B:2.0):1.0,C:2.0):0.0;")
-            .unwrap()
-            .pop()
-            .unwrap(),
-    );
+    let info = PIB::build_from_objects(sequences, tree!("((A:2.0,B:2.0):1.0,C:2.0):0.0;"));
     assert!(info.is_err());
 }
 
 #[cfg(test)]
 fn make_test_tree() -> Tree {
     let sequences = Sequences::new(vec![
-        Record::with_attrs("A", None, b""),
-        Record::with_attrs("B", None, b""),
-        Record::with_attrs("C", None, b""),
-        Record::with_attrs("D", None, b""),
+        record!("A", b""),
+        record!("B", b""),
+        record!("C", b""),
+        record!("D", b""),
     ]);
     let mut tree = Tree::new(&sequences).unwrap();
     tree.add_parent(4, &L(0), &L(1), 2.0, 2.0);
@@ -312,12 +299,12 @@ fn make_test_tree() -> Tree {
 
 #[test]
 fn check_phyloinfo_creation_tree_correct_no_msa() {
-    let info = PhyloInfoBuilder::build_from_objects(
+    let info = PIB::build_from_objects(
         Sequences::new(vec![
-            Record::with_attrs("A", None, b"AAAAA"),
-            Record::with_attrs("B", None, b"A"),
-            Record::with_attrs("C", None, b"AA"),
-            Record::with_attrs("D", None, b"A"),
+            record!("A", b"AAAAA"),
+            record!("B", b"A"),
+            record!("C", b"AA"),
+            record!("D", b"A"),
         ]),
         make_test_tree(),
     );
@@ -326,12 +313,12 @@ fn check_phyloinfo_creation_tree_correct_no_msa() {
 
 #[test]
 fn check_phyloinfo_creation_tree_correct_msa() {
-    let info = PhyloInfoBuilder::build_from_objects(
+    let info = PIB::build_from_objects(
         Sequences::new(vec![
-            Record::with_attrs("A", None, b"AA"),
-            Record::with_attrs("B", None, b"A-"),
-            Record::with_attrs("C", None, b"AA"),
-            Record::with_attrs("D", None, b"A-"),
+            record!("A", b"AA"),
+            record!("B", b"A-"),
+            record!("C", b"AA"),
+            record!("D", b"A-"),
         ]),
         make_test_tree(),
     );
@@ -341,11 +328,11 @@ fn check_phyloinfo_creation_tree_correct_msa() {
 
 #[test]
 fn check_phyloinfo_creation_tree_mismatch_ids() {
-    let info = PhyloInfoBuilder::build_from_objects(
+    let info = PIB::build_from_objects(
         Sequences::new(vec![
-            Record::with_attrs("D", None, b"CTATATAAC"),
-            Record::with_attrs("E", None, b"ATATATATAA"),
-            Record::with_attrs("F", None, b"TTATATATAT"),
+            record!("D", b"CTATATAAC"),
+            record!("E", b"ATATATATAA"),
+            record!("F", b"TTATATATAT"),
         ]),
         make_test_tree(),
     );
@@ -354,12 +341,12 @@ fn check_phyloinfo_creation_tree_mismatch_ids() {
 
 #[test]
 fn check_empirical_frequencies() {
-    let info = PhyloInfoBuilder::build_from_objects(
+    let info = PIB::build_from_objects(
         Sequences::new(vec![
-            Record::with_attrs("A", None, b"AAAAC"),
-            Record::with_attrs("B", None, b"TTTCC"),
-            Record::with_attrs("C", None, b"GGGCC"),
-            Record::with_attrs("D", None, b"TTAAA"),
+            record!("A", b"AAAAC"),
+            record!("B", b"TTTCC"),
+            record!("C", b"GGGCC"),
+            record!("D", b"TTAAA"),
         ]),
         make_test_tree(),
     )
@@ -372,39 +359,39 @@ fn check_empirical_frequencies() {
 #[test]
 fn empirical_frequencies_no_ambigs() {
     let sequences = Sequences::new(vec![
-        Record::with_attrs("one", None, b"CCCCCCCC"),
-        Record::with_attrs("two", None, b"AAAAAAAA"),
-        Record::with_attrs("three", None, b"TTTTTTTT"),
-        Record::with_attrs("four", None, b"GGGGGGGG"),
+        record!("one", b"CCCCCCCC"),
+        record!("two", b"AAAAAAAA"),
+        record!("three", b"TTTTTTTT"),
+        record!("four", b"GGGGGGGG"),
     ]);
     let newick = "((one:2,two:2):1,(three:1,four:1):2);".to_string();
-    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    let info = PIB::build_from_objects(sequences, tree!(&newick)).unwrap();
     assert_relative_eq!(info.freqs(), frequencies!(&[0.25; 4]), epsilon = 1e-6);
 }
 
 #[test]
 fn empirical_frequencies_ambig_x() {
     let sequences = Sequences::new(vec![
-        Record::with_attrs("on", None, b"XXXXXXXX"),
-        Record::with_attrs("tw", None, b"XXXXXXXX"),
-        Record::with_attrs("th", None, b"NNNNNNNN"),
-        Record::with_attrs("fo", None, b"NNNNNNNN"),
+        record!("on", b"XXXXXXXX"),
+        record!("tw", b"XXXXXXXX"),
+        record!("th", b"NNNNNNNN"),
+        record!("fo", b"NNNNNNNN"),
     ]);
     let newick = "((on:2,tw:2):1,(th:1,fo:1):2);".to_string();
-    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    let info = PIB::build_from_objects(sequences, tree!(&newick)).unwrap();
     assert_relative_eq!(info.freqs(), frequencies!(&[0.25; 4]), epsilon = 1e-6);
 }
 
 #[test]
 fn empirical_frequencies_ambig_n() {
     let sequences = Sequences::new(vec![
-        Record::with_attrs("on", None, b"AAAAAAAAAA"),
-        Record::with_attrs("tw", None, b"XXXXXXXXXX"),
-        Record::with_attrs("th", None, b"CCCCCCCCCC"),
-        Record::with_attrs("fo", None, b"NNNNNNNNNN"),
+        record!("on", b"AAAAAAAAAA"),
+        record!("tw", b"XXXXXXXXXX"),
+        record!("th", b"CCCCCCCCCC"),
+        record!("fo", b"NNNNNNNNNN"),
     ]);
     let newick = "(((on:2,tw:2):1,th:1):4,fo:1);".to_string();
-    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    let info = PIB::build_from_objects(sequences, tree!(&newick)).unwrap();
     assert_relative_eq!(
         info.freqs(),
         frequencies!(&[0.125, 0.375, 0.375, 0.125]),
@@ -415,25 +402,25 @@ fn empirical_frequencies_ambig_n() {
 #[test]
 fn empirical_frequencies_ambig_other() {
     let sequences = Sequences::new(vec![
-        Record::with_attrs("A", None, b"VVVVVVVVVV"),
-        Record::with_attrs("B", None, b"TTTTVVVTVV"),
+        record!("A", b"VVVVVVVVVV"),
+        record!("B", b"TTTTVVVTVV"),
     ]);
     let newick = "(A:2,B:2):1.0;".to_string();
-    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    let info = PIB::build_from_objects(sequences, tree!(&newick)).unwrap();
     assert_relative_eq!(info.freqs(), frequencies!(&[0.25; 4]), epsilon = 1e-6);
     let sequences = Sequences::new(vec![
-        Record::with_attrs("A", None, b"SSSSSSSSSSSSSSSSSSSS"),
-        Record::with_attrs("B", None, b"WWWWWWWWWWWWWWWWWWWW"),
+        record!("A", b"SSSSSSSSSSSSSSSSSSSS"),
+        record!("B", b"WWWWWWWWWWWWWWWWWWWW"),
     ]);
-    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    let info = PIB::build_from_objects(sequences, tree!(&newick)).unwrap();
     assert_relative_eq!(info.freqs(), frequencies!(&[0.25; 4]), epsilon = 1e-6);
 }
 
 #[test]
 fn empirical_frequencies_no_aas() {
-    let sequences = Sequences::new(vec![Record::with_attrs("A", None, b"BBBBBBBBB")]);
+    let sequences = Sequences::new(vec![record!("A", b"BBBBBBBBB")]);
     let newick = "A:1.0;".to_string();
-    let info = PhyloInfoBuilder::build_from_objects(sequences, tree_newick(&newick)).unwrap();
+    let info = PIB::build_from_objects(sequences, tree!(&newick)).unwrap();
     assert_relative_eq!(
         info.freqs(),
         frequencies!(&[3.0 / 10.0, 3.0 / 10.0, 1.0 / 10.0, 3.0 / 10.0]),

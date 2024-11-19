@@ -8,16 +8,11 @@ use crate::alignment::{
 use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, NUCLEOTIDES};
 use crate::evolutionary_models::ModelType::{Protein, DNA};
 use crate::tree::{
-    tree_parser,
+    tree_parser::from_newick,
     NodeIdx::{Internal as I, Leaf as L},
     Tree,
 };
-
-macro_rules! record {
-    ($e1:expr,$e2:expr,$e3:expr) => {
-        Record::with_attrs($e1, $e2, $e3)
-    };
-}
+use crate::{align, record, tree};
 
 fn assert_alignment_eq(msa: &[Record], msa2: &[Record]) {
     for rec in msa2.iter() {
@@ -43,13 +38,8 @@ fn aligned_seqs(ids: &[&str]) -> Sequences {
 }
 
 #[cfg(test)]
-fn tree() -> Tree {
-    tree_parser::from_newick_string(
-        "((A0:1.0, B1:1.0) I5:1.0,(C2:1.0,(D3:1.0, E4:1.0) I6:1.0) I7:1.0) I8:1.0;",
-    )
-    .unwrap()
-    .pop()
-    .unwrap()
+fn test_tree() -> Tree {
+    tree!("((A0:1.0, B1:1.0) I5:1.0,(C2:1.0,(D3:1.0, E4:1.0) I6:1.0) I7:1.0) I8:1.0;")
 }
 
 #[cfg(test)]
@@ -159,7 +149,7 @@ fn sequences_with_alphabet() {
 
 #[test]
 fn build_from_map() {
-    let tree = tree();
+    let tree = test_tree();
     let unaligned_seqs = unaligned_seqs();
     let (node_map, leaf_map) = maps();
     let msa = AlignmentBuilder::new(&tree, unaligned_seqs.clone())
@@ -174,7 +164,7 @@ fn build_from_map() {
 
 #[test]
 fn build_from_aligned_sequences() {
-    let tree = tree();
+    let tree = test_tree();
     let unaligned_seqs = unaligned_seqs();
     let aligned_seqs = aligned_seqs(&["A0", "B1", "C2", "D3", "E4"]);
     let (node_map, leaf_map) = maps();
@@ -187,7 +177,7 @@ fn build_from_aligned_sequences() {
 
 #[test]
 fn different_build_compare() {
-    let tree = tree();
+    let tree = test_tree();
     let unaligned_seqs = unaligned_seqs();
     let (node_map, _) = maps();
     let msa = AlignmentBuilder::new(&tree, unaligned_seqs)
@@ -211,7 +201,7 @@ fn different_build_compare() {
 
 #[test]
 fn compile_msa_root() {
-    let tree = tree();
+    let tree = test_tree();
     let aligned_seqs = aligned_seqs(
         &["A0", "B1", "C2", "D3", "E4"]
             .into_iter()
@@ -225,7 +215,7 @@ fn compile_msa_root() {
 
 #[test]
 fn compile_msa_int1() {
-    let tree = tree();
+    let tree = test_tree();
     let unaligned_seqs = unaligned_seqs();
     let (node_map, _) = maps();
     let msa = AlignmentBuilder::new(&tree, unaligned_seqs)
@@ -240,7 +230,7 @@ fn compile_msa_int1() {
 
 #[test]
 fn compile_msa_int2() {
-    let tree = tree();
+    let tree = test_tree();
     let unaligned_seqs = unaligned_seqs();
     let (node_map, _) = maps();
     let msa = AlignmentBuilder::new(&tree, unaligned_seqs)
@@ -258,7 +248,7 @@ fn compile_msa_int2() {
 
 #[test]
 fn compile_msa_leaf() {
-    let tree = tree();
+    let tree = test_tree();
     let unaligned_seqs = unaligned_seqs();
     let (node_map, _) = maps();
     let msa = AlignmentBuilder::new(&tree, unaligned_seqs.clone())
