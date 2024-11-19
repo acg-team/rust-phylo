@@ -104,7 +104,7 @@ fn k80_sim_data_vs_phyml_wrong_start() {
 
     let phyml_info = PIB::with_attrs(
         fldr.join("K80/K80.fasta"),
-        fldr.join("k80/phyml_tree.newick"),
+        fldr.join("K80/phyml_tree.newick"),
     )
     .build()
     .unwrap();
