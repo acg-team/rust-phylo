@@ -14,29 +14,22 @@ use crate::evolutionary_models::{
     EvoModel,
     ProteinModelType::{self, *},
 };
-use crate::frequencies;
 use crate::likelihood::PhyloCostFunction;
-use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder};
+use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::pip_model::{PIPDNAModel, PIPModel, PIPModelInfo, PIPParameter, PIPProteinModel};
 use crate::substitution_models::{
     blosum_freqs, hivb_freqs, wag_freqs, DNASubstModel, FreqVector, ProteinSubstModel, SubstMatrix,
     SubstitutionModel,
 };
-use crate::tree::{tree_parser, Tree};
+use crate::tree::tree_parser::from_newick;
+
+use crate::{frequencies, record_wo_desc as record, tree};
 
 const UNNORMALIZED_PIP_HKY_Q: [f64; 25] = [
     -0.9, 0.11, 0.22, 0.22, 0.0, 0.13, -0.88, 0.26, 0.26, 0.0, 0.33, 0.33, -0.825, 0.165, 0.0,
     0.19, 0.19, 0.095, -0.895, 0.0, 0.25, 0.25, 0.25, 0.25, -0.0,
 ];
 const PIP_HKY_PARAMS: [f64; 7] = [0.5, 0.25, 0.22, 0.26, 0.33, 0.19, 0.5];
-
-#[cfg(test)]
-fn tree_newick(newick: &str) -> Tree {
-    tree_parser::from_newick_string(newick)
-        .unwrap()
-        .pop()
-        .unwrap()
-}
 
 #[cfg(test)]
 fn compare_pip_subst_rates<SM: SubstitutionModel + Clone>(
@@ -261,13 +254,12 @@ fn pip_p_example_matrix() {
 #[cfg(test)]
 fn setup_example_phylo_info() -> PhyloInfo {
     let sequences = Sequences::new(vec![
-        Record::with_attrs("A", None, b"-A--"),
-        Record::with_attrs("B", None, b"CA--"),
-        Record::with_attrs("C", None, b"-A-G"),
-        Record::with_attrs("D", None, b"-CAA"),
+        record!("A", b"-A--"),
+        record!("B", b"CA--"),
+        record!("C", b"-A-G"),
+        record!("D", b"-CAA"),
     ]);
-    PhyloInfoBuilder::build_from_objects(sequences, tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"))
-        .unwrap()
+    PIB::build_from_objects(sequences, tree!("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;")).unwrap()
 }
 
 #[test]
@@ -533,13 +525,12 @@ fn pip_hky_likelihood_example_final() {
 #[cfg(test)]
 fn setup_example_phylo_info_2() -> PhyloInfo {
     let sequences = Sequences::new(vec![
-        Record::with_attrs("A", None, b"--A--"),
-        Record::with_attrs("B", None, b"-CA--"),
-        Record::with_attrs("C", None, b"--A-G"),
-        Record::with_attrs("D", None, b"T-CAA"),
+        record!("A", b"--A--"),
+        record!("B", b"-CA--"),
+        record!("C", b"--A-G"),
+        record!("D", b"T-CAA"),
     ]);
-    PhyloInfoBuilder::build_from_objects(sequences, tree_newick("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;"))
-        .unwrap()
+    PIB::build_from_objects(sequences, tree!("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;")).unwrap()
 }
 
 #[test]
@@ -552,7 +543,7 @@ fn pip_hky_likelihood_example_2() {
 
 #[test]
 fn pip_likelihood_huelsenbeck_example() {
-    let info = PhyloInfoBuilder::with_attrs(
+    let info = PIB::with_attrs(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
     )
@@ -585,7 +576,7 @@ fn pip_likelihood_huelsenbeck_example() {
 
 #[test]
 fn pip_likelihood_huelsenbeck_example_model_comp() {
-    let info = PhyloInfoBuilder::with_attrs(
+    let info = PIB::with_attrs(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
     )
@@ -598,7 +589,7 @@ fn pip_likelihood_huelsenbeck_example_model_comp() {
 
 #[test]
 fn pip_likelihood_huelsenbeck_example_reroot() {
-    let phylo = PhyloInfoBuilder::with_attrs(
+    let phylo = PIB::with_attrs(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example.newick"),
     )
@@ -611,7 +602,7 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
         ],
     )
     .unwrap();
-    let phylo_rerooted = PhyloInfoBuilder::with_attrs(
+    let phylo_rerooted = PIB::with_attrs(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example_reroot.newick"),
     )
@@ -632,9 +623,9 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
 
 #[test]
 fn pip_likelihood_protein_example() {
-    let info = PhyloInfoBuilder::with_attrs(
+    let info = PIB::with_attrs(
         PathBuf::from("./data/phyml_protein_example/seqs.fasta"),
-        PathBuf::from("./data/phyml_protein_example/tree.newick"),
+        PathBuf::from("./data/phyml_protein_example/true_tree.newick"),
     )
     .build()
     .unwrap();

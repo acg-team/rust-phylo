@@ -15,6 +15,7 @@ pub static AMINOACIDS: &[u8] = b"ARNDCQEGHILKMFPSTWYV";
 pub static AMB_AMINOACIDS: &[u8] = b"BJZX";
 pub static NUCLEOTIDES: &[u8] = b"TCAG";
 pub static AMB_NUCLEOTIDES: &[u8] = b"RYSWKMBDHVNZX";
+pub static AMB_CHAR: u8 = b'X';
 pub static GAP: u8 = b'-';
 
 #[derive(Debug, PartialEq, Clone)]
@@ -42,16 +43,24 @@ impl Alphabet {
         self.ambiguous
     }
 
+    pub fn model_type(&self) -> ModelType {
+        self.model_type
+    }
+
     pub fn char_encoding(&self, char: u8) -> FreqVector {
         self.char_sets[char.to_ascii_uppercase() as usize].clone()
     }
 
     pub fn empty_freqs(&self) -> FreqVector {
-        FreqVector::zeros(self.char_sets[b'X' as usize].nrows())
+        FreqVector::zeros(self.char_sets[AMB_CHAR as usize].nrows())
     }
 
     pub fn index(&self, char: &u8) -> usize {
         self.index[*char as usize]
+    }
+
+    pub fn gap_encoding(&self) -> &FreqVector {
+        &self.char_sets[AMB_CHAR as usize]
     }
 }
 
@@ -65,7 +74,7 @@ pub fn detect_alphabet(sequences: &[Record]) -> Alphabet {
     dna_alphabet
 }
 
-fn dna_alphabet() -> Alphabet {
+pub(crate) fn dna_alphabet() -> Alphabet {
     Alphabet {
         model_type: DNA(DNAModelType::UNDEF),
         symbols: NUCLEOTIDES,
@@ -76,7 +85,7 @@ fn dna_alphabet() -> Alphabet {
     }
 }
 
-fn protein_alphabet() -> Alphabet {
+pub(crate) fn protein_alphabet() -> Alphabet {
     Alphabet {
         model_type: Protein(ProteinModelType::UNDEF),
         symbols: AMINOACIDS,
@@ -121,25 +130,17 @@ fn generic_nucleotide_sets(char: u8) -> FreqVector {
         b'C' => frequencies!(&[0.0, 1.0, 0.0, 0.0]),
         b'A' => frequencies!(&[0.0, 0.0, 1.0, 0.0]),
         b'G' => frequencies!(&[0.0, 0.0, 0.0, 1.0]),
-        b'M' => frequencies!(&[0.0, 1.0 / 2.0, 1.0 / 2.0, 0.0]),
-        b'R' => frequencies!(&[0.0, 0.0, 1.0 / 2.0, 1.0 / 2.0]),
-        b'W' => frequencies!(&[1.0 / 2.0, 0.0, 1.0 / 2.0, 0.0]),
-        b'S' => frequencies!(&[0.0, 1.0 / 2.0, 0.0, 1.0 / 2.0]),
-        b'Y' => frequencies!(&[1.0 / 2.0, 1.0 / 2.0, 0.0, 0.0]),
-        b'K' => frequencies!(&[1.0 / 2.0, 0.0, 0.0, 1.0 / 2.0]),
-        b'V' => {
-            frequencies!(&[0.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0])
-        }
-        b'D' => {
-            frequencies!(&[1.0 / 3.0, 0.0, 1.0 / 3.0, 1.0 / 3.0])
-        }
-        b'B' => {
-            frequencies!(&[1.0 / 3.0, 1.0 / 3.0, 0.0, 1.0 / 3.0])
-        }
-        b'H' => {
-            frequencies!(&[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 0.0])
-        }
-        _ => frequencies!(&[1.0 / 4.0; 4]),
+        b'M' => frequencies!(&[0.0, 1.0, 1.0, 0.0]),
+        b'R' => frequencies!(&[0.0, 0.0, 1.0, 1.0]),
+        b'W' => frequencies!(&[1.0, 0.0, 1.0, 0.0]),
+        b'S' => frequencies!(&[0.0, 1.0, 0.0, 1.0]),
+        b'Y' => frequencies!(&[1.0, 1.0, 0.0, 0.0]),
+        b'K' => frequencies!(&[1.0, 0.0, 0.0, 1.0]),
+        b'V' => frequencies!(&[0.0, 1.0, 1.0, 1.0]),
+        b'D' => frequencies!(&[1.0, 0.0, 1.0, 1.0]),
+        b'B' => frequencies!(&[1.0, 1.0, 0.0, 1.0]),
+        b'H' => frequencies!(&[1.0, 1.0, 1.0, 0.0]),
+        _ => frequencies!(&[1.0; 4]),
     }
 }
 
@@ -181,24 +182,24 @@ fn generic_aminoacid_sets(char: u8) -> FreqVector {
     match char {
         b'B' => {
             let mut set = frequencies!(&[0.0; 20]);
-            set.fill_row(index[b'D' as usize], 0.5);
-            set.fill_row(index[b'N' as usize], 0.5);
+            set.fill_row(index[b'D' as usize], 1.0);
+            set.fill_row(index[b'N' as usize], 1.0);
             set
         }
         b'Z' => {
             let mut set = frequencies!(&[0.0; 20]);
-            set.fill_row(index[b'E' as usize], 0.5);
-            set.fill_row(index[b'Q' as usize], 0.5);
+            set.fill_row(index[b'E' as usize], 1.0);
+            set.fill_row(index[b'Q' as usize], 1.0);
             set
         }
         b'J' => {
             let mut set = frequencies!(&[0.0; 20]);
-            set.fill_row(index[b'I' as usize], 0.5);
-            set.fill_row(index[b'L' as usize], 0.5);
+            set.fill_row(index[b'I' as usize], 1.0);
+            set.fill_row(index[b'L' as usize], 1.0);
             set
         }
         _ => {
-            frequencies!(&[1.0 / 20.0; 20])
+            frequencies!(&[1.0; 20])
         }
     }
 }

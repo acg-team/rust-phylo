@@ -1,24 +1,23 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use approx::assert_relative_eq;
 
 use crate::evolutionary_models::{DNAModelType, EvoModel};
 use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::{BranchOptimiser, PhyloOptimiser};
-use crate::phylo_info::PhyloInfoBuilder;
+use crate::phylo_info::PhyloInfoBuilder as PIB;
 use crate::pip_model::PIPDNAModel;
 use crate::substitution_models::DNASubstModel;
-use crate::tree::tree_parser::from_newick_string;
-use crate::tree::NodeIdx::Internal as Int;
+use crate::tree::{tree_parser::from_newick, NodeIdx::Internal as Int};
+
+use crate::tree;
 
 #[test]
 fn likelihood_increase_pip() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/GTR/gtr.fasta"),
-        PathBuf::from("./data/sim/tree.newick"),
-    )
-    .build()
-    .unwrap();
+    let fldr = Path::new("./data/sim/");
+    let info = PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
     let model = PIPDNAModel::new(
         DNAModelType::GTR,
         &[
@@ -41,12 +40,10 @@ fn likelihood_increase_pip() {
 
 #[test]
 fn branch_optimiser_likelihood_increase() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/GTR/gtr.fasta"),
-        PathBuf::from("./data/sim/tree.newick"),
-    )
-    .build()
-    .unwrap();
+    let fldr = Path::new("./data/sim/");
+    let info = PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
     let model = DNASubstModel::new(
         DNAModelType::GTR,
         &[0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
@@ -64,18 +61,16 @@ fn branch_optimiser_likelihood_increase() {
 
 #[test]
 fn branch_optimiser_against_phyml() {
-    let info = PhyloInfoBuilder::with_attrs(
-        PathBuf::from("./data/sim/GTR/gtr.fasta"),
-        PathBuf::from("./data/sim/tree.newick"),
-    )
-    .build()
-    .unwrap();
+    let fldr = Path::new("./data/sim/");
+    let info = PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
     let model = DNASubstModel::new(DNAModelType::JC69, &[]).unwrap();
     let o = BranchOptimiser::new(&model, &info).run().unwrap();
     assert!(o.final_logl > o.initial_logl);
     assert_ne!(o.i.tree.height, info.tree.height);
     assert_relative_eq!(o.final_logl, -4086.56102, epsilon = 1e-4);
-    let phyml_tree = from_newick_string("((Gorilla:0.06683711,(Orangutan:0.21859880,Gibbon:0.31145586):0.06570906):0.03853171,Human:0.05356244,Chimpanzee:0.05417982);").unwrap().pop().unwrap();
+    let phyml_tree = tree!("((Gorilla:0.06683711,(Orangutan:0.21859880,Gibbon:0.31145586):0.06570906):0.03853171,Human:0.05356244,Chimpanzee:0.05417982);");
     for node in o.i.tree.leaves() {
         let phyml_node = phyml_tree.node(&phyml_tree.idx(&node.id));
         assert_relative_eq!(node.blen, phyml_node.blen, epsilon = 1e-4);

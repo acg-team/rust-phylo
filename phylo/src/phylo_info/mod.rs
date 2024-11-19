@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use anyhow::bail;
 use bio::io::fasta::Record;
 use nalgebra::DMatrix;
@@ -23,20 +21,13 @@ pub use phyloinfo_builder::*;
 /// * Add support for unaligned sequences.
 #[derive(Debug, Clone)]
 pub struct PhyloInfo {
-    /// Multiple sequence alignment of the sequences
+    /// Multiple sequence alignment
     pub msa: Alignment,
-    /// Phylogenetic tree.
+    /// Phylogenetic tree
     pub tree: Tree,
-    /// Leaf sequence encodings.
-    pub leaf_encoding: HashMap<String, DMatrix<f64>>,
 }
 
 impl PhyloInfo {
-    /// Returns the number of sites in the alignment.
-    pub fn msa_length(&self) -> usize {
-        self.msa.msa_len()
-    }
-
     /// Compiles a represenataion of the alignment in a vector of fasta records.
     /// The alignment is compiled from the subtree rooted at `subroot`.
     /// If `subroot` is None, the whole alignment is compiled.
@@ -46,8 +37,9 @@ impl PhyloInfo {
     }
 
     /// Returns the encoding of a leaf sequence by its id.
+    /// TODO: should not be in a DMatrix, better to have a Vec<FreqVector>.
     pub fn leaf_encoding_by_id(&self, id: &str) -> Result<&DMatrix<f64>> {
-        let encoding = self.leaf_encoding.get(id);
+        let encoding = self.msa.leaf_encoding.get(id);
         if encoding.is_none() {
             bail!("No encoding found for leaf with id {}", id);
         }
@@ -90,7 +82,9 @@ impl PhyloInfo {
                 .iter()
                 .map(|rec| rec.seq().iter().filter(|&c| c == &char).count())
                 .sum::<usize>() as f64;
-            freqs += alphabet.char_encoding(char).scale(count);
+            let mut char_freq = alphabet.char_encoding(char);
+            char_freq.scale_mut(1.0 / char_freq.sum());
+            freqs += char_freq.scale(count);
         }
         for char in alphabet.symbols().iter() {
             let idx = alphabet.index(char);
@@ -100,27 +94,6 @@ impl PhyloInfo {
         }
         freqs.scale_mut(1.0 / freqs.sum());
         freqs
-    }
-
-    /// Creates a the character encoding for each given ungapped sequence.
-    /// Used for the likelihood calculation to avoid having to get the character encoding
-    /// from scratch every time the likelihood is optimised.
-    fn generate_leaf_encoding(&mut self) {
-        let alphabet = self.msa.alphabet();
-        let mut leaf_encoding = HashMap::with_capacity(self.msa.len());
-        for seq in self.msa.seqs.iter() {
-            leaf_encoding.insert(
-                seq.id().to_string(),
-                DMatrix::from_columns(
-                    seq.seq()
-                        .iter()
-                        .map(|&c| alphabet.char_encoding(c))
-                        .collect::<Vec<_>>()
-                        .as_slice(),
-                ),
-            );
-        }
-        self.leaf_encoding = leaf_encoding;
     }
 }
 

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bio::io::fasta::Record;
+use nalgebra::DMatrix;
 
 use crate::alphabets::Alphabet;
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
@@ -10,24 +11,6 @@ pub mod sequences;
 pub use sequences::*;
 pub mod alignment_builder;
 pub use alignment_builder::*;
-
-#[macro_export]
-macro_rules! align {
-    ($e:expr) => {{
-        use $crate::alphabets::GAP;
-        let mut i = 0;
-        $e.iter()
-            .map(|&byte| {
-                if byte == GAP {
-                    None
-                } else {
-                    i += 1;
-                    Some(i - 1)
-                }
-            })
-            .collect::<Vec<_>>()
-    }};
-}
 
 pub type Position = Option<usize>;
 pub type Mapping = Vec<Option<usize>>;
@@ -52,6 +35,8 @@ pub struct Alignment {
     pub(crate) seqs: Sequences,
     leaf_map: LeafMapping,
     node_map: InternalMapping,
+    /// Leaf sequence encodings.
+    pub(crate) leaf_encoding: HashMap<String, DMatrix<f64>>,
 }
 
 impl Alignment {
@@ -59,15 +44,28 @@ impl Alignment {
         &self.seqs.alphabet
     }
 
+    /// Returns the length of the MSA, i.e. the number of sites/columns.
+    ///
+    /// # Example
+    /// ```
+    /// use bio::io::fasta::Record;
+    /// use phylo::tree::tree_parser::from_newick;
+    /// use phylo::alignment::AlignmentBuilder;
+    /// use phylo::alignment::sequences::Sequences;
+    /// let tree = from_newick("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);")
+    ///     .unwrap()
+    ///     .pop()
+    ///     .unwrap();
+    /// let seqs = Sequences::new(vec![
+    ///     Record::with_attrs("A0", Some("A0 sequence"), b"AAAA"),
+    ///     Record::with_attrs("B1", Some("B1 sequence"), b"---A"),
+    ///     Record::with_attrs("C2", Some("C2 sequence"), b"AA--"),
+    /// ]);
+    /// let msa = AlignmentBuilder::new(&tree, seqs).build().unwrap();
+    /// assert_eq!(msa.len(), 4);
+    /// ```
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
-        self.leaf_map.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.leaf_map.is_empty()
-    }
-
-    pub fn msa_len(&self) -> usize {
         self.leaf_map
             .values()
             .next()
@@ -75,7 +73,31 @@ impl Alignment {
             .unwrap_or(0)
     }
 
-    pub fn leaf_map(&self, node: &NodeIdx) -> &Mapping {
+    /// Returns the number of sequences in the MSA, i.e. the number of rows.
+    ///
+    /// # Example
+    /// ```
+    /// use bio::io::fasta::Record;
+    /// use phylo::tree::tree_parser::from_newick;
+    /// use phylo::alignment::AlignmentBuilder;
+    /// use phylo::alignment::sequences::Sequences;
+    /// let tree = from_newick("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);")
+    ///     .unwrap()
+    ///     .pop()
+    ///     .unwrap();
+    /// let seqs = Sequences::new(vec![
+    ///     Record::with_attrs("A0", Some("A0 sequence"), b"AAAA"),
+    ///     Record::with_attrs("B1", Some("B1 sequence"), b"---A"),
+    ///     Record::with_attrs("C2", Some("C2 sequence"), b"AA--"),
+    /// ]);
+    /// let msa = AlignmentBuilder::new(&tree, seqs).build().unwrap();
+    /// assert_eq!(msa.seq_count(), 3);
+    /// ```
+    pub fn seq_count(&self) -> usize {
+        self.leaf_map.len()
+    }
+
+    pub(crate) fn leaf_map(&self, node: &NodeIdx) -> &Mapping {
         self.leaf_map.get(node).unwrap()
     }
 

@@ -221,11 +221,11 @@ where
     pub fn new(info: &PhyloInfo, _model: &PIPModel<SM>) -> Self {
         let n = PIPModel::<SM>::N;
         let node_count = info.tree.len();
-        let msa_length = info.msa_length();
+        let msa_length = info.msa.len();
         let mut leaf_seq_info: HashMap<String, DMatrix<f64>> = HashMap::new();
         for node in info.tree.leaves() {
             let alignment_map = info.msa.leaf_map(&node.idx);
-            let leaf_encoding = info.leaf_encoding.get(&node.id).unwrap();
+            let leaf_encoding = info.msa.leaf_encoding.get(&node.id).unwrap();
             let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(n, msa_length);
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
@@ -279,6 +279,7 @@ where
     SM::ModelType: Clone,
     PIPModel<SM>: EvoModel,
 {
+    // TODO: add check that the model type matches the data
     fn cost(&self, info: &PhyloInfo, reset: bool) -> f64 {
         if reset {
             self.reset();
@@ -319,7 +320,7 @@ where
 
         let root_idx = usize::from(&info.tree.root);
 
-        let msa_length = info.msa_length();
+        let msa_length = info.msa.len();
         let nu = self.params.lambda * (info.tree.height + 1.0 / self.params.mu);
         let ln_phi = nu.ln() * msa_length as f64 + (tmp.c0_p[root_idx] - 1.0) * nu
             - (log_factorial(msa_length));

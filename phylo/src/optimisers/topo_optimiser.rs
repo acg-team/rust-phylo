@@ -41,6 +41,10 @@ impl<'a, EM: PhyloCostFunction + Clone> PhyloOptimiser<'a, EM> for TopologyOptim
             .filter(|&n| n != &info.tree.root)
             .cloned()
             .collect();
+
+        // The best move on this iteration might still be worse than the current tree, in which case
+        // the search stops.
+        // This means that curr_cost is always hugher than or equel to prev_cost.
         while (curr_cost - prev_cost) > self.epsilon {
             iterations += 1;
             info!("Iteration: {}.", iterations);
@@ -52,10 +56,10 @@ impl<'a, EM: PhyloCostFunction + Clone> PhyloOptimiser<'a, EM> for TopologyOptim
                     continue;
                 }
                 let regraft_locations = Self::find_regraft_options(prune_branch, &info);
-                let mut moves: Vec<(f64, Tree)> = Vec::with_capacity(regraft_locations.len());
+                let mut moves = Vec::<(f64, Tree)>::with_capacity(regraft_locations.len());
                 for regraft_branch in &regraft_locations {
                     let mut new_info = info.clone();
-                    new_info.tree = info.tree.rooted_spr(prune_branch, regraft_branch).unwrap();
+                    new_info.tree = info.tree.rooted_spr(prune_branch, regraft_branch)?;
                     let mut logl = self.model.cost(&new_info, false);
                     if logl <= curr_cost {
                         // reoptimise branch length at the regraft location
@@ -114,7 +118,7 @@ impl<EM: PhyloCostFunction> TopologyOptimiser<'_, EM> {
         all_locations
             .iter()
             .filter(|&n| {
-                !prune_subtrees.contains(n) && n != sibling && n != parent && n != &info.tree.root
+                n != sibling && n != parent && n != &info.tree.root && !prune_subtrees.contains(n)
             })
             .cloned()
             .collect()

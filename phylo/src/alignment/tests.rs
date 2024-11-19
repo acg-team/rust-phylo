@@ -5,11 +5,14 @@ use rand::thread_rng;
 use crate::alignment::{
     sequences::Sequences, AlignmentBuilder, InternalMapping, LeafMapping, PairwiseAlignment as PA,
 };
-use crate::tree::tree_parser;
+use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, NUCLEOTIDES};
+use crate::evolutionary_models::ModelType::{Protein, DNA};
 use crate::tree::{
+    tree_parser::from_newick,
     NodeIdx::{Internal as I, Leaf as L},
     Tree,
 };
+use crate::{align, record, tree};
 
 fn assert_alignment_eq(msa: &[Record], msa2: &[Record]) {
     for rec in msa2.iter() {
@@ -22,11 +25,11 @@ fn assert_alignment_eq(msa: &[Record], msa2: &[Record]) {
 fn aligned_seqs(ids: &[&str]) -> Sequences {
     Sequences::new(
         [
-            Record::with_attrs("A0", Some("A0 sequence w 5 nucls"), b"AAAAA"),
-            Record::with_attrs("B1", Some("B1 sequence w 1 nucl "), b"---A-"),
-            Record::with_attrs("C2", Some("C2 sequence w 2 nucls"), b"AA---"),
-            Record::with_attrs("D3", Some("D3 sequence w 1 nucl "), b"---A-"),
-            Record::with_attrs("E4", Some("E4 sequence w 3 nucls"), b"-A-AA"),
+            record!("A0", Some("A0 sequence w 5 nucls"), b"AAAAA"),
+            record!("B1", Some("B1 sequence w 1 nucl "), b"---A-"),
+            record!("C2", Some("C2 sequence w 2 nucls"), b"AA---"),
+            record!("D3", Some("D3 sequence w 1 nucl "), b"---A-"),
+            record!("E4", Some("E4 sequence w 3 nucls"), b"-A-AA"),
         ]
         .into_iter()
         .filter(|rec| ids.contains(&rec.id()))
@@ -35,13 +38,8 @@ fn aligned_seqs(ids: &[&str]) -> Sequences {
 }
 
 #[cfg(test)]
-fn tree() -> Tree {
-    tree_parser::from_newick_string(
-        "((A0:1.0, B1:1.0) I5:1.0,(C2:1.0,(D3:1.0, E4:1.0) I6:1.0) I7:1.0) I8:1.0;",
-    )
-    .unwrap()
-    .pop()
-    .unwrap()
+fn test_tree() -> Tree {
+    tree!("((A0:1.0, B1:1.0) I5:1.0,(C2:1.0,(D3:1.0, E4:1.0) I6:1.0) I7:1.0) I8:1.0;")
 }
 
 #[cfg(test)]
@@ -50,14 +48,14 @@ fn unaligned_seqs() -> Sequences {
         .s
         .into_iter()
         .map(|rec| {
-            Record::with_attrs(
+            record!(
                 rec.id(),
                 rec.desc(),
                 &rec.seq()
                     .iter()
                     .filter(|&c| c != &b'-')
                     .copied()
-                    .collect::<Vec<u8>>(),
+                    .collect::<Vec<u8>>()
             )
         })
         .choose_multiple(&mut thread_rng(), 5);
@@ -87,16 +85,15 @@ fn maps() -> (InternalMapping, LeafMapping) {
 #[test]
 fn sequences_from_aligned() {
     let seqs = vec![
-        Record::with_attrs("A0", Some("A0 sequence"), b"AAAAAA"),
-        Record::with_attrs("B1", Some("B1 sequence"), b"---A-A"),
-        Record::with_attrs("C2", Some("C2 sequence"), b"AA---A"),
-        Record::with_attrs("D3", Some("D3 sequence"), b"---A-A"),
-        Record::with_attrs("E4", Some("E4 sequence"), b"-A-AAA"),
+        record!("A0", Some("A0 sequence"), b"AAAAAA"),
+        record!("B1", Some("B1 sequence"), b"---A-A"),
+        record!("C2", Some("C2 sequence"), b"AA---A"),
+        record!("D3", Some("D3 sequence"), b"---A-A"),
+        record!("E4", Some("E4 sequence"), b"-A-AAA"),
     ];
     let sequences = Sequences::new(seqs.clone());
     assert_eq!(sequences.len(), 5);
     assert!(!sequences.is_empty());
-    assert_eq!(sequences.msa_len(), 6);
     assert!(sequences.aligned);
     for (i, rec) in seqs.iter().enumerate() {
         assert_eq!(sequences.record(i), rec);
@@ -106,16 +103,15 @@ fn sequences_from_aligned() {
 #[test]
 fn sequences_from_unaligned() {
     let seqs = vec![
-        Record::with_attrs("A0", Some("A0 sequence"), b"AAAAAA"),
-        Record::with_attrs("B1", Some("B1 sequence"), b"AA"),
-        Record::with_attrs("C2", Some("C2 sequence"), b"AAA"),
-        Record::with_attrs("D3", Some("D3 sequence"), b"AA"),
-        Record::with_attrs("E4", Some("E4 sequence"), b"AAAA"),
+        record!("A0", Some("A0 sequence"), b"AAAAAA"),
+        record!("B1", Some("B1 sequence"), b"AA"),
+        record!("C2", Some("C2 sequence"), b"AAA"),
+        record!("D3", Some("D3 sequence"), b"AA"),
+        record!("E4", Some("E4 sequence"), b"AAAA"),
     ];
     let sequences = Sequences::new(seqs.clone());
     assert_eq!(sequences.len(), 5);
     assert!(!sequences.is_empty());
-    assert_eq!(sequences.msa_len(), 0);
     assert!(!sequences.aligned);
     for (i, rec) in seqs.iter().enumerate() {
         assert_eq!(sequences.record(i), rec);
@@ -127,13 +123,33 @@ fn sequences_from_empty() {
     let sequences = Sequences::new(vec![]);
     assert_eq!(sequences.len(), 0);
     assert!(sequences.is_empty());
-    assert_eq!(sequences.msa_len(), 0);
     assert!(sequences.aligned);
 }
 
 #[test]
+fn sequences_with_alphabet() {
+    let records = vec![
+        record!("A0", Some("A0 sequence"), b"AAAAAA"),
+        record!("B1", Some("B1 sequence"), b"---A-A"),
+        record!("C2", Some("C2 sequence"), b"AA---A"),
+        record!("D3", Some("D3 sequence"), b"---A-A"),
+        record!("E4", Some("E4 sequence"), b"-A-AAA"),
+    ];
+
+    let dna_seqs = Sequences::with_alphabet(records.clone(), dna_alphabet());
+    assert_eq!(dna_seqs.alphabet().symbols(), NUCLEOTIDES);
+    assert_eq!(*dna_seqs.alphabet(), dna_alphabet());
+    assert!(matches!(dna_seqs.alphabet().model_type(), DNA(_)));
+
+    let protein_seqs = Sequences::with_alphabet(records.clone(), protein_alphabet());
+    assert_eq!(protein_seqs.alphabet().symbols(), AMINOACIDS);
+    assert_eq!(*protein_seqs.alphabet(), protein_alphabet());
+    assert!(matches!(protein_seqs.alphabet().model_type(), Protein(_)));
+}
+
+#[test]
 fn build_from_map() {
-    let tree = tree();
+    let tree = test_tree();
     let unaligned_seqs = unaligned_seqs();
     let (node_map, leaf_map) = maps();
     let msa = AlignmentBuilder::new(&tree, unaligned_seqs.clone())
@@ -143,11 +159,12 @@ fn build_from_map() {
     assert_eq!(msa.node_map, node_map);
     assert_eq!(msa.leaf_map, leaf_map);
     assert_eq!(msa.seqs, unaligned_seqs);
+    assert_eq!(msa.len(), 5);
 }
 
 #[test]
 fn build_from_aligned_sequences() {
-    let tree = tree();
+    let tree = test_tree();
     let unaligned_seqs = unaligned_seqs();
     let aligned_seqs = aligned_seqs(&["A0", "B1", "C2", "D3", "E4"]);
     let (node_map, leaf_map) = maps();
@@ -155,11 +172,12 @@ fn build_from_aligned_sequences() {
     assert_eq!(msa.node_map, node_map);
     assert_eq!(msa.leaf_map, leaf_map);
     assert_eq!(msa.seqs, unaligned_seqs);
+    assert_eq!(msa.len(), 5);
 }
 
 #[test]
 fn different_build_compare() {
-    let tree = tree();
+    let tree = test_tree();
     let unaligned_seqs = unaligned_seqs();
     let (node_map, _) = maps();
     let msa = AlignmentBuilder::new(&tree, unaligned_seqs)
@@ -183,7 +201,7 @@ fn different_build_compare() {
 
 #[test]
 fn compile_msa_root() {
-    let tree = tree();
+    let tree = test_tree();
     let aligned_seqs = aligned_seqs(
         &["A0", "B1", "C2", "D3", "E4"]
             .into_iter()
@@ -197,7 +215,7 @@ fn compile_msa_root() {
 
 #[test]
 fn compile_msa_int1() {
-    let tree = tree();
+    let tree = test_tree();
     let unaligned_seqs = unaligned_seqs();
     let (node_map, _) = maps();
     let msa = AlignmentBuilder::new(&tree, unaligned_seqs)
@@ -212,7 +230,7 @@ fn compile_msa_int1() {
 
 #[test]
 fn compile_msa_int2() {
-    let tree = tree();
+    let tree = test_tree();
     let unaligned_seqs = unaligned_seqs();
     let (node_map, _) = maps();
     let msa = AlignmentBuilder::new(&tree, unaligned_seqs)
@@ -222,15 +240,15 @@ fn compile_msa_int2() {
     let d3 = aligned_seqs(&["D3"]).s.pop().unwrap();
     let e4 = aligned_seqs(&["E4"]).s.pop().unwrap();
     let data = vec![
-        Record::with_attrs(d3.id(), d3.desc(), b"-A-"),
-        Record::with_attrs(e4.id(), e4.desc(), b"AAA"),
+        record!(d3.id(), d3.desc(), b"-A-"),
+        record!(e4.id(), e4.desc(), b"AAA"),
     ];
     assert_alignment_eq(&msa.compile(Some(&tree.idx("I6")), &tree).unwrap(), &data);
 }
 
 #[test]
 fn compile_msa_leaf() {
-    let tree = tree();
+    let tree = test_tree();
     let unaligned_seqs = unaligned_seqs();
     let (node_map, _) = maps();
     let msa = AlignmentBuilder::new(&tree, unaligned_seqs.clone())

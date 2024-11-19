@@ -27,10 +27,10 @@ impl fmt::Display for ParsingError {
     }
 }
 
-pub fn from_newick_string(newick_string: &str) -> Result<Vec<Tree>> {
+pub fn from_newick(newick: &str) -> Result<Vec<Tree>> {
     info!("Parsing newick trees.");
     let mut trees = Vec::new();
-    let newick_tree_res = NewickParser::parse(Rule::newick, newick_string);
+    let newick_tree_res = NewickParser::parse(Rule::newick, newick);
     if newick_tree_res.is_err() {
         bail!(ParsingError(Box::new(newick_tree_res.err().unwrap())));
     }

@@ -1,13 +1,14 @@
+use bio::io::fasta::Record;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-use bio::io::fasta;
 use rstest::*;
 use tempfile::tempdir;
 
 use crate::io::{read_sequences_from_file, write_newick_to_file, write_sequences_to_file};
-use crate::tree::tree_parser::from_newick_string;
+use crate::tree::tree_parser::from_newick;
+use crate::{record_wo_desc as record, tree};
 
 #[test]
 fn reading_correct_fasta() {
@@ -44,10 +45,7 @@ fn reading_nonexistent_fasta() {
 
 #[test]
 fn test_write_sequences_to_file() {
-    let sequences = vec![
-        fasta::Record::with_attrs("seq1", None, b"ATGC"),
-        fasta::Record::with_attrs("seq2", None, b"CGTA"),
-    ];
+    let sequences = vec![record!("seq1", b"ATGC"), record!("seq2", b"CGTA")];
     let temp_dir = tempdir().unwrap();
     let output_path = temp_dir.path().join("output.fasta");
     write_sequences_to_file(&sequences, &output_path).unwrap();
@@ -62,10 +60,7 @@ fn test_write_sequences_to_file() {
 
 #[test]
 fn test_write_sequences_to_file_bad_path() {
-    let sequences = vec![
-        fasta::Record::with_attrs("seq1", None, b"ATGC"),
-        fasta::Record::with_attrs("seq2", None, b"CGTA"),
-    ];
+    let sequences = vec![record!("seq1", b"ATGC"), record!("seq2", b"CGTA")];
     let temp_dir = tempdir().unwrap();
     let output_path = temp_dir
         .path()
@@ -76,10 +71,7 @@ fn test_write_sequences_to_file_bad_path() {
 
 #[test]
 fn test_write_sequences_to_existing_file() {
-    let sequences = vec![
-        fasta::Record::with_attrs("seq1", None, b"ATGC"),
-        fasta::Record::with_attrs("seq2", None, b"CGTA"),
-    ];
+    let sequences = vec![record!("seq1", b"ATGC"), record!("seq2", b"CGTA")];
     let temp_dir = tempdir().unwrap();
     let output_path = temp_dir.path().join("output.fasta");
     File::create(&output_path).unwrap();
@@ -89,11 +81,11 @@ fn test_write_sequences_to_existing_file() {
 #[test]
 fn test_write_newick_to_file() {
     let newick = "(((A:1.4,B:2.45):1,(D:1.2,E:2.1):1):0);";
-    let trees = from_newick_string(newick).unwrap();
+    let tree = tree!(newick);
     let temp_dir = tempdir().unwrap();
     let output_path = temp_dir.path().join("output.newick");
 
-    write_newick_to_file(&trees, output_path.clone()).unwrap();
+    write_newick_to_file(&[tree], output_path.clone()).unwrap();
 
     let mut file_content = String::new();
     std::fs::File::open(output_path)
@@ -108,9 +100,7 @@ fn test_write_multiple_newick_to_file() {
     let newick0 = "(((((A:1,B:1)F:1,C:2)G:1,D:3)H:1,E:4)I:1);";
     let newick1 = "(((A:1.5,B:2.3)E:5.1,(C:3.9,D:4.8)F:6.2)G:7.3);";
     let newick2 = "((A:1,(B:1,C:1)E:2)F:1);";
-    let mut trees = from_newick_string(newick0).unwrap();
-    trees.extend(from_newick_string(newick1).unwrap());
-    trees.extend(from_newick_string(newick2).unwrap());
+    let trees = vec![tree!(newick0), tree!(newick1), tree!(newick2)];
 
     let temp_dir = tempdir().unwrap();
     let output_path = temp_dir.path().join("output.newick");
@@ -130,22 +120,21 @@ fn test_write_multiple_newick_to_file() {
 
 #[test]
 fn test_write_newickto_file_bad_path() {
-    let newick = "(((A:1.4,B:2.45):1,(D:1.2,E:2.1):1):0);";
-    let trees = from_newick_string(newick).unwrap();
+    let tree = tree!("(((A:1.4,B:2.45):1,(D:1.2,E:2.1):1):0);");
+
     let temp_dir = tempdir().unwrap();
     let output_path = temp_dir
         .path()
         .join("nonexistent_folder")
         .join("output.newick");
-    assert!(write_newick_to_file(&trees, output_path).is_err());
+    assert!(write_newick_to_file(&[tree], output_path).is_err());
 }
 
 #[test]
 fn test_write_newick_to_existing_file() {
-    let newick = "(((A:1.4,B:2.45):1,(D:1.2,E:2.1):1):0);";
-    let trees = from_newick_string(newick).unwrap();
+    let tree = tree!("(((A:1.4,B:2.45):1,(D:1.2,E:2.1):1):0);");
     let temp_dir = tempdir().unwrap();
     let output_path = temp_dir.path().join("output.newick");
     File::create(&output_path).unwrap();
-    assert!(write_newick_to_file(&trees, output_path).is_err());
+    assert!(write_newick_to_file(&[tree], output_path).is_err());
 }

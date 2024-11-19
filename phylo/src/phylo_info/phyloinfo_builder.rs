@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 use anyhow::bail;
@@ -109,8 +109,8 @@ impl PhyloInfoBuilder {
     ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"))
     ///     .build()
     ///     .unwrap();
-    /// assert_eq!(info.msa.msa_len(), 8);
-    /// assert_eq!(info.msa.len(), 4);
+    /// assert_eq!(info.msa.len(), 8);
+    /// assert_eq!(info.msa.seq_count(), 4);
     /// assert_eq!(info.tree.leaves().len(), 4);
     /// assert_eq!(info.tree.len(), 7);
     /// ```
@@ -151,13 +151,10 @@ impl PhyloInfoBuilder {
         }
         Self::validate_tree_sequence_ids(&tree, &sequences)?;
         let msa = AlignmentBuilder::new(&tree, sequences).build()?;
-        let mut info = PhyloInfo {
+        Ok(PhyloInfo {
             tree: tree.clone(),
             msa,
-            leaf_encoding: HashMap::new(),
-        };
-        info.generate_leaf_encoding();
-        Ok(info)
+        })
     }
 
     /// Checks that the ids of the tree leaves and the sequences match, bails with an error otherwise.

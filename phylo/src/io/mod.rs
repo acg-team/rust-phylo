@@ -142,7 +142,7 @@ pub fn read_newick_from_file(path: &PathBuf) -> Result<Vec<Tree>> {
     info!("Reading newick trees from file {}.", path.display());
     let newick = fs::read_to_string(path)?;
     info!("Read file successfully.");
-    tree_parser::from_newick_string(&newick)
+    tree_parser::from_newick(&newick)
 }
 
 /// Writes newick trees to the given file path. Will return an error if the file already exists.
@@ -158,12 +158,12 @@ pub fn read_newick_from_file(path: &PathBuf) -> Result<Vec<Tree>> {
 ///
 /// use std::path::PathBuf;
 ///
-/// use phylo::tree::tree_parser::from_newick_string;
+/// use phylo::tree::tree_parser::from_newick;
 /// use phylo::tree::Tree;
 /// use phylo::io::write_newick_to_file;
 ///
 /// let output_path = PathBuf::from("./data/doctest_tmp_output.newick");
-/// let trees = from_newick_string("((A:1.0,B:2.0):1,(D:1.0,E:2.0):1):0.0;").unwrap();
+/// let trees = from_newick("((A:1.0,B:2.0):1,(D:1.0,E:2.0):1):0.0;").unwrap();
 /// write_newick_to_file(&trees, output_path.clone()).unwrap();
 /// # let mut file_content = String::new();
 /// # File::open(output_path.clone()).unwrap().read_to_string(&mut file_content).unwrap();
