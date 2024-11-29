@@ -151,7 +151,6 @@ where
 {
     type Parameter = <SubstModel<Params> as SubstitutionModel>::Parameter;
     type ModelType = <SubstModel<Params> as SubstitutionModel>::ModelType;
-    const N: usize = <SubstModel<Params> as SubstitutionModel>::N;
 
     fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
     where

@@ -45,7 +45,6 @@ where
 {
     type Parameter = PIPParameter;
     type ModelType = SM::ModelType;
-    const N: usize = SM::N + 1;
 
     fn new(model: SM::ModelType, params: &[f64]) -> Result<Self>
     where
@@ -219,7 +218,7 @@ where
     }
 
     pub fn new(info: &PhyloInfo, _model: &PIPModel<SM>) -> Self {
-        let n = PIPModel::<SM>::N;
+        let n = SM::N + 1;
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
         let mut leaf_seq_info: HashMap<String, DMatrix<f64>> = HashMap::new();
@@ -397,7 +396,7 @@ where
                 .tr_mul(self.freqs())
                 .component_mul(&tmp.anc[idx].column(0));
             tmp.p[idx] = tmp.f[idx].clone() * tmp.surv_probs[idx] * tmp.ins_probs[idx];
-            tmp.c0_ftilde[idx][PIPModel::<SM>::N - 1] = 1.0;
+            tmp.c0_ftilde[idx][SM::N] = 1.0;
             tmp.c0_f[idx] = 0.0;
             tmp.c0_p[idx] = (1.0 - tmp.surv_probs[idx]) * tmp.ins_probs[idx];
 

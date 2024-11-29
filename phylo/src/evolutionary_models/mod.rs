@@ -92,11 +92,9 @@ impl From<&str> for ProteinModelType {
     }
 }
 
-// TODO: change pi to a row vector
 pub trait EvoModel {
     type Parameter;
     type ModelType;
-    const N: usize;
 
     fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
     where

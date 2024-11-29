@@ -6,7 +6,7 @@ pub(crate) type ProteinExchLowerTriangle = [f64; 190];
 pub(crate) type ProteinFrequencies = [f64; 20];
 
 pub(crate) fn make_q(exch: &SubstMatrix, freqs: &FreqVector) -> SubstMatrix {
-    let mut q = exch * SubstMatrix::from_diagonal(freqs);
+    let mut q = exch * SubstMatrix::from_partial_diagonal(20, 20, freqs.as_slice());
     for i in 0..20 {
         q[(i, i)] = -q.row(i).sum();
     }
