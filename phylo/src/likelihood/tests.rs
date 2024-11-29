@@ -431,6 +431,7 @@ fn likelihood_correct_after_reset(
     assert_relative_eq!(c2, model.cost(&info2, true), epsilon = 1e-5);
 }
 
+#[rstest]
 #[case::jc69(JC69, &[])]
 #[case::k80(K80, &[])]
 #[case::hky(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5])]
@@ -447,7 +448,7 @@ fn only_one_site_one_char(#[case] mtype: DNAModelType, #[case] params: &[f64]) {
     let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
     let info = PIB::build_from_objects(sequences, tree).unwrap();
     let model = DNASubstModel::new(mtype, params).unwrap();
-    let logl = SCB::new(model, info).build().cost();
+    let logl = model.cost(&info, false);
     assert_ne!(logl, f64::NEG_INFINITY);
     assert!(logl < 0.0);
 }
