@@ -80,7 +80,7 @@ impl Display for Tree {
 }
 
 impl Tree {
-    pub fn new(sequences: &Sequences) -> Result<Self> {
+    pub(crate) fn new(sequences: &Sequences) -> Result<Self> {
         let n = sequences.len();
         if n == 0 {
             bail!("No sequences provided, aborting.");
