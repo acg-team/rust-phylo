@@ -431,8 +431,12 @@ fn likelihood_correct_after_reset(
     assert_relative_eq!(c2, model.cost(&info2, true), epsilon = 1e-5);
 }
 
-#[test]
-fn only_one_site_one_char() {
+#[case::jc69(JC69, &[])]
+#[case::k80(K80, &[])]
+#[case::hky(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5])]
+#[case::tn93(TN93, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
+#[case::gtr(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
+fn only_one_site_one_char(#[case] mtype: DNAModelType, #[case] params: &[f64]) {
     // This used to fail on leaf data creation when some of the sequences were empty
     let sequences = Sequences::new(vec![
         record!("one", b"C"),
@@ -442,9 +446,8 @@ fn only_one_site_one_char() {
     ]);
     let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
     let info = PIB::build_from_objects(sequences, tree).unwrap();
-    let gtr =
-        DNASubstModel::new(GTR, &[0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
-    let logl = gtr.cost(&info, false);
+    let model = DNASubstModel::new(mtype, params).unwrap();
+    let logl = SCB::new(model, info).build().cost();
     assert_ne!(logl, f64::NEG_INFINITY);
     assert!(logl < 0.0);
 }
