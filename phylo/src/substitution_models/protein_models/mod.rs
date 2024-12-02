@@ -18,7 +18,6 @@ pub type ProteinSubstModelInfo = SubstModelInfo<ProteinSubstModel>;
 
 impl SubstitutionModel for ProteinSubstModel {
     type ModelType = ProteinModelType;
-    type Parameter = ProteinParameter;
     const N: usize = 20;
 
     fn new(model_type: ProteinModelType, _: &[f64]) -> Result<Self>
@@ -55,15 +54,11 @@ impl SubstitutionModel for ProteinSubstModel {
         &self.q
     }
 
-    fn model_parameters(&self) -> Vec<Self::Parameter> {
+    fn model_parameters(&self) -> Vec<f64> {
         vec![]
     }
 
-    fn param(&self, _param_name: &Self::Parameter) -> f64 {
-        0.0
-    }
-
-    fn set_param(&mut self, _param_name: &Self::Parameter, _value: f64) {}
+    fn set_param(&mut self, _param: usize, _value: f64) {}
 
     fn freqs(&self) -> &FreqVector {
         &self.params.pi

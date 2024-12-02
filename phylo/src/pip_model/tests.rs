@@ -16,7 +16,7 @@ use crate::evolutionary_models::{
 };
 use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
-use crate::pip_model::{PIPDNAModel, PIPModel, PIPModelInfo, PIPParameter, PIPProteinModel};
+use crate::pip_model::{PIPDNAModel, PIPModel, PIPModelInfo, PIPProteinModel};
 use crate::substitution_models::{
     blosum_freqs, hivb_freqs, wag_freqs, DNASubstModel, FreqVector, ProteinSubstModel, SubstMatrix,
     SubstitutionModel,
@@ -553,10 +553,10 @@ fn pip_likelihood_huelsenbeck_example() {
     assert_relative_eq!(model.cost(&info, false), -372.1419415285655, epsilon = 1e-4);
 
     // Check that model update works
-    model.set_param(&PIPParameter::Lambda, 1.2);
-    model.set_param(&PIPParameter::Mu, 0.45);
+    model.set_param(0, 1.2);
+    model.set_param(1, 0.45);
     model.set_freqs(frequencies!(&[0.25, 0.25, 0.25, 0.25]));
-    model.set_param(&PIPParameter::Rag, 1.0);
+    model.set_param(2, 1.0);
 
     assert_relative_eq!(
         model.cost(&info, false),

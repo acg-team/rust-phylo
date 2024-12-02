@@ -16,9 +16,7 @@ use crate::io::read_sequences_from_file;
 use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::pip_model::PIPModel;
-use crate::substitution_models::{
-    DNAParameter, DNASubstModel, FreqVector, ProteinSubstModel, SubstMatrix,
-};
+use crate::substitution_models::{DNASubstModel, FreqVector, ProteinSubstModel, SubstMatrix};
 use crate::tree::{tree_parser::from_newick, Tree};
 use crate::{frequencies, record_wo_desc as record, tree};
 
@@ -74,7 +72,7 @@ fn change_likelihood_on_param_change(#[case] mtype: DNAModelType, #[case] params
     let info = setup_cb_example_phylo_info();
     let mut model = DNASubstModel::new(mtype, params).unwrap();
     let logl = model.cost(&info, false);
-    model.set_param(&DNAParameter::Rca, 100.0);
+    model.set_param(0, 100.0);
     assert_ne!(logl, model.cost(&info, true));
 }
 
@@ -85,7 +83,7 @@ fn same_likelihood_on_param_change(#[case] mtype: DNAModelType, #[case] params: 
     let info = setup_cb_example_phylo_info();
     let mut model = DNASubstModel::new(mtype, params).unwrap();
     let logl = model.cost(&info, false);
-    model.set_param(&DNAParameter::Rca, 100.0);
+    model.set_param(0, 100.0);
     assert_eq!(logl, model.cost(&info, true));
 }
 

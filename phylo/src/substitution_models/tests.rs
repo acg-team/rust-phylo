@@ -13,8 +13,8 @@ use crate::evolutionary_models::{
     ProteinModelType::{self, *},
 };
 use crate::substitution_models::{
-    gtr_params, hky_params, jc69_params, k80_params, tn93_params, DNAParameter, DNASubstModel,
-    FreqVector, ParsimonyModel, ProteinExch, ProteinSubstModel, SubstMatrix, SubstitutionModel,
+    gtr_params, hky_params, jc69_params, k80_params, tn93_params, DNASubstModel, FreqVector,
+    ParsimonyModel, ProteinExch, ProteinSubstModel, SubstMatrix, SubstitutionModel,
 };
 use crate::Rounding as R;
 
@@ -330,8 +330,8 @@ fn dna_normalised_param_change() {
     assert_eq!(old_params.rtc, 3.0);
     assert_eq!(old_params.rag, 3.0);
     assert_eq!(old_params.rta, 1.5);
-    k80.set_param(&DNAParameter::Rtc, 10.0);
-    k80.set_param(&DNAParameter::Rag, 10.0);
+    k80.set_param(0, 10.0);
+    k80.set_param(0, 10.0);
     assert_eq!(
         (k80.q.diagonal().transpose().mul(k80.freqs()))[(0, 0)],
         -1.0
@@ -524,7 +524,7 @@ fn matrix_zero_diagonals() {
 #[test]
 fn designation() {
     let model = DNASubstModel::new(K80, &[1.0, 2.0]).unwrap();
-    assert_eq!(model.designation(), "K80");
+    assert_eq!(model.designation(), "DNA model: K80");
     let model = ProteinSubstModel::new(WAG, &[]).unwrap();
-    assert_eq!(model.designation(), "WAG");
+    assert_eq!(model.designation(), "Protein model: WAG");
 }

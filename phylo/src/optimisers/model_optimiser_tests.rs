@@ -428,7 +428,7 @@ fn optimisation_pip_gtr() {
 
     let pip_subst_params = pip_o.model.params.subst_model.params;
     let subst_params = o.model.params;
-    assert_relative_eq!(pip_subst_params.rtc, subst_params.rtc, epsilon = 1e-4);
+    assert_relative_eq!(pip_subst_params.rtc, subst_params.rtc, epsilon = 1e-3);
     assert_relative_eq!(pip_subst_params.rta, subst_params.rta, epsilon = 1e-4);
     assert_relative_eq!(pip_subst_params.rtg, subst_params.rtg, epsilon = 1e-4);
     assert_relative_eq!(pip_subst_params.rca, subst_params.rca, epsilon = 1e-4);

@@ -36,7 +36,6 @@ where
     Self::ModelType: Display,
 {
     type ModelType;
-    type Parameter;
     const N: usize;
 
     fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
@@ -59,11 +58,9 @@ where
         self.q()[(self.index()[i as usize], self.index()[j as usize])]
     }
 
-    fn model_parameters(&self) -> Vec<Self::Parameter>;
+    fn model_parameters(&self) -> Vec<f64>;
 
-    fn param(&self, param_name: &Self::Parameter) -> f64;
-
-    fn set_param(&mut self, param_name: &Self::Parameter, value: f64);
+    fn set_param(&mut self, param: usize, value: f64);
 
     fn freqs(&self) -> &FreqVector;
 
@@ -145,7 +142,6 @@ impl<Params> EvoModel for SubstModel<Params>
 where
     SubstModel<Params>: SubstitutionModel,
 {
-    type Parameter = <SubstModel<Params> as SubstitutionModel>::Parameter;
     type ModelType = <SubstModel<Params> as SubstitutionModel>::ModelType;
 
     fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
@@ -171,16 +167,12 @@ where
         SubstitutionModel::rate(self, i, j)
     }
 
-    fn model_parameters(&self) -> Vec<Self::Parameter> {
+    fn model_parameters(&self) -> Vec<f64> {
         SubstitutionModel::model_parameters(self)
     }
 
-    fn param(&self, param_name: &Self::Parameter) -> f64 {
-        SubstitutionModel::param(self, param_name)
-    }
-
-    fn set_param(&mut self, param_name: &Self::Parameter, value: f64) {
-        SubstitutionModel::set_param(self, param_name, value);
+    fn set_param(&mut self, param: usize, value: f64) {
+        SubstitutionModel::set_param(self, param, value);
     }
 
     fn freqs(&self) -> &FreqVector {

@@ -2,62 +2,8 @@ use std::fmt::Display;
 
 use anyhow::bail;
 
-use crate::substitution_models::{
-    DNAParameter::{self, *},
-    DNASubstModel, FreqVector, ProteinParameter, ProteinSubstModel, SubstitutionModel,
-};
+use crate::substitution_models::{DNASubstModel, FreqVector, ProteinSubstModel, SubstitutionModel};
 use crate::Result;
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum PIPParameter {
-    Lambda,
-    Mu,
-    Rtc,
-    Rta,
-    Rtg,
-    Rca,
-    Rcg,
-    Rag,
-}
-
-impl From<PIPParameter> for ProteinParameter {
-    fn from(_val: PIPParameter) -> Self {
-        unreachable!()
-    }
-}
-
-impl From<ProteinParameter> for PIPParameter {
-    fn from(_val: ProteinParameter) -> Self {
-        unreachable!()
-    }
-}
-
-impl From<PIPParameter> for DNAParameter {
-    fn from(val: PIPParameter) -> Self {
-        match val {
-            PIPParameter::Rtc => Rtc,
-            PIPParameter::Rta => Rta,
-            PIPParameter::Rtg => Rtg,
-            PIPParameter::Rca => Rca,
-            PIPParameter::Rcg => Rcg,
-            PIPParameter::Rag => Rag,
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl From<DNAParameter> for PIPParameter {
-    fn from(param: DNAParameter) -> Self {
-        match param {
-            Rtc => PIPParameter::Rtc,
-            Rta => PIPParameter::Rta,
-            Rtg => PIPParameter::Rtg,
-            Rca => PIPParameter::Rca,
-            Rcg => PIPParameter::Rcg,
-            Rag => PIPParameter::Rag,
-        }
-    }
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PIPParams<SM: SubstitutionModel> {
@@ -83,8 +29,6 @@ fn check_pip_params(params: &[f64]) -> Result<(f64, f64)> {
 impl<SM: SubstitutionModel + Clone> PIPParams<SM>
 where
     SM::ModelType: Clone,
-    PIPParameter: Into<SM::Parameter>,
-    SM::Parameter: Into<PIPParameter>,
 {
     pub(crate) fn new(model_type: SM::ModelType, params: &[f64]) -> Result<Self> {
         let (lambda, mu) = check_pip_params(params)?;
@@ -111,21 +55,11 @@ where
         self.subst_model.update();
     }
 
-    pub(crate) fn param(&self, param_name: &PIPParameter) -> f64 {
-        match param_name {
-            PIPParameter::Lambda => self.lambda,
-            PIPParameter::Mu => self.mu,
-            _ => self.subst_model.param(&(*param_name).into()),
-        }
-    }
-
-    pub(crate) fn set_param(&mut self, param_name: &PIPParameter, value: f64) {
-        match param_name {
-            PIPParameter::Lambda => self.lambda = value,
-            PIPParameter::Mu => self.mu = value,
-            _ => {
-                self.subst_model.set_param(&(*param_name).into(), value);
-            }
+    pub(crate) fn set_param(&mut self, param: usize, value: f64) {
+        match param {
+            0 => self.lambda = value,
+            1 => self.mu = value,
+            _ => self.subst_model.set_param(param - 2, value),
         }
     }
 }

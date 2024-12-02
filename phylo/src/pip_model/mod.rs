@@ -40,10 +40,7 @@ pub type PIPProteinModel = PIPModel<ProteinSubstModel>;
 impl<SM: SubstitutionModel + Clone> EvoModel for PIPModel<SM>
 where
     SM::ModelType: Clone + Display,
-    PIPParameter: Into<SM::Parameter>,
-    SM::Parameter: Into<PIPParameter>,
 {
-    type Parameter = PIPParameter;
     type ModelType = SM::ModelType;
 
     fn new(model: SM::ModelType, params: &[f64]) -> Result<Self>
@@ -83,20 +80,15 @@ where
         &self.index
     }
 
-    fn model_parameters(&self) -> Vec<PIPParameter> {
+    fn model_parameters(&self) -> Vec<f64> {
         SubstitutionModel::model_parameters(&self.params.subst_model)
             .into_iter()
-            .map(|param| param.into())
-            .chain(vec![PIPParameter::Mu, PIPParameter::Lambda])
+            .chain(vec![self.params.lambda, self.params.mu])
             .collect()
     }
 
-    fn param(&self, param_name: &PIPParameter) -> f64 {
-        self.params.param(param_name)
-    }
-
-    fn set_param(&mut self, param_name: &PIPParameter, value: f64) {
-        self.params.set_param(param_name, value);
+    fn set_param(&mut self, param: usize, value: f64) {
+        self.params.set_param(param, value);
         self.update();
     }
 }
@@ -114,8 +106,6 @@ impl<SM: SubstitutionModel + Clone> PIPModel<SM>
 where
     SM::ModelType: Clone,
     PIPParams<SM>: Clone,
-    PIPParameter: Into<SM::Parameter>,
-    SM::Parameter: Into<PIPParameter>,
 {
     pub(crate) fn create(params: &PIPParams<SM>) -> PIPModel<SM> {
         let mut subst_model = params.subst_model.clone();

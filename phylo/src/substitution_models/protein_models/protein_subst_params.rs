@@ -8,11 +8,6 @@ use crate::substitution_models::{
 };
 use crate::Result;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum ProteinParameter {
-    Pi,
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProteinSubstParams {
     pub(crate) model_type: ProteinModelType,

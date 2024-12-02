@@ -8,19 +8,9 @@ use crate::substitution_models::{
 };
 use crate::Result;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum DNAParameter {
-    Rtc,
-    Rta,
-    Rtg,
-    Rca,
-    Rcg,
-    Rag,
-}
-use DNAParameter::*;
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct DNASubstParams {
+    // order always RTC, RTA, RTG, RCA, RCG, RAG
     pub(crate) model_type: DNAModelType,
     pub(crate) pi: FreqVector,
     pub(crate) rtc: f64,
@@ -48,77 +38,108 @@ impl DNASubstParams {
 }
 
 impl DNASubstParams {
-    pub(crate) fn param(&self, param_name: &DNAParameter) -> f64 {
-        match param_name {
-            Rtc => self.rtc,
-            Rta => self.rta,
-            Rtg => self.rtg,
-            Rca => self.rca,
-            Rcg => self.rcg,
-            Rag => self.rag,
-        }
-    }
-
-    pub(crate) fn set_param(&mut self, param_name: &DNAParameter, value: f64) {
+    pub(crate) fn model_parameters(&self) -> Vec<f64> {
         match self.model_type {
-            JC69 => self.set_jc69_param(param_name, value),
-            K80 => self.set_k80_param(param_name, value),
-            HKY => self.set_hky_param(param_name, value),
-            TN93 => self.set_tn93_param(param_name, value),
-            GTR => self.set_gtr_param(param_name, value),
+            DNAModelType::JC69 => vec![],
+            DNAModelType::K80 => vec![self.rtc, self.rta],
+            DNAModelType::HKY => vec![self.rtc, self.rta],
+            DNAModelType::TN93 => vec![self.rtc, self.rag, self.rta],
+            DNAModelType::GTR => vec![self.rtc, self.rta, self.rtg, self.rca, self.rcg],
             _ => unreachable!(),
         }
     }
 
-    fn set_jc69_param(&mut self, _: &DNAParameter, value: f64) {
-        self.rtc = value;
-        self.rta = value;
-        self.rtg = value;
-        self.rca = value;
-        self.rcg = value;
-        self.rag = value;
+    // pub(crate) fn param(&self, param: usize) -> f64 {
+    //     match self.model_type {
+    //         DNAModelType::JC69 => self.rtc,
+    //         DNAModelType::K80 | DNAModelType::HKY => match param {
+    //             0 => self.rtc,
+    //             1 => self.rta,
+    //             _ => {
+    //                 unreachable!();
+    //             }
+    //         },
+    //         DNAModelType::TN93 => match param {
+    //             0 => self.rtc,
+    //             1 => self.rag,
+    //             2 => self.rta,
+    //             _ => {
+    //                 unreachable!();
+    //             }
+    //         },
+    //         DNAModelType::GTR => match param {
+    //             0 => self.rtc,
+    //             1 => self.rta,
+    //             2 => self.rtg,
+    //             3 => self.rca,
+    //             4 => self.rcg,
+    //             _ => {
+    //                 unreachable!();
+    //             }
+    //         },
+    //         _ => unreachable!(),
+    //     }
+    // }
+
+    pub(crate) fn set_param(&mut self, param: usize, value: f64) {
+        match self.model_type {
+            JC69 => {}
+            K80 => self.set_k80_param(param, value),
+            HKY => self.set_hky_param(param, value),
+            TN93 => self.set_tn93_param(param, value),
+            GTR => self.set_gtr_param(param, value),
+            _ => unreachable!(),
+        }
     }
 
-    fn set_k80_param(&mut self, param_name: &DNAParameter, value: f64) {
-        self.set_hky_param(param_name, value)
+    fn set_k80_param(&mut self, param: usize, value: f64) {
+        self.set_hky_param(param, value);
     }
 
-    fn set_hky_param(&mut self, param_name: &DNAParameter, value: f64) {
-        match param_name {
-            Rtc | Rag => {
+    fn set_hky_param(&mut self, param: usize, value: f64) {
+        match param {
+            0 => {
                 self.rtc = value;
                 self.rag = value;
             }
-            Rta | Rtg | Rca | Rcg => {
+            1 => {
                 self.rta = value;
                 self.rtg = value;
                 self.rca = value;
                 self.rcg = value;
             }
+            _ => {
+                unreachable!();
+            }
         }
     }
 
-    fn set_tn93_param(&mut self, param_name: &DNAParameter, value: f64) {
-        match param_name {
-            Rtc => self.rtc = value,
-            Rag => self.rag = value,
-            Rta | Rtg | Rca | Rcg => {
+    fn set_tn93_param(&mut self, param: usize, value: f64) {
+        match param {
+            0 => self.rtc = value,
+            1 => self.rag = value,
+            2 => {
                 self.rta = value;
                 self.rtg = value;
                 self.rca = value;
                 self.rcg = value;
             }
+            _ => {
+                unreachable!();
+            }
         }
     }
 
-    fn set_gtr_param(&mut self, param_name: &DNAParameter, value: f64) {
-        match param_name {
-            Rtc => self.rtc = value,
-            Rta => self.rta = value,
-            Rtg => self.rtg = value,
-            Rca => self.rca = value,
-            Rcg => self.rcg = value,
-            Rag => self.rag = value,
+    fn set_gtr_param(&mut self, param: usize, value: f64) {
+        match param {
+            0 => self.rtc = value,
+            1 => self.rta = value,
+            2 => self.rtg = value,
+            3 => self.rca = value,
+            4 => self.rcg = value,
+            _ => {
+                unreachable!();
+            }
         }
     }
 

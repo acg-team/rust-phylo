@@ -5,7 +5,7 @@ use log::{info, warn};
 use crate::alphabets::NUCLEOTIDE_INDEX;
 use crate::evolutionary_models::DNAModelType;
 use crate::substitution_models::{
-    DNAParameter::*, FreqVector, SubstMatrix, SubstModel, SubstModelInfo, SubstitutionModel,
+    FreqVector, SubstMatrix, SubstModel, SubstModelInfo, SubstitutionModel,
 };
 use crate::Result;
 
@@ -18,8 +18,8 @@ pub type DNASubstModel = SubstModel<DNASubstParams>;
 pub type DNASubstModelInfo = SubstModelInfo<DNASubstModel>;
 
 impl SubstitutionModel for DNASubstModel {
+    // order always RTC, RTA, RTG, RCA, RCG, RAG
     type ModelType = DNAModelType;
-    type Parameter = DNAParameter;
     const N: usize = 4;
 
     fn new(model_type: DNAModelType, params: &[f64]) -> Result<Self>
@@ -71,23 +71,12 @@ impl SubstitutionModel for DNASubstModel {
         &self.q
     }
 
-    fn model_parameters(&self) -> Vec<DNAParameter> {
-        match self.params.model_type {
-            DNAModelType::JC69 => vec![],
-            DNAModelType::K80 => vec![Rtc, Rta],
-            DNAModelType::HKY => vec![Rtc, Rta],
-            DNAModelType::TN93 => vec![Rtc, Rag, Rta],
-            DNAModelType::GTR => vec![Rca, Rcg, Rta, Rtc, Rtg],
-            _ => unreachable!(),
-        }
+    fn model_parameters(&self) -> Vec<f64> {
+        self.params.model_parameters()
     }
 
-    fn param(&self, param_name: &DNAParameter) -> f64 {
-        self.params.param(param_name)
-    }
-
-    fn set_param(&mut self, param_name: &DNAParameter, value: f64) {
-        self.params.set_param(param_name, value);
+    fn set_param(&mut self, param: usize, value: f64) {
+        self.params.set_param(param, value);
         self.update();
     }
 
