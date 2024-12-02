@@ -47,11 +47,7 @@ where
 
     fn normalise(&mut self);
 
-    fn model_type(&self) -> &Self::ModelType;
-
-    fn designation(&self) -> String {
-        format!("{}", self.model_type())
-    }
+    fn designation(&self) -> String;
 
     fn p(&self, time: f64) -> SubstMatrix {
         (self.q().clone() * time).exp()
@@ -157,10 +153,6 @@ where
         Self: Sized,
     {
         SubstitutionModel::new(model_type, params)
-    }
-
-    fn model_type(&self) -> &Self::ModelType {
-        SubstitutionModel::model_type(self)
     }
 
     fn description(&self) -> String {

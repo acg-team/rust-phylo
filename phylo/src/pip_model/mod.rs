@@ -54,10 +54,6 @@ where
         Ok(Self::create(&params))
     }
 
-    fn model_type(&self) -> &Self::ModelType {
-        &self.params.model_type
-    }
-
     fn description(&self) -> String {
         format!("PIP with {}", self.params.model_type)
     }

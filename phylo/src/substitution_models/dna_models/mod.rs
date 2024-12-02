@@ -42,6 +42,10 @@ impl SubstitutionModel for DNASubstModel {
         Ok(DNASubstModel::create(&params))
     }
 
+    fn designation(&self) -> String {
+        format!("DNA model: {}", self.params.model_type)
+    }
+
     fn update(&mut self) {
         let q = match self.params.model_type {
             DNAModelType::JC69 => jc69_q(),
@@ -61,10 +65,6 @@ impl SubstitutionModel for DNASubstModel {
 
     fn normalise(&mut self) {
         self.normalise();
-    }
-
-    fn model_type(&self) -> &Self::ModelType {
-        &self.params.model_type
     }
 
     fn q(&self) -> &SubstMatrix {

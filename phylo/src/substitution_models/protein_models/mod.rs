@@ -35,6 +35,10 @@ impl SubstitutionModel for ProteinSubstModel {
         Ok(model)
     }
 
+    fn designation(&self) -> String {
+        format!("Protein model: {}", self.params.model_type)
+    }
+
     fn update(&mut self) {
         self.q = self.params.q();
         self.normalise();
@@ -45,10 +49,6 @@ impl SubstitutionModel for ProteinSubstModel {
 
     fn normalise(&mut self) {
         self.normalise();
-    }
-
-    fn model_type(&self) -> &Self::ModelType {
-        &self.params.model_type
     }
 
     fn q(&self) -> &SubstMatrix {

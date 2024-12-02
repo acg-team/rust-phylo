@@ -99,7 +99,6 @@ pub trait EvoModel {
     fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
     where
         Self: Sized;
-    fn model_type(&self) -> &Self::ModelType;
     fn description(&self) -> String;
     fn p(&self, time: f64) -> SubstMatrix;
     fn q(&self) -> &SubstMatrix;
