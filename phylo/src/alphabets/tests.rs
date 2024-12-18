@@ -1,10 +1,8 @@
-use assert_matches::assert_matches;
 use rstest::*;
 
 use std::path::PathBuf;
 
-use crate::alphabets::detect_alphabet;
-use crate::evolutionary_models::ModelType;
+use crate::alphabets::{detect_alphabet, dna_alphabet, protein_alphabet};
 use crate::io::read_sequences_from_file;
 
 #[rstest]
@@ -14,7 +12,7 @@ use crate::io::read_sequences_from_file;
 fn dna_type_test(#[case] input: &str) {
     let seqs = read_sequences_from_file(&PathBuf::from(input)).unwrap();
     let alphabet = detect_alphabet(&seqs);
-    assert_matches!(alphabet.model_type, ModelType::DNA(_));
+    assert_eq!(alphabet, dna_alphabet());
 }
 
 #[rstest]
@@ -23,5 +21,5 @@ fn dna_type_test(#[case] input: &str) {
 fn protein_type_test(#[case] input: &str) {
     let seqs = read_sequences_from_file(&PathBuf::from(input)).unwrap();
     let alphabet = detect_alphabet(&seqs);
-    assert_matches!(alphabet.model_type, ModelType::Protein(_));
+    assert_eq!(alphabet, protein_alphabet());
 }

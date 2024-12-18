@@ -3,11 +3,6 @@ use std::collections::HashSet;
 use bio::io::fasta::Record;
 use lazy_static::lazy_static;
 
-use crate::evolutionary_models::{
-    DNAModelType,
-    ModelType::{self, *},
-    ProteinModelType,
-};
 use crate::frequencies;
 use crate::substitution_models::FreqVector;
 
@@ -20,7 +15,6 @@ pub static GAP: u8 = b'-';
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Alphabet {
-    model_type: ModelType,
     symbols: &'static [u8],
     ambiguous: &'static [u8],
     char_sets: &'static [FreqVector],
@@ -41,10 +35,6 @@ impl Alphabet {
 
     pub fn ambiguous(&self) -> &[u8] {
         self.ambiguous
-    }
-
-    pub fn model_type(&self) -> ModelType {
-        self.model_type
     }
 
     pub fn char_encoding(&self, char: u8) -> FreqVector {
@@ -76,7 +66,6 @@ pub fn detect_alphabet(sequences: &[Record]) -> Alphabet {
 
 pub(crate) fn dna_alphabet() -> Alphabet {
     Alphabet {
-        model_type: DNA(DNAModelType::UNDEF),
         symbols: NUCLEOTIDES,
         ambiguous: AMB_NUCLEOTIDES,
         index: &NUCLEOTIDE_INDEX,
@@ -87,7 +76,6 @@ pub(crate) fn dna_alphabet() -> Alphabet {
 
 pub(crate) fn protein_alphabet() -> Alphabet {
     Alphabet {
-        model_type: Protein(ProteinModelType::UNDEF),
         symbols: AMINOACIDS,
         ambiguous: AMB_AMINOACIDS,
         index: &AMINOACID_INDEX,
