@@ -14,7 +14,7 @@ pub(crate) struct SingleBranchOptimiser<'a, EM: PhyloCostFunction> {
     pub(crate) branch: &'a NodeIdx,
 }
 
-impl<'a, EM: PhyloCostFunction> CostFunction for SingleBranchOptimiser<'a, EM> {
+impl<EM: PhyloCostFunction> CostFunction for SingleBranchOptimiser<'_, EM> {
     type Param = f64;
     type Output = f64;
 
@@ -88,7 +88,7 @@ impl<'a, EM: PhyloCostFunction + Clone> PhyloOptimiser<'a, EM> for BranchOptimis
     }
 }
 
-impl<'a, EM: PhyloCostFunction> BranchOptimiser<'a, EM> {
+impl<EM: PhyloCostFunction> BranchOptimiser<'_, EM> {
     pub(crate) fn optimise_branch(&self, branch: &NodeIdx, info: &PhyloInfo) -> Result<(f64, f64)> {
         let start_blen = info.tree.blen(branch);
         let (start, end) = if start_blen == 0.0 {

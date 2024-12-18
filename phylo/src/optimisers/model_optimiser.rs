@@ -16,7 +16,7 @@ pub(crate) struct ParamOptimiser<'a, EM: EvoModel + PhyloCostFunction> {
     pub(crate) param: usize,
 }
 
-impl<'a, EM: EvoModel + PhyloCostFunction + Clone> CostFunction for ParamOptimiser<'a, EM> {
+impl<EM: EvoModel + PhyloCostFunction + Clone> CostFunction for ParamOptimiser<'_, EM> {
     type Param = f64;
     type Output = f64;
 
@@ -96,7 +96,7 @@ impl<'a, EM: EvoModel + PhyloCostFunction + Clone + Display> EvoModelOptimiser<'
     }
 }
 
-impl<'a, EM: EvoModel + PhyloCostFunction + Clone + Display> ModelOptimiser<'a, EM> {
+impl<EM: EvoModel + PhyloCostFunction + Clone + Display> ModelOptimiser<'_, EM> {
     fn opt_frequencies(&self, model: &mut EM) {
         match self.freq_opt {
             FrequencyOptimisation::Fixed => {}
