@@ -1,66 +1,12 @@
-use crate::frequencies;
-use crate::substitution_models::{FreqVector, ProteinSubstParams, SubstMatrix};
-
 pub(crate) type ProteinExch = [f64; 400];
 pub(crate) type ProteinExchLowerTriangle = [f64; 190];
-pub(crate) type ProteinFrequencies = [f64; 20];
-
-pub(crate) fn make_q(exch: &SubstMatrix, freqs: &FreqVector) -> SubstMatrix {
-    let mut q = exch * SubstMatrix::from_partial_diagonal(20, 20, freqs.as_slice());
-    for i in 0..20 {
-        q[(i, i)] = -q.row(i).sum();
-    }
-    q
-}
-
-pub(crate) fn make_exchangeability(lower_triangle: &ProteinExchLowerTriangle) -> SubstMatrix {
-    let mut exch = SubstMatrix::zeros(20, 20);
-    let mut idx = 0;
-    for i in 1..20 {
-        for j in 0..i {
-            exch[(i, j)] = lower_triangle[idx];
-            exch[(j, i)] = lower_triangle[idx];
-            idx += 1;
-        }
-    }
-    exch
-}
-
-pub(crate) fn wag_q(params: &ProteinSubstParams) -> SubstMatrix {
-    make_q(
-        &SubstMatrix::from_row_slice(20, 20, &WAG_EXCH),
-        params.freqs(),
-    )
-}
-
-pub(crate) fn wag_freqs() -> FreqVector {
-    frequencies!(&WAG_PI)
-}
-
-pub(crate) fn blosum_q(params: &ProteinSubstParams) -> SubstMatrix {
-    make_q(
-        &SubstMatrix::from_row_slice(20, 20, &BLOSUM_EXCH),
-        params.freqs(),
-    )
-}
-
-pub(crate) fn blosum_freqs() -> FreqVector {
-    frequencies!(&BLOSUM_PI)
-}
-
-pub(crate) fn hivb_q(params: &ProteinSubstParams) -> SubstMatrix {
-    make_q(&make_exchangeability(&HIVB_EXCH), params.freqs())
-}
-
-pub(crate) fn hivb_freqs() -> FreqVector {
-    frequencies!(&HIVB_PI)
-}
+pub(super) type ProteinFrequencies = [f64; 20];
 
 // AA order matches MrBayes and PhyML
 // ARNDCQEGHILKMFPSTWYV
 
 // Full WAG exchangeability matrix from MrBayes
-const WAG_EXCH: ProteinExch = [
+pub(crate) const WAG_EXCH: ProteinExch = [
     0.0000000, 0.5515710, 0.5098480, 0.7389980, 1.0270400, 0.9085980, 1.5828500, 1.4167200,
     0.3169540, 0.1933350, 0.3979150, 0.9062650, 0.8934960, 0.2104940, 1.4385500, 3.3707900,
     2.1211100, 0.1131330, 0.2407350, 2.0060100, 0.5515710, 0.0000000, 0.6353460, 0.1473040,
@@ -114,14 +60,14 @@ const WAG_EXCH: ProteinExch = [
 ];
 
 // WAG stationary frequencies from MrBayes
-const WAG_PI: ProteinFrequencies = [
+pub(crate) const WAG_PI: ProteinFrequencies = [
     0.08662790, 0.04397200, 0.03908940, 0.05704510, 0.01930780, 0.03672810, 0.05805890, 0.08325180,
     0.02443130, 0.04846600, 0.08620970, 0.06202860, 0.01950273, 0.03843190, 0.04576310, 0.06951790,
     0.06101270, 0.01438590, 0.03527420, 0.07089560,
 ];
 
 // BLOSUM62 exchangeability matrix from MrBayes
-const BLOSUM_EXCH: ProteinExch = [
+pub(crate) const BLOSUM_EXCH: ProteinExch = [
     0.000000000000,
     0.735790389698,
     0.485391055466,
@@ -525,14 +471,14 @@ const BLOSUM_EXCH: ProteinExch = [
 ];
 
 // BLOSUM62 stationary frequencies from MrBayes
-const BLOSUM_PI: ProteinFrequencies = [
+pub(crate) const BLOSUM_PI: ProteinFrequencies = [
     0.074, 0.052, 0.045, 0.054, 0.025, 0.034, 0.054, 0.074, 0.026, 0.068, 0.099, 0.058, 0.025,
     0.047, 0.039, 0.057, 0.051, 0.013, 0.032, 0.073,
 ];
 
 // HIVB exchangeability matrix from PhyML
 // The code only contains the lower triangle of the matrix, the rest is symmetric
-const HIVB_EXCH: ProteinExchLowerTriangle = [
+pub(crate) const HIVB_EXCH_LOWER_TRIAG: ProteinExchLowerTriangle = [
     0.307507000000,
     0.005000000000,
     0.295543000000,

@@ -7,19 +7,17 @@ use std::ops::Mul;
 use nalgebra::{DMatrix, DVector};
 use ordered_float::OrderedFloat;
 
+use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::PhyloCostFunction;
-use crate::tree::NodeIdx;
 use crate::tree::{
-    NodeIdx::{Internal, Leaf},
+    NodeIdx::{self, Internal, Leaf},
     Tree,
 };
 use crate::{f64_h, phylo_info::PhyloInfo, Result, Rounding};
 
 pub mod dna_models;
-pub use dna_models::*;
 pub mod protein_models;
-pub use protein_models::*;
 
 pub type SubstMatrix = DMatrix<f64>;
 pub type FreqVector = DVector<f64>;
@@ -31,43 +29,104 @@ macro_rules! frequencies {
     };
 }
 
-pub trait SubstitutionModel
+pub trait QMatrix {
+    fn new(frequencies: &[f64], params: &[f64]) -> Self;
+    fn set_param(&mut self, param: usize, value: f64);
+    fn params(&self) -> &[f64];
+    fn freqs(&self) -> &FreqVector;
+    fn set_freqs(&mut self, freqs: FreqVector);
+    fn q(&self) -> &SubstMatrix;
+    fn n(&self) -> usize;
+    fn index(&self) -> &[usize; 255];
+    fn alphabet(&self) -> &Alphabet;
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SubstModel<Q>
 where
-    Self::ModelType: Display,
+    SubstModel<Q>: EvoModel,
+    Q: QMatrix,
 {
-    type ModelType;
-    const N: usize;
+    pub(crate) qmatrix: Q,
+    tmp: RefCell<SubstModelInfo<SubstModel<Q>>>,
+}
 
-    fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
+pub trait ParsimonyModel {
+    fn generate_scorings(
+        &self,
+        times: &[f64],
+        zero_diag: bool,
+        rounding: &Rounding,
+    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)>;
+
+    fn scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64);
+
+    fn scoring_matrix_corrected(
+        &self,
+        time: f64,
+        zero_diag: bool,
+        rounding: &Rounding,
+    ) -> (SubstMatrix, f64);
+}
+
+impl<Q: QMatrix + Display> Display for SubstModel<Q> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.qmatrix)
+    }
+}
+
+impl<Q: QMatrix + Display> EvoModel for SubstModel<Q> {
+    fn new(frequencies: &[f64], params: &[f64]) -> Result<Self>
     where
-        Self: Sized;
-
-    fn update(&mut self);
-
-    fn normalise(&mut self);
-
-    fn designation(&self) -> String;
+        Self: Sized,
+    {
+        Ok(SubstModel {
+            qmatrix: Q::new(frequencies, params),
+            tmp: RefCell::new(SubstModelInfo::<SubstModel<Q>>::empty()),
+        })
+    }
 
     fn p(&self, time: f64) -> SubstMatrix {
         (self.q().clone() * time).exp()
     }
 
-    fn q(&self) -> &SubstMatrix;
+    fn q(&self) -> &SubstMatrix {
+        self.qmatrix.q()
+    }
 
     fn rate(&self, i: u8, j: u8) -> f64 {
         self.q()[(self.index()[i as usize], self.index()[j as usize])]
     }
 
-    fn model_parameters(&self) -> Vec<f64>;
+    fn params(&self) -> &[f64] {
+        self.qmatrix.params()
+    }
 
-    fn set_param(&mut self, param: usize, value: f64);
+    fn set_param(&mut self, param: usize, value: f64) {
+        self.qmatrix.set_param(param, value);
+    }
 
-    fn freqs(&self) -> &FreqVector;
+    fn freqs(&self) -> &FreqVector {
+        self.qmatrix.freqs()
+    }
 
-    fn set_freqs(&mut self, freqs: FreqVector);
+    fn set_freqs(&mut self, pi: FreqVector) {
+        self.qmatrix.set_freqs(pi);
+    }
 
-    fn index(&self) -> &[usize; 255];
+    fn index(&self) -> &[usize; 255] {
+        self.qmatrix.index()
+    }
 
+    fn n(&self) -> usize {
+        self.qmatrix.n()
+    }
+}
+
+impl<Q: QMatrix> ParsimonyModel for SubstModel<Q>
+where
+    SubstModel<Q>: EvoModel,
+{
     fn generate_scorings(
         &self,
         times: &[f64],
@@ -108,107 +167,9 @@ where
     }
 }
 
-pub trait ParsimonyModel {
-    fn generate_scorings(
-        &self,
-        times: &[f64],
-        zero_diag: bool,
-        rounding: &Rounding,
-    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)>;
-
-    fn scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64);
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct SubstModel<Params>
+impl<Q: QMatrix> PhyloCostFunction for SubstModel<Q>
 where
-    SubstModel<Params>: SubstitutionModel,
-{
-    pub(crate) params: Params,
-    pub(crate) q: SubstMatrix,
-    tmp: RefCell<SubstModelInfo<SubstModel<Params>>>,
-}
-
-impl<Params: Display> Display for SubstModel<Params>
-where
-    SubstModel<Params>: SubstitutionModel,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.params)
-    }
-}
-
-impl<Params> EvoModel for SubstModel<Params>
-where
-    SubstModel<Params>: SubstitutionModel,
-{
-    type ModelType = <SubstModel<Params> as SubstitutionModel>::ModelType;
-
-    fn new(model_type: Self::ModelType, params: &[f64]) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        SubstitutionModel::new(model_type, params)
-    }
-
-    fn description(&self) -> String {
-        SubstitutionModel::designation(self)
-    }
-
-    fn p(&self, time: f64) -> SubstMatrix {
-        SubstitutionModel::p(self, time)
-    }
-
-    fn q(&self) -> &SubstMatrix {
-        SubstitutionModel::q(self)
-    }
-
-    fn rate(&self, i: u8, j: u8) -> f64 {
-        SubstitutionModel::rate(self, i, j)
-    }
-
-    fn model_parameters(&self) -> Vec<f64> {
-        SubstitutionModel::model_parameters(self)
-    }
-
-    fn set_param(&mut self, param: usize, value: f64) {
-        SubstitutionModel::set_param(self, param, value);
-    }
-
-    fn freqs(&self) -> &FreqVector {
-        SubstitutionModel::freqs(self)
-    }
-
-    fn set_freqs(&mut self, pi: FreqVector) {
-        SubstitutionModel::set_freqs(self, pi);
-    }
-
-    fn index(&self) -> &[usize; 255] {
-        SubstitutionModel::index(self)
-    }
-}
-
-impl<Params> ParsimonyModel for SubstModel<Params>
-where
-    SubstModel<Params>: SubstitutionModel,
-{
-    fn generate_scorings(
-        &self,
-        times: &[f64],
-        zero_diag: bool,
-        rounding: &Rounding,
-    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)> {
-        SubstitutionModel::generate_scorings(self, times, zero_diag, rounding)
-    }
-
-    fn scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
-        SubstitutionModel::scoring_matrix(self, time, rounding)
-    }
-}
-
-impl<Params> PhyloCostFunction for SubstModel<Params>
-where
-    SubstModel<Params>: SubstitutionModel,
+    SubstModel<Q>: EvoModel,
 {
     // TODO: add check that the model type matches the data
     fn cost(&self, info: &PhyloInfo, reset: bool) -> f64 {
@@ -223,19 +184,14 @@ where
     }
 }
 
-impl<Params> SubstModel<Params>
+impl<Q: QMatrix> SubstModel<Q>
 where
-    SubstModel<Params>: SubstitutionModel,
+    SubstModel<Q>: EvoModel,
 {
-    fn normalise(&mut self) {
-        let factor = -(SubstitutionModel::freqs(self).transpose() * self.q.diagonal())[(0, 0)];
-        self.q /= factor;
-    }
-
     fn logl(&self, info: &PhyloInfo) -> f64 {
         if self.tmp.borrow().empty {
             self.tmp
-                .replace(SubstModelInfo::<SubstModel<Params>>::new(info, self).unwrap());
+                .replace(SubstModelInfo::<SubstModel<Q>>::new(info, self).unwrap());
         }
 
         for node_idx in info.tree.postorder() {
@@ -251,7 +207,8 @@ where
         let tmp_values = self.tmp.borrow();
         debug_assert_eq!(info.tree.len(), tmp_values.node_info.len());
 
-        let likelihood = SubstitutionModel::freqs(self)
+        let likelihood = self
+            .freqs()
             .transpose()
             .mul(&tmp_values.node_info[usize::from(&info.tree.root)]);
         drop(tmp_values);
@@ -270,7 +227,7 @@ where
 
         let mut tmp_values = self.tmp.borrow_mut();
         if tree.dirty[idx] || !tmp_values.node_models_valid[idx] {
-            tmp_values.node_models[idx] = SubstitutionModel::p(self, node.blen);
+            tmp_values.node_models[idx] = self.p(node.blen);
             tmp_values.node_models_valid[idx] = true;
             tmp_values.node_info_valid[idx] = false;
         }
@@ -291,7 +248,7 @@ where
         let idx = usize::from(node_idx);
 
         if tree.dirty[idx] || !tmp_values.node_models_valid[idx] {
-            tmp_values.node_models[idx] = SubstitutionModel::p(self, tree.blen(node_idx));
+            tmp_values.node_models[idx] = self.p(tree.blen(node_idx));
             tmp_values.node_models_valid[idx] = true;
             tmp_values.node_info_valid[idx] = false;
         }
@@ -314,7 +271,7 @@ where
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SubstModelInfo<SM: SubstitutionModel> {
+pub struct SubstModelInfo<SM: EvoModel> {
     empty: bool,
     phantom: PhantomData<SM>,
     node_info: Vec<DMatrix<f64>>,
@@ -324,7 +281,7 @@ pub struct SubstModelInfo<SM: SubstitutionModel> {
     leaf_sequence_info: HashMap<String, DMatrix<f64>>,
 }
 
-impl<SM: SubstitutionModel> SubstModelInfo<SM> {
+impl<SM: EvoModel> SubstModelInfo<SM> {
     pub fn empty() -> Self {
         SubstModelInfo::<SM> {
             empty: true,
@@ -337,7 +294,7 @@ impl<SM: SubstitutionModel> SubstModelInfo<SM> {
         }
     }
 
-    pub fn new(info: &PhyloInfo, _model: &SM) -> Result<Self> {
+    pub fn new(info: &PhyloInfo, model: &SM) -> Result<Self> {
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
 
@@ -345,7 +302,7 @@ impl<SM: SubstitutionModel> SubstModelInfo<SM> {
         for node in info.tree.leaves() {
             let alignment_map = info.msa.leaf_map(&node.idx);
             let leaf_encoding = info.msa.leaf_encoding.get(&node.id).unwrap();
-            let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(SM::N, msa_length);
+            let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(model.n(), msa_length);
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
                     site_info.copy_from(&leaf_encoding.column(c));
@@ -358,9 +315,9 @@ impl<SM: SubstitutionModel> SubstModelInfo<SM> {
         Ok(SubstModelInfo::<SM> {
             empty: false,
             phantom: PhantomData::<SM>,
-            node_info: vec![DMatrix::<f64>::zeros(SM::N, msa_length); node_count],
+            node_info: vec![DMatrix::<f64>::zeros(model.n(), msa_length); node_count],
             node_info_valid: vec![false; node_count],
-            node_models: vec![SubstMatrix::zeros(SM::N, SM::N); node_count],
+            node_models: vec![SubstMatrix::zeros(model.n(), model.n()); node_count],
             node_models_valid: vec![false; node_count],
             leaf_sequence_info,
         })

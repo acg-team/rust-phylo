@@ -23,7 +23,7 @@ impl<'a, EM: EvoModel + PhyloCostFunction + Clone> CostFunction for ParamOptimis
     fn cost(&self, value: &f64) -> Result<f64> {
         let mut model = self.model.clone();
         model.set_param(self.param, *value);
-        Ok(-model.cost(self.info, false))
+        Ok(-model.cost(self.info, true))
     }
 
     fn parallelize(&self) -> bool {
@@ -40,8 +40,6 @@ pub struct ModelOptimiser<'a, EM: EvoModel + PhyloCostFunction + Clone> {
 
 impl<'a, EM: EvoModel + PhyloCostFunction + Clone + Display> EvoModelOptimiser<'a, EM>
     for ModelOptimiser<'a, EM>
-where
-    EM::ModelType: Display,
 {
     fn new(model: &'a EM, info: &PhyloInfo, freq_opt: FrequencyOptimisation) -> Self {
         Self {
@@ -55,17 +53,19 @@ where
     fn run(self) -> Result<EvoModelOptimisationResult<EM>> {
         let mut model = self.model.clone();
         let initial_logl = model.cost(&self.info, true);
-        info!("Optimising {} parameters.", model.description());
+        info!("Optimising {}.", model);
         info!("Initial logl: {}.", initial_logl);
 
         self.opt_frequencies(&mut model);
 
         let mut prev_logl = f64::NEG_INFINITY;
-        let mut final_logl = model.cost(&self.info, false);
+        let mut final_logl = model.cost(&self.info, true);
+        info!("Initial logl after frequency optimisation: {}.", final_logl);
+
         let mut iterations = 0;
 
-        let parameters = model.model_parameters();
-        while (prev_logl - final_logl).abs() > self.epsilon {
+        let parameters = model.params().to_vec();
+        while final_logl - prev_logl > self.epsilon {
             iterations += 1;
             debug!("Iteration: {}", iterations);
             prev_logl = final_logl;
@@ -101,7 +101,7 @@ impl<'a, EM: EvoModel + PhyloCostFunction + Clone + Display> ModelOptimiser<'a, 
         match self.freq_opt {
             FrequencyOptimisation::Fixed => {}
             FrequencyOptimisation::Empirical => {
-                info!("Seting stationary frequencies to empirical.");
+                info!("Setting stationary frequencies to empirical.");
                 model.set_freqs(self.info.freqs());
             }
             FrequencyOptimisation::Estimated => {

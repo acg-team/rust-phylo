@@ -1,22 +1,19 @@
-use rstest::*;
-
+use std::fmt::Display;
 use std::path::Path;
 
 use approx::assert_relative_eq;
 use bio::io::fasta::Record;
 
 use crate::alignment::Sequences;
-use crate::alphabets::protein_alphabet;
-use crate::evolutionary_models::{
-    DNAModelType::{self, *},
-    EvoModel,
-    ProteinModelType::{self, *},
-};
+use crate::alphabets::Alphabet;
+use crate::evolutionary_models::EvoModel;
 use crate::io::read_sequences_from_file;
 use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::pip_model::PIPModel;
-use crate::substitution_models::{DNASubstModel, FreqVector, ProteinSubstModel, SubstMatrix};
+use crate::substitution_models::{
+    dna_models::*, protein_models::*, FreqVector, QMatrix, SubstMatrix, SubstModel,
+};
 use crate::tree::{tree_parser::from_newick, Tree};
 use crate::{frequencies, record_wo_desc as record, tree};
 
@@ -30,70 +27,91 @@ fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
 #[test]
 fn dna_simple_likelihood() {
     let info = &setup_simple_phylo_info(1.0, 1.0);
-    let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
+    let jc69 = SubstModel::<JC69>::new(&[], &[]).unwrap();
     assert_relative_eq!(jc69.cost(info, false), -2.5832498829317445, epsilon = 1e-6);
-    let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
+    let jc69 = SubstModel::<JC69>::new(&[], &[]).unwrap();
     let info = &setup_simple_phylo_info(1.0, 2.0);
     assert_relative_eq!(jc69.cost(info, false), -2.719098272533848, epsilon = 1e-6);
 }
 
-#[rstest]
-#[case::hky(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5])]
-#[case::tn93(TN93, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
-#[case::gtr(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-fn change_likelihood_on_freq_change(#[case] mtype: DNAModelType, #[case] params: &[f64]) {
+#[cfg(test)]
+fn change_logl_on_freq_change_template<Q: QMatrix + PartialEq + Display>(
+    freqs: &[f64],
+    params: &[f64],
+) {
     // likelihood should change when frequencies are changed in models with free freqs
     let info = setup_cb_example_phylo_info();
-    let mut model = DNASubstModel::new(mtype, params).unwrap();
+    let mut model: SubstModel<Q> = SubstModel::<Q>::new(freqs, params).unwrap();
     let logl = model.cost(&info, false);
     model.set_freqs(frequencies!(&[0.1, 0.2, 0.3, 0.4]));
     assert_ne!(logl, model.cost(&info, true));
 }
 
-#[rstest]
-#[case::jc69(JC69, &[])]
-#[case::k80(K80, &[2.0, 0.5])]
-fn same_likelihood_on_freq_change(#[case] mtype: DNAModelType, #[case] params: &[f64]) {
-    // likelihood should stay the same when frequencies are changed in models with fixed
+#[test]
+fn change_logl_on_freq_change() {
+    change_logl_on_freq_change_template::<HKY>(&[0.22, 0.26, 0.33, 0.19], &[0.5]);
+    change_logl_on_freq_change_template::<TN93>(&[0.22, 0.26, 0.33, 0.19], &[0.5]);
+    change_logl_on_freq_change_template::<GTR>(&[0.22, 0.26, 0.33, 0.19], &[0.5]);
+}
+
+#[cfg(test)]
+fn same_logl_on_freq_change_template<Q: QMatrix + PartialEq + Display>(
+    freqs: &[f64],
+    params: &[f64],
+) {
+    // likelihood should change when frequencies are changed in models with free freqs
     let info = setup_cb_example_phylo_info();
-    let mut model = DNASubstModel::new(mtype, params).unwrap();
+    let mut model: SubstModel<Q> = SubstModel::<Q>::new(freqs, params).unwrap();
     let logl = model.cost(&info, false);
     model.set_freqs(frequencies!(&[0.1, 0.2, 0.3, 0.4]));
     assert_eq!(logl, model.cost(&info, true));
 }
 
-#[rstest]
-#[case::k80(K80, &[2.0, 0.5])]
-#[case::hky(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5])]
-#[case::tn93(TN93, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
-#[case::gtr(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-fn change_likelihood_on_param_change(#[case] mtype: DNAModelType, #[case] params: &[f64]) {
-    // likelihood should change when parameters are changed
+#[test]
+fn same_logl_on_freq_change() {
+    same_logl_on_freq_change_template::<JC69>(&[0.22, 0.26, 0.33, 0.19], &[2.0]);
+    same_logl_on_freq_change_template::<K80>(&[0.22, 0.26, 0.33, 0.19], &[]);
+}
+
+#[cfg(test)]
+fn change_logl_on_param_change_template<T: QMatrix + PartialEq + Display>(
+    freqs: &[f64],
+    params: &[f64],
+) {
+    // likelihood should change when frequencies are changed in models with free freqs
     let info = setup_cb_example_phylo_info();
-    let mut model = DNASubstModel::new(mtype, params).unwrap();
+    let mut model: SubstModel<T> = SubstModel::<T>::new(freqs, params).unwrap();
     let logl = model.cost(&info, false);
     model.set_param(0, 100.0);
     assert_ne!(logl, model.cost(&info, true));
 }
 
-#[rstest]
-#[case::jc69(JC69, &[])]
-fn same_likelihood_on_param_change(#[case] mtype: DNAModelType, #[case] params: &[f64]) {
+#[test]
+fn change_logl_on_param_change() {
+    change_logl_on_param_change_template::<K80>(&[], &[2.0]);
+    change_logl_on_param_change_template::<HKY>(&[0.22, 0.26, 0.33, 0.19], &[0.5]);
+    change_logl_on_param_change_template::<TN93>(
+        &[0.22, 0.26, 0.33, 0.19],
+        &[0.5970915, 0.2940435, 0.00135],
+    );
+    change_logl_on_param_change_template::<GTR>(
+        &[0.1, 0.3, 0.4, 0.2],
+        &[5.0, 1.0, 1.0, 1.0, 1.0, 5.0],
+    );
+}
+
+#[test]
+fn same_likelihood_on_param_change() {
     // likelihood should not change when parameters are changed for jc69
     let info = setup_cb_example_phylo_info();
-    let mut model = DNASubstModel::new(mtype, params).unwrap();
+    let mut model = SubstModel::<JC69>::new(&[], &[]).unwrap();
     let logl = model.cost(&info, false);
     model.set_param(0, 100.0);
     assert_eq!(logl, model.cost(&info, true));
 }
 
-#[rstest]
-#[case::jc69(JC69, &[])]
-#[case::k80(K80, &[])]
-#[case::hky(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5])]
-#[case::tn93(TN93, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
-#[case::gtr(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-fn gaps_as_ambigs(#[case] mtype: DNAModelType, #[case] params: &[f64]) {
+#[cfg(test)]
+fn dna_gaps_as_ambigs_template<Q: QMatrix + Display>(freqs: &[f64], params: &[f64]) {
     let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
     let sequences = Sequences::new(vec![
         record!("one", b"CCCCCCXX"),
@@ -110,8 +128,20 @@ fn gaps_as_ambigs(#[case] mtype: DNAModelType, #[case] params: &[f64]) {
     ]);
     let info_gaps = &PIB::build_from_objects(sequences, tree.clone()).unwrap();
 
-    let model = DNASubstModel::new(mtype, params).unwrap();
+    let model = SubstModel::<Q>::new(freqs, params).unwrap();
     assert_eq!(model.cost(info_ambig, true), model.cost(info_gaps, true));
+}
+
+#[test]
+fn dna_gaps_as_ambigs() {
+    dna_gaps_as_ambigs_template::<JC69>(&[], &[]);
+    dna_gaps_as_ambigs_template::<K80>(&[], &[]);
+    dna_gaps_as_ambigs_template::<HKY>(&[0.22, 0.26, 0.33, 0.19], &[0.5]);
+    dna_gaps_as_ambigs_template::<TN93>(
+        &[0.22, 0.26, 0.33, 0.19],
+        &[0.5970915, 0.2940435, 0.00135],
+    );
+    dna_gaps_as_ambigs_template::<GTR>(&[0.1, 0.3, 0.4, 0.2], &[5.0, 1.0, 1.0, 1.0, 1.0, 5.0]);
 }
 
 #[cfg(test)]
@@ -124,7 +154,7 @@ fn setup_phylo_info_single_leaf() -> PhyloInfo {
 #[test]
 fn dna_likelihood_one_node() {
     let info = &setup_phylo_info_single_leaf();
-    let model = DNASubstModel::new(JC69, &[]).unwrap();
+    let model = SubstModel::<JC69>::new(&[], &[]).unwrap();
     assert!(model.cost(info, false) < 0.0);
 }
 
@@ -143,12 +173,10 @@ fn setup_cb_example_phylo_info() -> PhyloInfo {
 #[test]
 fn dna_cb_example_likelihood() {
     let info = &setup_cb_example_phylo_info();
-    let mut model = DNASubstModel::new(
-        TN93,
-        &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
-    )
-    .unwrap();
-    model.q = SubstMatrix::from_row_slice(
+    let mut model =
+        SubstModel::<TN93>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5970915, 0.2940435, 0.00135])
+            .unwrap();
+    model.qmatrix.q = SubstMatrix::from_row_slice(
         4,
         4,
         &[
@@ -189,12 +217,12 @@ fn setup_mol_evo_example_phylo_info() -> PhyloInfo {
 #[test]
 fn dna_mol_evo_example_likelihood() {
     let info = &setup_mol_evo_example_phylo_info();
-    let model = DNASubstModel::new(K80, &[]).unwrap();
+    let model = SubstModel::<K80>::new(&[], &[]).unwrap();
     assert_relative_eq!(model.cost(info, false), -7.581408, epsilon = 1e-6);
 }
 
-#[test]
-fn dna_ambig_example_likelihood_tn93() {
+#[cfg(test)]
+fn dna_ambig_example_logl_template<Q: QMatrix + Display>(freqs: &[f64], params: &[f64]) {
     // Checks that likelihoods for different ambiguous characters are the same
     let fldr = Path::new("./data");
     let info_w_x = &PIB::with_attrs(
@@ -211,17 +239,25 @@ fn dna_ambig_example_likelihood_tn93() {
     .build()
     .unwrap();
 
-    let tn93 = DNASubstModel::new(
-        TN93,
-        &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135],
-    )
-    .unwrap();
-    assert_relative_eq!(tn93.cost(info_w_x, true), tn93.cost(info_w_n, true));
+    let model = SubstModel::<Q>::new(freqs, params).unwrap();
+    assert_relative_eq!(model.cost(info_w_x, true), model.cost(info_w_n, true));
+}
+
+#[test]
+fn dna_ambig_example_likelihood() {
+    dna_ambig_example_logl_template::<JC69>(&[], &[]);
+    dna_ambig_example_logl_template::<K80>(&[], &[]);
+    dna_ambig_example_logl_template::<HKY>(&[0.22, 0.26, 0.33, 0.19], &[0.5]);
+    dna_ambig_example_logl_template::<TN93>(
+        &[0.22, 0.26, 0.33, 0.19],
+        &[0.5970915, 0.2940435, 0.00135],
+    );
+    dna_ambig_example_logl_template::<GTR>(&[0.1, 0.3, 0.4, 0.2], &[5.0, 1.0, 1.0, 1.0, 1.0, 5.0]);
 }
 
 #[test]
 fn dna_ambig_example_likelihood_k80() {
-    // Checks that likelihoods for different ambiguous characters are the same
+    // Checks the exact value for k80
     let fldr = Path::new("./data");
     let info_w_x = &PIB::with_attrs(
         fldr.join("ambiguous_example.fasta"),
@@ -229,20 +265,12 @@ fn dna_ambig_example_likelihood_k80() {
     )
     .build()
     .unwrap();
-    let info_w_n = &PIB::with_attrs(
-        fldr.join("ambiguous_example_N.fasta"),
-        fldr.join("ambiguous_example.newick"),
-    )
-    .build()
-    .unwrap();
-
-    let k80 = DNASubstModel::new(K80, &[2.0, 1.0]).unwrap();
+    let k80 = SubstModel::<K80>::new(&[], &[2.0, 1.0]).unwrap();
     assert_relative_eq!(
         k80.cost(info_w_x, true),
         -137.24280493914029,
         epsilon = 1e-6
     );
-    assert_relative_eq!(k80.cost(info_w_x, true), k80.cost(info_w_n, true));
 }
 
 #[test]
@@ -255,65 +283,44 @@ fn dna_huelsenbeck_example_likelihood() {
     )
     .build()
     .unwrap();
-    let gtr = DNASubstModel::new(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0]).unwrap();
-    assert_relative_eq!(gtr.cost(info, false), -216.234734, epsilon = 1e-3);
+    let hky = SubstModel::<HKY>::new(&[0.1, 0.3, 0.4, 0.2], &[5.0]).unwrap();
+    assert_relative_eq!(hky.cost(info, true), -216.234734, epsilon = 1e-3);
+    let gtr_as_hky =
+        SubstModel::<GTR>::new(&[0.1, 0.3, 0.4, 0.2], &[5.0, 1.0, 1.0, 1.0, 1.0, 5.0]).unwrap();
+    assert_relative_eq!(gtr_as_hky.cost(info, true), -216.234734, epsilon = 1e-3);
 }
 
-#[rstest]
-#[case::wag(WAG, &[], -4505.736814460457, 1e-3)]
-#[case::hivb(HIVB, &[], -4407.989226397638, 1e-5)]
-#[case::blosum(BLOSUM, &[], -4587.71053, 1e-5)]
-fn protein_example_likelihood(
-    #[case] model_type: ProteinModelType,
-    #[case] params: &[f64],
-    #[case] expected_llik: f64,
-    #[case] epsilon: f64,
+#[cfg(test)]
+fn protein_example_logl_template<Q: QMatrix + Display>(
+    params: &[f64],
+    expected_llik: f64,
+    epsilon: f64,
 ) {
     let fldr = Path::new("./data/phyml_protein_example");
     let info = &PIB::with_attrs(fldr.join("nogap_seqs.fasta"), fldr.join("true_tree.newick"))
         .build()
         .unwrap();
-    let model = ProteinSubstModel::new(model_type, params).unwrap();
+    let model = SubstModel::<Q>::new(&[], params).unwrap();
     assert_relative_eq!(model.cost(info, false), expected_llik, epsilon = epsilon);
 }
 
-#[cfg(test)]
-fn simple_dna_reroot_info() -> (PhyloInfo, PhyloInfo) {
-    let sequences = Sequences::new(vec![
-        record!("A", b"CTATATATAC"),
-        record!("B", b"ATATATATAA"),
-        record!("C", b"TTATATATAT"),
-    ]);
-    let info = PIB::build_from_objects(sequences.clone(), tree!("((A:2.0,B:2.0):1.0,C:2.0):0.0;"))
-        .unwrap();
-    let info_rerooted =
-        PIB::build_from_objects(sequences, tree!("(A:1.0,(B:2.0,C:3.0):1.0):0.0;")).unwrap();
-    (info, info_rerooted)
+#[test]
+fn protein_example_likelihood() {
+    protein_example_logl_template::<WAG>(&[], -4505.736814460457, 1e-3);
+    protein_example_logl_template::<HIVB>(&[], -4407.989226397638, 1e-5);
+    protein_example_logl_template::<BLOSUM>(&[], -4587.71053, 1e-5);
 }
 
-#[rstest]
-#[case::jc69(JC69, &[])]
-#[case::k80(K80, &[])]
-#[case::hky(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5])]
-#[case::tn93(TN93, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
-#[case::gtr(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-fn simple_dna_likelihood_reversibility(#[case] model_type: DNAModelType, #[case] params: &[f64]) {
-    let (info, info_rerooted) = &simple_dna_reroot_info();
-    let model = DNASubstModel::new(model_type, params).unwrap();
-    assert_relative_eq!(
-        model.cost(info, false),
-        model.cost(info_rerooted, true),
-        epsilon = 1e-10,
+#[cfg(test)]
+fn simple_reroot_info(alphabet: &Alphabet) -> (PhyloInfo, PhyloInfo) {
+    let sequences = Sequences::with_alphabet(
+        vec![
+            record!("A", b"CTATATATACIJL"),
+            record!("B", b"ATATATATAAIHL"),
+            record!("C", b"TTATATATATIJL"),
+        ],
+        alphabet.clone(),
     );
-}
-
-#[cfg(test)]
-fn simple_protein_reroot_info() -> (PhyloInfo, PhyloInfo) {
-    let sequences = Sequences::new(vec![
-        record!("A", b"CTATATATACIJL"),
-        record!("B", b"ATATATATAAIHL"),
-        record!("C", b"TTATATATATIJL"),
-    ]);
     let info = PIB::build_from_objects(sequences.clone(), tree!("((A:2.0,B:2.0):1.0,C:2.0):0.0;"))
         .unwrap();
     let info_rerooted =
@@ -321,17 +328,10 @@ fn simple_protein_reroot_info() -> (PhyloInfo, PhyloInfo) {
     (info, info_rerooted)
 }
 
-#[rstest]
-#[case::wag(WAG, &[], 1e-8)]
-#[case::hivb(HIVB, &[], 1e-8)]
-#[case::blosum(BLOSUM, &[], 1e-3)]
-fn simple_protein_likelihood_reversibility(
-    #[case] model_type: ProteinModelType,
-    #[case] params: &[f64],
-    #[case] epsilon: f64,
-) {
-    let (info, info_rerooted) = &simple_protein_reroot_info();
-    let model = ProteinSubstModel::new(model_type, params).unwrap();
+#[cfg(test)]
+fn logl_revers_template<Q: QMatrix + Display>(freqs: &[f64], params: &[f64], epsilon: f64) {
+    let model = SubstModel::<Q>::new(freqs, params).unwrap();
+    let (info, info_rerooted) = &simple_reroot_info(model.qmatrix.alphabet());
     assert_relative_eq!(
         model.cost(info, false),
         model.cost(info_rerooted, true),
@@ -339,16 +339,31 @@ fn simple_protein_likelihood_reversibility(
     );
 }
 
-#[rstest]
-#[case::jc69(JC69, &[])]
-#[case::k80(K80, &[])]
-#[case::hky(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5])]
-#[case::tn93(TN93, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
-#[case::gtr(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-fn huelsenbeck_example_dna_reversibility_likelihood(
-    #[case] model_type: DNAModelType,
-    #[case] params: &[f64],
-) {
+#[test]
+fn dna_logl_reversibility() {
+    logl_revers_template::<JC69>(&[], &[], 1e-10);
+    logl_revers_template::<K80>(&[], &[], 1e-10);
+    logl_revers_template::<HKY>(&[0.22, 0.26, 0.33, 0.19], &[0.5], 1e-10);
+    logl_revers_template::<TN93>(
+        &[0.22, 0.26, 0.33, 0.19],
+        &[0.5970915, 0.2940435, 0.00135],
+        1e-10,
+    );
+    logl_revers_template::<GTR>(
+        &[0.22, 0.26, 0.33, 0.19],
+        &[5.0, 1.0, 1.0, 1.0, 1.0, 5.0],
+        1e-10,
+    );
+}
+
+#[test]
+fn protein_logl_reversibility() {
+    logl_revers_template::<WAG>(&[], &[], 1e-8);
+    logl_revers_template::<HIVB>(&[], &[], 1e-8);
+    logl_revers_template::<BLOSUM>(&[], &[], 1e-3);
+}
+
+fn huelsenbeck_reversibility_template<Q: QMatrix + Display>(freqs: &[f64], params: &[f64]) {
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
     let fldr = Path::new("./data");
     let info = &PIB::with_attrs(
@@ -363,7 +378,7 @@ fn huelsenbeck_example_dna_reversibility_likelihood(
     )
     .build()
     .unwrap();
-    let model = DNASubstModel::new(model_type, params).unwrap();
+    let model = SubstModel::<Q>::new(freqs, params).unwrap();
     assert_relative_eq!(
         model.cost(info, false),
         model.cost(info_rerooted, true),
@@ -372,9 +387,22 @@ fn huelsenbeck_example_dna_reversibility_likelihood(
 }
 
 #[test]
+fn huelsenbeck_reversibility() {
+    huelsenbeck_reversibility_template::<JC69>(&[], &[]);
+    huelsenbeck_reversibility_template::<K80>(&[], &[0.5]);
+    huelsenbeck_reversibility_template::<HKY>(&[0.22, 0.26, 0.33, 0.19], &[0.5]);
+    huelsenbeck_reversibility_template::<TN93>(
+        &[0.22, 0.26, 0.33, 0.19],
+        &[0.5970915, 0.2940435, 0.00135],
+    );
+    huelsenbeck_reversibility_template::<GTR>(
+        &[0.1, 0.3, 0.4, 0.2],
+        &[5.0, 1.0, 1.0, 1.0, 1.0, 5.0],
+    );
+}
 
+#[test]
 fn pip_likelihood_correct_after_reset() {
-    use crate::evolutionary_models::EvoModel;
     let tree1 = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let tree2 = tree!("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);");
     let sequences = Sequences::new(vec![
@@ -386,7 +414,7 @@ fn pip_likelihood_correct_after_reset() {
     let info1 = PIB::build_from_objects(sequences.clone(), tree1).unwrap();
     let info2 = PIB::build_from_objects(sequences, tree2).unwrap();
 
-    let pip_wag = PIPModel::<ProteinSubstModel>::new(WAG, &[50.0, 0.1]).unwrap();
+    let pip_wag = PIPModel::<WAG>::new(&[], &[50.0, 0.1]).unwrap();
     let c1 = pip_wag.cost(&info1, false);
     assert_relative_eq!(c1, -1004.2260753055999, epsilon = 1e-5);
     assert_relative_eq!(c1, pip_wag.cost(&info1, true), epsilon = 1e-5);
@@ -397,16 +425,8 @@ fn pip_likelihood_correct_after_reset() {
     assert_relative_eq!(c2, pip_wag.cost(&info2, true), epsilon = 1e-5);
 }
 
-#[rstest]
-#[case::wag(WAG, -7.488595394504073, -10.206456536551775)]
-#[case::hivb(HIVB, -7.231597482410509, -9.865559545434952)]
-#[case::blosum(BLOSUM, -7.4408154253528975, -10.33187874481282)]
-
-fn likelihood_correct_after_reset(
-    #[case] model_type: ProteinModelType,
-    #[case] llik1: f64,
-    #[case] llik2: f64,
-) {
+#[cfg(test)]
+fn logl_correct_after_reset_template<Q: QMatrix + Display>(llik1: f64, llik2: f64) {
     let tree1 = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let tree2 = tree!("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);");
     let sequences = Sequences::new(vec![
@@ -418,7 +438,7 @@ fn likelihood_correct_after_reset(
     let info1 = PIB::build_from_objects(sequences.clone(), tree1).unwrap();
     let info2 = PIB::build_from_objects(sequences, tree2).unwrap();
 
-    let model = ProteinSubstModel::new(model_type, &[]).unwrap();
+    let model = SubstModel::<Q>::new(&[], &[]).unwrap();
     let c1 = model.cost(&info1, false);
     assert_relative_eq!(c1, llik1, epsilon = 1e-5);
     assert_relative_eq!(c1, model.cost(&info1, true), epsilon = 1e-5);
@@ -429,52 +449,69 @@ fn likelihood_correct_after_reset(
     assert_relative_eq!(c2, model.cost(&info2, true), epsilon = 1e-5);
 }
 
-#[rstest]
-#[case::jc69(JC69, &[])]
-#[case::k80(K80, &[])]
-#[case::hky(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5])]
-#[case::tn93(TN93, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
-#[case::gtr(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-fn only_one_site_one_char(#[case] mtype: DNAModelType, #[case] params: &[f64]) {
+#[test]
+fn protein_logl_correct_after_reset() {
+    logl_correct_after_reset_template::<WAG>(-7.488595394504073, -10.206456536551775);
+    logl_correct_after_reset_template::<HIVB>(-7.231597482410509, -9.865559545434952);
+    logl_correct_after_reset_template::<BLOSUM>(-7.4408154253528975, -10.33187874481282);
+}
+
+fn one_site_one_char_template<Q: QMatrix + Display>(freqs: &[f64], params: &[f64]) {
     // This used to fail on leaf data creation when some of the sequences were empty
-    let sequences = Sequences::new(vec![
-        record!("one", b"C"),
-        record!("two", b"-"),
-        record!("three", b"-"),
-        record!("four", b"-"),
-    ]);
+    let model = SubstModel::<Q>::new(freqs, params).unwrap();
+    let sequences = Sequences::with_alphabet(
+        vec![
+            record!("one", b"C"),
+            record!("two", b"-"),
+            record!("three", b"-"),
+            record!("four", b"-"),
+        ],
+        model.qmatrix.alphabet().clone(),
+    );
     let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
     let info = PIB::build_from_objects(sequences, tree).unwrap();
-    let model = DNASubstModel::new(mtype, params).unwrap();
+
     let logl = model.cost(&info, false);
     assert_ne!(logl, f64::NEG_INFINITY);
     assert!(logl < 0.0);
 }
 
-#[ignore = "long test"]
 #[test]
-fn hiv_large_dataset_subset_valid_likelihood() {
+fn dna_one_site_one_char() {
+    one_site_one_char_template::<JC69>(&[], &[]);
+    one_site_one_char_template::<K80>(&[], &[]);
+    one_site_one_char_template::<HKY>(&[0.22, 0.26, 0.33, 0.19], &[0.5]);
+    one_site_one_char_template::<TN93>(&[0.22, 0.26, 0.33, 0.19], &[0.5970915, 0.2940435, 0.00135]);
+    one_site_one_char_template::<GTR>(&[0.1, 0.3, 0.4, 0.2], &[5.0, 1.0, 1.0, 1.0, 1.0, 5.0]);
+}
+
+#[test]
+fn protein_one_site_one_char() {
+    one_site_one_char_template::<WAG>(&[], &[]);
+    one_site_one_char_template::<HIVB>(&[], &[]);
+    one_site_one_char_template::<BLOSUM>(&[], &[]);
+}
+
+#[test]
+fn hiv_subset_valid_subst_likelihood() {
     let fldr = Path::new("./data/real_examples/");
     let alignment = fldr.join("HIV-1_env_DNA_mafft_alignment_subset.fasta");
     let info = PIB::new(alignment).build().unwrap();
     let gtr =
-        DNASubstModel::new(GTR, &[0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
+        SubstModel::<GTR>::new(&[0.25, 0.25, 0.25, 0.25], &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
     let logl = gtr.cost(&info, false);
     assert_ne!(logl, f64::NEG_INFINITY);
     assert!(logl < 0.0);
 }
 
-#[ignore = "long test"]
 #[test]
-fn hiv_large_dataset_substitution_subset_pip() {
+fn hiv_subset_valid_pip_likelihood() {
     let fldr = Path::new("./data/real_examples/");
     let alignment = fldr.join("HIV-1_env_DNA_mafft_alignment_subset.fasta");
     let info = PIB::new(alignment).build().unwrap();
-    let pip = PIPModel::<DNASubstModel>::new(
-        GTR,
-        &[
-            0.1, 0.1, 0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        ],
+    let pip = PIPModel::<GTR>::new(
+        &[0.25, 0.25, 0.25, 0.25],
+        &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
     )
     .unwrap();
     let logl = pip.cost(&info, false);
@@ -490,7 +527,7 @@ fn dna_gaps_against_phyml() {
         read_sequences_from_file(&Path::new("./data/").join("sequences_DNA1.fasta")).unwrap(),
     );
     let info = PIB::build_from_objects(sequences, tree!(&newick)).unwrap();
-    let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
+    let jc69 = SubstModel::<JC69>::new(&[], &[]).unwrap();
 
     // Compare against value from PhyML
     assert_relative_eq!(jc69.cost(&info, false), -9.70406054783923);
@@ -498,7 +535,7 @@ fn dna_gaps_against_phyml() {
 
 #[test]
 fn dna_single_char_gaps_against_phyml() {
-    let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
+    let jc69 = SubstModel::<JC69>::new(&[], &[]).unwrap();
     let tree =
         tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001)0.000000:0.08716381);");
 
@@ -550,7 +587,7 @@ fn dna_single_char_gaps_against_phyml() {
 
 #[test]
 fn dna_ambig_chars_against_phyml() {
-    let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
+    let jc69 = SubstModel::<JC69>::new(&[], &[]).unwrap();
     let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001)0.0:0.08716381);");
     let sequences = Sequences::new(vec![
         record!("A", b"B"),
@@ -564,38 +601,16 @@ fn dna_ambig_chars_against_phyml() {
 
 #[test]
 fn dna_x_simple_fully_likely() {
-    let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
+    let jc69 = SubstModel::<JC69>::new(&[], &[]).unwrap();
     let tree = tree!("(A:0.05,B:0.0005):0.0;");
     let sequences = Sequences::new(vec![record!("A", b"X"), record!("B", b"X")]);
     let info = PIB::build_from_objects(sequences, tree).unwrap();
     assert_relative_eq!(jc69.cost(&info, true), 0.0, epsilon = 1e-5);
 }
 
-#[rstest]
-#[case::jc69(JC69, &[])]
-#[case::k80(K80, &[])]
-#[case::hky(HKY, &[0.22, 0.26, 0.33, 0.19, 0.5])]
-#[case::tn93(TN93, &[0.22, 0.26, 0.33, 0.19, 0.5970915, 0.2940435, 0.00135])]
-#[case::gtr(GTR, &[0.1, 0.3, 0.4, 0.2, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0])]
-fn dna_x_fully_likely(#[case] model_type: DNAModelType, #[case] params: &[f64]) {
-    let model = DNASubstModel::new(model_type, params).unwrap();
-    let tree = tree!("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);");
-    let sequences = Sequences::new(vec![
-        record!("A", b"X"),
-        record!("B", b"X"),
-        record!("C", b"X"),
-        record!("D", b"X"),
-    ]);
-    let info = PIB::build_from_objects(sequences, tree).unwrap();
-    assert_relative_eq!(model.cost(&info, true), 0.0, epsilon = 1e-5);
-}
-
-#[rstest]
-#[case::wag(WAG)]
-#[case::hivb(HIVB)]
-#[case::blosum(BLOSUM)]
-fn protein_x_fully_likely(#[case] model_type: ProteinModelType) {
-    let model = ProteinSubstModel::new(model_type, &[]).unwrap();
+#[cfg(test)]
+fn x_fully_likely_template<Q: QMatrix + Display>(freqs: &[f64], params: &[f64]) {
+    let model = SubstModel::<Q>::new(freqs, params).unwrap();
     let tree = tree!("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);");
     let sequences = Sequences::with_alphabet(
         vec![
@@ -604,9 +619,24 @@ fn protein_x_fully_likely(#[case] model_type: ProteinModelType) {
             record!("C", b"X"),
             record!("D", b"X"),
         ],
-        protein_alphabet(),
+        model.qmatrix.alphabet().clone(),
     );
-
     let info = PIB::build_from_objects(sequences, tree).unwrap();
     assert_relative_eq!(model.cost(&info, true), 0.0, epsilon = 1e-5);
+}
+
+#[test]
+fn dna_x_fully_likely() {
+    x_fully_likely_template::<JC69>(&[], &[]);
+    x_fully_likely_template::<K80>(&[], &[]);
+    x_fully_likely_template::<HKY>(&[0.22, 0.26, 0.33, 0.19], &[0.5]);
+    x_fully_likely_template::<TN93>(&[0.22, 0.26, 0.33, 0.19], &[0.5970915, 0.2940435, 0.00135]);
+    x_fully_likely_template::<GTR>(&[0.1, 0.3, 0.4, 0.2], &[5.0, 1.0, 1.0, 1.0, 1.0, 5.0]);
+}
+
+#[test]
+fn protein_x_fully_likely() {
+    x_fully_likely_template::<WAG>(&[], &[]);
+    x_fully_likely_template::<HIVB>(&[], &[]);
+    x_fully_likely_template::<BLOSUM>(&[], &[]);
 }

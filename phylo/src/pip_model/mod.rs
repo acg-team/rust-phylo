@@ -1,3 +1,5 @@
+use anyhow::bail;
+use nalgebra::{DMatrix, DVector};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -5,58 +7,60 @@ use std::marker::PhantomData;
 use std::ops::Mul;
 use std::vec;
 
-use nalgebra::{DMatrix, DVector};
-
 use crate::alignment::Mapping;
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::PhyloCostFunction;
 use crate::phylo_info::PhyloInfo;
-use crate::substitution_models::{
-    DNASubstModel, FreqVector, ProteinSubstModel, SubstMatrix, SubstitutionModel,
-};
+use crate::substitution_models::{FreqVector, QMatrix, SubstMatrix};
 use crate::tree::{
     NodeIdx::{self, Internal as Int, Leaf},
     Tree,
 };
 use crate::Result;
 
-mod pip_parameters;
-pub use pip_parameters::*;
-
-#[derive(Clone)]
-pub struct PIPModel<SM: SubstitutionModel + Clone>
-where
-    SM::ModelType: Clone,
-{
-    pub(crate) params: PIPParams<SM>,
-    pub(crate) q: SubstMatrix,
-    pub(crate) index: [usize; 255],
-    tmp: RefCell<PIPModelInfo<SM>>,
+#[derive(Debug, Clone, PartialEq)]
+pub struct PIPModel<Q: QMatrix> {
+    pub(crate) qmatrix: Q,
+    q: SubstMatrix,
+    freqs: FreqVector,
+    lambda: f64,
+    mu: f64,
+    tmp: RefCell<PIPModelInfo<Q>>,
+    index: [usize; 255],
+    params: Vec<f64>,
 }
 
-pub type PIPDNAModel = PIPModel<DNASubstModel>;
-pub type PIPProteinModel = PIPModel<ProteinSubstModel>;
-
-impl<SM: SubstitutionModel + Clone> EvoModel for PIPModel<SM>
-where
-    SM::ModelType: Clone + Display,
-{
-    type ModelType = SM::ModelType;
-
-    fn new(model: SM::ModelType, params: &[f64]) -> Result<Self>
+impl<Q: QMatrix + Clone> EvoModel for PIPModel<Q> {
+    fn new(frequencies: &[f64], params: &[f64]) -> Result<Self>
     where
         Self: Sized,
     {
-        let params = PIPParams::<SM>::new(model, params)?;
-        Ok(Self::create(&params))
-    }
+        if params.len() < 2 {
+            bail!("Too few values provided for PIP, 2 values required, lambda and mu.");
+        }
+        let lambda = params[0];
+        let mu = params[1];
 
-    fn description(&self) -> String {
-        format!("PIP with {}", self.params.model_type)
+        let qmatrix = Q::new(frequencies, &params[2..]);
+        let mut index = *qmatrix.index();
+        index[b'-' as usize] = qmatrix.n();
+        let freqs = qmatrix.freqs().clone().insert_row(qmatrix.n(), 0.0);
+        let q = Self::make_pip_q(&qmatrix, mu);
+
+        Ok(PIPModel {
+            qmatrix,
+            q,
+            freqs,
+            lambda,
+            mu,
+            tmp: RefCell::new(PIPModelInfo::empty()),
+            index,
+            params: params.to_vec(),
+        })
     }
 
     fn p(&self, time: f64) -> SubstMatrix {
-        (self.q.clone() * time).exp()
+        (self.q().clone() * time).exp()
     }
 
     fn q(&self) -> &SubstMatrix {
@@ -68,101 +72,73 @@ where
     }
 
     fn freqs(&self) -> &FreqVector {
-        &self.params.pi
+        &self.freqs
     }
 
     fn set_freqs(&mut self, pi: FreqVector) {
-        self.params.set_freqs(pi);
-        self.update();
+        self.freqs = pi.clone().insert_row(self.n() - 1, 0.0);
+        self.qmatrix.set_freqs(pi.clone());
+        self.q = Self::make_pip_q(&self.qmatrix, self.mu);
     }
 
     fn index(&self) -> &[usize; 255] {
         &self.index
     }
 
-    fn model_parameters(&self) -> Vec<f64> {
-        SubstitutionModel::model_parameters(&self.params.subst_model)
-            .into_iter()
-            .chain(vec![self.params.lambda, self.params.mu])
-            .collect()
+    fn params(&self) -> &[f64] {
+        &self.params
     }
 
     fn set_param(&mut self, param: usize, value: f64) {
-        self.params.set_param(param, value);
-        self.update();
+        match param {
+            0 => {
+                self.lambda = value;
+                self.params[0] = value;
+            }
+            1 => {
+                self.mu = value;
+                self.params[1] = value;
+                self.q = Self::make_pip_q(&self.qmatrix, self.mu);
+            }
+            _ => {
+                self.params[param] = value;
+                self.qmatrix.set_param(param - 2, value);
+                self.q = Self::make_pip_q(&self.qmatrix, self.mu);
+            }
+        }
+    }
+
+    fn n(&self) -> usize {
+        self.qmatrix.n() + 1
     }
 }
 
-impl<SM: SubstitutionModel + Display + Clone> Display for PIPModel<SM>
-where
-    SM::ModelType: Clone,
-{
+impl<Q: QMatrix + Display> Display for PIPModel<Q> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.params)
+        write!(
+            f,
+            "PIP with [lambda = {:.5}, mu = {:.5}]\n and {}",
+            self.params[0], self.params[1], self.qmatrix
+        )
     }
 }
 
-impl<SM: SubstitutionModel + Clone> PIPModel<SM>
-where
-    SM::ModelType: Clone,
-    PIPParams<SM>: Clone,
-{
-    pub(crate) fn create(params: &PIPParams<SM>) -> PIPModel<SM> {
-        let mut subst_model = params.subst_model.clone();
-        subst_model.normalise();
-        let (index, q, _) = Self::make_pip_q(
-            *SubstitutionModel::index(&subst_model),
-            &subst_model,
-            params.mu,
-        );
-        PIPModel {
-            index,
-            params: params.clone(),
-            q,
-            tmp: RefCell::new(PIPModelInfo::empty()),
-        }
-    }
-
-    fn update(&mut self) {
-        let (index, q, pi) = Self::make_pip_q(
-            *SubstitutionModel::index(&self.params.subst_model),
-            &self.params.subst_model,
-            self.params.mu,
-        );
-        self.index = index;
-        self.q = q;
-        self.params.pi = pi;
-        if !self.tmp.borrow().empty {
-            self.tmp.borrow_mut().models_valid.fill(false);
-        }
-    }
-
-    fn make_pip_q(
-        index: [usize; 255],
-        subst_model: &SM,
-        mu: f64,
-    ) -> ([usize; 255], SubstMatrix, FreqVector) {
-        let n = SM::N;
-        let mut index = index;
-        index[b'-' as usize] = n;
-        let mut q = subst_model
-            .q()
-            .clone()
-            .insert_column(n, mu)
-            .insert_row(n, 0.0);
+impl<Q: QMatrix> PIPModel<Q> {
+    fn make_pip_q(qmatrix: &Q, mu: f64) -> SubstMatrix {
+        let n = qmatrix.n();
+        let mut q = qmatrix.q().clone().insert_column(n, mu).insert_row(n, 0.0);
         q.fill_diagonal(0.0);
         for i in 0..(n + 1) {
             q[(i, i)] = -q.row(i).sum();
         }
-        let pi = subst_model.freqs().clone().insert_row(n, 0.0);
-        (index, q, pi)
+        q
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct PIPModelInfo<SM: SubstitutionModel> {
+#[derive(Debug, Clone, PartialEq)]
+pub struct PIPModelInfo<Q: QMatrix> {
     empty: bool,
-    phantom: PhantomData<SM>,
+    phantom: PhantomData<Q>,
     ins_probs: Vec<f64>,
     surv_probs: Vec<f64>,
     anc: Vec<DMatrix<f64>>,
@@ -178,10 +154,9 @@ pub struct PIPModelInfo<SM: SubstitutionModel> {
     leaf_sequence_info: HashMap<String, DMatrix<f64>>,
 }
 
-impl<SM: SubstitutionModel + Clone> PIPModelInfo<SM>
+impl<Q: QMatrix + Clone> PIPModelInfo<Q>
 where
-    SM::ModelType: Clone,
-    PIPModel<SM>: EvoModel,
+    PIPModel<Q>: EvoModel,
 {
     pub fn empty() -> Self {
         PIPModelInfo {
@@ -203,8 +178,8 @@ where
         }
     }
 
-    pub fn new(info: &PhyloInfo, _model: &PIPModel<SM>) -> Self {
-        let n = SM::N + 1;
+    pub fn new(info: &PhyloInfo, model: &PIPModel<Q>) -> Self {
+        let n = model.n();
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
         let mut leaf_seq_info: HashMap<String, DMatrix<f64>> = HashMap::new();
@@ -224,10 +199,10 @@ where
             leaf_seq_info.insert(node.id.clone(), leaf_seq_w_gaps);
         }
 
-        PIPModelInfo::<SM> {
+        PIPModelInfo::<Q> {
             empty: false,
             phantom: PhantomData,
-            ftilde: vec![DMatrix::<f64>::zeros(SM::N + 1, msa_length); node_count],
+            ftilde: vec![DMatrix::<f64>::zeros(model.n(), msa_length); node_count],
             ins_probs: vec![0.0; node_count],
             surv_probs: vec![0.0; node_count],
             f: vec![DVector::<f64>::zeros(msa_length); node_count],
@@ -259,10 +234,9 @@ where
     }
 }
 
-impl<SM: SubstitutionModel + Clone> PhyloCostFunction for PIPModel<SM>
+impl<Q: QMatrix + Clone> PhyloCostFunction for PIPModel<Q>
 where
-    SM::ModelType: Clone,
-    PIPModel<SM>: EvoModel,
+    PIPModel<Q>: EvoModel,
 {
     // TODO: add check that the model type matches the data
     fn cost(&self, info: &PhyloInfo, reset: bool) -> f64 {
@@ -277,14 +251,13 @@ where
     }
 }
 
-impl<SM: SubstitutionModel + Clone> PIPModel<SM>
+impl<Q: QMatrix + Clone> PIPModel<Q>
 where
-    SM::ModelType: Clone,
-    PIPModel<SM>: EvoModel,
+    PIPModel<Q>: EvoModel,
 {
     fn logl(&self, info: &PhyloInfo) -> f64 {
         if self.tmp.borrow().empty {
-            self.tmp.replace(PIPModelInfo::<SM>::new(info, self));
+            self.tmp.replace(PIPModelInfo::<Q>::new(info, self));
         }
 
         for node_idx in info.tree.postorder() {
@@ -306,7 +279,7 @@ where
         let root_idx = usize::from(&info.tree.root);
 
         let msa_length = info.msa.len();
-        let nu = self.params.lambda * (info.tree.height + 1.0 / self.params.mu);
+        let nu = self.lambda * (info.tree.height + 1.0 / self.mu);
         let ln_phi = nu.ln() * msa_length as f64 + (tmp.c0_p[root_idx] - 1.0) * nu
             - (log_factorial(msa_length));
         tmp.p[root_idx].map(|x| x.ln()).sum() + ln_phi
@@ -317,7 +290,7 @@ where
         let idx = usize::from(node_idx);
         if !self.tmp.borrow().valid[idx] {
             let mut tmp = self.tmp.borrow_mut();
-            let mu = self.params.mu;
+            let mu = self.mu;
             tmp.surv_probs[idx] = 1.0;
             tmp.ins_probs[idx] = Self::insertion_prob(tree.height, 1.0 / mu, mu);
             tmp.anc[idx].fill_column(0, 1.0);
@@ -338,7 +311,7 @@ where
         let idx = usize::from(node_idx);
         if !self.tmp.borrow().valid[idx] {
             let mut tmp = self.tmp.borrow_mut();
-            let mu = self.params.mu;
+            let mu = self.mu;
             let b = tree.blen(node_idx);
             tmp.surv_probs[idx] = Self::survival_prob(mu, b);
             tmp.ins_probs[idx] = Self::insertion_prob(tree.height, b, mu);
@@ -362,7 +335,7 @@ where
         let idx = usize::from(node_idx);
         if !self.tmp.borrow().valid[idx] {
             let mut tmp = self.tmp.borrow_mut();
-            let mu = self.params.mu;
+            let mu = self.mu;
             let b = tree.blen(node_idx);
             tmp.surv_probs[idx] = Self::survival_prob(mu, b);
             tmp.ins_probs[idx] = Self::insertion_prob(tree.height, b, mu);
@@ -382,7 +355,7 @@ where
                 .tr_mul(self.freqs())
                 .component_mul(&tmp.anc[idx].column(0));
             tmp.p[idx] = tmp.f[idx].clone() * tmp.surv_probs[idx] * tmp.ins_probs[idx];
-            tmp.c0_ftilde[idx][SM::N] = 1.0;
+            tmp.c0_ftilde[idx][self.n() - 1] = 1.0;
             tmp.c0_f[idx] = 0.0;
             tmp.c0_p[idx] = (1.0 - tmp.surv_probs[idx]) * tmp.ins_probs[idx];
 

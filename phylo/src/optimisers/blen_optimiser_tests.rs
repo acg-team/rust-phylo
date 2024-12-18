@@ -2,12 +2,12 @@ use std::path::Path;
 
 use approx::assert_relative_eq;
 
-use crate::evolutionary_models::{DNAModelType, EvoModel};
+use crate::evolutionary_models::EvoModel;
 use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::{BranchOptimiser, PhyloOptimiser};
 use crate::phylo_info::PhyloInfoBuilder as PIB;
-use crate::pip_model::PIPDNAModel;
-use crate::substitution_models::DNASubstModel;
+use crate::pip_model::PIPModel;
+use crate::substitution_models::{dna_models::*, SubstModel};
 use crate::tree::{tree_parser::from_newick, NodeIdx::Internal as Int};
 
 use crate::tree;
@@ -18,11 +18,9 @@ fn likelihood_increase_pip() {
     let info = PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
         .build()
         .unwrap();
-    let model = PIPDNAModel::new(
-        DNAModelType::GTR,
-        &[
-            14.142_1, 0.1414, 0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        ],
+    let model = PIPModel::<GTR>::new(
+        &[0.25, 0.25, 0.25, 0.25],
+        &[14.142_1, 0.1414, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
     )
     .unwrap();
     assert_relative_eq!(model.cost(&info, false), -5664.780425445042);
@@ -44,11 +42,8 @@ fn branch_optimiser_likelihood_increase() {
     let info = PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
         .build()
         .unwrap();
-    let model = DNASubstModel::new(
-        DNAModelType::GTR,
-        &[0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-    )
-    .unwrap();
+    let model =
+        SubstModel::<GTR>::new(&[0.25, 0.25, 0.25, 0.25], &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
     let o = BranchOptimiser::new(&model, &info).run().unwrap();
     assert!(o.final_logl > o.initial_logl);
     assert_ne!(o.i.tree.height, info.tree.height);
@@ -65,7 +60,7 @@ fn branch_optimiser_against_phyml() {
     let info = PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
         .build()
         .unwrap();
-    let model = DNASubstModel::new(DNAModelType::JC69, &[]).unwrap();
+    let model = SubstModel::<JC69>::new(&[], &[]).unwrap();
     let o = BranchOptimiser::new(&model, &info).run().unwrap();
     assert!(o.final_logl > o.initial_logl);
     assert_ne!(o.i.tree.height, info.tree.height);

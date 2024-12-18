@@ -4,7 +4,7 @@ use approx::assert_relative_eq;
 use bio::io::fasta::Record;
 
 use crate::alignment::Sequences;
-use crate::evolutionary_models::{DNAModelType::*, EvoModel, ProteinModelType::*};
+use crate::evolutionary_models::EvoModel;
 use crate::io::write_newick_to_file;
 use crate::likelihood::PhyloCostFunction;
 use crate::optimisers::{
@@ -13,7 +13,7 @@ use crate::optimisers::{
 };
 use crate::phylo_info::PhyloInfoBuilder as PIB;
 use crate::pip_model::PIPModel;
-use crate::substitution_models::{DNASubstModel, ProteinSubstModel};
+use crate::substitution_models::{dna_models::*, protein_models::*, SubstModel};
 use crate::tree::tree_parser::from_newick;
 
 use crate::{record_wo_desc as record, tree};
@@ -29,7 +29,7 @@ fn k80_sim_data_from_given() {
         record!("D", b"TTATATATAT"),
     ]);
     let info = PIB::build_from_objects(sequences, tree).unwrap();
-    let k80 = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
+    let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]).unwrap();
     let unopt_logl = k80.cost(&info, false);
     let o = TopologyOptimiser::new(&k80, &info).run().unwrap();
 
@@ -42,7 +42,7 @@ fn k80_sim_data_from_nj() {
     // Check that optimisation on k80 data improves k80 likelihood when starting from an NJ tree
     let fldr = Path::new("./data/sim/K80");
     let info = PIB::new(fldr.join("K80.fasta")).build().unwrap();
-    let k80 = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
+    let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]).unwrap();
     let unopt_logl = k80.cost(&info, false);
     let o = TopologyOptimiser::new(&k80, &info).run().unwrap();
 
@@ -58,7 +58,7 @@ fn k80_sim_data_vs_phyml() {
     let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("tree.newick"))
         .build()
         .unwrap();
-    let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
+    let jc69 = SubstModel::<JC69>::new(&[], &[]).unwrap();
     let unopt_logl = jc69.cost(&info, false);
     let o = TopologyOptimiser::new(&jc69, &info).run().unwrap();
 
@@ -95,7 +95,7 @@ fn k80_sim_data_vs_phyml_wrong_start() {
     let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("wrong_tree.newick"))
         .build()
         .unwrap();
-    let jc69 = DNASubstModel::new(JC69, &[]).unwrap();
+    let jc69 = SubstModel::<JC69>::new(&[], &[]).unwrap();
     let unopt_logl = jc69.cost(&info, false);
     let o = TopologyOptimiser::new(&jc69, &info).run().unwrap();
 
@@ -144,7 +144,7 @@ fn wag_no_gaps_vs_phyml_given_tree_start() {
     let true_tree_file = fldr.join("true_tree.newick");
     let tree_file = fldr.join("jati_wag_nogap.newick");
 
-    let model = ProteinSubstModel::new(WAG, &[]).unwrap();
+    let model = SubstModel::<WAG>::new(&[], &[]).unwrap();
     let info = PIB::with_attrs(seq_file.clone(), true_tree_file.clone())
         .build()
         .unwrap();
@@ -182,7 +182,7 @@ fn wag_no_gaps_vs_phyml_nj_tree_start() {
     let seq_file = fldr.join("nogap_seqs.fasta");
     let tree_file = fldr.join("jati_wag_nogap_nj_start.newick");
 
-    let model = ProteinSubstModel::new(WAG, &[]).unwrap();
+    let model = SubstModel::<WAG>::new(&[], &[]).unwrap();
     let info = PIB::new(seq_file.clone()).build().unwrap();
     let unopt_logl = model.cost(&info, false);
 
@@ -217,10 +217,10 @@ fn pip_vs_subst_dna_tree() {
     let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("wrong_tree.newick"))
         .build()
         .unwrap();
-    let model = DNASubstModel::new(K80, &[4.0, 1.0]).unwrap();
+    let model = SubstModel::<K80>::new(&[], &[4.0]).unwrap();
     let k80_opt_res = TopologyOptimiser::new(&model, &info).run().unwrap();
 
-    let pip = PIPModel::<DNASubstModel>::new(K80, &[0.5, 0.4, 4.0, 1.0]).unwrap();
+    let pip = PIPModel::<K80>::new(&[], &[0.5, 0.4, 4.0]).unwrap();
     let pip_opt_res = TopologyOptimiser::new(&pip, &info).run().unwrap();
 
     // Tree topologies under PIP+K80 and K80 should match
@@ -255,8 +255,8 @@ fn wag_nogaps_pip_vs_subst_tree_nj_start() {
     let wag_tree_file = fldr.join("jati_wag_nogap_pip_vs_wag.newick");
 
     let info = PIB::new(seq_file.clone()).build().unwrap();
-    let pip = PIPModel::<ProteinSubstModel>::new(WAG, &[50.0, 0.1]).unwrap();
-    let wag = ProteinSubstModel::new(WAG, &[]).unwrap();
+    let pip = PIPModel::<WAG>::new(&[], &[50.0, 0.1]).unwrap();
+    let wag = SubstModel::<WAG>::new(&[], &[]).unwrap();
 
     let unopt_pip_logl = pip.cost(&info, true);
     let result_pip =
@@ -292,7 +292,7 @@ fn wag_nogaps_pip_vs_subst_tree_nj_start() {
     );
 
     // Check that the likelihoods under the same model are similar for both trees
-    let pip_wag = PIPModel::<ProteinSubstModel>::new(WAG, &[50.0, 0.1]).unwrap();
+    let pip_wag = PIPModel::<WAG>::new(&[], &[50.0, 0.1]).unwrap();
     let o2_subst = BranchOptimiser::new(&pip_wag, &result_wag).run().unwrap();
 
     assert_relative_eq!(
@@ -308,7 +308,7 @@ fn protein_pip_optimise_model_tree() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
 
-    let pip = PIPModel::<ProteinSubstModel>::new(WAG, &[1.4, 0.5]).unwrap();
+    let pip = PIPModel::<WAG>::new(&[], &[1.4, 0.5]).unwrap();
 
     let tree_file = fldr.join("jati_pip_nj_start.newick");
     let result =
@@ -339,7 +339,7 @@ fn protein_pip_optimise_model_tree() {
             o.i
         };
 
-    let pip_opt = PIPModel::<ProteinSubstModel>::new(WAG, &[49.56941, 0.09352]).unwrap();
+    let pip_opt = PIPModel::<WAG>::new(&[], &[49.56941, 0.09352]).unwrap();
 
     assert_eq!(result_model_opt.tree.robinson_foulds(&result.tree), 0);
     assert!(pip_opt.cost(&result_model_opt, true) > pip.cost(&result, true));
@@ -356,7 +356,7 @@ fn protein_wag_vs_phyml_empirical_freqs() {
     let tree_file = fldr.join("jati_wag_empirical.newick");
 
     let info = PIB::new(seq_file.clone()).build().unwrap();
-    let model = ProteinSubstModel::new(WAG, &[]).unwrap();
+    let model = SubstModel::<WAG>::new(&[], &[]).unwrap();
     let unopt_logl = model.cost(&info, false);
 
     let o = ModelOptimiser::new(&model, &info, Empirical).run().unwrap();
@@ -399,7 +399,7 @@ fn protein_wag_vs_phyml_fixed_freqs() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
     let tree_file = fldr.join("jati_wag_fixed.newick");
-    let model = ProteinSubstModel::new(WAG, &[]).unwrap();
+    let model = SubstModel::<WAG>::new(&[], &[]).unwrap();
 
     let result =
         if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), tree_file.clone()).build() {
