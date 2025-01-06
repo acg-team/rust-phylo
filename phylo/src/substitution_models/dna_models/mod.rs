@@ -16,7 +16,7 @@ fn verify_dna_freqs(freqs: &FreqVector) -> bool {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct JC69 {
+pub struct JC69 {
     freqs: FreqVector,
     q: SubstMatrix,
     alphabet: Alphabet,
@@ -65,7 +65,7 @@ impl Display for JC69 {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct K80 {
+pub struct K80 {
     freqs: FreqVector,
     q: SubstMatrix,
     kappa: Vec<f64>,
@@ -153,7 +153,7 @@ fn k80_q(q: &mut SubstMatrix, k: f64) {
 
 #[derive(Clone, Debug, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
-pub(crate) struct HKY {
+pub struct HKY {
     freqs: FreqVector,
     q: SubstMatrix,
     kappa: Vec<f64>,
@@ -268,7 +268,7 @@ impl Display for HKY {
 
 #[derive(Clone, Debug, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
-pub(crate) struct TN93 {
+pub struct TN93 {
     freqs: FreqVector,
     pub(crate) q: SubstMatrix,
     params: Vec<f64>,
@@ -421,8 +421,6 @@ impl QMatrix for GTR {
         } else if params.len() == 6 {
             warn!("Allowing all rates to vary for GTR.");
         }
-
-        println!("params.len() = {}", params.len());
         let mut q = SubstMatrix::zeros(DNA_N, DNA_N);
         gtr_q(&mut q, &freqs, &params);
         GTR {

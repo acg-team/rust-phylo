@@ -9,11 +9,79 @@ use rand::Rng;
 use crate::alphabets::AMINOACIDS;
 use crate::evolutionary_models::EvoModel;
 use crate::substitution_models::{
-    dna_models::*, protein_models::*, FreqVector, ParsimonyModel, SubstMatrix, SubstModel,
+    dna_models::*, protein_models::*, FreqVector, ParsimonyModel, QMatrix, SubstMatrix, SubstModel,
 };
 use crate::Rounding as R;
 
-use super::QMatrix;
+#[cfg(test)]
+fn freqs_fixed_template<Q: QMatrix + PartialEq + Display + 'static>(params: &[f64]) {
+    // freqs should not change for JC69 and K80
+    let mut model = SubstModel::<Q>::new(&[], params).unwrap();
+    model.set_freqs(frequencies!(&[0.1, 0.2, 0.3, 0.4]));
+    assert_eq!(model.freqs(), &frequencies!(&[0.25; 4]));
+}
+
+#[test]
+fn dna_freqs_fixed() {
+    freqs_fixed_template::<JC69>(&[]);
+    freqs_fixed_template::<K80>(&[2.0]);
+}
+
+#[cfg(test)]
+fn freqs_updated_template<Q: QMatrix + PartialEq + Display + 'static>(
+    freqs: &[f64],
+    params: &[f64],
+) {
+    // freqs should change for HKY, TN93, and GTR
+    let mut model = SubstModel::<Q>::new(freqs, params).unwrap();
+    let new_freqs = frequencies!(&[0.1, 0.2, 0.3, 0.4]);
+    model.set_freqs(new_freqs.clone());
+    assert_eq!(model.freqs(), &new_freqs);
+    assert_ne!(model.freqs(), &frequencies!(freqs));
+}
+
+#[test]
+fn dna_freqs_updated() {
+    freqs_updated_template::<HKY>(&[0.2, 0.1, 0.5, 0.2], &[2.0]);
+    freqs_updated_template::<TN93>(&[0.1, 0.1, 0.44, 0.26], &[2.0, 1.0, 3.0]);
+    freqs_updated_template::<GTR>(&[0.7, 0.1, 0.1, 0.1], &[2.0, 2.0, 2.0, 2.0, 2.0]);
+}
+
+#[cfg(test)]
+fn param_fixed_template<Q: QMatrix + PartialEq + Clone + Display + 'static>(params: &[f64]) {
+    // parameters should not change for JC69
+    let model = SubstModel::<Q>::new(&[], params).unwrap();
+    assert!(model.params().is_empty());
+    let mut updated_model = model.clone();
+    updated_model.set_param(0, 66.0);
+    assert_eq!(model.params(), updated_model.params());
+    assert!(updated_model.params().is_empty());
+}
+
+#[test]
+fn dna_params_fixed() {
+    param_fixed_template::<JC69>(&[]);
+}
+
+#[cfg(test)]
+fn params_updated_template<Q: QMatrix + PartialEq + Display + 'static>(
+    params: &[f64],
+    new_params: &[f64],
+) {
+    // parameters should change for K80, HKY, TN93, and GTR
+    let mut model = SubstModel::<Q>::new(&[], params).unwrap();
+    for (i, &param) in new_params.iter().enumerate() {
+        model.set_param(i, param);
+    }
+    assert_eq!(model.params(), new_params);
+}
+
+#[test]
+fn dna_params_updated() {
+    params_updated_template::<HKY>(&[0.2], &[2.0]);
+    params_updated_template::<TN93>(&[0.1, 0.1, 0.44], &[2.0, 1.0, 3.0]);
+    params_updated_template::<GTR>(&[0.7; 5], &[0.9; 5]);
+}
 
 #[cfg(test)]
 fn check_freq_convergence(substmat: SubstMatrix, pi: &FreqVector, epsilon: f64) {

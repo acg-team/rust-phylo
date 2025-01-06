@@ -1,32 +1,32 @@
+use std::cell::RefCell;
+use std::fmt::Display;
+
 use log::{debug, info};
 
 use crate::likelihood::PhyloCostFunction;
-use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult, PhyloOptimiser};
-use crate::phylo_info::PhyloInfo;
+use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult};
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
 
-pub struct TopologyOptimiser<'a, EM: PhyloCostFunction> {
+pub struct TopologyOptimiser<C: PhyloCostFunction + Display + Clone> {
     pub(crate) epsilon: f64,
-    pub(crate) model: &'a EM,
-    pub(crate) info: PhyloInfo,
+    pub(crate) c: RefCell<C>,
 }
 
-impl<'a, EM: PhyloCostFunction + Clone> PhyloOptimiser<'a, EM> for TopologyOptimiser<'a, EM> {
-    fn new(model: &'a EM, info: &PhyloInfo) -> Self {
-        TopologyOptimiser {
+impl<C: PhyloCostFunction + Clone + Display> TopologyOptimiser<C> {
+    pub fn new(cost: C) -> Self {
+        Self {
             epsilon: 1e-3,
-            model,
-            info: info.clone(),
+            c: RefCell::new(cost),
         }
     }
 
-    fn run(self) -> Result<PhyloOptimisationResult> {
-        debug_assert!(self.info.tree.len() > 3);
+    pub fn run(self) -> Result<PhyloOptimisationResult<C>> {
+        debug_assert!(self.c.borrow().tree().len() > 3);
 
         info!("Optimising tree topology with SPRs.");
-        let mut info = self.info.clone();
-        let initial_logl = self.model.cost(&info, true);
+        let initial_logl = self.c.borrow().cost();
+        let mut tree = self.c.borrow().tree().clone();
 
         info!("Initial logl: {}.", initial_logl);
         let mut curr_cost = initial_logl;
@@ -34,11 +34,10 @@ impl<'a, EM: PhyloCostFunction + Clone> PhyloOptimiser<'a, EM> for TopologyOptim
         let mut iterations = 0;
 
         // No pruning on the root branch
-        let prune_locations: Vec<NodeIdx> = info
-            .tree
+        let prune_locations: Vec<NodeIdx> = tree
             .preorder()
             .iter()
-            .filter(|&n| n != &info.tree.root)
+            .filter(|&n| n != &tree.root)
             .cloned()
             .collect();
 
@@ -46,53 +45,59 @@ impl<'a, EM: PhyloCostFunction + Clone> PhyloOptimiser<'a, EM> for TopologyOptim
         // the search stops.
         // This means that curr_cost is always hugher than or equel to prev_cost.
         while (curr_cost - prev_cost) > self.epsilon {
+            tree = self.c.borrow().tree().clone();
             iterations += 1;
             info!("Iteration: {}.", iterations);
             prev_cost = curr_cost;
             info!("Current logl: {}.", curr_cost);
-            for prune_branch in &prune_locations {
-                if info.tree.children(&info.tree.root).contains(prune_branch) {
+            for prune in &prune_locations {
+                if tree.children(&tree.root).contains(prune) {
                     // due to topology change the current node may have become the direct child of root
                     continue;
                 }
-                let regraft_locations = Self::find_regraft_options(prune_branch, &info);
-                let mut moves = Vec::<(f64, Tree)>::with_capacity(regraft_locations.len());
-                for regraft_branch in &regraft_locations {
-                    let mut new_info = info.clone();
-                    new_info.tree = info.tree.rooted_spr(prune_branch, regraft_branch)?;
-                    let mut logl = self.model.cost(&new_info, false);
+                let regraft_locations = Self::find_regraft_options(prune, &tree);
+                let mut moves =
+                    Vec::<(f64, NodeIdx, NodeIdx, Tree)>::with_capacity(regraft_locations.len());
+                for regraft in &regraft_locations {
+                    let mut new_tree = tree.rooted_spr(prune, regraft)?;
+
+                    let mut cost = self.c.borrow().clone();
+                    cost.update_tree(&new_tree, &[*prune, *regraft]);
+
+                    let mut logl = cost.cost();
                     if logl <= curr_cost {
                         // reoptimise branch length at the regraft location
-                        let o = BranchOptimiser::new(self.model, &new_info);
-                        let (blen_logl, blen) = o.optimise_branch(regraft_branch, &new_info)?;
+                        let mut o = BranchOptimiser::new(cost);
+                        let (blen_logl, blen) = o.optimise_branch(regraft)?;
                         if blen_logl > logl {
-                            new_info.tree.set_blen(regraft_branch, blen);
+                            new_tree.set_blen(regraft, blen);
                             logl = blen_logl;
                         }
                     }
-                    moves.push((logl, new_info.tree.clone()));
+                    moves.push((logl, *prune, *regraft, new_tree.clone()));
                 }
-                let (best_logl, best_tree) = moves
+                let (best_logl, prune, regraft, best_tree) = moves
                     .into_iter()
-                    .max_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap())
+                    .max_by(|(a, _, _, _), (b, _, _, _)| a.partial_cmp(b).unwrap())
                     .unwrap();
                 if best_logl > curr_cost {
                     curr_cost = best_logl;
-                    info.tree = best_tree;
-                    debug!("Regrafted {} with new logl {}.", prune_branch, curr_cost);
+                    self.c
+                        .borrow_mut()
+                        .update_tree(&best_tree, &[prune, regraft]);
+                    debug!("\n Regrafted {} with new logl {}.", prune, curr_cost);
                 } else {
                     debug!(
                         "No improvement regrafting {}, best logl {}.",
-                        prune_branch, best_logl
+                        prune, best_logl
                     );
                 }
                 // Optimise branch lengths on current tree to match PhyML
-                let o = BranchOptimiser::new(self.model, &info).run()?;
+                let o = BranchOptimiser::new(self.c.borrow().clone()).run()?;
                 if o.final_logl > curr_cost {
                     curr_cost = o.final_logl;
-                    info = o.i;
+                    self.c.replace(o.cost);
                 }
-                info.tree.clean(true);
             }
         }
 
@@ -104,21 +109,19 @@ impl<'a, EM: PhyloCostFunction + Clone> PhyloOptimiser<'a, EM> for TopologyOptim
             initial_logl,
             final_logl: curr_cost,
             iterations,
-            i: info,
+            cost: self.c.into_inner(),
         })
     }
-}
 
-impl<EM: PhyloCostFunction> TopologyOptimiser<'_, EM> {
-    fn find_regraft_options(prune_branch: &NodeIdx, info: &PhyloInfo) -> Vec<NodeIdx> {
-        let all_locations = info.tree.preorder();
-        let prune_subtrees = info.tree.preorder_subroot(prune_branch);
-        let sibling = &info.tree.sibling(prune_branch).unwrap();
-        let parent = &info.tree.node(prune_branch).parent.unwrap();
+    fn find_regraft_options(prune_branch: &NodeIdx, tree: &Tree) -> Vec<NodeIdx> {
+        let all_locations = tree.preorder();
+        let prune_subtrees = tree.preorder_subroot(prune_branch);
+        let sibling = &tree.sibling(prune_branch).unwrap();
+        let parent = &tree.node(prune_branch).parent.unwrap();
         all_locations
             .iter()
             .filter(|&n| {
-                n != sibling && n != parent && n != &info.tree.root && !prune_subtrees.contains(n)
+                n != sibling && n != parent && n != &tree.root && !prune_subtrees.contains(n)
             })
             .cloned()
             .collect()
