@@ -47,9 +47,8 @@ impl<C: PhyloCostFunction + Clone + Display> TopologyOptimiser<C> {
         while (curr_cost - prev_cost) > self.epsilon {
             tree = self.c.borrow().tree().clone();
             iterations += 1;
-            info!("Iteration: {}.", iterations);
+            info!("Iteration: {}, current logl: {}.", iterations, curr_cost);
             prev_cost = curr_cost;
-            info!("Current logl: {}.", curr_cost);
             for prune in &prune_locations {
                 if tree.children(&tree.root).contains(prune) {
                     // due to topology change the current node may have become the direct child of root
@@ -58,6 +57,8 @@ impl<C: PhyloCostFunction + Clone + Display> TopologyOptimiser<C> {
                 let regraft_locations = Self::find_regraft_options(prune, &tree);
                 let mut moves =
                     Vec::<(f64, NodeIdx, NodeIdx, Tree)>::with_capacity(regraft_locations.len());
+
+                info!("Node {:?}: trying to regraft", prune);
                 for regraft in &regraft_locations {
                     let mut new_tree = tree.rooted_spr(prune, regraft)?;
 
@@ -74,6 +75,7 @@ impl<C: PhyloCostFunction + Clone + Display> TopologyOptimiser<C> {
                             logl = blen_logl;
                         }
                     }
+                    debug!("    Regraft to {:?} w best logl {}.", regraft, logl);
                     moves.push((logl, *prune, *regraft, new_tree.clone()));
                 }
                 let (best_logl, prune, regraft, best_tree) = moves
@@ -85,7 +87,7 @@ impl<C: PhyloCostFunction + Clone + Display> TopologyOptimiser<C> {
                     self.c
                         .borrow_mut()
                         .update_tree(&best_tree, &[prune, regraft]);
-                    debug!("\n Regrafted {} with new logl {}.", prune, curr_cost);
+                    info!("    Regrafted to {:?}, new logl {}.", regraft, curr_cost);
                 } else {
                     info!("    No improvement, best logl {}.", best_logl);
                 }
@@ -96,10 +98,11 @@ impl<C: PhyloCostFunction + Clone + Display> TopologyOptimiser<C> {
             if o.final_logl > curr_cost {
                 curr_cost = o.final_logl;
                 self.c.borrow_mut().update_tree(&o.cost.tree().clone(), &[]);
-                debug_assert_eq!(curr_cost, self.c.borrow().cost());
             }
         }
 
+        debug_assert_eq!(curr_cost, self.c.borrow().cost());
+        info!("Done optimising tree topology.");
         info!(
             "Final logl: {}, achieved in {} iteration(s).",
             curr_cost, iterations
