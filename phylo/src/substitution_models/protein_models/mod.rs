@@ -43,7 +43,7 @@ macro_rules! define_protein_model {
     ($name:ident, $pi:ident, $exch:expr) => {
         #[derive(Clone, Debug, PartialEq)]
         #[allow(clippy::upper_case_acronyms)]
-        pub(crate) struct $name {
+        pub struct $name {
             freqs: FreqVector,
             q: SubstMatrix,
             exchangeability: SubstMatrix,
