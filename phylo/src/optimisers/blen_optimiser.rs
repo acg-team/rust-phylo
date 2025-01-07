@@ -36,26 +36,25 @@ impl<C: PhyloCostFunction + Clone + Display> BranchOptimiser<C> {
         let nodes: Vec<NodeIdx> = tree.iter().map(|node| node.idx).collect();
         while (curr_cost - prev_cost) > self.epsilon {
             iterations += 1;
-            debug!("Iteration: {}", iterations);
+            info!("Iteration: {}, current logl: {}.", iterations, curr_cost);
             prev_cost = curr_cost;
             for branch in &nodes {
                 if tree.root == *branch {
                     continue;
                 }
+                debug!("Node {:?}: optimising", branch);
                 let (logl, length) = self.optimise_branch(branch)?;
                 if logl > curr_cost {
                     curr_cost = logl;
                     tree.set_blen(branch, length);
-                    debug!(
-                        "Optimised {} branch length to value {:.5} with logl {:.5}",
-                        branch, length, curr_cost
-                    );
+                    debug!("    Optimised to {:.5} with logl {:.5}", length, curr_cost);
                 }
                 // The branch length may have changed during the optimisation attempt, so the tree
                 // should be reset even if the optimisation was unsuccessful.
                 self.c.borrow_mut().update_tree(&tree, &[*branch]);
             }
         }
+        info!("Done optimising branch lengths.");
         info!(
             "Final logl: {}, achieved in {} iteration(s).",
             curr_cost, iterations
