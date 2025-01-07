@@ -27,8 +27,9 @@ fn branch_opt_likelihood_increase_pip() {
     assert_relative_eq!(c.cost(), -5664.780425445042);
     let o = BranchOptimiser::new(c.clone()).run().unwrap();
 
-    assert_relative_eq!(c.cost(), o.initial_logl);
     assert!(o.final_logl > o.initial_logl);
+    assert_eq!(c.cost(), o.initial_logl);
+
     let new_info = o.cost.info.clone();
 
     assert_ne!(new_info.tree.height, info.tree.height);
@@ -37,9 +38,10 @@ fn branch_opt_likelihood_increase_pip() {
         new_info.tree.iter().map(|n| n.blen).sum(),
         epsilon = 1e-4
     );
+
     let c = PIPCB::new(model, new_info).build().unwrap();
-    assert_relative_eq!(c.cost(), o.final_logl, epsilon = 1e-7);
-    assert_eq!(c.cost(), o.cost.cost());
+    assert_eq!(o.cost.cost(), o.final_logl);
+    assert_eq!(c.cost(), o.final_logl);
 }
 
 #[test]
@@ -48,13 +50,18 @@ fn branch_opt_likelihood_increase_gtr() {
     let info = PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
         .build()
         .unwrap();
-    let model =
+    let gtr =
         SubstModel::<GTR>::new(&[0.25, 0.25, 0.25, 0.25], &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
-    let o = BranchOptimiser::new(SCB::new(model, info.clone()).build().unwrap())
+    let o = BranchOptimiser::new(SCB::new(gtr.clone(), info.clone()).build().unwrap())
         .run()
         .unwrap();
+
     assert!(o.final_logl > o.initial_logl);
     assert_ne!(o.cost.tree().height, info.tree.height);
+
+    let c = SCB::new(gtr, o.cost.info.clone()).build().unwrap();
+    assert_eq!(o.cost.cost(), o.final_logl);
+    assert_eq!(c.cost(), o.final_logl);
 }
 
 #[test]
@@ -64,7 +71,7 @@ fn branch_optimiser_against_phyml() {
         .build()
         .unwrap();
     let model = SubstModel::<JC69>::new(&[], &[]).unwrap();
-    let o = BranchOptimiser::new(SCB::new(model, info.clone()).build().unwrap())
+    let o = BranchOptimiser::new(SCB::new(model.clone(), info.clone()).build().unwrap())
         .run()
         .unwrap();
     assert!(o.final_logl > o.initial_logl);
@@ -88,4 +95,8 @@ fn branch_optimiser_against_phyml() {
         );
     }
     assert_relative_eq!(result_tree.height, phyml_tree.height, epsilon = 1e-4);
+
+    let c = SCB::new(model, o.cost.info.clone()).build().unwrap();
+    assert_eq!(o.cost.cost(), o.final_logl);
+    assert_eq!(c.cost(), o.final_logl);
 }
