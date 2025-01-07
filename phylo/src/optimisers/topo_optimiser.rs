@@ -87,17 +87,16 @@ impl<C: PhyloCostFunction + Clone + Display> TopologyOptimiser<C> {
                         .update_tree(&best_tree, &[prune, regraft]);
                     debug!("\n Regrafted {} with new logl {}.", prune, curr_cost);
                 } else {
-                    debug!(
-                        "No improvement regrafting {}, best logl {}.",
-                        prune, best_logl
-                    );
+                    info!("    No improvement, best logl {}.", best_logl);
                 }
-                // Optimise branch lengths on current tree to match PhyML
-                let o = BranchOptimiser::new(self.c.borrow().clone()).run()?;
-                if o.final_logl > curr_cost {
-                    curr_cost = o.final_logl;
-                    self.c.replace(o.cost);
-                }
+            }
+
+            // Optimise branch lengths on current tree to match PhyML
+            let o = BranchOptimiser::new(self.c.borrow().clone()).run()?;
+            if o.final_logl > curr_cost {
+                curr_cost = o.final_logl;
+                self.c.borrow_mut().update_tree(&o.cost.tree().clone(), &[]);
+                debug_assert_eq!(curr_cost, self.c.borrow().cost());
             }
         }
 
