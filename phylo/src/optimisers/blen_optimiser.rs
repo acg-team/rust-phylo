@@ -51,7 +51,9 @@ impl<C: PhyloCostFunction + Clone + Display> BranchOptimiser<C> {
                         branch, length, curr_cost
                     );
                 }
-                tree.clean(true);
+                // The branch length may have changed during the optimisation attempt, so the tree
+                // should be reset even if the optimisation was unsuccessful.
+                self.c.borrow_mut().update_tree(&tree, &[*branch]);
             }
         }
         info!(
