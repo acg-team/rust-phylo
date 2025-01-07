@@ -49,14 +49,14 @@ impl<C: PhyloCostFunction + Clone + Display> TopologyOptimiser<C> {
             iterations += 1;
             info!("Iteration: {}, current logl: {}.", iterations, curr_cost);
             prev_cost = curr_cost;
+
             for prune in &prune_locations {
                 if tree.children(&tree.root).contains(prune) {
                     // due to topology change the current node may have become the direct child of root
                     continue;
                 }
                 let regraft_locations = Self::find_regraft_options(prune, &tree);
-                let mut moves =
-                    Vec::<(f64, NodeIdx, NodeIdx, Tree)>::with_capacity(regraft_locations.len());
+                let mut moves = Vec::<(f64, NodeIdx, Tree)>::with_capacity(regraft_locations.len());
 
                 info!("Node {:?}: trying to regraft", prune);
                 for regraft in &regraft_locations {
@@ -76,17 +76,17 @@ impl<C: PhyloCostFunction + Clone + Display> TopologyOptimiser<C> {
                         }
                     }
                     debug!("    Regraft to {:?} w best logl {}.", regraft, logl);
-                    moves.push((logl, *prune, *regraft, new_tree.clone()));
+                    moves.push((logl, *regraft, new_tree.clone()));
                 }
-                let (best_logl, prune, regraft, best_tree) = moves
+                let (best_logl, regraft, best_tree) = moves
                     .into_iter()
-                    .max_by(|(a, _, _, _), (b, _, _, _)| a.partial_cmp(b).unwrap())
+                    .max_by(|(a, _, _), (b, _, _)| a.partial_cmp(b).unwrap())
                     .unwrap();
                 if best_logl > curr_cost {
                     curr_cost = best_logl;
                     self.c
                         .borrow_mut()
-                        .update_tree(&best_tree, &[prune, regraft]);
+                        .update_tree(&best_tree, &[*prune, regraft]);
                     info!("    Regrafted to {:?}, new logl {}.", regraft, curr_cost);
                 } else {
                     info!("    No improvement, best logl {}.", best_logl);
