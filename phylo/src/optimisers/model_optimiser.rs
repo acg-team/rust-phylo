@@ -25,7 +25,7 @@ impl<C: PhyloCostFunction + Display + Clone> ModelOptimiser<C> {
         }
     }
 
-    pub fn run(mut self) -> Result<EvoModelOptimisationResult<C>> {
+    pub fn run(self) -> Result<EvoModelOptimisationResult<C>> {
         let initial_logl = self.c.borrow().cost();
         info!("Optimising {}.", self.c.borrow());
         info!("Initial logl: {}.", initial_logl);
@@ -85,9 +85,9 @@ impl<C: PhyloCostFunction + Display + Clone> ModelOptimiser<C> {
         }
     }
 
-    fn opt_parameter(&mut self, param: usize, start_value: f64) -> Result<(f64, f64)> {
+    fn opt_parameter(&self, param: usize, start_value: f64) -> Result<(f64, f64)> {
         let optimiser = ParamOptimiser {
-            cost: &mut self.c,
+            cost: &self.c,
             param,
         };
         let gss = BrentOpt::new(1e-10, 100.0);
