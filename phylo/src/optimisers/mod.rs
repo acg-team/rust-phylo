@@ -1,4 +1,4 @@
-use crate::likelihood::PhyloCostFunction;
+use crate::likelihood::{ModelSearchCost, TreeSearchCost};
 
 pub mod blen_optimiser;
 pub use blen_optimiser::*;
@@ -7,14 +7,14 @@ pub use model_optimiser::*;
 pub mod topo_optimiser;
 pub use topo_optimiser::*;
 
-pub struct PhyloOptimisationResult<C: PhyloCostFunction + Clone> {
+pub struct PhyloOptimisationResult<C: TreeSearchCost + Clone> {
     pub initial_logl: f64,
     pub final_logl: f64,
     pub iterations: usize,
     pub cost: C,
 }
 
-pub struct EvoModelOptimisationResult<C: PhyloCostFunction + Clone> {
+pub struct ModelOptimisationResult<C: ModelSearchCost + Clone> {
     pub initial_logl: f64,
     pub final_logl: f64,
     pub iterations: usize,

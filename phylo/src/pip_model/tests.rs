@@ -9,7 +9,7 @@ use nalgebra::{DMatrix, DVector};
 use crate::alignment::Sequences;
 use crate::alphabets::{AMINOACIDS as aas, GAP, NUCLEOTIDES as nucls};
 use crate::evolutionary_models::EvoModel;
-use crate::likelihood::PhyloCostFunction;
+use crate::likelihood::ModelSearchCost;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::pip_model::{PIPCostBuilder as PIPB, PIPModel, PIPModelInfo};
 use crate::substitution_models::{

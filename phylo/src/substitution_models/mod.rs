@@ -10,7 +10,7 @@ use ordered_float::OrderedFloat;
 
 use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
-use crate::likelihood::PhyloCostFunction;
+use crate::likelihood::{ModelSearchCost, TreeSearchCost};
 use crate::tree::{
     NodeIdx::{self, Internal, Leaf},
     Tree,
@@ -197,13 +197,14 @@ pub struct SubstitutionCost<Q: QMatrix + Clone + Display + 'static> {
     tmp: RefCell<SubstModelInfo<Q>>,
 }
 
-impl<Q: QMatrix + Clone + Display + 'static> PhyloCostFunction for SubstitutionCost<Q>
+impl<Q: QMatrix + Clone + Display + 'static> TreeSearchCost for SubstitutionCost<Q>
 where
     SubstModel<Q>: EvoModel,
 {
     fn cost(&self) -> f64 {
         self.logl(&self.info)
     }
+
     fn update_tree(&mut self, tree: Tree, dirty_nodes: &[NodeIdx]) {
         self.info.tree = tree;
         if dirty_nodes.is_empty() {
@@ -216,9 +217,20 @@ where
             self.tmp.borrow_mut().node_models_valid[usize::from(node_idx)] = false;
         }
     }
+
     fn tree(&self) -> &Tree {
         &self.info.tree
     }
+}
+
+impl<Q: QMatrix + Clone + Display + 'static> ModelSearchCost for SubstitutionCost<Q>
+where
+    SubstModel<Q>: EvoModel,
+{
+    fn cost(&self) -> f64 {
+        self.logl(&self.info)
+    }
+
     fn set_param(&mut self, param: usize, value: f64) {
         self.model.set_param(param, value);
         self.tmp.borrow_mut().node_models_valid.fill(false);

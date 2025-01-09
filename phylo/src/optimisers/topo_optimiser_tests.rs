@@ -6,7 +6,7 @@ use bio::io::fasta::Record;
 use crate::alignment::Sequences;
 use crate::evolutionary_models::{EvoModel, FrequencyOptimisation::Empirical};
 use crate::io::write_newick_to_file;
-use crate::likelihood::PhyloCostFunction;
+use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{BranchOptimiser, ModelOptimiser, TopologyOptimiser};
 use crate::phylo_info::PhyloInfoBuilder as PIB;
 use crate::pip_model::{PIPCostBuilder as PIPCB, PIPModel};

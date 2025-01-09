@@ -6,17 +6,17 @@ use argmin::solver::brent::BrentOpt;
 use log::{debug, info, warn};
 
 use crate::evolutionary_models::FrequencyOptimisation;
-use crate::likelihood::PhyloCostFunction;
-use crate::optimisers::EvoModelOptimisationResult;
+use crate::likelihood::ModelSearchCost;
+use crate::optimisers::ModelOptimisationResult;
 use crate::Result;
 
-pub struct ModelOptimiser<C: PhyloCostFunction + Display + Clone> {
+pub struct ModelOptimiser<C: ModelSearchCost + Display + Clone> {
     pub(crate) epsilon: f64,
     pub(crate) c: RefCell<C>,
     pub(crate) freq_opt: FrequencyOptimisation,
 }
 
-impl<C: PhyloCostFunction + Display + Clone> ModelOptimiser<C> {
+impl<C: ModelSearchCost + Display + Clone> ModelOptimiser<C> {
     pub fn new(cost: C, freq_opt: FrequencyOptimisation) -> Self {
         Self {
             epsilon: 1e-3,
@@ -25,7 +25,7 @@ impl<C: PhyloCostFunction + Display + Clone> ModelOptimiser<C> {
         }
     }
 
-    pub fn run(self) -> Result<EvoModelOptimisationResult<C>> {
+    pub fn run(self) -> Result<ModelOptimisationResult<C>> {
         let initial_logl = self.c.borrow().cost();
         info!("Optimising {}.", self.c.borrow());
         info!("Initial logl: {}.", initial_logl);
@@ -61,7 +61,7 @@ impl<C: PhyloCostFunction + Display + Clone> ModelOptimiser<C> {
             "Final logl: {}, achieved in {} iteration(s).",
             final_logl, iterations
         );
-        Ok(EvoModelOptimisationResult::<C> {
+        Ok(ModelOptimisationResult::<C> {
             cost: self.c.into_inner(),
             initial_logl,
             final_logl,
@@ -99,12 +99,12 @@ impl<C: PhyloCostFunction + Display + Clone> ModelOptimiser<C> {
     }
 }
 
-pub(crate) struct ParamOptimiser<'a, C: PhyloCostFunction> {
+pub(crate) struct ParamOptimiser<'a, C: ModelSearchCost> {
     pub(crate) cost: &'a RefCell<C>,
     pub(crate) param: usize,
 }
 
-impl<C: PhyloCostFunction> CostFunction for ParamOptimiser<'_, C> {
+impl<C: ModelSearchCost> CostFunction for ParamOptimiser<'_, C> {
     type Param = f64;
     type Output = f64;
 

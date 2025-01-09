@@ -8,7 +8,7 @@ use crate::alignment::Sequences;
 use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
 use crate::io::read_sequences_from_file;
-use crate::likelihood::PhyloCostFunction;
+use crate::likelihood::ModelSearchCost;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::pip_model::{PIPCostBuilder, PIPModel};
 use crate::substitution_models::{

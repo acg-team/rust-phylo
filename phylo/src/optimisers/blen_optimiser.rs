@@ -5,17 +5,17 @@ use argmin::core::{CostFunction, Executor, IterState, State};
 use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
-use crate::likelihood::PhyloCostFunction;
+use crate::likelihood::TreeSearchCost;
 use crate::optimisers::PhyloOptimisationResult;
 use crate::tree::NodeIdx;
 use crate::Result;
 
-pub struct BranchOptimiser<C: PhyloCostFunction + Display + Clone> {
+pub struct BranchOptimiser<C: TreeSearchCost + Display + Clone> {
     pub(crate) epsilon: f64,
     pub(crate) c: RefCell<C>,
 }
 
-impl<C: PhyloCostFunction + Clone + Display> BranchOptimiser<C> {
+impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
     pub fn new(cost: C) -> Self {
         Self {
             epsilon: 1e-3,
@@ -69,7 +69,7 @@ impl<C: PhyloCostFunction + Clone + Display> BranchOptimiser<C> {
     }
 }
 
-impl<C: PhyloCostFunction + Clone + Display> BranchOptimiser<C> {
+impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
     pub(crate) fn optimise_branch(&mut self, branch: &NodeIdx) -> Result<(f64, f64)> {
         let start_blen = self.c.borrow().tree().node(branch).blen;
         let (start, end) = if start_blen == 0.0 {
@@ -90,12 +90,12 @@ impl<C: PhyloCostFunction + Clone + Display> BranchOptimiser<C> {
     }
 }
 
-pub(crate) struct SingleBranchOptimiser<'a, C: PhyloCostFunction> {
+pub(crate) struct SingleBranchOptimiser<'a, C: TreeSearchCost> {
     pub(crate) cost: &'a RefCell<C>,
     pub(crate) branch: NodeIdx,
 }
 
-impl<C: PhyloCostFunction> CostFunction for SingleBranchOptimiser<'_, C> {
+impl<C: TreeSearchCost> CostFunction for SingleBranchOptimiser<'_, C> {
     type Param = f64;
     type Output = f64;
 

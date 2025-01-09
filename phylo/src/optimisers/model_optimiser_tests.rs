@@ -5,7 +5,7 @@ use approx::assert_relative_eq;
 
 use crate::evolutionary_models::{EvoModel, FrequencyOptimisation};
 use crate::frequencies;
-use crate::likelihood::PhyloCostFunction;
+use crate::likelihood::ModelSearchCost;
 use crate::optimisers::ModelOptimiser;
 use crate::phylo_info::PhyloInfoBuilder as PIB;
 use crate::pip_model::{PIPCostBuilder, PIPModel};

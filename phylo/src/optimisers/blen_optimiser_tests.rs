@@ -3,7 +3,7 @@ use std::path::Path;
 use approx::assert_relative_eq;
 
 use crate::evolutionary_models::EvoModel;
-use crate::likelihood::PhyloCostFunction;
+use crate::likelihood::TreeSearchCost;
 use crate::optimisers::BranchOptimiser;
 use crate::phylo_info::PhyloInfoBuilder as PIB;
 use crate::pip_model::{PIPCostBuilder as PIPCB, PIPModel};

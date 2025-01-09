@@ -3,17 +3,17 @@ use std::fmt::Display;
 
 use log::{debug, info};
 
-use crate::likelihood::PhyloCostFunction;
+use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult};
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
 
-pub struct TopologyOptimiser<C: PhyloCostFunction + Display + Clone> {
+pub struct TopologyOptimiser<C: TreeSearchCost + Display + Clone> {
     pub(crate) epsilon: f64,
     pub(crate) c: RefCell<C>,
 }
 
-impl<C: PhyloCostFunction + Clone + Display> TopologyOptimiser<C> {
+impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
     pub fn new(cost: C) -> Self {
         Self {
             epsilon: 1e-3,

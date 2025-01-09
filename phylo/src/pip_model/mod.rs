@@ -9,7 +9,7 @@ use std::vec;
 
 use crate::alignment::Mapping;
 use crate::evolutionary_models::EvoModel;
-use crate::likelihood::PhyloCostFunction;
+use crate::likelihood::{ModelSearchCost, TreeSearchCost};
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{FreqVector, QMatrix, SubstMatrix};
 use crate::tree::{
@@ -252,7 +252,7 @@ pub struct PIPCost<Q: QMatrix + Display + 'static> {
     tmp: RefCell<PIPModelInfo<Q>>,
 }
 
-impl<Q: QMatrix + Display + Clone + 'static> PhyloCostFunction for PIPCost<Q>
+impl<Q: QMatrix + Display + Clone + 'static> TreeSearchCost for PIPCost<Q>
 where
     PIPModel<Q>: EvoModel,
 {
@@ -276,7 +276,15 @@ where
     fn tree(&self) -> &Tree {
         &self.info.tree
     }
+}
 
+impl<Q: QMatrix + Display + Clone + 'static> ModelSearchCost for PIPCost<Q>
+where
+    PIPModel<Q>: EvoModel,
+{
+    fn cost(&self) -> f64 {
+        self.logl()
+    }
     fn set_param(&mut self, param: usize, value: f64) {
         self.model.set_param(param, value);
         self.tmp.borrow_mut().models_valid.fill(false);
