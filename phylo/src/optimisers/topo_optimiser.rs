@@ -63,7 +63,7 @@ impl<C: PhyloCostFunction + Clone + Display> TopologyOptimiser<C> {
                     let mut new_tree = tree.rooted_spr(prune, regraft)?;
 
                     let mut cost = self.c.borrow().clone();
-                    cost.update_tree(&new_tree, &[*prune, *regraft]);
+                    cost.update_tree(new_tree.clone(), &[*prune, *regraft]);
 
                     let mut logl = cost.cost();
                     if logl <= curr_cost {
@@ -76,7 +76,7 @@ impl<C: PhyloCostFunction + Clone + Display> TopologyOptimiser<C> {
                         }
                     }
                     debug!("    Regraft to {:?} w best logl {}.", regraft, logl);
-                    moves.push((logl, *regraft, new_tree.clone()));
+                    moves.push((logl, *regraft, new_tree));
                 }
                 let (best_logl, regraft, best_tree) = moves
                     .into_iter()
@@ -86,7 +86,7 @@ impl<C: PhyloCostFunction + Clone + Display> TopologyOptimiser<C> {
                     curr_cost = best_logl;
                     self.c
                         .borrow_mut()
-                        .update_tree(&best_tree, &[*prune, regraft]);
+                        .update_tree(best_tree, &[*prune, regraft]);
                     info!("    Regrafted to {:?}, new logl {}.", regraft, curr_cost);
                 } else {
                     info!("    No improvement, best logl {}.", best_logl);
@@ -97,7 +97,7 @@ impl<C: PhyloCostFunction + Clone + Display> TopologyOptimiser<C> {
             let o = BranchOptimiser::new(self.c.borrow().clone()).run()?;
             if o.final_logl > curr_cost {
                 curr_cost = o.final_logl;
-                self.c.borrow_mut().update_tree(&o.cost.tree().clone(), &[]);
+                self.c.borrow_mut().update_tree(o.cost.tree().clone(), &[]);
             }
         }
 

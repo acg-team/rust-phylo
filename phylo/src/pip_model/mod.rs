@@ -260,8 +260,8 @@ where
         self.logl()
     }
 
-    fn update_tree(&mut self, tree: &Tree, dirty_nodes: &[NodeIdx]) {
-        self.info.tree = tree.clone();
+    fn update_tree(&mut self, tree: Tree, dirty_nodes: &[NodeIdx]) {
+        self.info.tree = tree;
         if dirty_nodes.is_empty() {
             self.tmp.borrow_mut().valid.fill(false);
             self.tmp.borrow_mut().models_valid.fill(false);

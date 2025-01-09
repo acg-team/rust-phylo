@@ -204,8 +204,8 @@ where
     fn cost(&self) -> f64 {
         self.logl(&self.info)
     }
-    fn update_tree(&mut self, tree: &Tree, dirty_nodes: &[NodeIdx]) {
-        self.info.tree = tree.clone();
+    fn update_tree(&mut self, tree: Tree, dirty_nodes: &[NodeIdx]) {
+        self.info.tree = tree;
         if dirty_nodes.is_empty() {
             self.tmp.borrow_mut().node_info_valid.fill(false);
             self.tmp.borrow_mut().node_models_valid.fill(false);

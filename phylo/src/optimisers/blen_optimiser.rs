@@ -51,7 +51,7 @@ impl<C: PhyloCostFunction + Clone + Display> BranchOptimiser<C> {
                 }
                 // The branch length may have changed during the optimisation attempt, so the tree
                 // should be reset even if the optimisation was unsuccessful.
-                self.c.borrow_mut().update_tree(&tree, &[*branch]);
+                self.c.borrow_mut().update_tree(tree.clone(), &[*branch]);
             }
         }
         info!("Done optimising branch lengths.");
@@ -102,7 +102,7 @@ impl<C: PhyloCostFunction> CostFunction for SingleBranchOptimiser<'_, C> {
     fn cost(&self, value: &f64) -> Result<f64> {
         let mut tree = self.cost.borrow().tree().clone();
         tree.set_blen(&self.branch, *value);
-        self.cost.borrow_mut().update_tree(&tree, &[self.branch]);
+        self.cost.borrow_mut().update_tree(tree, &[self.branch]);
         Ok(-self.cost.borrow().cost())
     }
 
