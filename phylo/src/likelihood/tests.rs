@@ -532,7 +532,6 @@ fn protein_one_site_one_char() {
     one_site_one_char_template::<BLOSUM>(&[], &[]);
 }
 
-#[ignore = "long test"]
 #[test]
 fn hiv_subset_valid_subst_likelihood() {
     let fldr = Path::new("./data/real_examples/");
@@ -546,7 +545,6 @@ fn hiv_subset_valid_subst_likelihood() {
     assert!(logl < 0.0);
 }
 
-#[ignore = "long test"]
 #[test]
 fn hiv_subset_valid_pip_likelihood() {
     let fldr = Path::new("./data/real_examples/");
