@@ -188,6 +188,7 @@ impl Tree {
             .cloned()
     }
 
+    // TODO: Bring this out of the tree
     pub fn rooted_spr(&self, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Result<Tree> {
         // Prune and regraft nodes must be different
         if prune_idx == regraft_idx {

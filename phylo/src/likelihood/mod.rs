@@ -3,6 +3,9 @@ use crate::tree::{NodeIdx, Tree};
 
 pub trait TreeSearchCost {
     fn cost(&self) -> f64;
+    // update_tree implies that the tree is a valid modification of the existing tree (e.g. an SPR move),
+    // and that the dirty_nodes are the nodes that have changed, but this is not enforced by the trait.
+    // TODO: enforce this in the trait.
     fn update_tree(&mut self, tree: Tree, dirty_nodes: &[NodeIdx]);
     fn tree(&self) -> &Tree;
 }
