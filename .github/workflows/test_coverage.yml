@@ -12,16 +12,19 @@ jobs:
   test:
     name: tests with coverage
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - stable
+          - beta
+          - nightly
     env:
       CARGO_INCREMENTAL: 0
       RUSTFLAGS: -Cinstrument-coverage -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort
       RUSTDOCFLAGS: -Cinstrument-coverage -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions-rs/toolchain@v1.0.6
-      with:
-        toolchain: nightly
-        override: true
+    - uses: actions/checkout@v4
+    - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
     - name: Generate test results and coverage report
       run: |
           cargo install cargo2junit grcov;
