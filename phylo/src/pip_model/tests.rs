@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::fmt::Display;
 use std::path::PathBuf;
 
@@ -337,7 +336,6 @@ fn pip_hky_likelihood_example_leaf_values() {
     let info = setup_example_phylo_info();
     let tree = info.tree.clone();
     let mut model = PIPModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5, 0.25, 0.5]).unwrap();
-    model.tmp = RefCell::new(PIPModelInfo::new(&info, &model));
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
 
     let iota = 0.133;
@@ -394,7 +392,6 @@ fn pip_hky_likelihood_example_leaf_values() {
 fn pip_hky_likelihood_example_internals() {
     let info = setup_example_phylo_info();
     let mut model = PIPModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5, 0.25, 0.5]).unwrap();
-    model.tmp = RefCell::new(PIPModelInfo::new(&info, &model));
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
 
     let c = PIPB::new(model, info.clone()).build().unwrap();
@@ -475,7 +472,6 @@ fn assert_c0_values<Q: QMatrix>(
 fn pip_hky_likelihood_example_c0() {
     let info = setup_example_phylo_info();
     let mut model = PIPModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5, 0.25, 0.5]).unwrap();
-    model.tmp = RefCell::new(PIPModelInfo::new(&info, &model));
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
 
     let c = PIPB::new(model, info.clone()).build().unwrap();
@@ -537,7 +533,6 @@ fn pip_hky_likelihood_example_c0() {
 fn pip_hky_likelihood_example_final() {
     let info = setup_example_phylo_info();
     let mut model = PIPModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5, 0.25, 0.5]).unwrap();
-    model.tmp = RefCell::new(PIPModelInfo::new(&info, &model));
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
 
     let c = PIPB::new(model, info.clone()).build().unwrap();

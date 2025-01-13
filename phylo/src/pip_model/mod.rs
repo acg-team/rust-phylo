@@ -23,7 +23,6 @@ pub struct PIPModel<Q: QMatrix> {
     pub(crate) subst_q: Q,
     q: SubstMatrix,
     freqs: FreqVector,
-    tmp: RefCell<PIPModelInfo<Q>>,
     index: [usize; 255],
     params: Vec<f64>,
 }
@@ -66,7 +65,6 @@ impl<Q: QMatrix + Clone> EvoModel for PIPModel<Q> {
             subst_q,
             q,
             freqs,
-            tmp: RefCell::new(PIPModelInfo::empty()),
             index,
             params: params.to_vec(),
         })
@@ -136,7 +134,6 @@ impl<Q: QMatrix + Display> Display for PIPModel<Q> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PIPModelInfo<Q: QMatrix> {
-    empty: bool,
     phantom: PhantomData<Q>,
     ins_probs: Vec<f64>,
     surv_probs: Vec<f64>,
@@ -157,26 +154,6 @@ impl<Q: QMatrix + Clone> PIPModelInfo<Q>
 where
     PIPModel<Q>: EvoModel,
 {
-    pub(crate) fn empty() -> Self {
-        PIPModelInfo {
-            empty: true,
-            phantom: PhantomData,
-            ins_probs: vec![],
-            surv_probs: vec![],
-            anc: vec![],
-            ftilde: vec![],
-            f: vec![],
-            p: vec![],
-            c0_ftilde: vec![],
-            c0_f: vec![],
-            c0_p: vec![],
-            valid: vec![],
-            models: vec![],
-            models_valid: vec![],
-            leaf_sequence_info: HashMap::new(),
-        }
-    }
-
     pub fn new(info: &PhyloInfo, model: &PIPModel<Q>) -> Self {
         let n = model.n();
         let node_count = info.tree.len();
@@ -199,7 +176,6 @@ where
         }
 
         PIPModelInfo::<Q> {
-            empty: false,
             phantom: PhantomData,
             ftilde: vec![DMatrix::<f64>::zeros(model.n(), msa_length); node_count],
             ins_probs: vec![0.0; node_count],
