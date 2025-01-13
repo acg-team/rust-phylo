@@ -14,6 +14,7 @@ pub struct TopologyOptimiser<C: TreeSearchCost + Display + Clone> {
 }
 
 impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
+    // TODO: make tree search work under parsimony
     pub fn new(cost: C) -> Self {
         Self {
             epsilon: 1e-3,
