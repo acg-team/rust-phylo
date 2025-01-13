@@ -51,7 +51,7 @@ fn single_leaf_tree_complete() {
     assert_eq!(tree.postorder.len(), 1);
     assert_eq!(tree.preorder.len(), 1);
     assert_eq!(tree.root, L(0));
-    assert_eq!(tree.nodes.len(), 1);
+    assert_eq!(tree.len(), 1);
 }
 
 #[test]
@@ -240,12 +240,12 @@ fn nj_correct_2() {
         record!("D", b""),
     ]);
     let tree = build_nj_tree_from_matrix(nj_distances, &sequences, |_| 0).unwrap();
-    assert_eq!(tree.blen_by_id("A"), 1.0);
-    assert_eq!(tree.blen_by_id("B"), 3.0);
-    assert_eq!(tree.blen_by_id("C"), 2.0);
-    assert_eq!(tree.blen_by_id("D"), 7.0);
-    assert_eq!(tree.blen(&I(4)), 1.0);
-    assert_eq!(tree.blen(&I(5)), 1.0);
+    assert_eq!(tree.by_id("A").blen, 1.0);
+    assert_eq!(tree.by_id("B").blen, 3.0);
+    assert_eq!(tree.by_id("C").blen, 2.0);
+    assert_eq!(tree.by_id("D").blen, 7.0);
+    assert_eq!(tree.node(&I(4)).blen, 1.0);
+    assert_eq!(tree.node(&I(5)).blen, 1.0);
     assert_eq!(tree.len(), 7);
     assert_eq!(tree.postorder.len(), 7);
     assert!(is_unique(&tree.postorder));
@@ -273,14 +273,14 @@ fn nj_correct_wiki_example() {
         record!("e", b""),
     ]);
     let tree = build_nj_tree_from_matrix(nj_distances, &sequences, |l| l - 1).unwrap();
-    assert_eq!(tree.blen_by_id("a"), 2.0);
-    assert_eq!(tree.blen_by_id("b"), 3.0);
-    assert_eq!(tree.blen_by_id("c"), 4.0);
-    assert_eq!(tree.blen_by_id("d"), 1.0);
-    assert_eq!(tree.blen_by_id("e"), 1.0);
-    assert_eq!(tree.blen(&I(5)), 3.0);
-    assert_eq!(tree.blen(&I(6)), 2.0);
-    assert_eq!(tree.blen(&I(7)), 1.0);
+    assert_eq!(tree.by_id("a").blen, 2.0);
+    assert_eq!(tree.by_id("b").blen, 3.0);
+    assert_eq!(tree.by_id("c").blen, 4.0);
+    assert_eq!(tree.by_id("d").blen, 1.0);
+    assert_eq!(tree.by_id("e").blen, 1.0);
+    assert_eq!(tree.node(&I(5)).blen, 3.0);
+    assert_eq!(tree.node(&I(6)).blen, 2.0);
+    assert_eq!(tree.node(&I(7)).blen, 1.0);
     assert_eq!(tree.len(), 9);
     assert_eq!(tree.postorder.len(), 9);
     assert!(is_unique(&tree.postorder));
@@ -347,7 +347,7 @@ fn newick_ladder_big_correct() {
     let trees = from_newick("((((A:1.0,B:1.0)F:1.0,C:2.0)G:1.0,D:3.0)H:1.0,E:4.0)I:1.0;").unwrap();
     assert_eq!(trees.len(), 1);
     assert_eq!(trees[0].root, I(0));
-    assert_eq!(trees[0].nodes.len(), 9);
+    assert_eq!(trees[0].len(), 9);
     assert_eq!(trees[0].leaves().len(), 5);
     assert_eq!(trees[0].internals().len(), 4);
     assert_eq!(trees[0].postorder.len(), 9);
@@ -367,7 +367,7 @@ fn newick_complex_tree_correct() {
         .unwrap();
     assert_eq!(trees.len(), 1);
     assert_eq!(trees[0].root, I(0));
-    assert_eq!(trees[0].nodes.len(), 31);
+    assert_eq!(trees[0].len(), 31);
     assert_eq!(trees[0].leaves().len(), 16);
     assert_eq!(trees[0].internals().len(), 15);
 }
@@ -375,10 +375,12 @@ fn newick_complex_tree_correct() {
 #[test]
 fn newick_complex_tree_2() {
     // tree from https://www.megasoftware.net/mega4/WebHelp/glossary/rh_newick_format.htm
-    let newick = "(((raccoon:19.19959,bear:6.80041):0.84600,((sea_lion:11.99700, seal:12.00300):7.52973,((monkey:100.85930,cat:47.14069):20.59201, weasel:18.87953):2.09460):3.87382),dog:25.46154);";
+    let newick =
+        "(((raccoon:19.19959,bear:6.80041):0.84600,((sea_lion:11.99700, seal:12.00300):7.52973,
+    ((monkey:100.85930,cat:47.14069):20.59201, weasel:18.87953):2.09460):3.87382),dog:25.46154);";
     let tree = tree!(newick);
     assert!(tree.complete);
-    assert_eq!(tree.nodes[usize::from(&tree.root)].blen, 0.0);
+    assert_eq!(tree.node(&tree.root).blen, 0.0);
 }
 
 #[test]
@@ -405,7 +407,7 @@ fn newick_tiny_correct() {
     let trees = from_newick("A:1.0;").unwrap();
     assert_eq!(trees.len(), 1);
     assert_eq!(trees[0].root, L(0));
-    assert_eq!(trees[0].nodes.len(), 1);
+    assert_eq!(trees[0].len(), 1);
 }
 
 #[test]
@@ -982,9 +984,8 @@ fn rf_distance_against_raxml() {
     let tree_orig = &read_newick_from_file(&folder.join("true_tree.newick")).unwrap()[0];
     let tree_phyml = &read_newick_from_file(&folder.join("phyml_nogap.newick")).unwrap()[0];
 
-    let tree = &read_newick_from_file(&folder.join("jati_wag_nogap.newick")).unwrap()[0];
-    let tree_from_nj =
-        &read_newick_from_file(&folder.join("jati_wag_nogap_nj_start.newick")).unwrap()[0];
+    let tree = &read_newick_from_file(&folder.join("test_tree_1.newick")).unwrap()[0];
+    let tree_from_nj = &read_newick_from_file(&folder.join("test_tree_2.newick")).unwrap()[0];
     assert_eq!(tree_orig.robinson_foulds(tree_phyml), 4);
     assert_eq!(tree_orig.robinson_foulds(tree), 4);
     assert_eq!(tree_orig.robinson_foulds(tree_from_nj), 4);

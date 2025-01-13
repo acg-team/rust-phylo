@@ -6,7 +6,6 @@ use crate::alignment::{
     sequences::Sequences, AlignmentBuilder, InternalMapping, LeafMapping, PairwiseAlignment as PA,
 };
 use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, NUCLEOTIDES};
-use crate::evolutionary_models::ModelType::{Protein, DNA};
 use crate::tree::{
     tree_parser::from_newick,
     NodeIdx::{Internal as I, Leaf as L},
@@ -139,12 +138,10 @@ fn sequences_with_alphabet() {
     let dna_seqs = Sequences::with_alphabet(records.clone(), dna_alphabet());
     assert_eq!(dna_seqs.alphabet().symbols(), NUCLEOTIDES);
     assert_eq!(*dna_seqs.alphabet(), dna_alphabet());
-    assert!(matches!(dna_seqs.alphabet().model_type(), DNA(_)));
 
     let protein_seqs = Sequences::with_alphabet(records.clone(), protein_alphabet());
     assert_eq!(protein_seqs.alphabet().symbols(), AMINOACIDS);
     assert_eq!(*protein_seqs.alphabet(), protein_alphabet());
-    assert!(matches!(protein_seqs.alphabet().model_type(), Protein(_)));
 }
 
 #[test]

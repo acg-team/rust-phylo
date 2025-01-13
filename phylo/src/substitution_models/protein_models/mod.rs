@@ -1,80 +1,113 @@
-use std::cell::RefCell;
-use std::vec;
+use std::fmt::Display;
 
-use crate::alphabets::AMINOACID_INDEX;
-use crate::evolutionary_models::ProteinModelType;
-use crate::substitution_models::{
-    FreqVector, SubstMatrix, SubstModel, SubstModelInfo, SubstitutionModel,
-};
-use crate::Result;
+use approx::relative_eq;
+use log::warn;
+
+use crate::alphabets::{protein_alphabet, Alphabet, AMINOACID_INDEX};
+use crate::frequencies;
+use crate::substitution_models::{FreqVector, QMatrix, SubstMatrix};
 
 pub(crate) mod protein_generics;
 pub(crate) use protein_generics::*;
-pub(crate) mod protein_subst_params;
-pub(crate) use protein_subst_params::*;
 
-pub type ProteinSubstModel = SubstModel<ProteinSubstParams>;
-pub type ProteinSubstModelInfo = SubstModelInfo<ProteinSubstModel>;
+const PROTEIN_N: usize = 20;
 
-impl SubstitutionModel for ProteinSubstModel {
-    type ModelType = ProteinModelType;
-    type Parameter = ProteinParameter;
-    const N: usize = 20;
-
-    fn new(model_type: ProteinModelType, _: &[f64]) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        let params = ProteinSubstParams::new(model_type, &[])?;
-        let mut model = ProteinSubstModel {
-            q: params.q(),
-            params,
-            tmp: RefCell::new(ProteinSubstModelInfo::empty()),
-        };
-        model.normalise();
-        Ok(model)
-    }
-
-    fn update(&mut self) {
-        self.q = self.params.q();
-        self.normalise();
-        if !self.tmp.borrow().empty {
-            self.tmp.borrow_mut().node_models_valid.fill(false);
+pub fn make_exchangeability(lower_triangle: &ProteinExchLowerTriangle) -> ProteinExch {
+    let mut exch = [0.0; 400];
+    let mut idx = 0;
+    for i in 1..20 {
+        for j in 0..i {
+            exch[i * 20 + j] = lower_triangle[idx];
+            exch[j * 20 + i] = lower_triangle[idx];
+            idx += 1;
         }
     }
-
-    fn normalise(&mut self) {
-        self.normalise();
-    }
-
-    fn model_type(&self) -> &Self::ModelType {
-        &self.params.model_type
-    }
-
-    fn q(&self) -> &SubstMatrix {
-        &self.q
-    }
-
-    fn model_parameters(&self) -> Vec<Self::Parameter> {
-        vec![]
-    }
-
-    fn param(&self, _param_name: &Self::Parameter) -> f64 {
-        0.0
-    }
-
-    fn set_param(&mut self, _param_name: &Self::Parameter, _value: f64) {}
-
-    fn freqs(&self) -> &FreqVector {
-        &self.params.pi
-    }
-
-    fn set_freqs(&mut self, freqs: FreqVector) {
-        self.params.set_freqs(freqs);
-        self.update();
-    }
-
-    fn index(&self) -> &'static [usize; 255] {
-        &AMINOACID_INDEX
-    }
+    exch
 }
+
+fn make_protein_q(exchangeability: &SubstMatrix, freqs: &FreqVector) -> SubstMatrix {
+    let mut q = exchangeability * SubstMatrix::from_diagonal(freqs);
+    for i in 0..PROTEIN_N {
+        q[(i, i)] = -q.row(i).sum();
+    }
+    let scaler = -1.0 / q.diagonal().component_mul(freqs).sum();
+    q.scale_mut(scaler);
+    q
+}
+
+fn verify_protein_freqs(freqs: &FreqVector) -> bool {
+    freqs.len() == PROTEIN_N && relative_eq!(freqs.sum().abs(), 1.0)
+}
+
+macro_rules! define_protein_model {
+    ($name:ident, $pi:ident, $exch:expr) => {
+        #[derive(Clone, Debug, PartialEq)]
+        #[allow(clippy::upper_case_acronyms)]
+        pub struct $name {
+            freqs: FreqVector,
+            q: SubstMatrix,
+            exchangeability: SubstMatrix,
+            alphabet: Alphabet,
+        }
+        impl QMatrix for $name {
+            fn new(freqs: &[f64], _: &[f64]) -> Self {
+                let freqs = frequencies!(freqs);
+                let freqs = if verify_protein_freqs(&freqs) {
+                    freqs
+                } else {
+                    frequencies!(&$pi)
+                };
+                let exchangeability = SubstMatrix::from_row_slice(PROTEIN_N, PROTEIN_N, &$exch);
+                let q = make_protein_q(&exchangeability, &freqs);
+                $name {
+                    freqs,
+                    q,
+                    exchangeability,
+                    alphabet: protein_alphabet().clone(),
+                }
+            }
+            fn q(&self) -> &SubstMatrix {
+                &self.q
+            }
+            fn freqs(&self) -> &FreqVector {
+                &self.freqs
+            }
+            fn set_freqs(&mut self, freqs: FreqVector) {
+                if !verify_protein_freqs(&freqs) {
+                    warn!("Invalid protein frequencies provided.");
+                    return;
+                }
+                self.freqs = freqs;
+                self.q = make_protein_q(&self.exchangeability, &self.freqs);
+            }
+            fn set_param(&mut self, _: usize, _: f64) {}
+            fn params(&self) -> &[f64] {
+                &[]
+            }
+            fn n(&self) -> usize {
+                PROTEIN_N
+            }
+            fn index(&self) -> &[usize; 255] {
+                &AMINOACID_INDEX
+            }
+            fn alphabet(&self) -> &Alphabet {
+                &self.alphabet
+            }
+        }
+
+        impl Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(
+                    f,
+                    "{} with [pi = {}]",
+                    stringify!($name),
+                    self.freqs.transpose()
+                )
+            }
+        }
+    };
+}
+
+define_protein_model!(WAG, WAG_PI, WAG_EXCH);
+define_protein_model!(HIVB, HIVB_PI, make_exchangeability(&HIVB_EXCH_LOWER_TRIAG));
+define_protein_model!(BLOSUM, BLOSUM_PI, BLOSUM_EXCH);

@@ -80,7 +80,7 @@ impl Display for Tree {
 }
 
 impl Tree {
-    pub fn new(sequences: &Sequences) -> Result<Self> {
+    pub(crate) fn new(sequences: &Sequences) -> Result<Self> {
         let n = sequences.len();
         if n == 0 {
             bail!("No sequences provided, aborting.");
@@ -188,6 +188,7 @@ impl Tree {
             .cloned()
     }
 
+    // TODO: Bring this out of the tree
     pub fn rooted_spr(&self, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Result<Tree> {
         // Prune and regraft nodes must be different
         if prune_idx == regraft_idx {
@@ -443,17 +444,8 @@ impl Tree {
         self.dirty[idx] = true;
     }
 
-    pub(crate) fn blen(&self, node_idx: &NodeIdx) -> f64 {
-        self.nodes[usize::from(node_idx)].blen
-    }
-
     pub fn parent(&self, node_idx: &NodeIdx) -> Option<NodeIdx> {
         self.nodes[usize::from(node_idx)].parent
-    }
-
-    #[cfg(test)]
-    pub(crate) fn blen_by_id(&self, id: &str) -> f64 {
-        self.nodes[usize::from(self.idx(id))].blen
     }
 
     pub fn leaves(&self) -> Vec<&Node> {
@@ -492,7 +484,6 @@ pub fn percentiles_rounded(lengths: &[f64], categories: u32, rounding: &Rounding
     values
 }
 
-// #[allow(dead_code)]
 fn argmin_wo_diagonal(q: Mat, rng: fn(usize) -> usize) -> (usize, usize) {
     debug_assert!(!q.is_empty(), "The input matrix must not be empty.");
     debug_assert!(

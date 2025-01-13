@@ -2,41 +2,21 @@ name: tests with coverage
 
 on:
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
   workflow_dispatch:
     
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test:
+  coverage:
     name: tests with coverage
     runs-on: ubuntu-latest
-    env:
-      CARGO_INCREMENTAL: 0
-      RUSTFLAGS: -Cinstrument-coverage -Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort
-      RUSTDOCFLAGS: -Cinstrument-coverage -Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions-rs/toolchain@v1.0.6
-      with:
-        toolchain: nightly
-        override: true
-    - name: Generate test results and coverage report
-      run: |
-          cargo install cargo2junit grcov;
-          rustup component add llvm-tools-preview;
-          cargo test --manifest-path ./phylo/Cargo.toml -- -Z unstable-options --format json | cargo2junit > results.xml;
-          grcov . -s . --binary-path ./phylo/target/debug/deps -t lcov --branch --ignore "**/lib.rs" --ignore "**/io/mod.rs" --ignore "**/*tests.rs" -o lcov.info;
-    - name: publish test results to github
-      uses: EnricoMi/publish-unit-test-result-action@v2
-      if: always()
-      with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          files: results.xml
-    - name: upload coverage report to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-          files: lcov.info
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - uses: actions/checkout@v4
+      - run: cargo install cargo-llvm-cov
+      - run: cargo llvm-cov --manifest-path phylo/Cargo.toml --all-features --codecov --output-path codecov.json
+      - uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
