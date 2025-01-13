@@ -345,7 +345,6 @@ where
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubstModelInfo<Q: QMatrix + Display> {
-    empty: bool,
     phantom: PhantomData<Q>,
     node_info: Vec<DMatrix<f64>>,
     node_info_valid: Vec<bool>,
@@ -355,18 +354,6 @@ pub struct SubstModelInfo<Q: QMatrix + Display> {
 }
 
 impl<Q: QMatrix + Display> SubstModelInfo<Q> {
-    pub fn empty() -> Self {
-        SubstModelInfo::<Q> {
-            empty: true,
-            phantom: PhantomData::<Q>,
-            node_info: Vec::new(),
-            node_info_valid: Vec::new(),
-            node_models: Vec::new(),
-            node_models_valid: Vec::new(),
-            leaf_sequence_info: HashMap::new(),
-        }
-    }
-
     pub fn new(info: &PhyloInfo, model: &SubstModel<Q>) -> Result<Self> {
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
@@ -386,7 +373,6 @@ impl<Q: QMatrix + Display> SubstModelInfo<Q> {
             leaf_sequence_info.insert(node.id.clone(), leaf_seq_w_gaps);
         }
         Ok(SubstModelInfo::<Q> {
-            empty: false,
             phantom: PhantomData::<Q>,
             node_info: vec![DMatrix::<f64>::zeros(model.n(), msa_length); node_count],
             node_info_valid: vec![false; node_count],
