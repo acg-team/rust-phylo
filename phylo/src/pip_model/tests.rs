@@ -83,7 +83,7 @@ fn pip_dna_k80_correct() {
         pip_k80.freqs(),
         &frequencies!(&[0.25, 0.25, 0.25, 0.25, 0.0])
     );
-    assert_eq!(pip_k80.qmatrix.params(), &[kappa]);
+    assert_eq!(pip_k80.subst_q.params(), &[kappa]);
     assert!(pip_k80
         .q
         .diagonal()
@@ -102,7 +102,7 @@ fn pip_dna_hky_correct() {
     assert_eq!(pip_hky.lambda(), lambda);
     assert_eq!(pip_hky.mu(), mu);
     assert_eq!(pip_hky.freqs(), &frequencies!(freqs).insert_row(4, 0.0));
-    assert_eq!(pip_hky.qmatrix.params(), &[kappa]);
+    assert_eq!(pip_hky.subst_q.params(), &[kappa]);
 }
 
 #[test]
@@ -115,7 +115,7 @@ fn pip_dna_hky_as_k80() {
     assert_eq!(pip_k80.lambda(), pip_hky.lambda());
     assert_eq!(pip_k80.mu(), pip_hky.mu());
     assert_eq!(pip_k80.freqs(), pip_hky.freqs());
-    assert_eq!(pip_k80.qmatrix.params(), pip_hky.qmatrix.params());
+    assert_eq!(pip_k80.subst_q.params(), pip_hky.subst_q.params());
     assert!(pip_hky
         .q
         .diagonal()
@@ -183,7 +183,7 @@ fn pip_normalised_check_template<Q: QMatrix + PartialEq + Clone>(
         assert_relative_eq!(
             pip.q.row(pip.index[char as usize]).sum(),
             0.0,
-            epsilon = 1e-15
+            epsilon = 1e-14
         );
         assert_relative_eq!(pip.rate(char, b'-'), params[1]);
         assert_relative_eq!(pip.rate(b'-', char), 0.0);

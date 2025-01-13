@@ -20,7 +20,7 @@ use crate::Result;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PIPModel<Q: QMatrix> {
-    pub(crate) qmatrix: Q,
+    pub(crate) subst_q: Q,
     q: SubstMatrix,
     freqs: FreqVector,
     tmp: RefCell<PIPModelInfo<Q>>,
@@ -37,6 +37,15 @@ impl<Q: QMatrix + Clone> PIPModel<Q> {
     }
 }
 
+fn pip_q(q: &mut SubstMatrix, subst_q: &SubstMatrix, mu: f64) {
+    let n = subst_q.ncols();
+    q.view_mut((0, 0), (n, n)).copy_from(subst_q);
+    q.fill_column(n, mu);
+    for i in 0..(n + 1) {
+        q[(i, i)] -= mu;
+    }
+}
+
 impl<Q: QMatrix + Clone> EvoModel for PIPModel<Q> {
     fn new(frequencies: &[f64], params: &[f64]) -> Result<Self>
     where
@@ -47,14 +56,14 @@ impl<Q: QMatrix + Clone> EvoModel for PIPModel<Q> {
         }
         let mu = params[1];
 
-        let qmatrix = Q::new(frequencies, &params[2..]);
-        let mut index = *qmatrix.index();
-        index[b'-' as usize] = qmatrix.n();
-        let freqs = qmatrix.freqs().clone().insert_row(qmatrix.n(), 0.0);
-        let q = Self::make_pip_q(&qmatrix, mu);
-
+        let subst_q = Q::new(frequencies, &params[2..]);
+        let mut index = *subst_q.index();
+        index[b'-' as usize] = subst_q.n();
+        let freqs = subst_q.freqs().clone().insert_row(subst_q.n(), 0.0);
+        let mut q = SubstMatrix::zeros(subst_q.n() + 1, subst_q.n() + 1);
+        pip_q(&mut q, subst_q.q(), mu);
         Ok(PIPModel {
-            qmatrix,
+            subst_q,
             q,
             freqs,
             tmp: RefCell::new(PIPModelInfo::empty()),
@@ -81,8 +90,8 @@ impl<Q: QMatrix + Clone> EvoModel for PIPModel<Q> {
 
     fn set_freqs(&mut self, pi: FreqVector) {
         self.freqs = pi.clone().insert_row(self.n() - 1, 0.0);
-        self.qmatrix.set_freqs(pi.clone());
-        self.q = Self::make_pip_q(&self.qmatrix, self.mu());
+        self.subst_q.set_freqs(pi.clone());
+        pip_q(&mut self.q, self.subst_q.q(), self.params[1]);
     }
 
     fn index(&self) -> &[usize; 255] {
@@ -100,18 +109,18 @@ impl<Q: QMatrix + Clone> EvoModel for PIPModel<Q> {
             }
             1 => {
                 self.params[1] = value;
-                self.q = Self::make_pip_q(&self.qmatrix, self.mu());
+                pip_q(&mut self.q, self.subst_q.q(), self.params[1]);
             }
             _ => {
                 self.params[param] = value;
-                self.qmatrix.set_param(param - 2, value);
-                self.q = Self::make_pip_q(&self.qmatrix, self.mu());
+                self.subst_q.set_param(param - 2, value);
+                pip_q(&mut self.q, self.subst_q.q(), self.params[1]);
             }
         }
     }
 
     fn n(&self) -> usize {
-        self.qmatrix.n() + 1
+        self.subst_q.n() + 1
     }
 }
 
@@ -120,20 +129,8 @@ impl<Q: QMatrix + Display> Display for PIPModel<Q> {
         write!(
             f,
             "PIP with [lambda = {:.5}, mu = {:.5}]\n and {}",
-            self.params[0], self.params[1], self.qmatrix
+            self.params[0], self.params[1], self.subst_q
         )
-    }
-}
-
-impl<Q: QMatrix> PIPModel<Q> {
-    fn make_pip_q(qmatrix: &Q, mu: f64) -> SubstMatrix {
-        let n = qmatrix.n();
-        let mut q = qmatrix.q().clone().insert_column(n, mu).insert_row(n, 0.0);
-        q.fill_diagonal(0.0);
-        for i in 0..(n + 1) {
-            q[(i, i)] = -q.row(i).sum();
-        }
-        q
     }
 }
 
@@ -232,7 +229,7 @@ impl<Q: QMatrix + Display + Clone> PIPCostBuilder<Q> {
     }
 
     pub fn build(self) -> Result<PIPCost<Q>> {
-        if self.info.msa.alphabet() != self.model.qmatrix.alphabet() {
+        if self.info.msa.alphabet() != self.model.subst_q.alphabet() {
             bail!("Alphabet mismatch between model and alignment.");
         }
 
