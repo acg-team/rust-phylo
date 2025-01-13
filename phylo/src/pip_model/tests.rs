@@ -1,5 +1,5 @@
 use std::fmt::Display;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use approx::assert_relative_eq;
 use bio::io::fasta::Record;
@@ -766,4 +766,42 @@ fn designation() {
     let model = PIPModel::<BLOSUM>::new(&[], &[2.0, 1.0]).unwrap();
     assert!(format!("{}", model).contains("PIP"));
     assert!(format!("{}", model).contains("BLOSUM"));
+}
+
+#[test]
+fn pip_logl_correct_w_diff_info() {
+    let tree1 = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
+    let tree2 = tree!("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);");
+    let sequences = Sequences::new(vec![
+        record!("A", b"P"),
+        record!("B", b"P"),
+        record!("C", b"P"),
+        record!("D", b"P"),
+    ]);
+    let info1 = PIB::build_from_objects(sequences.clone(), tree1).unwrap();
+    let info2 = PIB::build_from_objects(sequences, tree2).unwrap();
+
+    let pip_wag = PIPModel::<WAG>::new(&[], &[50.0, 0.1]).unwrap();
+    let c1 = PIPB::new(pip_wag.clone(), info1).build().unwrap();
+    let c2 = PIPB::new(pip_wag, info2).build().unwrap();
+
+    assert_relative_eq!(c1.cost(), -1004.2260753055999, epsilon = 1e-5);
+    assert_relative_eq!(c2.cost(), -1425.1290016747846, epsilon = 1e-5);
+    assert_ne!(c1.cost(), c2.cost());
+}
+
+#[test]
+fn hiv_subset_valid_pip_likelihood() {
+    let fldr = Path::new("./data/real_examples/");
+    let alignment = fldr.join("HIV-1_env_DNA_mafft_alignment_subset.fasta");
+    let info = PIB::new(alignment).build().unwrap();
+    let pip = PIPModel::<GTR>::new(
+        &[0.25, 0.25, 0.25, 0.25],
+        &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+    )
+    .unwrap();
+    let c = PIPB::new(pip, info).build().unwrap();
+    let logl = c.cost();
+    assert_ne!(logl, f64::NEG_INFINITY);
+    assert!(logl < 0.0);
 }
