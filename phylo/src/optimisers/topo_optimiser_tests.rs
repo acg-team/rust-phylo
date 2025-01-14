@@ -486,6 +486,51 @@ fn protein_wag_vs_phyml_empirical_freqs() {
 }
 
 #[test]
+fn protein_pip_vs_phyml_empirical_freqs() {
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let seq_file = fldr.join("seqs.fasta");
+    let tree_file = fldr.join("jati_pip_wag_empirical.newick");
+
+    let info = PIB::new(seq_file.clone()).build().unwrap();
+    let wag = PIPModel::<WAG>::new(&[], &[1.0, 2.0]).unwrap();
+    let c_wag = PIPCB::new(wag.clone(), info.clone()).build().unwrap();
+
+    let unopt_logl = c_wag.cost();
+
+    let o = ModelOptimiser::new(c_wag, Empirical).run().unwrap();
+    let model_opt_logl = o.final_logl;
+    assert!(model_opt_logl >= unopt_logl);
+    let wag_opt = o.cost.model;
+
+    let result =
+        if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), tree_file.clone()).build() {
+            precomputed
+        } else {
+            let info = PIB::new(seq_file.clone()).build().unwrap();
+            let c_wag_opt = PIPCB::new(wag_opt.clone(), info).build().unwrap();
+            let unopt_logl = c_wag_opt.cost();
+            let o = TopologyOptimiser::new(c_wag_opt).run().unwrap();
+            assert!(o.final_logl >= unopt_logl);
+            let result = o.cost.info;
+            assert!(write_newick_to_file(&[result.tree.clone()], tree_file.clone()).is_ok());
+            result
+        };
+
+    let phyml_result = PIB::with_attrs(seq_file.clone(), fldr.join("phyml_wag_empirical.newick"))
+        .build()
+        .unwrap();
+
+    assert_relative_eq!(result.tree.height, phyml_result.tree.height, epsilon = 1e-1);
+    assert!(result.tree.robinson_foulds(&phyml_result.tree) > 0);
+
+    let wag_opt_logl = PIPCB::new(wag_opt.clone(), result).build().unwrap().cost();
+    let wag_opt_phyml = PIPCB::new(wag_opt, phyml_result).build().unwrap();
+    let o = BranchOptimiser::new(wag_opt_phyml).run().unwrap();
+
+    assert!(wag_opt_logl > o.cost.cost());
+}
+
+#[test]
 fn protein_wag_vs_phyml_fixed_freqs() {
     // ~100s
     // Check that optimisation on protein data under WAG produces similar tree to PhyML with matching likelihoods
