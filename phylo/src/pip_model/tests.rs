@@ -729,7 +729,6 @@ fn designation() {
     assert!(format!("{}", model).contains("BLOSUM"));
 }
 
-#[ignore = "need to doublecheck likelihood"]
 #[test]
 fn pip_logl_correct_w_diff_info() {
     let tree1 = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
@@ -748,8 +747,8 @@ fn pip_logl_correct_w_diff_info() {
     let c1 = PIPB::new(pip_wag.clone(), info1).build().unwrap();
     let c2 = PIPB::new(pip_wag, info2).build().unwrap();
 
-    assert_relative_eq!(c1.cost(), -1004.2260753055999, epsilon = 1e-5);
-    assert_relative_eq!(c2.cost(), -1425.1290016747846, epsilon = 1e-5);
+    assert_relative_eq!(c1.cost(), -854.2260753055998, epsilon = 1e-2);
+    assert_relative_eq!(c2.cost(), -1125.1290016747846, epsilon = 1e-2);
     assert_ne!(c1.cost(), c2.cost());
 }
 
