@@ -382,16 +382,16 @@ fn pip_propip_example() {
     .unwrap();
     let c = PIPCostBuilder::new(pip_gtr.clone(), info).build().unwrap();
     let initial_logl = c.cost();
-    println!("Initial logl: {}", initial_logl);
 
-    assert_relative_eq!(initial_logl, -1241.9555557710014, epsilon = 1e-1);
+    assert_relative_eq!(initial_logl, -1241.99424826303, epsilon = 1e-8); // value from the python script
+    assert_relative_eq!(initial_logl, -1241.9944955187807, epsilon = 1e-3); // value from ProPIP
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
     assert_eq!(o.initial_logl, initial_logl);
     assert!(o.final_logl > initial_logl);
 
-    // assert_relative_eq!(o.final_logl, -1081.1682773217494, epsilon = 1e-0);
+    assert_relative_eq!(o.final_logl, -1060.3360532549295, epsilon = 1e-8); // value from the python script
     assert_eq!(o.final_logl, o.cost.cost());
 }
 
@@ -406,12 +406,9 @@ fn pip_vs_python_no_gaps() {
     .unwrap();
 
     let pip_hky = PIPModel::<HKY>::new(&[0.25; 4], &[1.2, 0.45, 1.0]).unwrap();
+
     let c = PIPCostBuilder::new(pip_hky, info).build().unwrap();
-    assert_relative_eq!(
-        c.cost(),
-        -361.1613531649497, // value from the python script
-        epsilon = 1e-1
-    );
+    assert_relative_eq!(c.cost(), -361.18634412281443, epsilon = 1e-7); // value from the python script
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
@@ -419,12 +416,8 @@ fn pip_vs_python_no_gaps() {
     assert_ne!(params[0], 1.2);
     assert_ne!(params[1], 0.45);
     assert_ne!(params[2], 1.0);
-    assert!(o.final_logl > -361.1613531649497);
-    assert_relative_eq!(
-        o.final_logl,
-        -227.1894519082493, // value from the python script
-        epsilon = 1e-1
-    );
+    assert!(o.final_logl > -361.18634412281443);
+    assert_relative_eq!(o.final_logl, -227.16166351921532, epsilon = 1e-7); // value from the python script
 }
 
 #[test]
