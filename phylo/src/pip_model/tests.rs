@@ -752,8 +752,8 @@ fn pip_logl_correct_w_diff_info() {
     assert_ne!(c1.cost(), c2.cost());
 }
 
-#[ignore = "long test"]
 #[test]
+#[cfg_attr(feature = "coverage", ignore)]
 fn hiv_subset_valid_pip_likelihood() {
     let fldr = Path::new("./data/real_examples/");
     let alignment = fldr.join("HIV-1_env_DNA_mafft_alignment_subset.fasta");
