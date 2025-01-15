@@ -2,9 +2,9 @@ name: tests with coverage
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "develop" ]
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: [ "develop" ]
   workflow_dispatch:
     
 env:
@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cargo install cargo-llvm-cov
-      - run: cargo llvm-cov --manifest-path phylo/Cargo.toml --all-features --codecov --output-path codecov.json
+      - run: cargo llvm-cov --features coverage --manifest-path phylo/Cargo.toml --all-features --codecov --output-path codecov.json
       - uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
