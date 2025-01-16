@@ -171,7 +171,7 @@ fn k80_sim_data_vs_phyml_wrong_start() {
 }
 
 #[test]
-#[cfg_attr(feature = "coverage", ignore)]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn wag_no_gaps_vs_phyml_given_tree_start() {
     // Check that optimisation on protein data under WAG produces similar tree to PhyML with matching likelihoods
     // on sequences without gaps
@@ -220,7 +220,7 @@ fn wag_no_gaps_vs_phyml_given_tree_start() {
 }
 
 #[test]
-#[cfg_attr(feature = "coverage", ignore)]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn wag_no_gaps_vs_phyml_nj_tree_start() {
     // Check that optimisation on protein data under WAG produces similar tree to PhyML with matching likelihoods
     // on sequences without gaps starting from an NJ tree
@@ -266,7 +266,7 @@ fn wag_no_gaps_vs_phyml_nj_tree_start() {
 }
 
 #[test]
-#[cfg_attr(feature = "coverage", ignore)]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn pip_vs_subst_dna_tree() {
     // Check that optimisation on k80 data under PIP and substitution model produces similar trees
     let fldr = Path::new("./data/sim");
@@ -311,7 +311,7 @@ fn pip_vs_subst_dna_tree() {
 }
 
 #[test]
-#[cfg_attr(feature = "coverage", ignore)]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn wag_nogaps_pip_vs_subst_tree_nj_start() {
     // ~330s
     // Check that optimisation on protein data under WAG produces similar trees for PIP and substitution model
@@ -384,7 +384,7 @@ fn wag_nogaps_pip_vs_subst_tree_nj_start() {
 }
 
 #[test]
-#[cfg_attr(feature = "coverage", ignore)]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn protein_pip_optimise_model_tree() {
     // ~430s
     // Check that tree optimisation under PIP has a better likelihood when the model is also optimised
@@ -444,7 +444,7 @@ fn protein_pip_optimise_model_tree() {
 }
 
 #[test]
-#[cfg_attr(feature = "coverage", ignore)]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn protein_wag_vs_phyml_empirical_freqs() {
     // ~110s
     // Check that optimisation on protein data under WAG produces similar tree to PhyML with matching likelihoods
@@ -492,7 +492,7 @@ fn protein_wag_vs_phyml_empirical_freqs() {
 }
 
 #[test]
-#[cfg_attr(feature = "coverage", ignore)]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn protein_pip_vs_phyml_empirical_freqs() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
@@ -538,7 +538,7 @@ fn protein_pip_vs_phyml_empirical_freqs() {
 }
 
 #[test]
-#[cfg_attr(feature = "coverage", ignore)]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn protein_wag_vs_phyml_fixed_freqs() {
     // ~100s
     // Check that optimisation on protein data under WAG produces similar tree to PhyML with matching likelihoods

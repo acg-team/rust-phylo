@@ -193,5 +193,5 @@ fn generic_aminoacid_sets(char: u8) -> FreqVector {
 }
 
 #[cfg(test)]
-#[cfg_attr(coverage, coverage(off))]
+#[cfg_attr(coverage, no_coverage)]
 mod tests;

@@ -1096,7 +1096,7 @@ fn protein_one_site_one_char() {
 }
 
 #[test]
-#[cfg_attr(feature = "coverage", ignore)]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn hiv_subset_valid_subst_likelihood() {
     let fldr = Path::new("./data/real_examples/");
     let alignment = fldr.join("HIV-1_env_DNA_mafft_alignment_subset.fasta");

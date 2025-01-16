@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cargo install cargo-llvm-cov
-      - run: cargo llvm-cov --features coverage --manifest-path phylo/Cargo.toml --all-features --workspace --lcov --output-path lcov.info
+      - run: cargo llvm-cov --features ci_coverage --manifest-path phylo/Cargo.toml --all-features --workspace --lcov --output-path lcov.info
       - uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

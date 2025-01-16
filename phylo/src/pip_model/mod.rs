@@ -487,5 +487,5 @@ where
 }
 
 #[cfg(test)]
-#[cfg_attr(coverage, coverage(off))]
+#[cfg_attr(coverage, no_coverage)]
 mod tests;

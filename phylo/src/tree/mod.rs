@@ -566,5 +566,5 @@ fn compute_distance_matrix(sequences: &Sequences) -> nj_matrices::NJMat {
 }
 
 #[cfg(test)]
-#[cfg_attr(coverage, coverage(off))]
+#[cfg_attr(coverage, no_coverage)]
 mod tests;
