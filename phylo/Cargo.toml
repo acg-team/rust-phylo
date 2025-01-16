@@ -32,3 +32,6 @@ rand = "0.8.5"
 rstest = "0.18.1"
 stats-cli = "3.0.1"
 tempfile = "3.8.0"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage,coverage_nightly)'] }

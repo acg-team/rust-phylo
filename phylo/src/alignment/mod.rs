@@ -175,4 +175,5 @@ impl Alignment {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod tests;
