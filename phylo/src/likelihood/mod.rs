@@ -20,5 +20,5 @@ pub trait ModelSearchCost {
 }
 
 #[cfg(test)]
-#[cfg_attr(coverage, no_coverage)]
+#[cfg_attr(coverage, coverage(off))]
 mod tests;

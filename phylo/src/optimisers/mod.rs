@@ -22,11 +22,11 @@ pub struct ModelOptimisationResult<C: ModelSearchCost + Clone> {
 }
 
 #[cfg(test)]
-#[cfg_attr(coverage, no_coverage)]
+#[cfg_attr(coverage, coverage(off))]
 mod blen_optimiser_tests;
 #[cfg(test)]
-#[cfg_attr(coverage, no_coverage)]
+#[cfg_attr(coverage, coverage(off))]
 mod model_optimiser_tests;
 #[cfg(test)]
-#[cfg_attr(coverage, no_coverage)]
+#[cfg_attr(coverage, coverage(off))]
 mod topo_optimiser_tests;

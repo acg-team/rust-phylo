@@ -384,5 +384,5 @@ impl<Q: QMatrix + Display> SubstModelInfo<Q> {
 }
 
 #[cfg(test)]
-#[cfg_attr(coverage, no_coverage)]
+#[cfg_attr(coverage, coverage(off))]
 pub(crate) mod tests;

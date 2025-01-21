@@ -1,4 +1,4 @@
-#![cfg_attr(coverage, feature(no_coverage))]
+#![cfg_attr(coverage, feature(coverage_attribute))]
 
 use anyhow::Error;
 
