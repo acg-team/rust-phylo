@@ -25,8 +25,8 @@ jobs:
     name: cargo test
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: dtolnay/rust-toolchain@stable
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@nightly
     - name: install cargo2junit
       run: |
           cargo install cargo2junit
