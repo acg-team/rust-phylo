@@ -752,8 +752,8 @@ fn pip_logl_correct_w_diff_info() {
     assert_ne!(c1.cost(), c2.cost());
 }
 
-#[ignore = "long test"]
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn hiv_subset_valid_pip_likelihood() {
     let fldr = Path::new("./data/real_examples/");
     let alignment = fldr.join("HIV-1_env_DNA_mafft_alignment_subset.fasta");
@@ -767,4 +767,38 @@ fn hiv_subset_valid_pip_likelihood() {
     let logl = c.cost();
     assert_ne!(logl, f64::NEG_INFINITY);
     assert!(logl < 0.0);
+}
+
+#[cfg(test)]
+fn avg_rate_template<Q: QMatrix + Clone + PartialEq + Display>(freqs: &[f64], params: &[f64]) {
+    let mu = params[1];
+    let model = PIPModel::<Q>::new(freqs, params).unwrap();
+    let n = model.n();
+    let avg_rate = model
+        .q()
+        .view((0, 0), (n - 1, n - 1))
+        .diagonal()
+        .component_mul(&model.freqs().view((0, 0), (n - 1, 1)))
+        .sum();
+    assert_relative_eq!(avg_rate, -1.0 - mu, epsilon = 1e-6);
+}
+
+#[test]
+fn dna_avg_rate() {
+    avg_rate_template::<JC69>(&[], &[0.24, 1.4]);
+    avg_rate_template::<K80>(&[], &[0.4, 4.4]);
+    avg_rate_template::<HKY>(&[0.22, 0.26, 0.33, 0.19], &[0.5, 1.5, 0.5]);
+    avg_rate_template::<TN93>(&[0.22, 0.26, 0.33, 0.19], &[1.5, 0.25, 0.5, 0.2, 0.001]);
+    avg_rate_template::<GTR>(&[0.1, 0.3, 0.4, 0.2], &[5.0, 5.0, 5.0, 1.0, 1.0, 1.0, 1.0]);
+}
+
+#[test]
+fn protein_avg_rate() {
+    avg_rate_template::<WAG>(&[], &[0.5, 1.0]);
+    avg_rate_template::<HIVB>(&[], &[5.0, 1.5]);
+    avg_rate_template::<BLOSUM>(&[], &[4.5, 1.3]);
+    let freqs = &[1.0 / 20.0; 20];
+    avg_rate_template::<WAG>(freqs, &[0.5, 1.0]);
+    avg_rate_template::<HIVB>(freqs, &[2.5, 0.03]);
+    avg_rate_template::<BLOSUM>(freqs, &[0.25, 1.5]);
 }

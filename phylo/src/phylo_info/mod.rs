@@ -1,6 +1,4 @@
-use anyhow::bail;
 use bio::io::fasta::Record;
-use nalgebra::DMatrix;
 
 use crate::alignment::Alignment;
 use crate::substitution_models::FreqVector;
@@ -34,22 +32,6 @@ impl PhyloInfo {
     /// Bails if the tree does not contain the subroot or does not match the alignment.
     pub fn compile_alignment(&self, subroot: Option<&NodeIdx>) -> Result<Vec<Record>> {
         self.msa.compile(subroot, &self.tree)
-    }
-
-    /// Returns the encoding of a leaf sequence by its id.
-    /// TODO: should not be in a DMatrix, better to have a Vec<FreqVector>.
-    pub fn leaf_encoding_by_id(&self, id: &str) -> Result<&DMatrix<f64>> {
-        let encoding = self.msa.leaf_encoding.get(id);
-        if encoding.is_none() {
-            bail!("No encoding found for leaf with id {}", id);
-        }
-        Ok(encoding.unwrap())
-    }
-
-    /// Returns the encoding of a leaf sequence by the leaf node index.
-    pub fn leaf_encoding(&self, idx: &NodeIdx) -> Result<&DMatrix<f64>> {
-        let id = self.tree.node_id(idx);
-        self.leaf_encoding_by_id(id)
     }
 
     /// Returns the empirical frequencies of the symbols in the sequences.
@@ -98,4 +80,5 @@ impl PhyloInfo {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod tests;

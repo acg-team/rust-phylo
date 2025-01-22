@@ -1096,6 +1096,7 @@ fn protein_one_site_one_char() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn hiv_subset_valid_subst_likelihood() {
     let fldr = Path::new("./data/real_examples/");
     let alignment = fldr.join("HIV-1_env_DNA_mafft_alignment_subset.fasta");
@@ -1238,4 +1239,31 @@ fn protein_x_fully_likely() {
     x_fully_likely_template::<WAG>(&[], &[]);
     x_fully_likely_template::<HIVB>(&[], &[]);
     x_fully_likely_template::<BLOSUM>(&[], &[]);
+}
+
+#[cfg(test)]
+fn avg_rate_template<Q: QMatrix + PartialEq + Display>(freqs: &[f64], params: &[f64]) {
+    let model = SubstModel::<Q>::new(freqs, params).unwrap();
+    let avg_rate = model.q().diagonal().component_mul(model.freqs()).sum();
+    assert_relative_eq!(avg_rate, -1.0, epsilon = 1e-10);
+}
+
+#[test]
+fn dna_avg_rate() {
+    avg_rate_template::<JC69>(&[], &[]);
+    avg_rate_template::<K80>(&[], &[]);
+    avg_rate_template::<HKY>(&[0.22, 0.26, 0.33, 0.19], &[0.5]);
+    avg_rate_template::<TN93>(&[0.22, 0.26, 0.33, 0.19], &[0.5970915, 0.2940435, 0.00135]);
+    avg_rate_template::<GTR>(&[0.1, 0.3, 0.4, 0.2], &[5.0, 1.0, 1.0, 1.0, 1.0]);
+}
+
+#[test]
+fn protein_avg_rate() {
+    avg_rate_template::<WAG>(&[], &[]);
+    avg_rate_template::<HIVB>(&[], &[]);
+    avg_rate_template::<BLOSUM>(&[], &[]);
+    let freqs = &[1.0 / 20.0; 20];
+    avg_rate_template::<WAG>(freqs, &[]);
+    avg_rate_template::<HIVB>(freqs, &[]);
+    avg_rate_template::<BLOSUM>(freqs, &[]);
 }
