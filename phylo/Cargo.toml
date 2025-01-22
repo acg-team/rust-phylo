@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-coverage = []
+ci_coverage = []
 
 [profile.release]
 opt-level = 3
@@ -32,3 +32,6 @@ rand = "0.8.5"
 rstest = "0.18.1"
 stats-cli = "3.0.1"
 tempfile = "3.8.0"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }

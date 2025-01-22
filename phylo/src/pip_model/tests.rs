@@ -753,7 +753,7 @@ fn pip_logl_correct_w_diff_info() {
 }
 
 #[test]
-#[cfg_attr(feature = "coverage", ignore)]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn hiv_subset_valid_pip_likelihood() {
     let fldr = Path::new("./data/real_examples/");
     let alignment = fldr.join("HIV-1_env_DNA_mafft_alignment_subset.fasta");
@@ -799,6 +799,6 @@ fn protein_avg_rate() {
     avg_rate_template::<BLOSUM>(&[], &[4.5, 1.3]);
     let freqs = &[1.0 / 20.0; 20];
     avg_rate_template::<WAG>(freqs, &[0.5, 1.0]);
-    avg_rate_template::<HIVB>(freqs, &[2.5, 0.035]);
+    avg_rate_template::<HIVB>(freqs, &[2.5, 0.03]);
     avg_rate_template::<BLOSUM>(freqs, &[0.25, 1.5]);
 }

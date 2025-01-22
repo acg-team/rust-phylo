@@ -187,4 +187,5 @@ pub fn write_newick_to_file(trees: &[Tree], path: PathBuf) -> Result<()> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod tests;
