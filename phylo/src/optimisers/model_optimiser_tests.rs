@@ -376,6 +376,10 @@ fn arpip_example() {
     assert_ne!(o.cost.freqs(), pip_gtr.freqs());
     assert_eq!(o.final_logl, o.cost.cost());
 
+    let pip_gtr = PIPModel::<GTR>::new(o.cost.freqs().as_slice(), o.cost.params()).unwrap();
+    let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
+    assert_eq!(o.final_logl, c.cost());
+
     assert_relative_eq!(o.final_logl, -161.7097214290736, epsilon = 1e-6); // value from python script
 }
 
