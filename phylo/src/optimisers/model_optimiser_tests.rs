@@ -265,6 +265,7 @@ fn hky_vs_phyml() {
     assert_relative_eq!(o.cost.freqs(), phyml_model.freqs());
     assert_relative_eq!(o.cost.params(), phyml_model.params(), epsilon = 1e-2);
     assert_relative_eq!(o.final_logl, phyml_logl, epsilon = 1e-5);
+    assert_eq!(o.final_logl, o.cost.cost());
 }
 
 #[test]
@@ -282,6 +283,7 @@ fn frequencies_fixed_opt_gtr() {
     .unwrap();
     assert_eq!(o.cost.freqs(), &frequencies!(&[0.25, 0.35, 0.3, 0.1]));
     assert_ne!(o.cost.params(), &[1.0; 5]);
+    assert_eq!(o.final_logl, o.cost.cost());
 }
 
 #[cfg(test)]
@@ -306,6 +308,7 @@ where
     assert_eq!(initial_llik, o.initial_logl);
     assert_eq!(initial_llik, o.final_logl);
     assert_eq!(model.freqs(), o.cost.freqs());
+    assert_eq!(o.final_logl, o.cost.cost());
 }
 
 #[test]
@@ -347,7 +350,7 @@ fn frequencies_empirical_protein() {
 }
 
 #[test]
-fn check_parameter_optimisation_pip_arpiptest() {
+fn arpip_example() {
     let fldr = Path::new("./data/pip/arpip/");
     let info = PIB::with_attrs(fldr.join("msa.fasta"), fldr.join("tree.nwk"))
         .build()
@@ -357,15 +360,23 @@ fn check_parameter_optimisation_pip_arpiptest() {
         &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
     )
     .unwrap();
-    let c = PIPCostBuilder::new(pip_gtr.clone(), info).build().unwrap();
+    let c = PIPCostBuilder::new(pip_gtr.clone(), info.clone())
+        .build()
+        .unwrap();
     let initial_logl = c.cost();
+
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     assert_eq!(o.initial_logl, initial_logl);
+    assert_relative_eq!(o.initial_logl, -212.3260420492571, epsilon = 1e-6); // value from the python script
+
     assert!(o.final_logl > initial_logl);
     assert_ne!(o.cost.params(), pip_gtr.params());
     assert_ne!(o.cost.freqs(), pip_gtr.freqs());
+    assert_eq!(o.final_logl, o.cost.cost());
+
+    assert_relative_eq!(o.final_logl, -161.7097214290736, epsilon = 1e-6); // value from python script
 }
 
 #[test]
@@ -390,8 +401,7 @@ fn pip_propip_example() {
         .unwrap();
     assert_eq!(o.initial_logl, initial_logl);
     assert!(o.final_logl > initial_logl);
-
-    assert_relative_eq!(o.final_logl, -1060.3360532549295, epsilon = 1e-8); // value from the python script
+    assert_relative_eq!(o.final_logl, -1081.7242216547843, epsilon = 1e-8); // value from the python script
     assert_eq!(o.final_logl, o.cost.cost());
 }
 
@@ -418,11 +428,12 @@ fn pip_vs_python_no_gaps() {
     assert_ne!(params[2], 1.0);
     assert!(o.final_logl > -361.18634412281443);
     assert_relative_eq!(o.final_logl, -227.16166351921532, epsilon = 1e-7); // value from the python script
+    assert_eq!(o.final_logl, o.cost.cost());
 }
 
 #[test]
-fn pip_gtr() {
-    // Compare pip gtr parameter optimisation vs the original gtr model
+fn pip_gtr_optimisation() {
+    // Check that pip parameter optimisation produces expected results
     let fldr = Path::new("./data/sim");
     let info = PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
         .build()
@@ -433,14 +444,21 @@ fn pip_gtr() {
     )
     .unwrap();
     let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
+
     let initial_logl = c.cost();
     let pip_o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
+    let pip_gtr = PIPModel::<GTR>::new(pip_o.cost.freqs().as_slice(), pip_o.cost.params()).unwrap();
 
-    assert_relative_eq!(initial_logl, -9988.486546494, epsilon = 1e0); // value from the python script
+    let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
+    assert_eq!(pip_o.final_logl, c.cost());
+
+    assert_relative_eq!(initial_logl, -9988.840775519875, epsilon = 1e-5); // value from the python script
     assert_relative_eq!(pip_o.initial_logl, initial_logl);
     assert!(pip_o.final_logl > initial_logl);
+    assert_relative_eq!(pip_o.final_logl, -3482.1776012164523, epsilon = 1e-5); // value from the python script
+    assert_eq!(pip_o.final_logl, pip_o.cost.cost());
 
     let gtr = SubstModel::<GTR>::new(
         &[0.24720, 0.35320, 0.29540, 0.10420],
