@@ -10,9 +10,23 @@ use crate::frequencies;
 use crate::substitution_models::{FreqVector, QMatrix, SubstMatrix};
 
 const DNA_N: usize = 4;
+const EQUAL_FREQS: [f64; DNA_N] = [0.25, 0.25, 0.25, 0.25];
 
-fn verify_dna_freqs(freqs: &FreqVector) -> bool {
-    freqs.len() == DNA_N && relative_eq!(freqs.sum().abs(), 1.0)
+fn set_dna_freqs(freqs: FreqVector) -> FreqVector {
+    if freqs.len() < DNA_N {
+        warn!("Too few frequencies provided, using equal.");
+        frequencies!(&EQUAL_FREQS)
+    } else {
+        if freqs.len() > DNA_N {
+            warn!("Too many frequencies provided, using the first {}.", DNA_N);
+        }
+        if !relative_eq!(freqs.into_iter().take(DNA_N).sum::<f64>().abs(), 1.0) {
+            warn!("Invalid frequencies provided, using equal.");
+            frequencies!(&EQUAL_FREQS)
+        } else {
+            FreqVector::from(freqs.rows(0, DNA_N))
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -162,13 +176,8 @@ pub struct HKY {
 
 impl QMatrix for HKY {
     fn new(freqs: &[f64], params: &[f64]) -> Self {
-        let provided_freqs = frequencies!(freqs);
-        let freqs = if verify_dna_freqs(&provided_freqs) {
-            provided_freqs
-        } else {
-            warn!("Invalid frequencies provided, using equal.");
-            frequencies!(&[1.0 / DNA_N as f64; DNA_N])
-        };
+        let freqs = set_dna_freqs(frequencies!(freqs));
+
         let kappa = match params.len().cmp(&1) {
             Ordering::Less => {
                 warn!("Too few values provided for HKY, required one value for kappa");
@@ -198,12 +207,7 @@ impl QMatrix for HKY {
         &self.freqs
     }
     fn set_freqs(&mut self, freqs: FreqVector) {
-        self.freqs = if verify_dna_freqs(&freqs) {
-            freqs
-        } else {
-            warn!("Invalid frequencies provided, using equal.");
-            frequencies!(&[1.0 / DNA_N as f64; DNA_N])
-        };
+        self.freqs = set_dna_freqs(freqs);
         hky_q(&mut self.q, &self.freqs, self.kappa[0])
     }
     fn set_param(&mut self, _: usize, value: f64) {
@@ -277,14 +281,7 @@ pub struct TN93 {
 
 impl QMatrix for TN93 {
     fn new(freqs: &[f64], params: &[f64]) -> Self {
-        let provided_freqs = frequencies!(freqs);
-        let freqs = if verify_dna_freqs(&provided_freqs) {
-            provided_freqs
-        } else {
-            warn!("Invalid frequencies provided, using equal.");
-            frequencies!(&[1.0 / DNA_N as f64; DNA_N])
-        };
-
+        let freqs = set_dna_freqs(frequencies!(freqs));
         let mut params = params.to_vec();
         match params.len().cmp(&3) {
             Ordering::Less => {
@@ -316,12 +313,7 @@ impl QMatrix for TN93 {
         &self.freqs
     }
     fn set_freqs(&mut self, freqs: FreqVector) {
-        self.freqs = if verify_dna_freqs(&freqs) {
-            freqs
-        } else {
-            warn!("Invalid frequencies provided, using equal.");
-            frequencies!(&[1.0 / DNA_N as f64; DNA_N])
-        };
+        self.freqs = set_dna_freqs(freqs);
         tn93_q(&mut self.q, &self.freqs, &self.params)
     }
     fn set_param(&mut self, param: usize, value: f64) {
@@ -401,13 +393,7 @@ pub(crate) struct GTR {
 
 impl QMatrix for GTR {
     fn new(freqs: &[f64], params: &[f64]) -> Self {
-        let provided_freqs = frequencies!(freqs);
-        let freqs = if verify_dna_freqs(&provided_freqs) {
-            provided_freqs
-        } else {
-            warn!("Invalid frequencies provided, using equal.");
-            frequencies!(&[1.0 / DNA_N as f64; DNA_N])
-        };
+        let freqs = set_dna_freqs(frequencies!(freqs));
 
         let mut params = params.to_vec();
         if params.len() < 5 {
@@ -437,12 +423,7 @@ impl QMatrix for GTR {
         &self.freqs
     }
     fn set_freqs(&mut self, freqs: FreqVector) {
-        self.freqs = if verify_dna_freqs(&freqs) {
-            freqs
-        } else {
-            warn!("Invalid frequencies provided, using equal.");
-            frequencies!(&[1.0 / DNA_N as f64; DNA_N])
-        };
+        self.freqs = set_dna_freqs(freqs);
         gtr_q(&mut self.q, &self.freqs, &self.params)
     }
     fn set_param(&mut self, param: usize, value: f64) {
