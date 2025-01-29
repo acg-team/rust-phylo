@@ -38,14 +38,16 @@ impl<C: ModelSearchCost + Display + Clone> ModelOptimiser<C> {
 
         let mut iterations = 0;
 
-        let parameters = self.c.borrow().params().to_vec();
         while final_logl - prev_logl > self.epsilon {
             iterations += 1;
             debug!("Iteration: {}", iterations);
+            let parameters = self.c.borrow().params().to_vec();
             prev_logl = final_logl;
-            for (param, value) in parameters.iter().enumerate() {
-                let (value, logl) = self.opt_parameter(param, *value)?;
+            for (param, start_value) in parameters.iter().enumerate() {
+                let (value, logl) = self.opt_parameter(param, *start_value)?;
                 if logl < final_logl {
+                    // Parameter will have been reset by the optimiser, set it back to start value
+                    self.c.borrow_mut().set_param(param, *start_value);
                     continue;
                 }
                 self.c.borrow_mut().set_param(param, value);
