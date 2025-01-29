@@ -463,6 +463,24 @@ fn pip_gtr_optimisation() {
     assert!(pip_o.final_logl > initial_logl);
     assert_relative_eq!(pip_o.final_logl, -3482.1776012164523, epsilon = 1e-5); // value from the python script
     assert_eq!(pip_o.final_logl, pip_o.cost.cost());
+}
+
+#[test]
+fn pip_gtr_vs_gtr_params() {
+    // Compare pip gtr parameter optimisation vs the original gtr model
+    let fldr = Path::new("./data/sim");
+    let info = PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
+    let pip_gtr = PIPModel::<GTR>::new(
+        &[0.24720, 0.35320, 0.29540, 0.10420],
+        &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+    )
+    .unwrap();
+    let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
+    let pip_o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
+        .run()
+        .unwrap();
 
     let gtr = SubstModel::<GTR>::new(
         &[0.24720, 0.35320, 0.29540, 0.10420],
