@@ -47,7 +47,7 @@ impl<'a> AlignmentBuilder<'a> {
         };
         let leaf_map = alignment.compile_leaf_map(&self.tree.root, self.tree)?;
         alignment.leaf_map = leaf_map;
-        alignment.seqs = self.seqs.without_gaps();
+        alignment.seqs = self.seqs.into_gapless();
         alignment.leaf_encoding = alignment.seqs.generate_leaf_encoding();
         Ok(alignment)
     }
@@ -82,7 +82,7 @@ impl<'a> AlignmentBuilder<'a> {
                 _ => None,
             })
             .collect();
-        let seqs = self.seqs.without_gaps();
+        let seqs = self.seqs.into_gapless();
         let leaf_encoding = seqs.generate_leaf_encoding();
         Ok(Alignment {
             seqs,
