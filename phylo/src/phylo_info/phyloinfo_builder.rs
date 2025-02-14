@@ -85,10 +85,10 @@ impl PhyloInfoBuilder {
     /// use std::path::PathBuf;
     /// use phylo::phylo_info::PhyloInfoBuilder;
     /// let builder = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta"))
-    ///   .tree_file(PathBuf::from("./data/tree_diff_branch_lengths_2.newick"));
+    ///   .tree_file(Some(PathBuf::from("./data/tree_diff_branch_lengths_2.newick")));
     /// ```
-    pub fn tree_file(mut self, path: PathBuf) -> PhyloInfoBuilder {
-        self.tree_file = Some(path);
+    pub fn tree_file(mut self, path: Option<PathBuf>) -> PhyloInfoBuilder {
+        self.tree_file = path;
         self
     }
 
