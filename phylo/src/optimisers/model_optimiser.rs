@@ -96,9 +96,11 @@ impl<C: ModelSearchCost + Display + Clone> ModelOptimiser<C> {
             cost: &self.c,
             param,
         };
-        let gss = BrentOpt::new(1e-10, 100.0);
+        let min = f64::EPSILON;
+        let max = start_value * 100.0;
+        let gss = BrentOpt::new(min, max);
         let res = Executor::new(optimiser, gss)
-            .configure(|_| IterState::new().param(start_value))
+            .configure(|_| IterState::new().param(start_value).max_iters(500))
             .run()?;
         let logl = -res.state().best_cost;
         Ok((res.state().best_param.unwrap(), logl))
