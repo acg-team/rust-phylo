@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fmt::Display;
-use std::marker::PhantomData;
+use std::fmt::{Debug, Display};
 use std::ops::Mul;
 
 use anyhow::bail;
@@ -18,7 +17,9 @@ use crate::tree::{
 use crate::{f64_h, phylo_info::PhyloInfo, Result, Rounding};
 
 pub mod dna_models;
+pub use dna_models::*;
 pub mod protein_models;
+pub use protein_models::*;
 
 pub type SubstMatrix = DMatrix<f64>;
 pub type FreqVector = DVector<f64>;
@@ -28,6 +29,51 @@ macro_rules! frequencies {
     ($slice:expr) => {
         FreqVector::from_column_slice($slice)
     };
+}
+
+pub struct SubstModelBuilder {
+    model_id: String,
+    freqs: Vec<f64>,
+    params: Vec<f64>,
+}
+
+impl SubstModelBuilder {
+    pub fn new(model_id: &str, freqs: &[f64], params: &[f64]) -> Self {
+        SubstModelBuilder {
+            model_id: model_id.to_string(),
+            freqs: freqs.to_vec(),
+            params: params.to_vec(),
+        }
+    }
+
+    pub fn build(self) -> Result<Box<dyn EvoModel>> {
+        match self.model_id.as_str() {
+            "JC69" => Ok(Box::new(SubstModel::<JC69>::new(
+                &self.freqs,
+                &self.params,
+            )?)),
+            "K80" => Ok(Box::new(SubstModel::<K80>::new(&self.freqs, &self.params)?)),
+            "HKY85" | "HKY" => Ok(Box::new(SubstModel::<HKY>::new(&self.freqs, &self.params)?)),
+            "TN93" => Ok(Box::new(SubstModel::<TN93>::new(
+                &self.freqs,
+                &self.params,
+            )?)),
+            "GTR" => Ok(Box::new(SubstModel::<JC69>::new(
+                &self.freqs,
+                &self.params,
+            )?)),
+            "HIV" | "HIVB" => Ok(Box::new(SubstModel::<HIVB>::new(
+                &self.freqs,
+                &self.params,
+            )?)),
+            "WAG" => Ok(Box::new(SubstModel::<WAG>::new(&self.freqs, &self.params)?)),
+            "BLOSUM" => Ok(Box::new(SubstModel::<BLOSUM>::new(
+                &self.freqs,
+                &self.params,
+            )?)),
+            _ => bail!("Unknown model requested."),
+        }
+    }
 }
 
 pub trait QMatrixFactory {

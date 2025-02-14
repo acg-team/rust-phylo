@@ -1,14 +1,15 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fmt::Display;
-use std::marker::PhantomData;
+use std::fmt::{Debug, Display};
 use std::ops::Mul;
 use std::vec;
 
 use anyhow::bail;
+use dyn_clone::DynClone;
 use nalgebra::{DMatrix, DVector};
 
 use crate::alignment::Mapping;
+use crate::alphabets::{Alphabet, GAP};
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
 use crate::phylo_info::PhyloInfo;
@@ -20,6 +21,46 @@ use crate::tree::{
     Tree,
 };
 use crate::Result;
+
+pub trait PIPModelTrait: Debug + Display + DynClone + EvoModel {
+    fn lambda(&self) -> f64;
+    fn mu(&self) -> f64;
+}
+
+dyn_clone::clone_trait_object!(PIPModelTrait);
+
+pub struct PIPModelBuilder {
+    model_id: String,
+    freqs: Vec<f64>,
+    params: Vec<f64>,
+}
+
+impl PIPModelBuilder {
+    pub fn new(model_id: &str, freqs: &[f64], params: &[f64]) -> Self {
+        PIPModelBuilder {
+            model_id: model_id.to_string(),
+            freqs: freqs.to_vec(),
+            params: params.to_vec(),
+        }
+    }
+
+    pub fn build(self) -> Result<Box<dyn PIPModelTrait>> {
+        match self.model_id.as_str() {
+            "JC69" => Ok(Box::new(PIPModel::<JC69>::new(&self.freqs, &self.params)?)),
+            "K80" => Ok(Box::new(PIPModel::<K80>::new(&self.freqs, &self.params)?)),
+            "HKY85" | "HKY" => Ok(Box::new(PIPModel::<HKY>::new(&self.freqs, &self.params)?)),
+            "TN93" => Ok(Box::new(PIPModel::<TN93>::new(&self.freqs, &self.params)?)),
+            "GTR" => Ok(Box::new(PIPModel::<JC69>::new(&self.freqs, &self.params)?)),
+            "HIV" | "HIVB" => Ok(Box::new(PIPModel::<HIVB>::new(&self.freqs, &self.params)?)),
+            "WAG" => Ok(Box::new(PIPModel::<WAG>::new(&self.freqs, &self.params)?)),
+            "BLOSUM" => Ok(Box::new(PIPModel::<BLOSUM>::new(
+                &self.freqs,
+                &self.params,
+            )?)),
+            _ => bail!("Unknown model requested."),
+        }
+    }
+}
 
 // (2.0 * PI).ln() / 2.0;
 pub static SHIFT: f64 = 0.9189385332046727;
@@ -36,7 +77,6 @@ pub struct PIPModel<Q: QMatrix> {
     pub(crate) subst_q: Q,
     q: SubstMatrix,
     freqs: FreqVector,
-    index: [usize; 255],
     params: Vec<f64>,
 }
 
@@ -114,10 +154,6 @@ impl<Q: QMatrixFactory + QMatrix + Clone + Display> EvoModel for PIPModel<Q> {
         pip_q(&mut self.q, self.subst_q.q(), self.params[1]);
     }
 
-    fn index(&self) -> &[usize; 255] {
-        &self.index
-    }
-
     fn params(&self) -> &[f64] {
         &self.params
     }
@@ -141,6 +177,10 @@ impl<Q: QMatrixFactory + QMatrix + Clone + Display> EvoModel for PIPModel<Q> {
 
     fn n(&self) -> usize {
         self.subst_q.n() + 1
+    }
+
+    fn alphabet(&self) -> &Alphabet {
+        self.subst_q.alphabet()
     }
 }
 

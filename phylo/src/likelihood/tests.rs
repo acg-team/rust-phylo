@@ -26,7 +26,7 @@ fn test_subst_model<Q: QMatrix + QMatrixFactory + Clone + PartialEq + Display + 
     alpha: Alphabet,
     freqs: &[f64],
     params: &[f64],
-) -> SubstitutionCost<Q> {
+) -> SubstitutionCost {
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
     let fldr = Path::new("./data");
     let records =
@@ -35,7 +35,7 @@ fn test_subst_model<Q: QMatrix + QMatrixFactory + Clone + PartialEq + Display + 
     let tree = tree!(&fs::read_to_string(fldr.join("Huelsenbeck_example.newick")).unwrap());
     let info = PIB::build_from_objects(seqs, tree).unwrap();
     let model = SubstModel::<Q>::new(freqs, params).unwrap();
-    SCB::new(model, info).build().unwrap()
+    SCB::new(Box::new(model), info).build().unwrap()
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn test_pip_model<Q: QMatrix + QMatrixFactory + Clone + PartialEq + Display + 's
     alpha: Alphabet,
     freqs: &[f64],
     params: &[f64],
-) -> PIPCost<Q> {
+) -> PIPCost {
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
 
     let fldr = Path::new("./data");
@@ -84,7 +84,7 @@ fn test_pip_model<Q: QMatrix + QMatrixFactory + Clone + PartialEq + Display + 's
     let seqs = Sequences::with_alphabet(records.clone(), alpha);
     let tree = tree!(&fs::read_to_string(fldr.join("Huelsenbeck_example.newick")).unwrap());
     let info = PIB::build_from_objects(seqs, tree).unwrap();
-    let model = PIPModel::<Q>::new(freqs, params).unwrap();
+    let model = Box::new(PIPModel::<Q>::new(freqs, params).unwrap());
     PIPCB::new(model, info).build().unwrap()
 }
 

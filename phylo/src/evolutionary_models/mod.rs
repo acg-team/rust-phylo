@@ -1,16 +1,18 @@
-use crate::substitution_models::{FreqVector, SubstMatrix};
-use crate::Result;
+use std::fmt::{Debug, Display};
 
+use dyn_clone::DynClone;
+
+use crate::alphabets::Alphabet;
+use crate::substitution_models::{FreqVector, SubstMatrix};
+
+#[derive(Clone, clap::ValueEnum, Copy)]
 pub enum FrequencyOptimisation {
     Empirical,
     Estimated,
     Fixed,
 }
 
-pub trait EvoModel {
-    fn new(frequencies: &[f64], params: &[f64]) -> Result<Self>
-    where
-        Self: Sized;
+pub trait EvoModel: Debug + Display + DynClone {
     fn p(&self, time: f64) -> SubstMatrix;
     fn q(&self) -> &SubstMatrix;
     fn rate(&self, i: u8, j: u8) -> f64;
@@ -18,6 +20,8 @@ pub trait EvoModel {
     fn set_param(&mut self, param: usize, value: f64);
     fn freqs(&self) -> &FreqVector;
     fn set_freqs(&mut self, pi: FreqVector);
-    fn index(&self) -> &[usize; 255];
     fn n(&self) -> usize;
+    fn alphabet(&self) -> &Alphabet;
 }
+
+dyn_clone::clone_trait_object!(EvoModel);
