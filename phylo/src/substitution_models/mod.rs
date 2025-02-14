@@ -30,15 +30,18 @@ macro_rules! frequencies {
     };
 }
 
-pub trait QMatrix {
+pub trait QMatrixFactory {
     fn new(frequencies: &[f64], params: &[f64]) -> Self;
+}
+
+pub trait QMatrix: Debug + Clone {
     fn set_param(&mut self, param: usize, value: f64);
     fn params(&self) -> &[f64];
     fn freqs(&self) -> &FreqVector;
     fn set_freqs(&mut self, freqs: FreqVector);
     fn q(&self) -> &SubstMatrix;
+    fn rate(&self, i: u8, j: u8) -> f64;
     fn n(&self) -> usize;
-    fn index(&self) -> &[usize; 255];
     fn alphabet(&self) -> &Alphabet;
 }
 
@@ -69,14 +72,14 @@ pub trait ParsimonyModel {
     ) -> (SubstMatrix, f64);
 }
 
-impl<Q: QMatrix + Display> Display for SubstModel<Q> {
+impl<Q: QMatrix + QMatrixFactory + Display> Display for SubstModel<Q> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.qmatrix)
     }
 }
 
-impl<Q: QMatrix + Display> EvoModel for SubstModel<Q> {
-    fn new(frequencies: &[f64], params: &[f64]) -> Result<Self>
+impl<Q: QMatrix + QMatrixFactory + Display> SubstModel<Q> {
+    pub fn new(frequencies: &[f64], params: &[f64]) -> Result<Self>
     where
         Self: Sized,
     {
@@ -84,7 +87,9 @@ impl<Q: QMatrix + Display> EvoModel for SubstModel<Q> {
             qmatrix: Q::new(frequencies, params),
         })
     }
+}
 
+impl<Q: QMatrix + QMatrixFactory + Display> EvoModel for SubstModel<Q> {
     fn p(&self, time: f64) -> SubstMatrix {
         (self.q().clone() * time).exp()
     }
@@ -94,7 +99,7 @@ impl<Q: QMatrix + Display> EvoModel for SubstModel<Q> {
     }
 
     fn rate(&self, i: u8, j: u8) -> f64 {
-        self.q()[(self.index()[i as usize], self.index()[j as usize])]
+        self.qmatrix.rate(i, j)
     }
 
     fn params(&self) -> &[f64] {
@@ -113,12 +118,12 @@ impl<Q: QMatrix + Display> EvoModel for SubstModel<Q> {
         self.qmatrix.set_freqs(pi);
     }
 
-    fn index(&self) -> &[usize; 255] {
-        self.qmatrix.index()
-    }
-
     fn n(&self) -> usize {
         self.qmatrix.n()
+    }
+
+    fn alphabet(&self) -> &Alphabet {
+        self.qmatrix.alphabet()
     }
 }
 
@@ -166,22 +171,22 @@ where
     }
 }
 
-pub struct SubstitutionCostBuilder<Q: QMatrix + Display + Clone> {
-    pub(crate) model: SubstModel<Q>,
+pub struct SubstitutionCostBuilder {
+    pub(crate) model: Box<dyn EvoModel>,
     info: PhyloInfo,
 }
 
-impl<Q: QMatrix + Display + Clone> SubstitutionCostBuilder<Q> {
-    pub fn new(model: SubstModel<Q>, info: PhyloInfo) -> Self {
+impl SubstitutionCostBuilder {
+    pub fn new(model: Box<dyn EvoModel>, info: PhyloInfo) -> Self {
         SubstitutionCostBuilder { model, info }
     }
 
-    pub fn build(self) -> Result<SubstitutionCost<Q>> {
-        if self.info.msa.alphabet() != self.model.qmatrix.alphabet() {
+    pub fn build(self) -> Result<SubstitutionCost> {
+        if self.info.msa.alphabet() != self.model.alphabet() {
             bail!("Alphabet mismatch between model and alignment.");
         }
 
-        let tmp = RefCell::new(SubstModelInfo::<Q>::new(&self.info, &self.model).unwrap());
+        let tmp = RefCell::new(SubstModelInfo::new(&self.info, self.model.as_ref()).unwrap());
         Ok(SubstitutionCost {
             model: self.model,
             info: self.info,
@@ -190,17 +195,24 @@ impl<Q: QMatrix + Display + Clone> SubstitutionCostBuilder<Q> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct SubstitutionCost<Q: QMatrix + Clone + Display + 'static> {
-    pub(crate) model: SubstModel<Q>,
+#[derive(Debug)]
+pub struct SubstitutionCost {
+    pub(crate) model: Box<dyn EvoModel>,
     pub(crate) info: PhyloInfo,
-    tmp: RefCell<SubstModelInfo<Q>>,
+    tmp: RefCell<SubstModelInfo>,
 }
 
-impl<Q: QMatrix + Clone + Display + 'static> TreeSearchCost for SubstitutionCost<Q>
-where
-    SubstModel<Q>: EvoModel,
-{
+impl Clone for SubstitutionCost {
+    fn clone(&self) -> Self {
+        SubstitutionCost {
+            model: self.model.clone(),
+            info: self.info.clone(),
+            tmp: RefCell::new(self.tmp.borrow().clone()),
+        }
+    }
+}
+
+impl TreeSearchCost for SubstitutionCost {
     fn cost(&self) -> f64 {
         self.logl(&self.info)
     }
@@ -223,10 +235,7 @@ where
     }
 }
 
-impl<Q: QMatrix + Clone + Display + 'static> ModelSearchCost for SubstitutionCost<Q>
-where
-    SubstModel<Q>: EvoModel,
-{
+impl ModelSearchCost for SubstitutionCost {
     fn cost(&self) -> f64 {
         self.logl(&self.info)
     }
@@ -254,16 +263,13 @@ where
     }
 }
 
-impl<Q: QMatrix + Display + Clone + 'static> Display for SubstitutionCost<Q> {
+impl Display for SubstitutionCost {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.model)
     }
 }
 
-impl<Q: QMatrix + Display + Clone> SubstitutionCost<Q>
-where
-    SubstModel<Q>: EvoModel,
-{
+impl SubstitutionCost {
     fn logl(&self, info: &PhyloInfo) -> f64 {
         for node_idx in info.tree.postorder() {
             match node_idx {
@@ -344,8 +350,7 @@ where
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SubstModelInfo<Q: QMatrix + Display> {
-    phantom: PhantomData<Q>,
+pub struct SubstModelInfo {
     node_info: Vec<DMatrix<f64>>,
     node_info_valid: Vec<bool>,
     node_models: Vec<SubstMatrix>,
@@ -353,8 +358,9 @@ pub struct SubstModelInfo<Q: QMatrix + Display> {
     leaf_sequence_info: HashMap<String, DMatrix<f64>>,
 }
 
-impl<Q: QMatrix + Display> SubstModelInfo<Q> {
-    pub fn new(info: &PhyloInfo, model: &SubstModel<Q>) -> Result<Self> {
+impl SubstModelInfo {
+    pub fn new(info: &PhyloInfo, model: &dyn EvoModel) -> Result<Self> {
+        let n = model.q().nrows();
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
 
@@ -362,7 +368,7 @@ impl<Q: QMatrix + Display> SubstModelInfo<Q> {
         for node in info.tree.leaves() {
             let alignment_map = info.msa.leaf_map(&node.idx);
             let leaf_encoding = info.msa.leaf_encoding.get(&node.id).unwrap();
-            let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(model.n(), msa_length);
+            let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(n, msa_length);
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
                     site_info.copy_from(&leaf_encoding.column(c));
@@ -372,11 +378,10 @@ impl<Q: QMatrix + Display> SubstModelInfo<Q> {
             }
             leaf_sequence_info.insert(node.id.clone(), leaf_seq_w_gaps);
         }
-        Ok(SubstModelInfo::<Q> {
-            phantom: PhantomData::<Q>,
-            node_info: vec![DMatrix::<f64>::zeros(model.n(), msa_length); node_count],
+        Ok(SubstModelInfo {
+            node_info: vec![DMatrix::<f64>::zeros(n, msa_length); node_count],
             node_info_valid: vec![false; node_count],
-            node_models: vec![SubstMatrix::zeros(model.n(), model.n()); node_count],
+            node_models: vec![SubstMatrix::zeros(n, n); node_count],
             node_models_valid: vec![false; node_count],
             leaf_sequence_info,
         })

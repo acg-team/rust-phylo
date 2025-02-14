@@ -5,13 +5,12 @@ use std::fs;
 
 use crate::alignment::Sequences;
 use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet};
-use crate::evolutionary_models::EvoModel;
 use crate::io::read_sequences_from_file;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
 use crate::phylo_info::PhyloInfoBuilder as PIB;
 use crate::pip_model::{PIPCost, PIPCostBuilder as PIPCB, PIPModel};
 use crate::substitution_models::{
-    dna_models::*, protein_models::*, QMatrix, SubstModel, SubstitutionCost,
+    dna_models::*, protein_models::*, QMatrix, QMatrixFactory, SubstModel, SubstitutionCost,
     SubstitutionCostBuilder as SCB,
 };
 use crate::tree;
@@ -23,7 +22,7 @@ fn search_costs_equal_template<C: ModelSearchCost + TreeSearchCost>(cost: C) {
 }
 
 #[cfg(test)]
-fn test_subst_model<Q: QMatrix + Clone + PartialEq + Display + 'static>(
+fn test_subst_model<Q: QMatrix + QMatrixFactory + Clone + PartialEq + Display + 'static>(
     alpha: Alphabet,
     freqs: &[f64],
     params: &[f64],
@@ -72,7 +71,7 @@ fn protein_search_costs_equal() {
 }
 
 #[cfg(test)]
-fn test_pip_model<Q: QMatrix + Clone + PartialEq + Display + 'static>(
+fn test_pip_model<Q: QMatrix + QMatrixFactory + Clone + PartialEq + Display + 'static>(
     alpha: Alphabet,
     freqs: &[f64],
     params: &[f64],

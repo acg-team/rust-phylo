@@ -15,15 +15,17 @@ use crate::io::read_sequences_from_file;
 use crate::likelihood::ModelSearchCost;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::substitution_models::{
-    dna_models::*, protein_models::*, FreqVector, ParsimonyModel, QMatrix, SubstMatrix, SubstModel,
-    SubstitutionCostBuilder as SCB,
+    dna_models::*, protein_models::*, FreqVector, ParsimonyModel, QMatrix, QMatrixFactory,
+    SubstMatrix, SubstModel, SubstitutionCostBuilder as SCB,
 };
 use crate::tree::{tree_parser::from_newick, Tree};
 use crate::Rounding as R;
 use crate::{frequencies, record_wo_desc as record, tree};
 
 #[cfg(test)]
-fn freqs_fixed_template<Q: QMatrix + PartialEq + Display + 'static>(params: &[f64]) {
+fn freqs_fixed_template<Q: QMatrix + QMatrixFactory + PartialEq + Display + 'static>(
+    params: &[f64],
+) {
     // freqs should not change for JC69 and K80
     let mut model = SubstModel::<Q>::new(&[], params).unwrap();
     model.set_freqs(frequencies!(&[0.1, 0.2, 0.3, 0.4]));
@@ -37,7 +39,7 @@ fn dna_freqs_fixed() {
 }
 
 #[cfg(test)]
-fn freqs_updated_template<Q: QMatrix + PartialEq + Display + 'static>(
+fn freqs_updated_template<Q: QMatrix + QMatrixFactory + PartialEq + Display + 'static>(
     freqs: &[f64],
     params: &[f64],
 ) {
@@ -57,7 +59,9 @@ fn dna_freqs_updated() {
 }
 
 #[cfg(test)]
-fn param_fixed_template<Q: QMatrix + PartialEq + Clone + Display + 'static>(params: &[f64]) {
+fn param_fixed_template<Q: QMatrix + QMatrixFactory + PartialEq + Clone + Display + 'static>(
+    params: &[f64],
+) {
     // parameters should not change for JC69
     let model = SubstModel::<Q>::new(&[], params).unwrap();
     assert!(model.params().is_empty());
@@ -73,7 +77,7 @@ fn dna_params_fixed() {
 }
 
 #[cfg(test)]
-fn params_updated_template<Q: QMatrix + PartialEq + Display + 'static>(
+fn params_updated_template<Q: QMatrix + QMatrixFactory + PartialEq + Display + 'static>(
     params: &[f64],
     new_params: &[f64],
 ) {
@@ -140,11 +144,13 @@ fn dna_k80_correct() {
 }
 
 #[cfg(test)]
-fn infinity_p_template<Q: QMatrix + PartialEq + Display>(freqs: &[f64], params: &[f64]) {
+fn infinity_p_template<Q: QMatrix + QMatrixFactory + PartialEq + Display>(
+    freqs: &[f64],
+    params: &[f64],
+) {
     let model: SubstModel<Q> = SubstModel::<Q>::new(freqs, params).unwrap();
     let p_inf = model.p(1000.0);
-    assert_eq!(p_inf.nrows(), model.n());
-    assert_eq!(p_inf.ncols(), model.n());
+    assert_eq!(p_inf.shape(), model.q().shape());
     check_freq_convergence(p_inf, model.freqs(), 1e-5);
 }
 
@@ -350,7 +356,9 @@ fn dna_normalised_param_change() {
 }
 
 #[cfg(test)]
-fn protein_correct_access_template<Q: QMatrix + PartialEq + Display>(epsilon: f64) {
+fn protein_correct_access_template<Q: QMatrix + QMatrixFactory + PartialEq + Display>(
+    epsilon: f64,
+) {
     let model_1 = SubstModel::<Q>::new(&[], &[]).unwrap();
     let model_2 = SubstModel::<Q>::new(&[], &[]).unwrap();
     assert_relative_eq!(model_1.q(), model_2.q());
@@ -371,7 +379,7 @@ fn protein_correct_access() {
 }
 
 #[cfg(test)]
-fn protein_gap_access_template<Q: QMatrix + PartialEq + Display>() {
+fn protein_gap_access_template<Q: QMatrix + QMatrixFactory + PartialEq + Display>() {
     let model = SubstModel::<Q>::new(&[], &[]).unwrap();
     model.rate(b'-', b'L');
 }
@@ -395,7 +403,7 @@ fn protein_incorrect_access_blosum() {
 }
 
 #[cfg(test)]
-fn normalised_template<Q: QMatrix + PartialEq + Display>() {
+fn normalised_template<Q: QMatrix + QMatrixFactory + PartialEq + Display>() {
     let model = SubstModel::<Q>::new(&[], &[]).unwrap();
     assert_relative_eq!(
         (model.q().diagonal().transpose().mul(model.freqs()))[(0, 0)],
@@ -421,7 +429,7 @@ fn dna_normalised() {
 }
 
 #[cfg(test)]
-fn dna_scoring_matrices_template<Q: QMatrix + PartialEq + Display>(
+fn dna_scoring_matrices_template<Q: QMatrix + QMatrixFactory + PartialEq + Display>(
     freqs: &[f64],
     params: &[f64],
     times: &[f64],
@@ -636,7 +644,9 @@ fn setup_cb_example_phylo_info() -> PhyloInfo {
 }
 
 #[cfg(test)]
-fn change_logl_on_freq_change_template<Q: QMatrix + Clone + PartialEq + Display + 'static>(
+fn change_logl_on_freq_change_template<
+    Q: QMatrix + QMatrixFactory + Clone + PartialEq + Display + 'static,
+>(
     freqs: &[f64],
     params: &[f64],
 ) {
@@ -658,7 +668,9 @@ fn change_logl_on_freq_change() {
 }
 
 #[cfg(test)]
-fn same_logl_on_freq_change_template<Q: QMatrix + Clone + PartialEq + Display + 'static>(
+fn same_logl_on_freq_change_template<
+    Q: QMatrix + QMatrixFactory + Clone + PartialEq + Display + 'static,
+>(
     freqs: &[f64],
     params: &[f64],
 ) {
@@ -678,7 +690,9 @@ fn same_logl_on_freq_change() {
 }
 
 #[cfg(test)]
-fn change_logl_on_param_change_template<Q: QMatrix + Clone + PartialEq + Display + 'static>(
+fn change_logl_on_param_change_template<
+    Q: QMatrix + QMatrixFactory + Clone + PartialEq + Display + 'static,
+>(
     freqs: &[f64],
     params: &[f64],
 ) {
@@ -717,7 +731,7 @@ fn same_likelihood_on_param_change() {
 }
 
 #[cfg(test)]
-fn dna_gaps_as_ambigs_template<Q: QMatrix + Display + Clone + 'static>(
+fn dna_gaps_as_ambigs_template<Q: QMatrix + QMatrixFactory + Display + Clone + 'static>(
     freqs: &[f64],
     params: &[f64],
 ) {
@@ -763,7 +777,7 @@ fn setup_phylo_info_single_leaf() -> PhyloInfo {
 }
 
 #[cfg(test)]
-fn dna_likelihood_one_node_template<Q: QMatrix + Display + Clone + 'static>(
+fn dna_likelihood_one_node_template<Q: QMatrix + QMatrixFactory + Display + Clone + 'static>(
     freqs: &[f64],
     params: &[f64],
 ) {
@@ -839,7 +853,7 @@ fn dna_mol_evo_example_likelihood() {
 }
 
 #[cfg(test)]
-fn dna_ambig_example_logl_template<Q: QMatrix + Display + Clone + 'static>(
+fn dna_ambig_example_logl_template<Q: QMatrix + QMatrixFactory + Display + Clone + 'static>(
     freqs: &[f64],
     params: &[f64],
 ) {
@@ -913,7 +927,7 @@ fn dna_huelsenbeck_example_likelihood() {
 }
 
 #[cfg(test)]
-fn protein_example_logl_template<Q: QMatrix + Display + Clone + 'static>(
+fn protein_example_logl_template<Q: QMatrix + QMatrixFactory + Display + Clone + 'static>(
     params: &[f64],
     expected_llik: f64,
     epsilon: f64,
@@ -952,7 +966,7 @@ fn simple_reroot_info(alphabet: &Alphabet) -> (PhyloInfo, PhyloInfo) {
 }
 
 #[cfg(test)]
-fn logl_revers_template<Q: QMatrix + Display + Clone + 'static>(
+fn logl_revers_template<Q: QMatrix + QMatrixFactory + Display + Clone + 'static>(
     freqs: &[f64],
     params: &[f64],
     epsilon: f64,
@@ -989,7 +1003,7 @@ fn protein_logl_reversibility() {
     logl_revers_template::<BLOSUM>(&[], &[], 1e-3);
 }
 
-fn huelsenbeck_reversibility_template<Q: QMatrix + Display + Clone + 'static>(
+fn huelsenbeck_reversibility_template<Q: QMatrix + QMatrixFactory + Display + Clone + 'static>(
     freqs: &[f64],
     params: &[f64],
 ) {
@@ -1029,7 +1043,10 @@ fn huelsenbeck_reversibility() {
 }
 
 #[cfg(test)]
-fn logl_correct_w_diff_info<Q: QMatrix + Display + Clone + 'static>(llik1: f64, llik2: f64) {
+fn logl_correct_w_diff_info<Q: QMatrix + QMatrixFactory + Display + Clone + 'static>(
+    llik1: f64,
+    llik2: f64,
+) {
     let tree1 = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let tree2 = tree!("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);");
     let sequences = Sequences::new(vec![
@@ -1056,7 +1073,7 @@ fn protein_logl_correct_w_diff_info() {
     logl_correct_w_diff_info::<BLOSUM>(-7.4408154253528975, -10.33187874481282);
 }
 
-fn one_site_one_char_template<Q: QMatrix + Display + Clone + 'static>(
+fn one_site_one_char_template<Q: QMatrix + QMatrixFactory + Display + Clone + 'static>(
     freqs: &[f64],
     params: &[f64],
 ) {
@@ -1203,12 +1220,17 @@ fn dna_x_simple_fully_likely() {
     let tree = tree!("(A:0.05,B:0.0005):0.0;");
     let sequences = Sequences::new(vec![record!("A", b"X"), record!("B", b"X")]);
     let info = PIB::build_from_objects(sequences, tree).unwrap();
-    let c = SCB::new(jc69.clone(), info.clone()).build().unwrap();
+    let c = SCB::new(Box::new(jc69.clone()), info.clone())
+        .build()
+        .unwrap();
     assert_relative_eq!(c.cost(), 0.0, epsilon = 1e-15);
 }
 
 #[cfg(test)]
-fn x_fully_likely_template<Q: QMatrix + Display + Clone + 'static>(freqs: &[f64], params: &[f64]) {
+fn x_fully_likely_template<Q: QMatrix + QMatrixFactory + Display + Clone + 'static>(
+    freqs: &[f64],
+    params: &[f64],
+) {
     let model = SubstModel::<Q>::new(freqs, params).unwrap();
     let tree = tree!("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);");
     let sequences = Sequences::with_alphabet(
@@ -1242,7 +1264,10 @@ fn protein_x_fully_likely() {
 }
 
 #[cfg(test)]
-fn avg_rate_template<Q: QMatrix + PartialEq + Display>(freqs: &[f64], params: &[f64]) {
+fn avg_rate_template<Q: QMatrix + QMatrixFactory + PartialEq + Display>(
+    freqs: &[f64],
+    params: &[f64],
+) {
     let model = SubstModel::<Q>::new(freqs, params).unwrap();
     let avg_rate = model.q().diagonal().component_mul(model.freqs()).sum();
     assert_relative_eq!(avg_rate, -1.0, epsilon = 1e-10);

@@ -7,7 +7,7 @@ use log::warn;
 
 use crate::alphabets::{dna_alphabet, Alphabet, NUCLEOTIDE_INDEX};
 use crate::frequencies;
-use crate::substitution_models::{FreqVector, QMatrix, SubstMatrix};
+use crate::substitution_models::{FreqVector, QMatrix, QMatrixFactory, SubstMatrix};
 
 const DNA_N: usize = 4;
 const EQUAL_FREQS: [f64; DNA_N] = [0.25, 0.25, 0.25, 0.25];
@@ -36,7 +36,7 @@ pub struct JC69 {
     alphabet: Alphabet,
 }
 
-impl QMatrix for JC69 {
+impl QMatrixFactory for JC69 {
     fn new(_: &[f64], _: &[f64]) -> Self {
         let r = 1.0 / 3.0;
         let q = SubstMatrix::from_row_slice(
@@ -50,6 +50,9 @@ impl QMatrix for JC69 {
             alphabet: dna_alphabet().clone(),
         }
     }
+}
+
+impl QMatrix for JC69 {
     fn q(&self) -> &SubstMatrix {
         &self.q
     }
@@ -64,8 +67,8 @@ impl QMatrix for JC69 {
     fn n(&self) -> usize {
         DNA_N
     }
-    fn index(&self) -> &[usize; 255] {
-        &NUCLEOTIDE_INDEX
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
     }
     fn alphabet(&self) -> &Alphabet {
         &self.alphabet
@@ -86,7 +89,7 @@ pub struct K80 {
     alphabet: Alphabet,
 }
 
-impl QMatrix for K80 {
+impl QMatrixFactory for K80 {
     fn new(_: &[f64], params: &[f64]) -> Self {
         let kappa = match params.len().cmp(&1) {
             Ordering::Less => {
@@ -110,6 +113,9 @@ impl QMatrix for K80 {
             alphabet: dna_alphabet().clone(),
         }
     }
+}
+
+impl QMatrix for K80 {
     fn q(&self) -> &SubstMatrix {
         &self.q
     }
@@ -127,8 +133,8 @@ impl QMatrix for K80 {
     fn n(&self) -> usize {
         DNA_N
     }
-    fn index(&self) -> &[usize; 255] {
-        &NUCLEOTIDE_INDEX
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
     }
     fn alphabet(&self) -> &Alphabet {
         &self.alphabet
@@ -174,7 +180,7 @@ pub struct HKY {
     alphabet: Alphabet,
 }
 
-impl QMatrix for HKY {
+impl QMatrixFactory for HKY {
     fn new(freqs: &[f64], params: &[f64]) -> Self {
         let freqs = set_dna_freqs(frequencies!(freqs));
 
@@ -200,6 +206,9 @@ impl QMatrix for HKY {
             alphabet: dna_alphabet().clone(),
         }
     }
+}
+
+impl QMatrix for HKY {
     fn q(&self) -> &SubstMatrix {
         &self.q
     }
@@ -220,8 +229,8 @@ impl QMatrix for HKY {
     fn n(&self) -> usize {
         DNA_N
     }
-    fn index(&self) -> &[usize; 255] {
-        &NUCLEOTIDE_INDEX
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
     }
     fn alphabet(&self) -> &Alphabet {
         &self.alphabet
@@ -279,7 +288,7 @@ pub struct TN93 {
     alphabet: Alphabet,
 }
 
-impl QMatrix for TN93 {
+impl QMatrixFactory for TN93 {
     fn new(freqs: &[f64], params: &[f64]) -> Self {
         let freqs = set_dna_freqs(frequencies!(freqs));
         let mut params = params.to_vec();
@@ -306,6 +315,9 @@ impl QMatrix for TN93 {
             alphabet: dna_alphabet().clone(),
         }
     }
+}
+
+impl QMatrix for TN93 {
     fn q(&self) -> &SubstMatrix {
         &self.q
     }
@@ -326,8 +338,8 @@ impl QMatrix for TN93 {
     fn n(&self) -> usize {
         DNA_N
     }
-    fn index(&self) -> &[usize; 255] {
-        &NUCLEOTIDE_INDEX
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
     }
     fn alphabet(&self) -> &Alphabet {
         &self.alphabet
@@ -384,17 +396,16 @@ impl Display for TN93 {
 
 #[derive(Clone, Debug, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
-pub(crate) struct GTR {
+pub struct GTR {
     freqs: FreqVector,
     q: SubstMatrix,
     params: Vec<f64>,
     alphabet: Alphabet,
 }
 
-impl QMatrix for GTR {
+impl QMatrixFactory for GTR {
     fn new(freqs: &[f64], params: &[f64]) -> Self {
         let freqs = set_dna_freqs(frequencies!(freqs));
-
         let mut params = params.to_vec();
         if params.len() < 5 {
             warn!("Too few values provided for GTR, required five values.");
@@ -416,6 +427,9 @@ impl QMatrix for GTR {
             alphabet: dna_alphabet().clone(),
         }
     }
+}
+
+impl QMatrix for GTR {
     fn q(&self) -> &SubstMatrix {
         &self.q
     }
@@ -436,8 +450,8 @@ impl QMatrix for GTR {
     fn n(&self) -> usize {
         DNA_N
     }
-    fn index(&self) -> &[usize; 255] {
-        &NUCLEOTIDE_INDEX
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
     }
     fn alphabet(&self) -> &Alphabet {
         &self.alphabet

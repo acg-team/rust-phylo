@@ -10,9 +10,9 @@ use crate::alphabets::{AMINOACIDS as aas, GAP, NUCLEOTIDES as nucls};
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::ModelSearchCost;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
-use crate::pip_model::{PIPCostBuilder as PIPB, PIPModel, PIPModelInfo};
+use crate::pip_model::{PIPCostBuilder as PIPB, PIPModel, PIPModelInfo, PIPModelTrait};
 use crate::substitution_models::{
-    dna_models::*, protein_models::*, FreqVector, QMatrix, SubstMatrix, SubstModel,
+    dna_models::*, protein_models::*, FreqVector, QMatrix, QMatrixFactory, SubstMatrix, SubstModel,
 };
 use crate::tree::tree_parser::from_newick;
 
@@ -24,20 +24,16 @@ const UNNORMALIZED_PIP_HKY_Q: [f64; 25] = [
 ];
 
 #[cfg(test)]
-fn compare_pip_subst_rates_template<Q: QMatrix + Display + Clone>(chars: &[u8])
+fn compare_pip_subst_rates_template<Q: QMatrixFactory + QMatrix + Display + Clone>(chars: &[u8])
 where
-    PIPModel<Q>: EvoModel,
+    PIPModel<Q>: PIPModelTrait,
     SubstModel<Q>: EvoModel,
 {
     let pip_model = PIPModel::<Q>::new(&[], &[0.1, 0.4]).unwrap();
     let subst_model = SubstModel::<Q>::new(&[], &[]).unwrap();
-    for &char in chars {
+    for (i, &char) in chars.iter().enumerate() {
         assert!(pip_model.rate(char, char) < 0.0);
-        assert_relative_eq!(
-            pip_model.q.row(pip_model.index[char as usize]).sum(),
-            0.0,
-            epsilon = 1e-10
-        );
+        assert_relative_eq!(pip_model.q.row(i).sum(), 0.0, epsilon = 1e-10);
         for &other_char in chars {
             if char == other_char {
                 continue;
@@ -48,7 +44,7 @@ where
                 epsilon = 1e-10
             );
         }
-        assert_relative_eq!(pip_model.rate(char, b'-'), pip_model.mu());
+        assert_relative_eq!(pip_model.rate(char, GAP), pip_model.mu());
         assert_relative_eq!(pip_model.rate(GAP, char), 0.0);
     }
 }
@@ -66,7 +62,7 @@ fn pip_dna_jc69_correct() {
         .q
         .diagonal()
         .iter()
-        .take(pip_jc69.n() - 2)
+        .take(pip_jc69.q.nrows() - 2)
         .all(|&x| x == -1.0 - 0.4));
 }
 
@@ -87,7 +83,7 @@ fn pip_dna_k80_correct() {
         .q
         .diagonal()
         .iter()
-        .take(pip_k80.n() - 2)
+        .take(pip_k80.q.nrows() - 2)
         .all(|&x| x == -1.0 - mu));
 }
 
@@ -119,12 +115,12 @@ fn pip_dna_hky_as_k80() {
         .q
         .diagonal()
         .iter()
-        .take(pip_hky.n() - 2)
+        .take(pip_hky.q.nrows() - 2)
         .all(|&x| x == -1.0 - mu));
 }
 
 #[cfg(test)]
-fn pip_too_few_params_template<Q: QMatrix>(freqs: &[f64], params: &[f64])
+fn pip_too_few_params_template<Q: QMatrixFactory + QMatrix>(freqs: &[f64], params: &[f64])
 where
     PIPModel<Q>: EvoModel,
 {
@@ -165,25 +161,25 @@ fn pip_protein_subst_rates() {
 }
 
 #[cfg(test)]
-fn pip_normalised_check_template<Q: QMatrix + PartialEq + Clone>(
+fn pip_normalised_check_template<Q: QMatrixFactory + QMatrix + PartialEq + Clone>(
     chars: &[u8],
     freqs: &[f64],
     params: &[f64],
 ) where
-    PIPModel<Q>: EvoModel,
+    PIPModel<Q>: PIPModelTrait,
 {
     let pip = PIPModel::<Q>::new(freqs, params).unwrap();
     assert_eq!(pip.lambda(), params[0]);
     assert_eq!(pip.mu(), params[1]);
-    let stat_dist = frequencies!(freqs).insert_row(pip.n() - 1, 0.0);
+    let stat_dist = frequencies!(freqs).insert_row(freqs.len(), 0.0);
     assert_relative_eq!(pip.freqs(), &stat_dist);
     assert_relative_eq!(pip.q.sum(), 0.0, epsilon = 1e-10);
     for &char in chars {
-        assert_relative_eq!(
-            pip.q.row(pip.index[char as usize]).sum(),
-            0.0,
-            epsilon = 1e-14
-        );
+        let mut sum = 0.0;
+        for &other_char in chars {
+            sum += pip.rate(char, other_char);
+        }
+        assert_relative_eq!(sum, 0.0, epsilon = 1e-14);
         assert_relative_eq!(pip.rate(char, b'-'), params[1]);
         assert_relative_eq!(pip.rate(b'-', char), 0.0);
     }
@@ -206,14 +202,13 @@ fn pip_protein_normalised() {
 }
 
 #[cfg(test)]
-fn pip_infinity_p_template<Q: QMatrix + PartialEq>(freqs: &[f64], params: &[f64])
+fn pip_infinity_p_template<Q: QMatrixFactory + QMatrix + PartialEq>(freqs: &[f64], params: &[f64])
 where
     PIPModel<Q>: EvoModel,
 {
     let model = PIPModel::<Q>::new(freqs, params).unwrap();
     let p_inf = model.p(10000.0);
-    assert_eq!(p_inf.nrows(), model.n());
-    assert_eq!(p_inf.ncols(), model.n());
+    assert_eq!(p_inf.shape(), model.q().shape());
     for row in p_inf.row_iter() {
         assert_relative_eq!(row.sum(), 1.0, epsilon = 1e-10);
         assert_relative_eq!(row.sum() - row[row.len() - 1], 0.0, epsilon = 1e-10);
@@ -301,8 +296,8 @@ fn setup_example_phylo_info() -> PhyloInfo {
 }
 
 #[cfg(test)]
-fn assert_values<Q: QMatrix>(
-    tmp: &PIPModelInfo<Q>,
+fn assert_values(
+    tmp: &PIPModelInfo,
     idx: usize,
     exp_survins: f64,
     exp_anc: &[f64],
@@ -431,7 +426,7 @@ fn pip_hky_likelihood_example_internals() {
 }
 
 #[cfg(test)]
-fn assert_c0_values<Q: QMatrix>(tmp: &PIPModelInfo<Q>, idx: usize, exp_f1: f64, exp_pnu: f64) {
+fn assert_c0_values(tmp: &PIPModelInfo, idx: usize, exp_f1: f64, exp_pnu: f64) {
     let e = 1e-3;
     assert_relative_eq!(tmp.c0_f1[idx], exp_f1, epsilon = e);
     assert_relative_eq!(tmp.c0_pnu[idx], exp_pnu, epsilon = e);
@@ -770,10 +765,13 @@ fn hiv_subset_valid_pip_likelihood() {
 }
 
 #[cfg(test)]
-fn avg_rate_template<Q: QMatrix + Clone + PartialEq + Display>(freqs: &[f64], params: &[f64]) {
+fn avg_rate_template<Q: QMatrix + QMatrixFactory + Clone + PartialEq + Display>(
+    freqs: &[f64],
+    params: &[f64],
+) {
     let mu = params[1];
     let model = PIPModel::<Q>::new(freqs, params).unwrap();
-    let n = model.n();
+    let n = model.q().nrows();
     let avg_rate = model
         .q()
         .view((0, 0), (n - 1, n - 1))

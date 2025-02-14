@@ -10,7 +10,7 @@ use crate::optimisers::ModelOptimiser;
 use crate::phylo_info::PhyloInfoBuilder as PIB;
 use crate::pip_model::{PIPCostBuilder, PIPModel};
 use crate::substitution_models::{
-    dna_models::*, protein_models::*, FreqVector, QMatrix, SubstModel,
+    dna_models::*, protein_models::*, FreqVector, QMatrix, QMatrixFactory, SubstModel,
     SubstitutionCostBuilder as SCB,
 };
 
@@ -104,7 +104,9 @@ fn gtr_on_k80_data() {
 }
 
 #[cfg(test)]
-fn improved_logl_fixed_freqs_template<Q: QMatrix + Clone + PartialEq + Display + 'static>() {
+fn improved_logl_fixed_freqs_template<
+    Q: QMatrix + QMatrixFactory + Clone + PartialEq + Display + 'static,
+>() {
     let fldr = Path::new("./data/sim");
     let info = PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
         .build()
@@ -133,7 +135,9 @@ fn improved_logl_fixed_freqs() {
 }
 
 #[cfg(test)]
-fn improved_logl_empirical_freqs_template<Q: QMatrix + Clone + PartialEq + Display + 'static>() {
+fn improved_logl_empirical_freqs_template<
+    Q: QMatrix + QMatrixFactory + Clone + PartialEq + Display + 'static,
+>() {
     let fldr = Path::new("./data/sim");
     let info = PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
         .build()
@@ -287,7 +291,7 @@ fn frequencies_fixed_opt_gtr() {
 }
 
 #[cfg(test)]
-fn frequencies_fixed_protein_template<Q: QMatrix + Clone + Display + 'static>()
+fn frequencies_fixed_protein_template<Q: QMatrix + QMatrixFactory + Clone + Display + 'static>()
 where
     SubstModel<Q>: EvoModel,
 {
@@ -319,7 +323,7 @@ fn frequencies_fixed_protein() {
 }
 
 #[cfg(test)]
-fn frequencies_empirical_protein_template<Q: QMatrix + Clone + Display + 'static>()
+fn frequencies_empirical_protein_template<Q: QMatrix + QMatrixFactory + Clone + Display + 'static>()
 where
     SubstModel<Q>: EvoModel,
 {
