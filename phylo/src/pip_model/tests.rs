@@ -328,7 +328,8 @@ fn assert_values(
 fn pip_hky_likelihood_example_leaf_values() {
     let info = setup_example_phylo_info();
     let tree = info.tree.clone();
-    let mut model = PIPModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5, 0.25, 0.5]).unwrap();
+    let mut model =
+        Box::new(PIPModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5, 0.25, 0.5]).unwrap());
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
 
     let nu = 7.5;
@@ -375,7 +376,8 @@ fn pip_hky_likelihood_example_leaf_values() {
 #[test]
 fn pip_hky_likelihood_example_internals() {
     let info = setup_example_phylo_info();
-    let mut model = PIPModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5, 0.25, 0.5]).unwrap();
+    let mut model =
+        Box::new(PIPModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5, 0.25, 0.5]).unwrap());
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
 
     let c = PIPB::new(model, info.clone()).build().unwrap();
@@ -435,7 +437,8 @@ fn assert_c0_values(tmp: &PIPModelInfo, idx: usize, exp_f1: f64, exp_pnu: f64) {
 #[test]
 fn pip_hky_likelihood_example_c0() {
     let info = setup_example_phylo_info();
-    let mut model = PIPModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5, 0.25, 0.5]).unwrap();
+    let mut model =
+        Box::new(PIPModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5, 0.25, 0.5]).unwrap());
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
 
     let c = PIPB::new(model, info.clone()).build().unwrap();
@@ -490,7 +493,8 @@ fn pip_hky_likelihood_example_c0() {
 #[test]
 fn pip_hky_likelihood_example_final() {
     let info = setup_example_phylo_info();
-    let mut model = PIPModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5, 0.25, 0.5]).unwrap();
+    let mut model =
+        Box::new(PIPModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5, 0.25, 0.5]).unwrap());
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
 
     let c = PIPB::new(model, info.clone()).build().unwrap();
@@ -530,7 +534,8 @@ fn setup_example_phylo_info_2() -> PhyloInfo {
 
 #[test]
 fn pip_hky_likelihood_example_2() {
-    let mut model = PIPModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5, 0.25, 0.5]).unwrap();
+    let mut model =
+        Box::new(PIPModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5, 0.25, 0.5]).unwrap());
     model.q = SubstMatrix::from_column_slice(5, 5, &UNNORMALIZED_PIP_HKY_Q);
     let info = setup_example_phylo_info_2();
     let c = PIPB::new(model, info).build().unwrap();
@@ -545,7 +550,8 @@ fn pip_likelihood_huelsenbeck_example() {
     )
     .build()
     .unwrap();
-    let model = PIPModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5, 0.25, 0.5]).unwrap();
+    let model =
+        Box::new(PIPModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5, 0.25, 0.5]).unwrap());
     let mut c = PIPB::new(model, info.clone()).build().unwrap();
     assert_relative_eq!(c.cost(), -372.1419415285655, epsilon = 1e-4);
 
@@ -557,11 +563,13 @@ fn pip_likelihood_huelsenbeck_example() {
 
     assert_relative_eq!(c.cost(), -361.1613531649497, epsilon = 1e-1); // value from the python script
 
-    let model = PIPModel::<GTR>::new(
-        &[0.22, 0.26, 0.33, 0.19],
-        &[0.5, 0.25, 1.25453, 1.07461, 1.0, 1.14689, 1.53244, 1.47031],
-    )
-    .unwrap();
+    let model = Box::new(
+        PIPModel::<GTR>::new(
+            &[0.22, 0.26, 0.33, 0.19],
+            &[0.5, 0.25, 1.25453, 1.07461, 1.0, 1.14689, 1.53244, 1.47031],
+        )
+        .unwrap(),
+    );
     let c = PIPB::new(model, info).build().unwrap();
 
     assert_relative_eq!(c.cost(), -359.2343309917135, epsilon = 1e-4);
@@ -576,10 +584,11 @@ fn pip_likelihood_huelsenbeck_example_model_comp() {
     .build()
     .unwrap();
 
-    let jc69 = PIPModel::<JC69>::new(&[], &[1.1, 0.55]).unwrap();
+    let jc69 = Box::new(PIPModel::<JC69>::new(&[], &[1.1, 0.55]).unwrap());
     let c = PIPB::new(jc69, info.clone()).build().unwrap();
 
-    let hky_as_jc = PIPModel::<HKY>::new(&[0.25, 0.25, 0.25, 0.25], &[1.1, 0.55, 1.0]).unwrap();
+    let hky_as_jc =
+        Box::new(PIPModel::<HKY>::new(&[0.25, 0.25, 0.25, 0.25], &[1.1, 0.55, 1.0]).unwrap());
     let c_hky = PIPB::new(hky_as_jc, info.clone()).build().unwrap();
     assert_relative_eq!(c.cost(), c_hky.cost());
 }
@@ -592,11 +601,13 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
     )
     .build()
     .unwrap();
-    let model_gtr = PIPModel::<GTR>::new(
-        &[0.22, 0.26, 0.33, 0.19],
-        &[0.5, 0.25, 1.25453, 1.07461, 1.0, 1.14689, 1.53244, 1.47031],
-    )
-    .unwrap();
+    let model_gtr = Box::new(
+        PIPModel::<GTR>::new(
+            &[0.22, 0.26, 0.33, 0.19],
+            &[0.5, 0.25, 1.25453, 1.07461, 1.0, 1.14689, 1.53244, 1.47031],
+        )
+        .unwrap(),
+    );
     let phylo_rerooted = PIB::with_attrs(
         PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
         PathBuf::from("./data/Huelsenbeck_example_reroot.newick"),
@@ -619,13 +630,13 @@ fn pip_likelihood_protein_example() {
     .build()
     .unwrap();
 
-    let model_wag = PIPModel::<WAG>::new(&WAG_PI, &[0.5, 0.25]).unwrap();
+    let model_wag = Box::new(PIPModel::<WAG>::new(&WAG_PI, &[0.5, 0.25]).unwrap());
     let c = PIPB::new(model_wag, info.clone()).build().unwrap();
     assert!(c.cost() <= 0.0);
     // The cost is the same when initialising the model with default frequencies
     assert_eq!(
         PIPB::new(
-            PIPModel::<WAG>::new(&[], &[0.5, 0.25]).unwrap(),
+            Box::new(PIPModel::<WAG>::new(&[], &[0.5, 0.25]).unwrap()),
             info.clone()
         )
         .build()
@@ -637,7 +648,7 @@ fn pip_likelihood_protein_example() {
     // The cost is different when initialising the model with equal frequencies
     assert_ne!(
         PIPB::new(
-            PIPModel::<WAG>::new(&[0.05; 20], &[0.5, 0.25]).unwrap(),
+            Box::new(PIPModel::<WAG>::new(&[0.05; 20], &[0.5, 0.25]).unwrap()),
             info.clone()
         )
         .build()
@@ -649,7 +660,7 @@ fn pip_likelihood_protein_example() {
     // The cost is different when initialising the model with default frequencies but different mu/lambda
     assert_ne!(
         PIPB::new(
-            PIPModel::<WAG>::new(&[], &[0.5, 0.2]).unwrap(),
+            Box::new(PIPModel::<WAG>::new(&[], &[0.5, 0.2]).unwrap()),
             info.clone()
         )
         .build()
@@ -659,7 +670,7 @@ fn pip_likelihood_protein_example() {
     );
     assert_ne!(
         PIPB::new(
-            PIPModel::<WAG>::new(&[], &[0.1, 0.25]).unwrap(),
+            Box::new(PIPModel::<WAG>::new(&[], &[0.1, 0.25]).unwrap()),
             info.clone()
         )
         .build()
@@ -669,7 +680,7 @@ fn pip_likelihood_protein_example() {
     );
     assert_ne!(
         PIPB::new(
-            PIPModel::<WAG>::new(&[], &[0.1, 0.2]).unwrap(),
+            Box::new(PIPModel::<WAG>::new(&[], &[0.1, 0.2]).unwrap()),
             info.clone()
         )
         .build()
@@ -737,7 +748,7 @@ fn pip_logl_correct_w_diff_info() {
     let info1 = PIB::build_from_objects(sequences.clone(), tree1).unwrap();
     let info2 = PIB::build_from_objects(sequences, tree2).unwrap();
 
-    let pip_wag = PIPModel::<WAG>::new(&[], &[50.0, 0.1]).unwrap();
+    let pip_wag = Box::new(PIPModel::<WAG>::new(&[], &[50.0, 0.1]).unwrap());
 
     let c1 = PIPB::new(pip_wag.clone(), info1).build().unwrap();
     let c2 = PIPB::new(pip_wag, info2).build().unwrap();
@@ -753,11 +764,13 @@ fn hiv_subset_valid_pip_likelihood() {
     let fldr = Path::new("./data/real_examples/");
     let alignment = fldr.join("HIV-1_env_DNA_mafft_alignment_subset.fasta");
     let info = PIB::new(alignment).build().unwrap();
-    let pip = PIPModel::<GTR>::new(
-        &[0.25, 0.25, 0.25, 0.25],
-        &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-    )
-    .unwrap();
+    let pip = Box::new(
+        PIPModel::<GTR>::new(
+            &[0.25, 0.25, 0.25, 0.25],
+            &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        )
+        .unwrap(),
+    );
     let c = PIPB::new(pip, info).build().unwrap();
     let logl = c.cost();
     assert_ne!(logl, f64::NEG_INFINITY);

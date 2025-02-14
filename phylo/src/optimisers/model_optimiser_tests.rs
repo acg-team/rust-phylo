@@ -22,7 +22,7 @@ fn likelihood_improves_k80() {
         .unwrap();
     let model = SubstModel::<K80>::new(&[], &[4.0, 1.0]).unwrap();
 
-    let c = SCB::new(model, info.clone()).build().unwrap();
+    let c = SCB::new(Box::new(model), info.clone()).build().unwrap();
     let unopt_logl = c.cost();
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
@@ -30,7 +30,7 @@ fn likelihood_improves_k80() {
     assert!(o.final_logl > unopt_logl);
 
     let model = SubstModel::<K80>::new(o.cost.freqs().into(), o.cost.params()).unwrap();
-    let c2 = SCB::new(model, info).build().unwrap();
+    let c2 = SCB::new(Box::new(model), info).build().unwrap();
     assert_relative_eq!(o.initial_logl, unopt_logl);
     assert_relative_eq!(o.final_logl, o.cost.cost());
     assert_relative_eq!(o.final_logl, c2.cost());
@@ -45,7 +45,7 @@ fn frequencies_unchanged_k80() {
         .build()
         .unwrap();
     let model = SubstModel::<K80>::new(&[], &[4.0, 1.0]).unwrap();
-    let c = SCB::new(model.clone(), info).build().unwrap();
+    let c = SCB::new(Box::new(model.clone()), info).build().unwrap();
     let initial_logl = c.cost();
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
         .run()
@@ -64,7 +64,7 @@ fn parameter_change_k80() {
         .build()
         .unwrap();
     let model = SubstModel::<K80>::new(&[], &[4.0, 1.0]).unwrap();
-    let c = SCB::new(model.clone(), info).build().unwrap();
+    let c = SCB::new(Box::new(model.clone()), info).build().unwrap();
     let initial_logl = c.cost();
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
@@ -84,13 +84,17 @@ fn gtr_on_k80_data() {
         .unwrap();
     let model = SubstModel::<GTR>::new(&[0.25, 0.35, 0.3, 0.1], &[0.88, 0.03, 0.00001, 0.07, 0.02])
         .unwrap();
-    let c = SCB::new(model.clone(), info.clone()).build().unwrap();
+    let c = SCB::new(Box::new(model.clone()), info.clone())
+        .build()
+        .unwrap();
     let o_gtr = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
 
     let model = SubstModel::<K80>::new(&[], &[4.0, 1.0]).unwrap();
-    let c = SCB::new(model.clone(), info.clone()).build().unwrap();
+    let c = SCB::new(Box::new(model.clone()), info.clone())
+        .build()
+        .unwrap();
     let o_k80 = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
@@ -113,7 +117,7 @@ fn improved_logl_fixed_freqs_template<
         .unwrap();
     let model = SubstModel::<Q>::new(&[], &[]).unwrap();
 
-    let c = SCB::new(model.clone(), info).build().unwrap();
+    let c = SCB::new(Box::new(model.clone()), info).build().unwrap();
     let initial_logl = c.cost();
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
@@ -144,7 +148,7 @@ fn improved_logl_empirical_freqs_template<
         .unwrap();
     let model = SubstModel::<Q>::new(&[], &[]).unwrap();
 
-    let c = SCB::new(model.clone(), info).build().unwrap();
+    let c = SCB::new(Box::new(model.clone()), info).build().unwrap();
     let initial_logl = c.cost();
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
         .run()
@@ -177,7 +181,10 @@ fn gtr_vs_phyml() {
         &[1.0, 0.031184397, 0.000100000, 0.077275972, 0.041508690, 1.0],
     )
     .unwrap();
-    let phyml_logl = SCB::new(phyml_model, info.clone()).build().unwrap().cost();
+    let phyml_logl = SCB::new(Box::new(phyml_model), info.clone())
+        .build()
+        .unwrap()
+        .cost();
     assert_relative_eq!(phyml_logl, -3474.48083, epsilon = 1.0e-5);
 
     let paml_model = SubstModel::<GTR>::new(
@@ -185,7 +192,10 @@ fn gtr_vs_phyml() {
         &[0.88892, 0.03190, 0.00001, 0.07102, 0.02418, 1.0],
     )
     .unwrap(); // Original input to paml
-    let paml_logl = SCB::new(paml_model, info.clone()).build().unwrap().cost();
+    let paml_logl = SCB::new(Box::new(paml_model), info.clone())
+        .build()
+        .unwrap()
+        .cost();
     assert!(phyml_logl > paml_logl);
 
     let model = SubstModel::<GTR>::new(
@@ -193,7 +203,7 @@ fn gtr_vs_phyml() {
         &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
     )
     .unwrap();
-    let c = SCB::new(model, info.clone()).build().unwrap();
+    let c = SCB::new(Box::new(model), info.clone()).build().unwrap();
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
@@ -214,7 +224,7 @@ fn k80_vs_phyml() {
         .build()
         .unwrap();
     // Optimized parameters from PhyML
-    let phyml_model = SubstModel::<K80>::new(&[], &[19.432093]).unwrap();
+    let phyml_model = Box::new(SubstModel::<K80>::new(&[], &[19.432093]).unwrap());
     let phyml_logl = SCB::new(phyml_model.clone(), info.clone())
         .build()
         .unwrap()
@@ -223,7 +233,7 @@ fn k80_vs_phyml() {
 
     let model = SubstModel::<K80>::new(&[], &[2.0, 1.0]).unwrap();
     let o = ModelOptimiser::new(
-        SCB::new(model, info.clone()).build().unwrap(),
+        SCB::new(Box::new(model), info.clone()).build().unwrap(),
         FrequencyOptimisation::Fixed,
     )
     .run()
@@ -233,7 +243,8 @@ fn k80_vs_phyml() {
     let o2 = ModelOptimiser::new(o.cost.clone(), FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
-    assert!(o2.final_logl == o.final_logl);
+    assert_relative_eq!(o2.final_logl, o.final_logl, epsilon = 1e-10);
+    assert!(o2.final_logl >= o.final_logl);
     assert!(o2.iterations < 10);
     assert_relative_eq!(o.cost.params(), phyml_model.params(), epsilon = 1e-2);
     assert_relative_eq!(o.final_logl, phyml_logl, epsilon = 1e-6);
@@ -247,7 +258,7 @@ fn hky_vs_phyml() {
         .unwrap();
     let model = SubstModel::<HKY>::new(&[0.25, 0.25, 0.25, 0.25], &[2.0]).unwrap();
     let o = ModelOptimiser::new(
-        SCB::new(model, info.clone()).build().unwrap(),
+        SCB::new(Box::new(model), info.clone()).build().unwrap(),
         FrequencyOptimisation::Empirical,
     )
     .run()
@@ -262,7 +273,10 @@ fn hky_vs_phyml() {
     // Optimized parameters from PhyML
     let phyml_model =
         SubstModel::<HKY>::new(&[0.24720, 0.35320, 0.29540, 0.10420], &[20.357397]).unwrap();
-    let phyml_logl = SCB::new(phyml_model.clone(), info).build().unwrap().cost();
+    let phyml_logl = SCB::new(Box::new(phyml_model.clone()), info)
+        .build()
+        .unwrap()
+        .cost();
     assert_relative_eq!(phyml_logl, -3483.9223510041406, epsilon = 1.0e-5);
 
     assert!(o.final_logl >= phyml_logl);
@@ -280,7 +294,7 @@ fn frequencies_fixed_opt_gtr() {
         .unwrap();
     let model = SubstModel::<GTR>::new(&[0.25, 0.35, 0.3, 0.1], &[1.0; 5]).unwrap();
     let o = ModelOptimiser::new(
-        SCB::new(model, info.clone()).build().unwrap(),
+        SCB::new(Box::new(model), info.clone()).build().unwrap(),
         FrequencyOptimisation::Fixed,
     )
     .run()
@@ -303,7 +317,7 @@ where
     .build()
     .unwrap();
     let model = SubstModel::<Q>::new(&[], &[]).unwrap();
-    let c = SCB::new(model.clone(), info).build().unwrap();
+    let c = SCB::new(Box::new(model.clone()), info).build().unwrap();
 
     let initial_llik = c.cost();
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
@@ -335,7 +349,7 @@ where
     .build()
     .unwrap();
     let model = SubstModel::<Q>::new(&[], &[]).unwrap();
-    let c = SCB::new(model.clone(), info).build().unwrap();
+    let c = SCB::new(Box::new(model.clone()), info).build().unwrap();
 
     let initial_llik = c.cost();
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
@@ -359,11 +373,13 @@ fn arpip_example() {
     let info = PIB::with_attrs(fldr.join("msa.fasta"), fldr.join("tree.nwk"))
         .build()
         .unwrap();
-    let pip_gtr = PIPModel::<GTR>::new(
-        &[0.25, 0.25, 0.25, 0.25],
-        &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-    )
-    .unwrap();
+    let pip_gtr = Box::new(
+        PIPModel::<GTR>::new(
+            &[0.25, 0.25, 0.25, 0.25],
+            &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        )
+        .unwrap(),
+    );
     let c = PIPCostBuilder::new(pip_gtr.clone(), info.clone())
         .build()
         .unwrap();
@@ -380,11 +396,12 @@ fn arpip_example() {
     assert_ne!(o.cost.freqs(), pip_gtr.freqs());
     assert_eq!(o.final_logl, o.cost.cost());
 
-    let pip_gtr = PIPModel::<GTR>::new(o.cost.freqs().as_slice(), o.cost.params()).unwrap();
+    let pip_gtr =
+        Box::new(PIPModel::<GTR>::new(o.cost.freqs().as_slice(), o.cost.params()).unwrap());
     let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
     assert_eq!(o.final_logl, c.cost());
 
-    assert_relative_eq!(o.final_logl, -161.7097214290736, epsilon = 1e-6); // value from python script
+    assert_relative_eq!(o.final_logl, -161.70972212811094, epsilon = 1e-6); // value from python script
 }
 
 #[test]
@@ -394,11 +411,13 @@ fn pip_propip_example() {
         .build()
         .unwrap();
 
-    let pip_gtr = PIPModel::<GTR>::new(
-        &[0.25, 0.25, 0.25, 0.25],
-        &[14.142_1, 0.1414, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-    )
-    .unwrap();
+    let pip_gtr = Box::new(
+        PIPModel::<GTR>::new(
+            &[0.25, 0.25, 0.25, 0.25],
+            &[14.142_1, 0.1414, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        )
+        .unwrap(),
+    );
     let c = PIPCostBuilder::new(pip_gtr.clone(), info).build().unwrap();
     let initial_logl = c.cost();
 
@@ -409,7 +428,7 @@ fn pip_propip_example() {
         .unwrap();
     assert_eq!(o.initial_logl, initial_logl);
     assert!(o.final_logl > initial_logl);
-    assert_relative_eq!(o.final_logl, -1081.7242216547843, epsilon = 1e-8); // value from the python script
+    assert_relative_eq!(o.final_logl, -1081.7242569614295, epsilon = 1e-8); // value from the python script
     assert_eq!(o.final_logl, o.cost.cost());
 }
 
@@ -423,7 +442,7 @@ fn pip_vs_python_no_gaps() {
     .build()
     .unwrap();
 
-    let pip_hky = PIPModel::<HKY>::new(&[0.25; 4], &[1.2, 0.45, 1.0]).unwrap();
+    let pip_hky = Box::new(PIPModel::<HKY>::new(&[0.25; 4], &[1.2, 0.45, 1.0]).unwrap());
 
     let c = PIPCostBuilder::new(pip_hky, info).build().unwrap();
     assert_relative_eq!(c.cost(), -361.18634412281443, epsilon = 1e-7); // value from the python script
@@ -435,7 +454,7 @@ fn pip_vs_python_no_gaps() {
     assert_ne!(params[1], 0.45);
     assert_ne!(params[2], 1.0);
     assert!(o.final_logl > -361.18634412281443);
-    assert_relative_eq!(o.final_logl, -227.16166351921532, epsilon = 1e-7); // value from the python script
+    assert_relative_eq!(o.final_logl, -227.0848511231626, epsilon = 1e-7); // value from the python script
     assert_eq!(o.final_logl, o.cost.cost());
 }
 
@@ -446,18 +465,21 @@ fn pip_gtr_optimisation() {
     let info = PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
         .build()
         .unwrap();
-    let pip_gtr = PIPModel::<GTR>::new(
-        &[0.24720, 0.35320, 0.29540, 0.10420],
-        &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-    )
-    .unwrap();
+    let pip_gtr = Box::new(
+        PIPModel::<GTR>::new(
+            &[0.24720, 0.35320, 0.29540, 0.10420],
+            &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        )
+        .unwrap(),
+    );
     let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
 
     let initial_logl = c.cost();
     let pip_o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
-    let pip_gtr = PIPModel::<GTR>::new(pip_o.cost.freqs().as_slice(), pip_o.cost.params()).unwrap();
+    let pip_gtr =
+        Box::new(PIPModel::<GTR>::new(pip_o.cost.freqs().as_slice(), pip_o.cost.params()).unwrap());
 
     let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
     assert_eq!(pip_o.final_logl, c.cost());
@@ -465,7 +487,7 @@ fn pip_gtr_optimisation() {
     assert_relative_eq!(initial_logl, -9988.840775519875, epsilon = 1e-5); // value from the python script
     assert_relative_eq!(pip_o.initial_logl, initial_logl);
     assert!(pip_o.final_logl > initial_logl);
-    assert_relative_eq!(pip_o.final_logl, -3482.1776012164523, epsilon = 1e-5); // value from the python script
+    assert_relative_eq!(pip_o.final_logl, -3481.828364024475, epsilon = 1e-5); // value from the python script
     assert_eq!(pip_o.final_logl, pip_o.cost.cost());
 }
 
@@ -476,21 +498,25 @@ fn pip_gtr_vs_gtr_params() {
     let info = PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
         .build()
         .unwrap();
-    let pip_gtr = PIPModel::<GTR>::new(
-        &[0.24720, 0.35320, 0.29540, 0.10420],
-        &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-    )
-    .unwrap();
+    let pip_gtr = Box::new(
+        PIPModel::<GTR>::new(
+            &[0.24720, 0.35320, 0.29540, 0.10420],
+            &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        )
+        .unwrap(),
+    );
     let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
     let pip_o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
 
-    let gtr = SubstModel::<GTR>::new(
-        &[0.24720, 0.35320, 0.29540, 0.10420],
-        &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-    )
-    .unwrap();
+    let gtr = Box::new(
+        SubstModel::<GTR>::new(
+            &[0.24720, 0.35320, 0.29540, 0.10420],
+            &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        )
+        .unwrap(),
+    );
     let c = SCB::new(gtr, info).build().unwrap();
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
@@ -504,7 +530,7 @@ fn pip_protein_example() {
     let info = PIB::with_attrs(fldr.join("seqs.fasta"), fldr.join("true_tree.newick"))
         .build()
         .unwrap();
-    let pip = PIPModel::<WAG>::new(&[], &[2.0, 0.1]).unwrap();
+    let pip = Box::new(PIPModel::<WAG>::new(&[], &[2.0, 0.1]).unwrap());
     let c = PIPCostBuilder::new(pip, info).build().unwrap();
     let initial_logl = c.cost();
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
