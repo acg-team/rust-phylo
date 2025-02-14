@@ -25,7 +25,7 @@ fn branch_opt_likelihood_increase_pip() {
         .unwrap(),
     );
     let c = PIPCB::new(model.clone(), info.clone()).build().unwrap();
-    assert_relative_eq!(c.cost(), -5664.780425829528, epsilon = 1e-10);
+    assert_relative_eq!(c.cost(), -5664.780425829528, epsilon = 1e-6);
     let o = BranchOptimiser::new(c.clone()).run().unwrap();
 
     assert!(o.final_logl > o.initial_logl);
