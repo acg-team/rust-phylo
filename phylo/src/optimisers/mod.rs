@@ -7,14 +7,14 @@ pub use model_optimiser::*;
 pub mod topo_optimiser;
 pub use topo_optimiser::*;
 
-pub struct PhyloOptimisationResult<C: TreeSearchCost + Clone> {
+pub struct PhyloOptimisationResult<C: TreeSearchCost> {
     pub initial_logl: f64,
     pub final_logl: f64,
     pub iterations: usize,
     pub cost: C,
 }
 
-pub struct ModelOptimisationResult<C: ModelSearchCost + Clone> {
+pub struct ModelOptimisationResult<C: ModelSearchCost> {
     pub initial_logl: f64,
     pub final_logl: f64,
     pub iterations: usize,
