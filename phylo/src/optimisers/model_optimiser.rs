@@ -10,13 +10,13 @@ use crate::likelihood::ModelSearchCost;
 use crate::optimisers::ModelOptimisationResult;
 use crate::Result;
 
-pub struct ModelOptimiser<C: ModelSearchCost + Display + Clone> {
+pub struct ModelOptimiser<C: ModelSearchCost + Display> {
     pub(crate) epsilon: f64,
     pub(crate) c: RefCell<C>,
     pub(crate) freq_opt: FrequencyOptimisation,
 }
 
-impl<C: ModelSearchCost + Display + Clone> ModelOptimiser<C> {
+impl<C: ModelSearchCost + Display> ModelOptimiser<C> {
     pub fn new(cost: C, freq_opt: FrequencyOptimisation) -> Self {
         Self {
             epsilon: 1e-3,
