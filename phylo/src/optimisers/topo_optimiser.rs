@@ -30,6 +30,7 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
         let mut tree = self.c.borrow().tree().clone();
 
         info!("Initial logl: {}.", initial_logl);
+        debug!("Initial tree: \n{}", tree);
         let mut curr_cost = initial_logl;
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
@@ -100,6 +101,11 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
                 curr_cost = o.final_logl;
                 self.c.borrow_mut().update_tree(o.cost.tree().clone(), &[]);
             }
+            debug!(
+                "Tree after iteration {}: \n{}",
+                iterations,
+                self.c.borrow().tree()
+            );
         }
 
         debug_assert_eq!(curr_cost, self.c.borrow().cost());

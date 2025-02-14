@@ -44,6 +44,10 @@ impl<C: ModelSearchCost + Display + Clone> ModelOptimiser<C> {
             let parameters = self.c.borrow().params().to_vec();
             prev_logl = final_logl;
             for (param, start_value) in parameters.iter().enumerate() {
+                debug!(
+                    "Optimising parameter {:?} from value {} with logl {}",
+                    param, start_value, final_logl
+                );
                 let (value, logl) = self.opt_parameter(param, *start_value)?;
                 if logl < final_logl {
                     // Parameter will have been reset by the optimiser, set it back to start value
