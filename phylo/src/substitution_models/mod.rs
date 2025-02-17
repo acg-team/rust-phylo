@@ -4,6 +4,10 @@ use std::fmt::{Debug, Display};
 use std::marker::PhantomData;
 use std::ops::Mul;
 
+use anyhow::bail;
+use dyn_clone::DynClone;
+use nalgebra::{DMatrix, DVector};
+
 use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
@@ -11,17 +15,15 @@ use crate::tree::{
     NodeIdx::{self, Internal, Leaf},
     Tree,
 };
-use crate::Rounding;
-use crate::{f64_h, phylo_info::PhyloInfo, Result};
-use anyhow::bail;
-use dyn_clone::DynClone;
-use nalgebra::{DMatrix, DVector};
+use crate::{phylo_info::PhyloInfo, Result};
 
 pub mod dna_models;
 pub use dna_models::*;
 pub mod protein_models;
-use ordered_float::OrderedFloat;
 pub use protein_models::*;
+
+pub mod parsimony;
+pub use parsimony::*;
 
 pub type SubstMatrix = DMatrix<f64>;
 pub type FreqVector = DVector<f64>;
@@ -56,24 +58,6 @@ where
     SubstModel<Q>: SubstitutionModel,
 {
     pub(crate) qmatrix: Q,
-}
-
-pub trait ParsimonyModel {
-    fn generate_scorings(
-        &self,
-        times: &[f64],
-        zero_diag: bool,
-        rounding: &Rounding,
-    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)>;
-
-    fn scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64);
-
-    fn scoring_matrix_corrected(
-        &self,
-        time: f64,
-        zero_diag: bool,
-        rounding: &Rounding,
-    ) -> (SubstMatrix, f64);
 }
 
 impl<Q: QMatrix> SubstitutionModel for SubstModel<Q> {}
@@ -139,50 +123,6 @@ where
 
     fn alphabet(&self) -> &Alphabet {
         self.qmatrix.alphabet()
-    }
-}
-
-impl<Q: QMatrix> ParsimonyModel for SubstModel<Q>
-where
-    SubstModel<Q>: SubstitutionModel,
-{
-    fn generate_scorings(
-        &self,
-        times: &[f64],
-        zero_diag: bool,
-        rounding: &Rounding,
-    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)> {
-        HashMap::<f64_h, (SubstMatrix, f64)>::from_iter(times.iter().map(|&time| {
-            (
-                f64_h::from(time),
-                self.scoring_matrix_corrected(time, zero_diag, rounding),
-            )
-        }))
-    }
-
-    fn scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
-        self.scoring_matrix_corrected(time, false, rounding)
-    }
-
-    fn scoring_matrix_corrected(
-        &self,
-        time: f64,
-        zero_diag: bool,
-        rounding: &Rounding,
-    ) -> (SubstMatrix, f64) {
-        let mut scores = self.p(time);
-        scores.iter_mut().for_each(|x| *x = -(*x).ln());
-        if rounding.round {
-            scores.iter_mut().for_each(|x| {
-                *x = (*x * 10.0_f64.powf(rounding.digits as f64)).round()
-                    / 10.0_f64.powf(rounding.digits as f64)
-            });
-        }
-        if zero_diag {
-            scores.fill_diagonal(0.0);
-        }
-        let mean = scores.mean();
-        (scores, mean)
     }
 }
 
