@@ -27,7 +27,7 @@ fn k80_simple() {
         record!("D", b"TTATATATAT"),
     ]);
     let info = PIB::build_from_objects(sequences, tree).unwrap();
-    let k80 = Box::new(SubstModel::<K80>::new(&[], &[4.0, 1.0]).unwrap());
+    let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]).unwrap();
     let c = SCB::new(k80.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
     let o = TopologyOptimiser::new(c).run().unwrap();
@@ -48,7 +48,7 @@ fn k80_sim_data_from_given() {
     let info = PIB::with_attrs(fldr.join("K80.fasta"), fldr.join("../tree.newick"))
         .build()
         .unwrap();
-    let k80 = Box::new(SubstModel::<K80>::new(&[], &[4.0, 1.0]).unwrap());
+    let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]).unwrap();
     let c = SCB::new(k80.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
     let o = TopologyOptimiser::new(c).run().unwrap();
@@ -68,7 +68,7 @@ fn k80_sim_data_from_nj() {
     // Check that optimisation on k80 data improves k80 likelihood when starting from an NJ tree
     let fldr = Path::new("./data/sim/K80");
     let info = PIB::new(fldr.join("K80.fasta")).build().unwrap();
-    let k80 = Box::new(SubstModel::<K80>::new(&[], &[4.0, 1.0]).unwrap());
+    let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]).unwrap();
     let c = SCB::new(k80.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
     let o = TopologyOptimiser::new(c).run().unwrap();
@@ -90,7 +90,7 @@ fn k80_sim_data_vs_phyml() {
     let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("tree.newick"))
         .build()
         .unwrap();
-    let jc69 = Box::new(SubstModel::<JC69>::new(&[], &[]).unwrap());
+    let jc69 = SubstModel::<JC69>::new(&[], &[]).unwrap();
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
     let o = TopologyOptimiser::new(c).run().unwrap();
@@ -137,7 +137,7 @@ fn k80_sim_data_vs_phyml_wrong_start() {
     let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("wrong_tree.newick"))
         .build()
         .unwrap();
-    let jc69 = Box::new(SubstModel::<JC69>::new(&[], &[]).unwrap());
+    let jc69 = SubstModel::<JC69>::new(&[], &[]).unwrap();
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
     let o = TopologyOptimiser::new(c).run().unwrap();
@@ -180,7 +180,7 @@ fn wag_no_gaps_vs_phyml_given_tree_start() {
     let true_tree_file = fldr.join("true_tree.newick");
     let tree_file = fldr.join("jati_wag_nogap.newick");
 
-    let model = Box::new(SubstModel::<WAG>::new(&[], &[]).unwrap());
+    let model = SubstModel::<WAG>::new(&[], &[]).unwrap();
     let info = PIB::with_attrs(seq_file.clone(), true_tree_file.clone())
         .build()
         .unwrap();
@@ -228,7 +228,7 @@ fn wag_no_gaps_vs_phyml_nj_tree_start() {
     let seq_file = fldr.join("nogap_seqs.fasta");
     let tree_file = fldr.join("jati_wag_nogap_nj_start.newick");
 
-    let model = Box::new(SubstModel::<WAG>::new(&[], &[]).unwrap());
+    let model = SubstModel::<WAG>::new(&[], &[]).unwrap();
     let info = PIB::new(seq_file.clone()).build().unwrap();
     let c = SCB::new(model.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
@@ -273,12 +273,12 @@ fn pip_vs_subst_dna_tree() {
     let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("wrong_tree.newick"))
         .build()
         .unwrap();
-    let k80 = Box::new(SubstModel::<K80>::new(&[], &[4.0]).unwrap());
+    let k80 = SubstModel::<K80>::new(&[], &[4.0]).unwrap();
     let k80_res = TopologyOptimiser::new(SCB::new(k80.clone(), info.clone()).build().unwrap())
         .run()
         .unwrap();
 
-    let pip = Box::new(PIPModel::<K80>::new(&[], &[0.5, 0.4, 4.0]).unwrap());
+    let pip = PIPModel::<K80>::new(&[], &[0.5, 0.4, 4.0]).unwrap();
     let pip_res = TopologyOptimiser::new(PIPCB::new(pip.clone(), info).build().unwrap())
         .run()
         .unwrap();
@@ -322,8 +322,8 @@ fn wag_nogaps_pip_vs_subst_tree_nj_start() {
     let wag_tree_file = fldr.join("jati_wag_nogap_pip_vs_wag.newick");
 
     let info = PIB::new(seq_file.clone()).build().unwrap();
-    let pip = Box::new(PIPModel::<WAG>::new(&[], &[50.0, 0.1]).unwrap());
-    let wag = Box::new(SubstModel::<WAG>::new(&[], &[]).unwrap());
+    let pip = PIPModel::<WAG>::new(&[], &[50.0, 0.1]).unwrap();
+    let wag = SubstModel::<WAG>::new(&[], &[]).unwrap();
     let c_pip = PIPCB::new(pip.clone(), info.clone()).build().unwrap();
     let c_wag = SCB::new(wag.clone(), info.clone()).build().unwrap();
 
@@ -391,7 +391,7 @@ fn protein_pip_optimise_model_tree() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
 
-    let pip = Box::new(PIPModel::<WAG>::new(&[], &[1.4, 0.5]).unwrap());
+    let pip = PIPModel::<WAG>::new(&[], &[1.4, 0.5]).unwrap();
 
     let tree_file = fldr.join("jati_pip_nj_start.newick");
     let result =
@@ -424,7 +424,7 @@ fn protein_pip_optimise_model_tree() {
             o.cost.info
         };
 
-    let pip_opt = Box::new(PIPModel::<WAG>::new(&[], &[49.56941, 0.09352]).unwrap());
+    let pip_opt = PIPModel::<WAG>::new(&[], &[49.56941, 0.09352]).unwrap();
     assert_eq!(result_model_opt.tree.robinson_foulds(&result.tree), 0);
 
     let pip_opt_new_res_logl = PIPCB::new(pip_opt.clone(), result_model_opt.clone())
@@ -454,7 +454,7 @@ fn protein_wag_vs_phyml_empirical_freqs() {
     let tree_file = fldr.join("jati_wag_empirical.newick");
 
     let info = PIB::new(seq_file.clone()).build().unwrap();
-    let wag = Box::new(SubstModel::<WAG>::new(&[], &[]).unwrap());
+    let wag = SubstModel::<WAG>::new(&[], &[]).unwrap();
     let c_wag = SCB::new(wag.clone(), info.clone()).build().unwrap();
 
     let unopt_logl = c_wag.cost();
@@ -499,7 +499,7 @@ fn protein_pip_vs_phyml_empirical_freqs() {
     let tree_file = fldr.join("jati_pip_wag_empirical.newick");
 
     let info = PIB::new(seq_file.clone()).build().unwrap();
-    let wag = Box::new(PIPModel::<WAG>::new(&[], &[1.0, 2.0]).unwrap());
+    let wag = PIPModel::<WAG>::new(&[], &[1.0, 2.0]).unwrap();
     let c_wag = PIPCB::new(wag.clone(), info.clone()).build().unwrap();
 
     let unopt_logl = c_wag.cost();
@@ -546,7 +546,7 @@ fn protein_wag_vs_phyml_fixed_freqs() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
     let tree_file = fldr.join("jati_wag_fixed.newick");
-    let wag = Box::new(SubstModel::<WAG>::new(&[], &[]).unwrap());
+    let wag = SubstModel::<WAG>::new(&[], &[]).unwrap();
 
     let result =
         if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), tree_file.clone()).build() {

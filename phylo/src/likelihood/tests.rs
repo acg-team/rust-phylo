@@ -1,4 +1,3 @@
-use std::fmt::Display;
 use std::path::Path;
 
 use std::fs;
@@ -10,7 +9,7 @@ use crate::likelihood::{ModelSearchCost, TreeSearchCost};
 use crate::phylo_info::PhyloInfoBuilder as PIB;
 use crate::pip_model::{PIPCost, PIPCostBuilder as PIPCB, PIPModel};
 use crate::substitution_models::{
-    dna_models::*, protein_models::*, QMatrix, QMatrixFactory, SubstModel, SubstitutionCost,
+    dna_models::*, protein_models::*, QMatrix, QMatrixMaker, SubstModel, SubstitutionCost,
     SubstitutionCostBuilder as SCB,
 };
 use crate::tree;
@@ -22,11 +21,11 @@ fn search_costs_equal_template<C: ModelSearchCost + TreeSearchCost>(cost: C) {
 }
 
 #[cfg(test)]
-fn test_subst_model<Q: QMatrix + QMatrixFactory + Clone + PartialEq + Display + 'static>(
+fn test_subst_model<Q: QMatrix + QMatrixMaker>(
     alpha: Alphabet,
     freqs: &[f64],
     params: &[f64],
-) -> SubstitutionCost {
+) -> SubstitutionCost<Q> {
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
     let fldr = Path::new("./data");
     let records =
@@ -35,7 +34,7 @@ fn test_subst_model<Q: QMatrix + QMatrixFactory + Clone + PartialEq + Display + 
     let tree = tree!(&fs::read_to_string(fldr.join("Huelsenbeck_example.newick")).unwrap());
     let info = PIB::build_from_objects(seqs, tree).unwrap();
     let model = SubstModel::<Q>::new(freqs, params).unwrap();
-    SCB::new(Box::new(model), info).build().unwrap()
+    SCB::new(model, info).build().unwrap()
 }
 
 #[test]
@@ -71,11 +70,11 @@ fn protein_search_costs_equal() {
 }
 
 #[cfg(test)]
-fn test_pip_model<Q: QMatrix + QMatrixFactory + Clone + PartialEq + Display + 'static>(
+fn test_pip_model<Q: QMatrix + QMatrixMaker>(
     alpha: Alphabet,
     freqs: &[f64],
     params: &[f64],
-) -> PIPCost {
+) -> PIPCost<Q> {
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
 
     let fldr = Path::new("./data");
@@ -84,7 +83,7 @@ fn test_pip_model<Q: QMatrix + QMatrixFactory + Clone + PartialEq + Display + 's
     let seqs = Sequences::with_alphabet(records.clone(), alpha);
     let tree = tree!(&fs::read_to_string(fldr.join("Huelsenbeck_example.newick")).unwrap());
     let info = PIB::build_from_objects(seqs, tree).unwrap();
-    let model = Box::new(PIPModel::<Q>::new(freqs, params).unwrap());
+    let model = PIPModel::<Q>::new(freqs, params).unwrap();
     PIPCB::new(model, info).build().unwrap()
 }
 

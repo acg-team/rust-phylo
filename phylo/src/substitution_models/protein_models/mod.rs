@@ -5,7 +5,7 @@ use log::warn;
 
 use crate::alphabets::{protein_alphabet, Alphabet, AMINOACID_INDEX};
 use crate::frequencies;
-use crate::substitution_models::{FreqVector, QMatrix, QMatrixFactory, SubstMatrix};
+use crate::substitution_models::{FreqVector, QMatrix, QMatrixMaker, SubstMatrix};
 
 pub(crate) mod protein_generics;
 pub(crate) use protein_generics::*;
@@ -49,8 +49,8 @@ macro_rules! define_protein_model {
             exchangeability: SubstMatrix,
             alphabet: Alphabet,
         }
-        impl QMatrixFactory for $name {
-            fn new(freqs: &[f64], _: &[f64]) -> Self {
+        impl QMatrixMaker for $name {
+            fn create(freqs: &[f64], _: &[f64]) -> $name {
                 let freqs = frequencies!(freqs);
                 let freqs = if verify_protein_freqs(&freqs) {
                     freqs

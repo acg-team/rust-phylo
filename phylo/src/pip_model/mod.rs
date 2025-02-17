@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display};
+use std::marker::PhantomData;
 use std::ops::Mul;
 use std::vec;
 
@@ -13,9 +14,7 @@ use crate::alphabets::{Alphabet, GAP};
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
 use crate::phylo_info::PhyloInfo;
-use crate::substitution_models::{
-    dna_models::*, protein_models::*, FreqVector, QMatrix, QMatrixFactory, SubstMatrix,
-};
+use crate::substitution_models::{FreqVector, QMatrix, QMatrixMaker, SubstMatrix};
 use crate::tree::{
     NodeIdx::{self, Internal as Int, Leaf},
     Tree,
@@ -28,39 +27,6 @@ pub trait PIPModelTrait: Debug + Display + DynClone + EvoModel {
 }
 
 dyn_clone::clone_trait_object!(PIPModelTrait);
-
-pub struct PIPModelBuilder {
-    model_id: String,
-    freqs: Vec<f64>,
-    params: Vec<f64>,
-}
-
-impl PIPModelBuilder {
-    pub fn new(model_id: &str, freqs: &[f64], params: &[f64]) -> Self {
-        PIPModelBuilder {
-            model_id: model_id.to_string(),
-            freqs: freqs.to_vec(),
-            params: params.to_vec(),
-        }
-    }
-
-    pub fn build(self) -> Result<Box<dyn PIPModelTrait>> {
-        match self.model_id.as_str() {
-            "JC69" => Ok(Box::new(PIPModel::<JC69>::new(&self.freqs, &self.params)?)),
-            "K80" => Ok(Box::new(PIPModel::<K80>::new(&self.freqs, &self.params)?)),
-            "HKY85" | "HKY" => Ok(Box::new(PIPModel::<HKY>::new(&self.freqs, &self.params)?)),
-            "TN93" => Ok(Box::new(PIPModel::<TN93>::new(&self.freqs, &self.params)?)),
-            "GTR" => Ok(Box::new(PIPModel::<JC69>::new(&self.freqs, &self.params)?)),
-            "HIV" | "HIVB" => Ok(Box::new(PIPModel::<HIVB>::new(&self.freqs, &self.params)?)),
-            "WAG" => Ok(Box::new(PIPModel::<WAG>::new(&self.freqs, &self.params)?)),
-            "BLOSUM" => Ok(Box::new(PIPModel::<BLOSUM>::new(
-                &self.freqs,
-                &self.params,
-            )?)),
-            _ => bail!("Unknown model requested."),
-        }
-    }
-}
 
 // (2.0 * PI).ln() / 2.0;
 pub static SHIFT: f64 = 0.9189385332046727;
@@ -80,15 +46,6 @@ pub struct PIPModel<Q: QMatrix> {
     params: Vec<f64>,
 }
 
-impl<Q: QMatrixFactory + QMatrix + Display + Clone> PIPModelTrait for PIPModel<Q> {
-    fn lambda(&self) -> f64 {
-        self.params[0]
-    }
-    fn mu(&self) -> f64 {
-        self.params[1]
-    }
-}
-
 fn pip_q(q: &mut SubstMatrix, subst_q: &SubstMatrix, mu: f64) {
     let n = subst_q.ncols();
     q.view_mut((0, 0), (n, n)).copy_from(subst_q);
@@ -98,17 +55,24 @@ fn pip_q(q: &mut SubstMatrix, subst_q: &SubstMatrix, mu: f64) {
     }
 }
 
-impl<Q: QMatrixFactory + QMatrix + Clone> PIPModel<Q> {
-    pub fn new(frequencies: &[f64], params: &[f64]) -> Result<Self>
-    where
-        Self: Sized,
-    {
+impl<Q: QMatrix> PIPModelTrait for PIPModel<Q> {
+    fn lambda(&self) -> f64 {
+        self.params[0]
+    }
+
+    fn mu(&self) -> f64 {
+        self.params[1]
+    }
+}
+
+impl<Q: QMatrix + QMatrixMaker> PIPModel<Q> {
+    pub fn new(frequencies: &[f64], params: &[f64]) -> Result<Self> {
         if params.len() < 2 {
             bail!("Too few values provided for PIP, 2 values required, lambda and mu.");
         }
         let mu = params[1];
 
-        let subst_q = Q::new(frequencies, &params[2..]);
+        let subst_q = Q::create(frequencies, &params[2..]);
         let n = subst_q.n();
         let freqs = subst_q.freqs().clone().insert_row(n, 0.0);
         let mut q = SubstMatrix::zeros(n + 1, n + 1);
@@ -122,7 +86,7 @@ impl<Q: QMatrixFactory + QMatrix + Clone> PIPModel<Q> {
     }
 }
 
-impl<Q: QMatrixFactory + QMatrix + Clone + Display> EvoModel for PIPModel<Q> {
+impl<Q: QMatrix> EvoModel for PIPModel<Q> {
     fn p(&self, time: f64) -> SubstMatrix {
         (self.q().clone() * time).exp()
     }
@@ -195,7 +159,8 @@ impl<Q: QMatrix + Display> Display for PIPModel<Q> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct PIPModelInfo {
+pub struct PIPModelInfo<Q: QMatrix> {
+    phantom: PhantomData<Q>,
     surv_ins_weights: Vec<f64>,
     anc: Vec<DMatrix<f64>>,
     ftilde: Vec<DMatrix<f64>>,
@@ -209,8 +174,11 @@ pub struct PIPModelInfo {
     leaf_sequence_info: HashMap<String, DMatrix<f64>>,
 }
 
-impl PIPModelInfo {
-    pub fn new(info: &PhyloInfo, model: &dyn PIPModelTrait) -> Result<Self> {
+impl<Q: QMatrix> PIPModelInfo<Q>
+where
+    PIPModel<Q>: PIPModelTrait,
+{
+    pub fn new(info: &PhyloInfo, model: &PIPModel<Q>) -> Result<Self> {
         let n = model.q().nrows();
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
@@ -231,6 +199,7 @@ impl PIPModelInfo {
             leaf_seq_info.insert(node.id.clone(), leaf_seq_w_gaps);
         }
         Ok(PIPModelInfo {
+            phantom: std::marker::PhantomData,
             ftilde: vec![DMatrix::<f64>::zeros(n, msa_length); node_count],
             surv_ins_weights: vec![0.0; node_count],
             f: vec![DVector::<f64>::zeros(msa_length); node_count],
@@ -246,22 +215,28 @@ impl PIPModelInfo {
     }
 }
 
-pub struct PIPCostBuilder {
-    pub(crate) model: Box<dyn PIPModelTrait>,
+pub struct PIPCostBuilder<Q: QMatrix>
+where
+    PIPModel<Q>: PIPModelTrait,
+{
+    pub(crate) model: PIPModel<Q>,
     info: PhyloInfo,
 }
 
-impl PIPCostBuilder {
-    pub fn new(model: Box<dyn PIPModelTrait>, info: PhyloInfo) -> Self {
+impl<Q: QMatrix> PIPCostBuilder<Q>
+where
+    PIPModel<Q>: PIPModelTrait,
+{
+    pub fn new(model: PIPModel<Q>, info: PhyloInfo) -> Self {
         PIPCostBuilder { model, info }
     }
 
-    pub fn build(self) -> Result<PIPCost> {
+    pub fn build(self) -> Result<PIPCost<Q>> {
         if self.info.msa.alphabet() != self.model.alphabet() {
             bail!("Alphabet mismatch between model and alignment.");
         }
 
-        let tmp = RefCell::new(PIPModelInfo::new(&self.info, self.model.as_ref()).unwrap());
+        let tmp = RefCell::new(PIPModelInfo::new(&self.info, &self.model).unwrap());
         Ok(PIPCost {
             model: self.model,
             info: self.info,
@@ -270,24 +245,17 @@ impl PIPCostBuilder {
     }
 }
 
-#[derive(Debug)]
-pub struct PIPCost {
-    pub(crate) model: Box<dyn PIPModelTrait>,
+#[derive(Debug, Clone)]
+pub struct PIPCost<Q: QMatrix> {
+    pub(crate) model: PIPModel<Q>,
     pub(crate) info: PhyloInfo,
-    tmp: RefCell<PIPModelInfo>,
+    tmp: RefCell<PIPModelInfo<Q>>,
 }
 
-impl Clone for PIPCost {
-    fn clone(&self) -> Self {
-        PIPCost {
-            model: self.model.clone(),
-            info: self.info.clone(),
-            tmp: RefCell::new(self.tmp.borrow().clone()),
-        }
-    }
-}
-
-impl TreeSearchCost for PIPCost {
+impl<Q: QMatrix> TreeSearchCost for PIPCost<Q>
+where
+    PIPModel<Q>: PIPModelTrait,
+{
     fn cost(&self) -> f64 {
         self.logl()
     }
@@ -310,7 +278,10 @@ impl TreeSearchCost for PIPCost {
     }
 }
 
-impl ModelSearchCost for PIPCost {
+impl<Q: QMatrix> ModelSearchCost for PIPCost<Q>
+where
+    PIPModel<Q>: PIPModelTrait,
+{
     fn cost(&self) -> f64 {
         self.logl()
     }
@@ -337,13 +308,16 @@ impl ModelSearchCost for PIPCost {
     }
 }
 
-impl Display for PIPCost {
+impl<Q: QMatrix + Display> Display for PIPCost<Q> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.model)
     }
 }
 
-impl PIPCost {
+impl<Q: QMatrix> PIPCost<Q>
+where
+    PIPModel<Q>: PIPModelTrait,
+{
     fn logl(&self) -> f64 {
         for node_idx in self.info.tree.postorder() {
             match node_idx {

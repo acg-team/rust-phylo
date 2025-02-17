@@ -1,11 +1,8 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display};
+use std::marker::PhantomData;
 use std::ops::Mul;
-
-use anyhow::bail;
-use nalgebra::{DMatrix, DVector};
-use ordered_float::OrderedFloat;
 
 use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
@@ -14,11 +11,16 @@ use crate::tree::{
     NodeIdx::{self, Internal, Leaf},
     Tree,
 };
-use crate::{f64_h, phylo_info::PhyloInfo, Result, Rounding};
+use crate::Rounding;
+use crate::{f64_h, phylo_info::PhyloInfo, Result};
+use anyhow::bail;
+use dyn_clone::DynClone;
+use nalgebra::{DMatrix, DVector};
 
 pub mod dna_models;
 pub use dna_models::*;
 pub mod protein_models;
+use ordered_float::OrderedFloat;
 pub use protein_models::*;
 
 pub type SubstMatrix = DMatrix<f64>;
@@ -31,56 +33,11 @@ macro_rules! frequencies {
     };
 }
 
-pub struct SubstModelBuilder {
-    model_id: String,
-    freqs: Vec<f64>,
-    params: Vec<f64>,
+pub trait QMatrixMaker {
+    fn create(frequencies: &[f64], params: &[f64]) -> Self;
 }
 
-impl SubstModelBuilder {
-    pub fn new(model_id: &str, freqs: &[f64], params: &[f64]) -> Self {
-        SubstModelBuilder {
-            model_id: model_id.to_string(),
-            freqs: freqs.to_vec(),
-            params: params.to_vec(),
-        }
-    }
-
-    pub fn build(self) -> Result<Box<dyn EvoModel>> {
-        match self.model_id.as_str() {
-            "JC69" => Ok(Box::new(SubstModel::<JC69>::new(
-                &self.freqs,
-                &self.params,
-            )?)),
-            "K80" => Ok(Box::new(SubstModel::<K80>::new(&self.freqs, &self.params)?)),
-            "HKY85" | "HKY" => Ok(Box::new(SubstModel::<HKY>::new(&self.freqs, &self.params)?)),
-            "TN93" => Ok(Box::new(SubstModel::<TN93>::new(
-                &self.freqs,
-                &self.params,
-            )?)),
-            "GTR" => Ok(Box::new(SubstModel::<JC69>::new(
-                &self.freqs,
-                &self.params,
-            )?)),
-            "HIV" | "HIVB" => Ok(Box::new(SubstModel::<HIVB>::new(
-                &self.freqs,
-                &self.params,
-            )?)),
-            "WAG" => Ok(Box::new(SubstModel::<WAG>::new(&self.freqs, &self.params)?)),
-            "BLOSUM" => Ok(Box::new(SubstModel::<BLOSUM>::new(
-                &self.freqs,
-                &self.params,
-            )?)),
-            _ => bail!("Unknown model requested."),
-        }
-    }
-}
-
-pub trait QMatrixFactory {
-    fn new(frequencies: &[f64], params: &[f64]) -> Self;
-}
-
-pub trait QMatrix: Debug + Clone {
+pub trait QMatrix: Debug + Clone + Display {
     fn set_param(&mut self, param: usize, value: f64);
     fn params(&self) -> &[f64];
     fn freqs(&self) -> &FreqVector;
@@ -91,11 +48,12 @@ pub trait QMatrix: Debug + Clone {
     fn alphabet(&self) -> &Alphabet;
 }
 
+pub trait SubstitutionModel: Debug + Display + DynClone + EvoModel {}
+
 #[derive(Debug, Clone, PartialEq)]
-pub struct SubstModel<Q>
+pub struct SubstModel<Q: QMatrix>
 where
-    SubstModel<Q>: EvoModel,
-    Q: QMatrix,
+    SubstModel<Q>: SubstitutionModel,
 {
     pub(crate) qmatrix: Q,
 }
@@ -118,24 +76,35 @@ pub trait ParsimonyModel {
     ) -> (SubstMatrix, f64);
 }
 
-impl<Q: QMatrix + QMatrixFactory + Display> Display for SubstModel<Q> {
+impl<Q: QMatrix> SubstitutionModel for SubstModel<Q> {}
+
+impl<Q: QMatrix + Display> Display for SubstModel<Q>
+where
+    SubstModel<Q>: SubstitutionModel,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.qmatrix)
     }
 }
 
-impl<Q: QMatrix + QMatrixFactory + Display> SubstModel<Q> {
+impl<Q: QMatrix + QMatrixMaker> SubstModel<Q>
+where
+    SubstModel<Q>: SubstitutionModel,
+{
     pub fn new(frequencies: &[f64], params: &[f64]) -> Result<Self>
     where
         Self: Sized,
     {
         Ok(SubstModel {
-            qmatrix: Q::new(frequencies, params),
+            qmatrix: Q::create(frequencies, params),
         })
     }
 }
 
-impl<Q: QMatrix + QMatrixFactory + Display> EvoModel for SubstModel<Q> {
+impl<Q: QMatrix> EvoModel for SubstModel<Q>
+where
+    SubstModel<Q>: SubstitutionModel,
+{
     fn p(&self, time: f64) -> SubstMatrix {
         (self.q().clone() * time).exp()
     }
@@ -175,7 +144,7 @@ impl<Q: QMatrix + QMatrixFactory + Display> EvoModel for SubstModel<Q> {
 
 impl<Q: QMatrix> ParsimonyModel for SubstModel<Q>
 where
-    SubstModel<Q>: EvoModel,
+    SubstModel<Q>: SubstitutionModel,
 {
     fn generate_scorings(
         &self,
@@ -217,22 +186,25 @@ where
     }
 }
 
-pub struct SubstitutionCostBuilder {
-    pub(crate) model: Box<dyn EvoModel>,
+pub struct SubstitutionCostBuilder<Q: QMatrix>
+where
+    SubstModel<Q>: SubstitutionModel,
+{
+    pub(crate) model: SubstModel<Q>,
     info: PhyloInfo,
 }
 
-impl SubstitutionCostBuilder {
-    pub fn new(model: Box<dyn EvoModel>, info: PhyloInfo) -> Self {
+impl<Q: QMatrix> SubstitutionCostBuilder<Q> {
+    pub fn new(model: SubstModel<Q>, info: PhyloInfo) -> Self {
         SubstitutionCostBuilder { model, info }
     }
 
-    pub fn build(self) -> Result<SubstitutionCost> {
+    pub fn build(self) -> Result<SubstitutionCost<Q>> {
         if self.info.msa.alphabet() != self.model.alphabet() {
             bail!("Alphabet mismatch between model and alignment.");
         }
 
-        let tmp = RefCell::new(SubstModelInfo::new(&self.info, self.model.as_ref()).unwrap());
+        let tmp = RefCell::new(SubstModelInfo::new(&self.info, &self.model).unwrap());
         Ok(SubstitutionCost {
             model: self.model,
             info: self.info,
@@ -242,13 +214,16 @@ impl SubstitutionCostBuilder {
 }
 
 #[derive(Debug)]
-pub struct SubstitutionCost {
-    pub(crate) model: Box<dyn EvoModel>,
+pub struct SubstitutionCost<Q: QMatrix>
+where
+    SubstModel<Q>: SubstitutionModel,
+{
+    pub(crate) model: SubstModel<Q>,
     pub(crate) info: PhyloInfo,
-    tmp: RefCell<SubstModelInfo>,
+    tmp: RefCell<SubstModelInfo<Q>>,
 }
 
-impl Clone for SubstitutionCost {
+impl<Q: QMatrix> Clone for SubstitutionCost<Q> {
     fn clone(&self) -> Self {
         SubstitutionCost {
             model: self.model.clone(),
@@ -258,7 +233,7 @@ impl Clone for SubstitutionCost {
     }
 }
 
-impl TreeSearchCost for SubstitutionCost {
+impl<Q: QMatrix> TreeSearchCost for SubstitutionCost<Q> {
     fn cost(&self) -> f64 {
         self.logl(&self.info)
     }
@@ -281,7 +256,7 @@ impl TreeSearchCost for SubstitutionCost {
     }
 }
 
-impl ModelSearchCost for SubstitutionCost {
+impl<Q: QMatrix> ModelSearchCost for SubstitutionCost<Q> {
     fn cost(&self) -> f64 {
         self.logl(&self.info)
     }
@@ -309,13 +284,13 @@ impl ModelSearchCost for SubstitutionCost {
     }
 }
 
-impl Display for SubstitutionCost {
+impl<Q: QMatrix> Display for SubstitutionCost<Q> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.model)
     }
 }
 
-impl SubstitutionCost {
+impl<Q: QMatrix> SubstitutionCost<Q> {
     fn logl(&self, info: &PhyloInfo) -> f64 {
         for node_idx in info.tree.postorder() {
             match node_idx {
@@ -396,7 +371,11 @@ impl SubstitutionCost {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SubstModelInfo {
+pub struct SubstModelInfo<Q: QMatrix>
+where
+    SubstModel<Q>: SubstitutionModel,
+{
+    phantom: PhantomData<Q>,
     node_info: Vec<DMatrix<f64>>,
     node_info_valid: Vec<bool>,
     node_models: Vec<SubstMatrix>,
@@ -404,8 +383,8 @@ pub struct SubstModelInfo {
     leaf_sequence_info: HashMap<String, DMatrix<f64>>,
 }
 
-impl SubstModelInfo {
-    pub fn new(info: &PhyloInfo, model: &dyn EvoModel) -> Result<Self> {
+impl<Q: QMatrix> SubstModelInfo<Q> {
+    pub fn new(info: &PhyloInfo, model: &SubstModel<Q>) -> Result<Self> {
         let n = model.q().nrows();
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
@@ -424,7 +403,8 @@ impl SubstModelInfo {
             }
             leaf_sequence_info.insert(node.id.clone(), leaf_seq_w_gaps);
         }
-        Ok(SubstModelInfo {
+        Ok(SubstModelInfo::<Q> {
+            phantom: PhantomData,
             node_info: vec![DMatrix::<f64>::zeros(n, msa_length); node_count],
             node_info_valid: vec![false; node_count],
             node_models: vec![SubstMatrix::zeros(n, n); node_count],

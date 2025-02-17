@@ -7,7 +7,7 @@ use log::warn;
 
 use crate::alphabets::{dna_alphabet, Alphabet, NUCLEOTIDE_INDEX};
 use crate::frequencies;
-use crate::substitution_models::{FreqVector, QMatrix, QMatrixFactory, SubstMatrix};
+use crate::substitution_models::{FreqVector, QMatrix, QMatrixMaker, SubstMatrix};
 
 const DNA_N: usize = 4;
 const EQUAL_FREQS: [f64; DNA_N] = [0.25, 0.25, 0.25, 0.25];
@@ -36,8 +36,8 @@ pub struct JC69 {
     alphabet: Alphabet,
 }
 
-impl QMatrixFactory for JC69 {
-    fn new(_: &[f64], _: &[f64]) -> Self {
+impl QMatrixMaker for JC69 {
+    fn create(_: &[f64], _: &[f64]) -> JC69 {
         let r = 1.0 / 3.0;
         let q = SubstMatrix::from_row_slice(
             DNA_N,
@@ -89,8 +89,8 @@ pub struct K80 {
     alphabet: Alphabet,
 }
 
-impl QMatrixFactory for K80 {
-    fn new(_: &[f64], params: &[f64]) -> Self {
+impl QMatrixMaker for K80 {
+    fn create(_: &[f64], params: &[f64]) -> K80 {
         let kappa = match params.len().cmp(&1) {
             Ordering::Less => {
                 warn!("Too few values provided for K80, required one value for kappa");
@@ -180,8 +180,8 @@ pub struct HKY {
     alphabet: Alphabet,
 }
 
-impl QMatrixFactory for HKY {
-    fn new(freqs: &[f64], params: &[f64]) -> Self {
+impl QMatrixMaker for HKY {
+    fn create(freqs: &[f64], params: &[f64]) -> HKY {
         let freqs = set_dna_freqs(frequencies!(freqs));
 
         let kappa = match params.len().cmp(&1) {
@@ -288,8 +288,8 @@ pub struct TN93 {
     alphabet: Alphabet,
 }
 
-impl QMatrixFactory for TN93 {
-    fn new(freqs: &[f64], params: &[f64]) -> Self {
+impl QMatrixMaker for TN93 {
+    fn create(freqs: &[f64], params: &[f64]) -> TN93 {
         let freqs = set_dna_freqs(frequencies!(freqs));
         let mut params = params.to_vec();
         match params.len().cmp(&3) {
@@ -403,8 +403,8 @@ pub struct GTR {
     alphabet: Alphabet,
 }
 
-impl QMatrixFactory for GTR {
-    fn new(freqs: &[f64], params: &[f64]) -> Self {
+impl QMatrixMaker for GTR {
+    fn create(freqs: &[f64], params: &[f64]) -> GTR {
         let freqs = set_dna_freqs(frequencies!(freqs));
         let mut params = params.to_vec();
         if params.len() < 5 {
