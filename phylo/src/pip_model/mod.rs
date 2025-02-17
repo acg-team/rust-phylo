@@ -199,7 +199,7 @@ where
             leaf_seq_info.insert(node.id.clone(), leaf_seq_w_gaps);
         }
         Ok(PIPModelInfo {
-            phantom: std::marker::PhantomData,
+            phantom: PhantomData,
             ftilde: vec![DMatrix::<f64>::zeros(n, msa_length); node_count],
             surv_ins_weights: vec![0.0; node_count],
             f: vec![DVector::<f64>::zeros(msa_length); node_count],
