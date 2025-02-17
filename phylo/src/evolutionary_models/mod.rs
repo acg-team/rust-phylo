@@ -1,18 +1,18 @@
-use std::fmt::{Debug, Display};
+use std::fmt::Display;
 
 use dyn_clone::DynClone;
 
 use crate::alphabets::Alphabet;
 use crate::substitution_models::{FreqVector, SubstMatrix};
 
-#[derive(Clone, clap::ValueEnum, Copy)]
+#[derive(Clone, clap::ValueEnum, Debug, Copy)]
 pub enum FrequencyOptimisation {
     Empirical,
     Estimated,
     Fixed,
 }
 
-pub trait EvoModel: Debug + Display + DynClone {
+pub trait EvoModel: Display + DynClone {
     fn p(&self, time: f64) -> SubstMatrix;
     fn q(&self) -> &SubstMatrix;
     fn rate(&self, i: u8, j: u8) -> f64;
