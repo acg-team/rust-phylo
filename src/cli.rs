@@ -1,6 +1,7 @@
 use std::fmt::{self, Display};
 use std::path::PathBuf;
 
+use chrono::{DateTime, Local};
 use clap::Parser;
 use ftail::Ftail;
 use log::LevelFilter;
@@ -71,7 +72,7 @@ pub(super) struct Cli {
 }
 
 pub struct ConfigBuilder {
-    pub timestamp: chrono::NaiveDateTime,
+    pub timestamp: DateTime<Local>,
     pub out_path: PathBuf,
     pub run_name: Option<String>,
     pub max_iters: usize,
@@ -88,7 +89,7 @@ pub struct ConfigBuilder {
 impl From<Cli> for ConfigBuilder {
     fn from(cli: Cli) -> Self {
         ConfigBuilder {
-            timestamp: chrono::Utc::now().naive_utc(),
+            timestamp: Local::now(),
             out_path: cli.out_folder,
             run_name: cli.run_name,
             max_iters: cli.max_iterations,
@@ -105,7 +106,7 @@ impl From<Cli> for ConfigBuilder {
 }
 
 pub struct Config {
-    pub timestamp: chrono::NaiveDateTime,
+    pub timestamp: DateTime<Local>,
     pub out_fldr: PathBuf,
     pub out_tree: PathBuf,
     pub run_id: String,
@@ -150,17 +151,19 @@ impl Display for Config {
 
 impl ConfigBuilder {
     pub(crate) fn setup(self) -> Result<Config> {
-        let run_id = self.run_name.as_deref().map_or_else(
-            || self.timestamp.to_string(),
-            |run_name| format!("{}_{}", run_name, self.timestamp),
+        let run_id = self.run_name.map_or_else(
+            || self.timestamp.to_utc().timestamp_millis().to_string(),
+            |name| format!("{}_{}", name, self.timestamp.to_utc().timestamp_millis()),
         );
-        let out_fldr = self.out_path.join(format!("{}_output", run_id));
+
+        let out_fldr = self.out_path.join(format!("{}_out", run_id));
         std::fs::create_dir_all(&out_fldr)?;
+
         Ftail::new()
             .datetime_format("%H:%M:%S%.3f")
             .console(LevelFilter::Info)
             .single_file(
-                out_fldr.join("jati.log").to_str().unwrap(),
+                out_fldr.join(format!("{}.log", run_id)).to_str().unwrap(),
                 true,
                 LevelFilter::Debug,
             )
