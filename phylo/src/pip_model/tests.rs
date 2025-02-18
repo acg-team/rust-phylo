@@ -9,7 +9,7 @@ use crate::alphabets::{AMINOACIDS as aas, GAP, NUCLEOTIDES as nucls};
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::ModelSearchCost;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
-use crate::pip_model::{PIPCostBuilder as PIPB, PIPModel, PIPModelInfo, PIPModelTrait};
+use crate::pip_model::{PIPCostBuilder as PIPB, PIPModel, PIPModelInfo};
 use crate::substitution_models::{
     dna_models::*, protein_models::*, FreqVector, QMatrix, QMatrixMaker, SubstMatrix, SubstModel,
 };
@@ -23,11 +23,7 @@ const UNNORMALIZED_PIP_HKY_Q: [f64; 25] = [
 ];
 
 #[cfg(test)]
-fn compare_pip_subst_rates_template<Q: QMatrix + QMatrixMaker>(chars: &[u8])
-where
-    PIPModel<Q>: PIPModelTrait,
-    SubstModel<Q>: EvoModel,
-{
+fn compare_pip_subst_rates_template<Q: QMatrix + QMatrixMaker>(chars: &[u8]) {
     let pip_model = PIPModel::<Q>::new(&[], &[0.1, 0.4]).unwrap();
     let subst_model = SubstModel::<Q>::new(&[], &[]).unwrap();
     for (i, &char) in chars.iter().enumerate() {
@@ -119,10 +115,7 @@ fn pip_dna_hky_as_k80() {
 }
 
 #[cfg(test)]
-fn pip_too_few_params_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64])
-where
-    PIPModel<Q>: PIPModelTrait,
-{
+fn pip_too_few_params_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) {
     let result = PIPModel::<Q>::new(freqs, params);
     assert!(result.is_err());
 }
@@ -164,9 +157,7 @@ fn pip_normalised_check_template<Q: QMatrix + QMatrixMaker>(
     chars: &[u8],
     freqs: &[f64],
     params: &[f64],
-) where
-    PIPModel<Q>: PIPModelTrait,
-{
+) {
     let pip = PIPModel::<Q>::new(freqs, params).unwrap();
     assert_eq!(pip.lambda(), params[0]);
     assert_eq!(pip.mu(), params[1]);
@@ -201,10 +192,7 @@ fn pip_protein_normalised() {
 }
 
 #[cfg(test)]
-fn pip_infinity_p_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64])
-where
-    PIPModel<Q>: EvoModel,
-{
+fn pip_infinity_p_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) {
     let model = PIPModel::<Q>::new(freqs, params).unwrap();
     let p_inf = model.p(10000.0);
     assert_eq!(p_inf.shape(), model.q().shape());

@@ -6,7 +6,6 @@ use std::ops::Mul;
 use std::vec;
 
 use anyhow::bail;
-use dyn_clone::DynClone;
 use nalgebra::{DMatrix, DVector};
 
 use crate::alignment::Mapping;
@@ -20,13 +19,6 @@ use crate::tree::{
     Tree,
 };
 use crate::Result;
-
-pub trait PIPModelTrait: Debug + Display + DynClone + EvoModel {
-    fn lambda(&self) -> f64;
-    fn mu(&self) -> f64;
-}
-
-dyn_clone::clone_trait_object!(PIPModelTrait);
 
 // (2.0 * PI).ln() / 2.0;
 pub static SHIFT: f64 = 0.9189385332046727;
@@ -55,7 +47,7 @@ fn pip_q(q: &mut SubstMatrix, subst_q: &SubstMatrix, mu: f64) {
     }
 }
 
-impl<Q: QMatrix> PIPModelTrait for PIPModel<Q> {
+impl<Q: QMatrix> PIPModel<Q> {
     fn lambda(&self) -> f64 {
         self.params[0]
     }
@@ -174,10 +166,7 @@ pub struct PIPModelInfo<Q: QMatrix> {
     leaf_sequence_info: HashMap<String, DMatrix<f64>>,
 }
 
-impl<Q: QMatrix> PIPModelInfo<Q>
-where
-    PIPModel<Q>: PIPModelTrait,
-{
+impl<Q: QMatrix> PIPModelInfo<Q> {
     pub fn new(info: &PhyloInfo, model: &PIPModel<Q>) -> Result<Self> {
         let n = model.q().nrows();
         let node_count = info.tree.len();
@@ -215,18 +204,12 @@ where
     }
 }
 
-pub struct PIPCostBuilder<Q: QMatrix>
-where
-    PIPModel<Q>: PIPModelTrait,
-{
+pub struct PIPCostBuilder<Q: QMatrix> {
     pub(crate) model: PIPModel<Q>,
     info: PhyloInfo,
 }
 
-impl<Q: QMatrix> PIPCostBuilder<Q>
-where
-    PIPModel<Q>: PIPModelTrait,
-{
+impl<Q: QMatrix> PIPCostBuilder<Q> {
     pub fn new(model: PIPModel<Q>, info: PhyloInfo) -> Self {
         PIPCostBuilder { model, info }
     }
@@ -252,10 +235,7 @@ pub struct PIPCost<Q: QMatrix> {
     tmp: RefCell<PIPModelInfo<Q>>,
 }
 
-impl<Q: QMatrix> TreeSearchCost for PIPCost<Q>
-where
-    PIPModel<Q>: PIPModelTrait,
-{
+impl<Q: QMatrix> TreeSearchCost for PIPCost<Q> {
     fn cost(&self) -> f64 {
         self.logl()
     }
@@ -278,10 +258,7 @@ where
     }
 }
 
-impl<Q: QMatrix> ModelSearchCost for PIPCost<Q>
-where
-    PIPModel<Q>: PIPModelTrait,
-{
+impl<Q: QMatrix> ModelSearchCost for PIPCost<Q> {
     fn cost(&self) -> f64 {
         self.logl()
     }
@@ -314,10 +291,7 @@ impl<Q: QMatrix + Display> Display for PIPCost<Q> {
     }
 }
 
-impl<Q: QMatrix> PIPCost<Q>
-where
-    PIPModel<Q>: PIPModelTrait,
-{
+impl<Q: QMatrix> PIPCost<Q> {
     fn logl(&self) -> f64 {
         for node_idx in self.info.tree.postorder() {
             match node_idx {
