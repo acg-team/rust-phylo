@@ -2,7 +2,7 @@ name: tests with coverage
 
 on:
   push:
-    branches: [ "develop", "main" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "develop" ]
   workflow_dispatch:
