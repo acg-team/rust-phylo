@@ -287,10 +287,7 @@ fn frequencies_fixed_opt_gtr() {
 }
 
 #[cfg(test)]
-fn frequencies_fixed_protein_template<Q: QMatrix + QMatrixMaker>()
-where
-    SubstModel<Q>: EvoModel,
-{
+fn frequencies_fixed_protein_template<Q: QMatrix + QMatrixMaker>() {
     let fldr = Path::new("./data");
     let info = PIB::with_attrs(
         fldr.join("sequences_protein1.fasta"),
@@ -319,10 +316,7 @@ fn frequencies_fixed_protein() {
 }
 
 #[cfg(test)]
-fn frequencies_empirical_protein_template<Q: QMatrix + QMatrixMaker>()
-where
-    SubstModel<Q>: EvoModel,
-{
+fn frequencies_empirical_protein_template<Q: QMatrix + QMatrixMaker>() {
     let fldr = Path::new("./data");
     let info = PIB::with_attrs(
         fldr.join("sequences_protein1.fasta"),
