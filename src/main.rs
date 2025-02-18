@@ -110,8 +110,8 @@ fn main() -> Result<()> {
     info!("Putting resulting tree in {}", cfg.out_tree.display());
 
     write_newick_to_file(&[tree.clone()], cfg.out_tree)?;
-    let mut out = File::create(cfg.out_fldr.join("log.out"))?;
-    writeln!(out, "{}", cost)?;
+    let mut out_logl = File::create(cfg.out_logl)?;
+    writeln!(out_logl, "{}", cost)?;
 
     Ok(())
 }
