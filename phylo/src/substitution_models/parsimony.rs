@@ -4,7 +4,7 @@ use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::EvoModel;
 use crate::f64_h;
-use crate::substitution_models::{QMatrix, SubstMatrix, SubstModel, SubstitutionModel};
+use crate::substitution_models::{QMatrix, SubstMatrix, SubstModel};
 use crate::Rounding;
 
 pub trait ParsimonyModel {
@@ -25,10 +25,7 @@ pub trait ParsimonyModel {
     ) -> (SubstMatrix, f64);
 }
 
-impl<Q: QMatrix> ParsimonyModel for SubstModel<Q>
-where
-    SubstModel<Q>: SubstitutionModel,
-{
+impl<Q: QMatrix> ParsimonyModel for SubstModel<Q> {
     fn generate_scorings(
         &self,
         times: &[f64],

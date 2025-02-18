@@ -5,7 +5,6 @@ use std::marker::PhantomData;
 use std::ops::Mul;
 
 use anyhow::bail;
-use dyn_clone::DynClone;
 use nalgebra::{DMatrix, DVector};
 
 use crate::alphabets::Alphabet;
@@ -50,31 +49,18 @@ pub trait QMatrix: Debug + Clone + Display {
     fn alphabet(&self) -> &Alphabet;
 }
 
-pub trait SubstitutionModel: Debug + Display + DynClone + EvoModel {}
-
 #[derive(Debug, Clone, PartialEq)]
-pub struct SubstModel<Q: QMatrix>
-where
-    SubstModel<Q>: SubstitutionModel,
-{
+pub struct SubstModel<Q: QMatrix> {
     pub(crate) qmatrix: Q,
 }
 
-impl<Q: QMatrix> SubstitutionModel for SubstModel<Q> {}
-
-impl<Q: QMatrix + Display> Display for SubstModel<Q>
-where
-    SubstModel<Q>: SubstitutionModel,
-{
+impl<Q: QMatrix + Display> Display for SubstModel<Q> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.qmatrix)
     }
 }
 
-impl<Q: QMatrix + QMatrixMaker> SubstModel<Q>
-where
-    SubstModel<Q>: SubstitutionModel,
-{
+impl<Q: QMatrix + QMatrixMaker> SubstModel<Q> {
     pub fn new(frequencies: &[f64], params: &[f64]) -> Result<Self>
     where
         Self: Sized,
@@ -85,10 +71,7 @@ where
     }
 }
 
-impl<Q: QMatrix> EvoModel for SubstModel<Q>
-where
-    SubstModel<Q>: SubstitutionModel,
-{
+impl<Q: QMatrix> EvoModel for SubstModel<Q> {
     fn p(&self, time: f64) -> SubstMatrix {
         (self.q().clone() * time).exp()
     }
@@ -126,10 +109,7 @@ where
     }
 }
 
-pub struct SubstitutionCostBuilder<Q: QMatrix>
-where
-    SubstModel<Q>: SubstitutionModel,
-{
+pub struct SubstitutionCostBuilder<Q: QMatrix> {
     pub(crate) model: SubstModel<Q>,
     info: PhyloInfo,
 }
@@ -154,10 +134,7 @@ impl<Q: QMatrix> SubstitutionCostBuilder<Q> {
 }
 
 #[derive(Debug)]
-pub struct SubstitutionCost<Q: QMatrix>
-where
-    SubstModel<Q>: SubstitutionModel,
-{
+pub struct SubstitutionCost<Q: QMatrix> {
     pub(crate) model: SubstModel<Q>,
     pub(crate) info: PhyloInfo,
     tmp: RefCell<SubstModelInfo<Q>>,
@@ -311,10 +288,7 @@ impl<Q: QMatrix> SubstitutionCost<Q> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SubstModelInfo<Q: QMatrix>
-where
-    SubstModel<Q>: SubstitutionModel,
-{
+pub struct SubstModelInfo<Q: QMatrix> {
     phantom: PhantomData<Q>,
     node_info: Vec<DMatrix<f64>>,
     node_info_valid: Vec<bool>,

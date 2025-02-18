@@ -15,17 +15,14 @@ use crate::likelihood::ModelSearchCost;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::substitution_models::{
     dna_models::*, protein_models::*, FreqVector, ParsimonyModel, QMatrix, QMatrixMaker,
-    SubstMatrix, SubstModel, SubstitutionCostBuilder as SCB, SubstitutionModel,
+    SubstMatrix, SubstModel, SubstitutionCostBuilder as SCB,
 };
 use crate::tree::{tree_parser::from_newick, Tree};
 use crate::Rounding as R;
 use crate::{frequencies, record_wo_desc as record, tree};
 
 #[cfg(test)]
-fn freqs_fixed_template<Q: QMatrix + QMatrixMaker>(params: &[f64])
-where
-    SubstModel<Q>: SubstitutionModel,
-{
+fn freqs_fixed_template<Q: QMatrix + QMatrixMaker>(params: &[f64]) {
     // freqs should not change for JC69 and K80
     let mut model = SubstModel::<Q>::new(&[], params).unwrap();
     model.set_freqs(frequencies!(&[0.1, 0.2, 0.3, 0.4]));
