@@ -200,3 +200,29 @@ impl PhyloInfoBuilder {
         Ok(())
     }
 }
+
+#[cfg(test)]
+pub mod builder_tests {
+    use std::path::PathBuf;
+
+    use super::PhyloInfoBuilder as PIB;
+
+    #[test]
+    fn builder_setters() {
+        let fasta1 = PathBuf::from("./data/sequences_DNA_small.fasta");
+        let fasta2 = PathBuf::from("./data/sequences_DNA1.fasta");
+        let newick = PathBuf::from("./data/tree_diff_branch_lengths_2.newick");
+
+        let builder = PIB::new(fasta1.clone());
+        assert_eq!(builder.sequence_file, fasta1);
+        let builder = builder.sequence_file(fasta2.clone());
+        assert_ne!(builder.sequence_file, fasta1);
+        assert_eq!(builder.sequence_file, fasta2);
+
+        assert_eq!(builder.tree_file, None);
+        let builder = builder.tree_file(Some(newick.clone()));
+        assert_eq!(builder.tree_file, Some(newick));
+        let builder = builder.tree_file(None);
+        assert_eq!(builder.tree_file, None);
+    }
+}
