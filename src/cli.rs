@@ -2,6 +2,7 @@ use std::fmt::{self, Display};
 use std::path::PathBuf;
 
 use chrono::{DateTime, Local};
+use clap::builder::TypedValueParser;
 use clap::Parser;
 use ftail::Ftail;
 use log::LevelFilter;
@@ -58,7 +59,14 @@ pub(super) struct Cli {
         short = 'o',
         long,
         value_name = "FREQ_OPTIMISATION",
-        default_value = "empirical"
+        default_value = "empirical",
+        value_parser = clap::builder::PossibleValuesParser::new(["empirical", "estimated", "fixed"]).map(
+        |s| match &s[..] {
+            "empirical" => FrequencyOptimisation::Empirical,
+            "estimated" => FrequencyOptimisation::Estimated,
+            "fixed" => FrequencyOptimisation::Fixed,
+            other => panic!("'{other}' should not have been a valid option"),
+        })
     )]
     pub(super) freq_opt: FrequencyOptimisation,
 
