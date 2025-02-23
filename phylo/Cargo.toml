@@ -9,7 +9,10 @@ edition = "2021"
 ci_coverage = []
 
 [profile.release]
+# useful for flamegraphs
+debug = true
 opt-level = 3
+# TODO: evaluate 'fat' LTO and single codegen-unit
 
 [profile.dev]
 opt-level = 3
