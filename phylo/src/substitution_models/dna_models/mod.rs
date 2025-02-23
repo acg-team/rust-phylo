@@ -392,7 +392,7 @@ impl Display for TN93 {
 
 #[derive(Clone, Debug, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
-pub(crate) struct GTR {
+pub struct GTR {
     freqs: FreqVector,
     q: SubstMatrix,
     params: Vec<f64>,
