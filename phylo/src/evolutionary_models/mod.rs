@@ -1,6 +1,7 @@
 use crate::substitution_models::{FreqVector, SubstMatrix};
 use crate::Result;
 
+#[derive(Clone, Copy, Debug)]
 pub enum FrequencyOptimisation {
     Empirical,
     Estimated,
