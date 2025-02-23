@@ -16,3 +16,9 @@ chrono = "0.4.26"
 stats-cli = "3.0.1"
 phylo = { path = "../rust-phylo/phylo" }
 anyhow = "1.0.86"
+
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
