@@ -7,16 +7,24 @@ pub use model_optimiser::*;
 pub mod topo_optimiser;
 pub use topo_optimiser::*;
 
-pub struct PhyloOptimisationResult<C: TreeSearchCost + Clone> {
-    pub initial_logl: f64,
-    pub final_logl: f64,
+// Struct for any single value optimisation result, e.g. branch length or evolutionary model parameter value
+pub struct SingleValOptResult {
+    // final cost after optimisation
+    pub final_cost: f64,
+    // value of the parameter after optimisation
+    pub value: f64,
+}
+
+pub struct PhyloOptimisationResult<C: TreeSearchCost> {
+    pub initial_cost: f64,
+    pub final_cost: f64,
     pub iterations: usize,
     pub cost: C,
 }
 
-pub struct ModelOptimisationResult<C: ModelSearchCost + Clone> {
-    pub initial_logl: f64,
-    pub final_logl: f64,
+pub struct ModelOptimisationResult<C: ModelSearchCost> {
+    pub initial_cost: f64,
+    pub final_cost: f64,
     pub iterations: usize,
     pub cost: C,
 }

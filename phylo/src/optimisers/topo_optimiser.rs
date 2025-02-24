@@ -26,11 +26,12 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
         debug_assert!(self.c.borrow().tree().len() > 3);
 
         info!("Optimising tree topology with SPRs.");
-        let initial_logl = self.c.borrow().cost();
+        let init_cost = self.c.borrow().cost();
         let mut tree = self.c.borrow().tree().clone();
 
-        info!("Initial logl: {}.", initial_logl);
-        let mut curr_cost = initial_logl;
+        info!("Initial cost: {}.", init_cost);
+        debug!("Initial tree: \n{}", tree);
+        let mut curr_cost = init_cost;
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
 
@@ -46,9 +47,9 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
         // the search stops.
         // This means that curr_cost is always hugher than or equel to prev_cost.
         while (curr_cost - prev_cost) > self.epsilon {
-            tree = self.c.borrow().tree().clone();
             iterations += 1;
-            info!("Iteration: {}, current logl: {}.", iterations, curr_cost);
+            info!("Iteration: {}, current cost: {}.", iterations, curr_cost);
+            tree = self.c.borrow().tree().clone();
             prev_cost = curr_cost;
 
             for prune in &prune_locations {
@@ -63,54 +64,61 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
                 for regraft in &regraft_locations {
                     let mut new_tree = tree.rooted_spr(prune, regraft)?;
 
-                    let mut cost = self.c.borrow().clone();
-                    cost.update_tree(new_tree.clone(), &[*prune, *regraft]);
+                    // This clone is done to not have to reset the original cost function to the old tree.
+                    // Needs checking if this is necessary/efficient.
+                    let mut cost_func = self.c.borrow().clone();
+                    cost_func.update_tree(new_tree.clone(), &[*prune, *regraft]);
 
-                    let mut logl = cost.cost();
-                    if logl <= curr_cost {
+                    let mut move_cost = cost_func.cost();
+                    if move_cost <= curr_cost {
                         // reoptimise branch length at the regraft location
-                        let mut o = BranchOptimiser::new(cost);
-                        let (blen_logl, blen) = o.optimise_branch(regraft)?;
-                        if blen_logl > logl {
-                            new_tree.set_blen(regraft, blen);
-                            logl = blen_logl;
+                        let mut o = BranchOptimiser::new(cost_func);
+                        let blen_opt = o.optimise_branch(regraft)?;
+                        if blen_opt.final_cost > move_cost {
+                            move_cost = blen_opt.final_cost;
+                            new_tree.set_blen(regraft, blen_opt.value);
                         }
                     }
-                    debug!("    Regraft to {:?} w best logl {}.", regraft, logl);
-                    moves.push((logl, *regraft, new_tree));
+                    debug!("    Regraft to {:?} w best cost {}.", regraft, move_cost);
+                    moves.push((move_cost, *regraft, new_tree));
                 }
-                let (best_logl, regraft, best_tree) = moves
+                let (best_move_cost, regraft, best_tree) = moves
                     .into_iter()
                     .max_by(|(a, _, _), (b, _, _)| a.partial_cmp(b).unwrap())
                     .unwrap();
-                if best_logl > curr_cost {
-                    curr_cost = best_logl;
+                if best_move_cost > curr_cost {
+                    curr_cost = best_move_cost;
                     self.c
                         .borrow_mut()
                         .update_tree(best_tree, &[*prune, regraft]);
-                    info!("    Regrafted to {:?}, new logl {}.", regraft, curr_cost);
+                    info!("    Regrafted to {:?}, new cost {}.", regraft, curr_cost);
                 } else {
-                    info!("    No improvement, best logl {}.", best_logl);
+                    info!("    No improvement, best cost {}.", best_move_cost);
                 }
             }
 
             // Optimise branch lengths on current tree to match PhyML
             let o = BranchOptimiser::new(self.c.borrow().clone()).run()?;
-            if o.final_logl > curr_cost {
-                curr_cost = o.final_logl;
+            if o.final_cost > curr_cost {
+                curr_cost = o.final_cost;
                 self.c.borrow_mut().update_tree(o.cost.tree().clone(), &[]);
             }
+            debug!(
+                "Tree after iteration {}: \n{}",
+                iterations,
+                self.c.borrow().tree()
+            );
         }
 
         debug_assert_eq!(curr_cost, self.c.borrow().cost());
         info!("Done optimising tree topology.");
         info!(
-            "Final logl: {}, achieved in {} iteration(s).",
+            "Final cost: {}, achieved in {} iteration(s).",
             curr_cost, iterations
         );
         Ok(PhyloOptimisationResult {
-            initial_logl,
-            final_logl: curr_cost,
+            initial_cost: init_cost,
+            final_cost: curr_cost,
             iterations,
             cost: self.c.into_inner(),
         })

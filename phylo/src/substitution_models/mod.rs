@@ -1,12 +1,11 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::marker::PhantomData;
 use std::ops::Mul;
 
 use anyhow::bail;
 use nalgebra::{DMatrix, DVector};
-use ordered_float::OrderedFloat;
 
 use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
@@ -15,10 +14,15 @@ use crate::tree::{
     NodeIdx::{self, Internal, Leaf},
     Tree,
 };
-use crate::{f64_h, phylo_info::PhyloInfo, Result, Rounding};
+use crate::{phylo_info::PhyloInfo, Result};
 
 pub mod dna_models;
+pub use dna_models::*;
 pub mod protein_models;
+pub use protein_models::*;
+
+pub mod parsimony;
+pub use parsimony::*;
 
 pub type SubstMatrix = DMatrix<f64>;
 pub type FreqVector = DVector<f64>;
@@ -30,43 +34,24 @@ macro_rules! frequencies {
     };
 }
 
-pub trait QMatrix {
-    fn new(frequencies: &[f64], params: &[f64]) -> Self;
+pub trait QMatrixMaker {
+    fn create(frequencies: &[f64], params: &[f64]) -> Self;
+}
+
+pub trait QMatrix: Debug + Clone + Display {
     fn set_param(&mut self, param: usize, value: f64);
     fn params(&self) -> &[f64];
     fn freqs(&self) -> &FreqVector;
     fn set_freqs(&mut self, freqs: FreqVector);
     fn q(&self) -> &SubstMatrix;
+    fn rate(&self, i: u8, j: u8) -> f64;
     fn n(&self) -> usize;
-    fn index(&self) -> &[usize; 255];
     fn alphabet(&self) -> &Alphabet;
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SubstModel<Q>
-where
-    SubstModel<Q>: EvoModel,
-    Q: QMatrix,
-{
+pub struct SubstModel<Q: QMatrix> {
     pub(crate) qmatrix: Q,
-}
-
-pub trait ParsimonyModel {
-    fn generate_scorings(
-        &self,
-        times: &[f64],
-        zero_diag: bool,
-        rounding: &Rounding,
-    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)>;
-
-    fn scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64);
-
-    fn scoring_matrix_corrected(
-        &self,
-        time: f64,
-        zero_diag: bool,
-        rounding: &Rounding,
-    ) -> (SubstMatrix, f64);
 }
 
 impl<Q: QMatrix + Display> Display for SubstModel<Q> {
@@ -75,16 +60,18 @@ impl<Q: QMatrix + Display> Display for SubstModel<Q> {
     }
 }
 
-impl<Q: QMatrix + Display> EvoModel for SubstModel<Q> {
-    fn new(frequencies: &[f64], params: &[f64]) -> Result<Self>
+impl<Q: QMatrix + QMatrixMaker> SubstModel<Q> {
+    pub fn new(frequencies: &[f64], params: &[f64]) -> Result<Self>
     where
         Self: Sized,
     {
         Ok(SubstModel {
-            qmatrix: Q::new(frequencies, params),
+            qmatrix: Q::create(frequencies, params),
         })
     }
+}
 
+impl<Q: QMatrix> EvoModel for SubstModel<Q> {
     fn p(&self, time: f64) -> SubstMatrix {
         (self.q().clone() * time).exp()
     }
@@ -94,7 +81,7 @@ impl<Q: QMatrix + Display> EvoModel for SubstModel<Q> {
     }
 
     fn rate(&self, i: u8, j: u8) -> f64 {
-        self.q()[(self.index()[i as usize], self.index()[j as usize])]
+        self.qmatrix.rate(i, j)
     }
 
     fn params(&self) -> &[f64] {
@@ -113,75 +100,31 @@ impl<Q: QMatrix + Display> EvoModel for SubstModel<Q> {
         self.qmatrix.set_freqs(pi);
     }
 
-    fn index(&self) -> &[usize; 255] {
-        self.qmatrix.index()
-    }
-
     fn n(&self) -> usize {
         self.qmatrix.n()
     }
-}
 
-impl<Q: QMatrix> ParsimonyModel for SubstModel<Q>
-where
-    SubstModel<Q>: EvoModel,
-{
-    fn generate_scorings(
-        &self,
-        times: &[f64],
-        zero_diag: bool,
-        rounding: &Rounding,
-    ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)> {
-        HashMap::<f64_h, (SubstMatrix, f64)>::from_iter(times.iter().map(|&time| {
-            (
-                f64_h::from(time),
-                self.scoring_matrix_corrected(time, zero_diag, rounding),
-            )
-        }))
-    }
-
-    fn scoring_matrix(&self, time: f64, rounding: &Rounding) -> (SubstMatrix, f64) {
-        self.scoring_matrix_corrected(time, false, rounding)
-    }
-
-    fn scoring_matrix_corrected(
-        &self,
-        time: f64,
-        zero_diag: bool,
-        rounding: &Rounding,
-    ) -> (SubstMatrix, f64) {
-        let mut scores = self.p(time);
-        scores.iter_mut().for_each(|x| *x = -(*x).ln());
-        if rounding.round {
-            scores.iter_mut().for_each(|x| {
-                *x = (*x * 10.0_f64.powf(rounding.digits as f64)).round()
-                    / 10.0_f64.powf(rounding.digits as f64)
-            });
-        }
-        if zero_diag {
-            scores.fill_diagonal(0.0);
-        }
-        let mean = scores.mean();
-        (scores, mean)
+    fn alphabet(&self) -> &Alphabet {
+        self.qmatrix.alphabet()
     }
 }
 
-pub struct SubstitutionCostBuilder<Q: QMatrix + Display + Clone> {
+pub struct SubstitutionCostBuilder<Q: QMatrix> {
     pub(crate) model: SubstModel<Q>,
     info: PhyloInfo,
 }
 
-impl<Q: QMatrix + Display + Clone> SubstitutionCostBuilder<Q> {
+impl<Q: QMatrix> SubstitutionCostBuilder<Q> {
     pub fn new(model: SubstModel<Q>, info: PhyloInfo) -> Self {
         SubstitutionCostBuilder { model, info }
     }
 
     pub fn build(self) -> Result<SubstitutionCost<Q>> {
-        if self.info.msa.alphabet() != self.model.qmatrix.alphabet() {
+        if self.info.msa.alphabet() != self.model.alphabet() {
             bail!("Alphabet mismatch between model and alignment.");
         }
 
-        let tmp = RefCell::new(SubstModelInfo::<Q>::new(&self.info, &self.model).unwrap());
+        let tmp = RefCell::new(SubstModelInfo::new(&self.info, &self.model).unwrap());
         Ok(SubstitutionCost {
             model: self.model,
             info: self.info,
@@ -190,17 +133,24 @@ impl<Q: QMatrix + Display + Clone> SubstitutionCostBuilder<Q> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct SubstitutionCost<Q: QMatrix + Clone + Display + 'static> {
+#[derive(Debug)]
+pub struct SubstitutionCost<Q: QMatrix> {
     pub(crate) model: SubstModel<Q>,
     pub(crate) info: PhyloInfo,
     tmp: RefCell<SubstModelInfo<Q>>,
 }
 
-impl<Q: QMatrix + Clone + Display + 'static> TreeSearchCost for SubstitutionCost<Q>
-where
-    SubstModel<Q>: EvoModel,
-{
+impl<Q: QMatrix> Clone for SubstitutionCost<Q> {
+    fn clone(&self) -> Self {
+        SubstitutionCost {
+            model: self.model.clone(),
+            info: self.info.clone(),
+            tmp: RefCell::new(self.tmp.borrow().clone()),
+        }
+    }
+}
+
+impl<Q: QMatrix> TreeSearchCost for SubstitutionCost<Q> {
     fn cost(&self) -> f64 {
         self.logl(&self.info)
     }
@@ -223,10 +173,7 @@ where
     }
 }
 
-impl<Q: QMatrix + Clone + Display + 'static> ModelSearchCost for SubstitutionCost<Q>
-where
-    SubstModel<Q>: EvoModel,
-{
+impl<Q: QMatrix> ModelSearchCost for SubstitutionCost<Q> {
     fn cost(&self) -> f64 {
         self.logl(&self.info)
     }
@@ -254,16 +201,13 @@ where
     }
 }
 
-impl<Q: QMatrix + Display + Clone + 'static> Display for SubstitutionCost<Q> {
+impl<Q: QMatrix> Display for SubstitutionCost<Q> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.model)
     }
 }
 
-impl<Q: QMatrix + Display + Clone> SubstitutionCost<Q>
-where
-    SubstModel<Q>: EvoModel,
-{
+impl<Q: QMatrix> SubstitutionCost<Q> {
     fn logl(&self, info: &PhyloInfo) -> f64 {
         for node_idx in info.tree.postorder() {
             match node_idx {
@@ -344,7 +288,7 @@ where
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SubstModelInfo<Q: QMatrix + Display> {
+pub struct SubstModelInfo<Q: QMatrix> {
     phantom: PhantomData<Q>,
     node_info: Vec<DMatrix<f64>>,
     node_info_valid: Vec<bool>,
@@ -353,8 +297,9 @@ pub struct SubstModelInfo<Q: QMatrix + Display> {
     leaf_sequence_info: HashMap<String, DMatrix<f64>>,
 }
 
-impl<Q: QMatrix + Display> SubstModelInfo<Q> {
+impl<Q: QMatrix> SubstModelInfo<Q> {
     pub fn new(info: &PhyloInfo, model: &SubstModel<Q>) -> Result<Self> {
+        let n = model.q().nrows();
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
 
@@ -362,7 +307,7 @@ impl<Q: QMatrix + Display> SubstModelInfo<Q> {
         for node in info.tree.leaves() {
             let alignment_map = info.msa.leaf_map(&node.idx);
             let leaf_encoding = info.msa.leaf_encoding.get(&node.id).unwrap();
-            let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(model.n(), msa_length);
+            let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(n, msa_length);
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
                     site_info.copy_from(&leaf_encoding.column(c));
@@ -373,10 +318,10 @@ impl<Q: QMatrix + Display> SubstModelInfo<Q> {
             leaf_sequence_info.insert(node.id.clone(), leaf_seq_w_gaps);
         }
         Ok(SubstModelInfo::<Q> {
-            phantom: PhantomData::<Q>,
-            node_info: vec![DMatrix::<f64>::zeros(model.n(), msa_length); node_count],
+            phantom: PhantomData,
+            node_info: vec![DMatrix::<f64>::zeros(n, msa_length); node_count],
             node_info_valid: vec![false; node_count],
-            node_models: vec![SubstMatrix::zeros(model.n(), model.n()); node_count],
+            node_models: vec![SubstMatrix::zeros(n, n); node_count],
             node_models_valid: vec![false; node_count],
             leaf_sequence_info,
         })

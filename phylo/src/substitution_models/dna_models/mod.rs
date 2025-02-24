@@ -7,12 +7,26 @@ use log::warn;
 
 use crate::alphabets::{dna_alphabet, Alphabet, NUCLEOTIDE_INDEX};
 use crate::frequencies;
-use crate::substitution_models::{FreqVector, QMatrix, SubstMatrix};
+use crate::substitution_models::{FreqVector, QMatrix, QMatrixMaker, SubstMatrix};
 
 const DNA_N: usize = 4;
+const EQUAL_FREQS: [f64; DNA_N] = [0.25, 0.25, 0.25, 0.25];
 
-fn verify_dna_freqs(freqs: &FreqVector) -> bool {
-    freqs.len() == DNA_N && relative_eq!(freqs.sum().abs(), 1.0)
+fn set_dna_freqs(freqs: FreqVector) -> FreqVector {
+    if freqs.len() < DNA_N {
+        warn!("Too few frequencies provided, using equal.");
+        frequencies!(&EQUAL_FREQS)
+    } else {
+        if freqs.len() > DNA_N {
+            warn!("Too many frequencies provided, using the first {}.", DNA_N);
+        }
+        if !relative_eq!(freqs.into_iter().take(DNA_N).sum::<f64>().abs(), 1.0) {
+            warn!("Invalid frequencies provided, using equal.");
+            frequencies!(&EQUAL_FREQS)
+        } else {
+            FreqVector::from(freqs.rows(0, DNA_N))
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -22,8 +36,8 @@ pub struct JC69 {
     alphabet: Alphabet,
 }
 
-impl QMatrix for JC69 {
-    fn new(_: &[f64], _: &[f64]) -> Self {
+impl QMatrixMaker for JC69 {
+    fn create(_: &[f64], _: &[f64]) -> JC69 {
         let r = 1.0 / 3.0;
         let q = SubstMatrix::from_row_slice(
             DNA_N,
@@ -36,6 +50,9 @@ impl QMatrix for JC69 {
             alphabet: dna_alphabet().clone(),
         }
     }
+}
+
+impl QMatrix for JC69 {
     fn q(&self) -> &SubstMatrix {
         &self.q
     }
@@ -50,8 +67,8 @@ impl QMatrix for JC69 {
     fn n(&self) -> usize {
         DNA_N
     }
-    fn index(&self) -> &[usize; 255] {
-        &NUCLEOTIDE_INDEX
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
     }
     fn alphabet(&self) -> &Alphabet {
         &self.alphabet
@@ -72,8 +89,8 @@ pub struct K80 {
     alphabet: Alphabet,
 }
 
-impl QMatrix for K80 {
-    fn new(_: &[f64], params: &[f64]) -> Self {
+impl QMatrixMaker for K80 {
+    fn create(_: &[f64], params: &[f64]) -> K80 {
         let kappa = match params.len().cmp(&1) {
             Ordering::Less => {
                 warn!("Too few values provided for K80, required one value for kappa");
@@ -96,6 +113,9 @@ impl QMatrix for K80 {
             alphabet: dna_alphabet().clone(),
         }
     }
+}
+
+impl QMatrix for K80 {
     fn q(&self) -> &SubstMatrix {
         &self.q
     }
@@ -113,8 +133,8 @@ impl QMatrix for K80 {
     fn n(&self) -> usize {
         DNA_N
     }
-    fn index(&self) -> &[usize; 255] {
-        &NUCLEOTIDE_INDEX
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
     }
     fn alphabet(&self) -> &Alphabet {
         &self.alphabet
@@ -160,15 +180,10 @@ pub struct HKY {
     alphabet: Alphabet,
 }
 
-impl QMatrix for HKY {
-    fn new(freqs: &[f64], params: &[f64]) -> Self {
-        let provided_freqs = frequencies!(freqs);
-        let freqs = if verify_dna_freqs(&provided_freqs) {
-            provided_freqs
-        } else {
-            warn!("Invalid frequencies provided, using equal.");
-            frequencies!(&[1.0 / DNA_N as f64; DNA_N])
-        };
+impl QMatrixMaker for HKY {
+    fn create(freqs: &[f64], params: &[f64]) -> HKY {
+        let freqs = set_dna_freqs(frequencies!(freqs));
+
         let kappa = match params.len().cmp(&1) {
             Ordering::Less => {
                 warn!("Too few values provided for HKY, required one value for kappa");
@@ -191,6 +206,9 @@ impl QMatrix for HKY {
             alphabet: dna_alphabet().clone(),
         }
     }
+}
+
+impl QMatrix for HKY {
     fn q(&self) -> &SubstMatrix {
         &self.q
     }
@@ -198,12 +216,7 @@ impl QMatrix for HKY {
         &self.freqs
     }
     fn set_freqs(&mut self, freqs: FreqVector) {
-        self.freqs = if verify_dna_freqs(&freqs) {
-            freqs
-        } else {
-            warn!("Invalid frequencies provided, using equal.");
-            frequencies!(&[1.0 / DNA_N as f64; DNA_N])
-        };
+        self.freqs = set_dna_freqs(freqs);
         hky_q(&mut self.q, &self.freqs, self.kappa[0])
     }
     fn set_param(&mut self, _: usize, value: f64) {
@@ -216,8 +229,8 @@ impl QMatrix for HKY {
     fn n(&self) -> usize {
         DNA_N
     }
-    fn index(&self) -> &[usize; 255] {
-        &NUCLEOTIDE_INDEX
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
     }
     fn alphabet(&self) -> &Alphabet {
         &self.alphabet
@@ -275,16 +288,9 @@ pub struct TN93 {
     alphabet: Alphabet,
 }
 
-impl QMatrix for TN93 {
-    fn new(freqs: &[f64], params: &[f64]) -> Self {
-        let provided_freqs = frequencies!(freqs);
-        let freqs = if verify_dna_freqs(&provided_freqs) {
-            provided_freqs
-        } else {
-            warn!("Invalid frequencies provided, using equal.");
-            frequencies!(&[1.0 / DNA_N as f64; DNA_N])
-        };
-
+impl QMatrixMaker for TN93 {
+    fn create(freqs: &[f64], params: &[f64]) -> TN93 {
+        let freqs = set_dna_freqs(frequencies!(freqs));
         let mut params = params.to_vec();
         match params.len().cmp(&3) {
             Ordering::Less => {
@@ -309,6 +315,9 @@ impl QMatrix for TN93 {
             alphabet: dna_alphabet().clone(),
         }
     }
+}
+
+impl QMatrix for TN93 {
     fn q(&self) -> &SubstMatrix {
         &self.q
     }
@@ -316,12 +325,7 @@ impl QMatrix for TN93 {
         &self.freqs
     }
     fn set_freqs(&mut self, freqs: FreqVector) {
-        self.freqs = if verify_dna_freqs(&freqs) {
-            freqs
-        } else {
-            warn!("Invalid frequencies provided, using equal.");
-            frequencies!(&[1.0 / DNA_N as f64; DNA_N])
-        };
+        self.freqs = set_dna_freqs(freqs);
         tn93_q(&mut self.q, &self.freqs, &self.params)
     }
     fn set_param(&mut self, param: usize, value: f64) {
@@ -334,8 +338,8 @@ impl QMatrix for TN93 {
     fn n(&self) -> usize {
         DNA_N
     }
-    fn index(&self) -> &[usize; 255] {
-        &NUCLEOTIDE_INDEX
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
     }
     fn alphabet(&self) -> &Alphabet {
         &self.alphabet
@@ -392,23 +396,16 @@ impl Display for TN93 {
 
 #[derive(Clone, Debug, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
-pub(crate) struct GTR {
+pub struct GTR {
     freqs: FreqVector,
     q: SubstMatrix,
     params: Vec<f64>,
     alphabet: Alphabet,
 }
 
-impl QMatrix for GTR {
-    fn new(freqs: &[f64], params: &[f64]) -> Self {
-        let provided_freqs = frequencies!(freqs);
-        let freqs = if verify_dna_freqs(&provided_freqs) {
-            provided_freqs
-        } else {
-            warn!("Invalid frequencies provided, using equal.");
-            frequencies!(&[1.0 / DNA_N as f64; DNA_N])
-        };
-
+impl QMatrixMaker for GTR {
+    fn create(freqs: &[f64], params: &[f64]) -> GTR {
+        let freqs = set_dna_freqs(frequencies!(freqs));
         let mut params = params.to_vec();
         if params.len() < 5 {
             warn!("Too few values provided for GTR, required five values.");
@@ -430,6 +427,9 @@ impl QMatrix for GTR {
             alphabet: dna_alphabet().clone(),
         }
     }
+}
+
+impl QMatrix for GTR {
     fn q(&self) -> &SubstMatrix {
         &self.q
     }
@@ -437,12 +437,7 @@ impl QMatrix for GTR {
         &self.freqs
     }
     fn set_freqs(&mut self, freqs: FreqVector) {
-        self.freqs = if verify_dna_freqs(&freqs) {
-            freqs
-        } else {
-            warn!("Invalid frequencies provided, using equal.");
-            frequencies!(&[1.0 / DNA_N as f64; DNA_N])
-        };
+        self.freqs = set_dna_freqs(freqs);
         gtr_q(&mut self.q, &self.freqs, &self.params)
     }
     fn set_param(&mut self, param: usize, value: f64) {
@@ -455,8 +450,8 @@ impl QMatrix for GTR {
     fn n(&self) -> usize {
         DNA_N
     }
-    fn index(&self) -> &[usize; 255] {
-        &NUCLEOTIDE_INDEX
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
     }
     fn alphabet(&self) -> &Alphabet {
         &self.alphabet

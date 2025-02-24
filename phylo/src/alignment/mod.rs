@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bio::io::fasta::Record;
 use nalgebra::DMatrix;
 
-use crate::alphabets::Alphabet;
+use crate::alphabets::{Alphabet, GAP};
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::Result;
 
@@ -133,12 +133,14 @@ impl Alignment {
         for idx in order {
             match idx {
                 Int(_) => {
-                    let parent = &stack[idx].clone();
+                    let parent = &stack[idx];
                     let childs = tree.children(idx);
                     let map_x = &self.node_map[idx].map_x;
                     let map_y = &self.node_map[idx].map_y;
-                    stack.insert(childs[0], Self::map_child(parent, map_x));
-                    stack.insert(childs[1], Self::map_child(parent, map_y));
+                    let x = Self::map_child(parent, map_x);
+                    let y = Self::map_child(parent, map_y);
+                    stack.insert(childs[0], x);
+                    stack.insert(childs[1], y);
                 }
                 Leaf(_) => {
                     leaf_map.insert(*idx, stack[idx].clone());
@@ -150,13 +152,7 @@ impl Alignment {
 
     fn map_sequence(map: &Mapping, seq: &[u8]) -> Vec<u8> {
         map.iter()
-            .map(|site| {
-                if let Some(idx) = site {
-                    seq[*idx]
-                } else {
-                    b'-'
-                }
-            })
+            .map(|site| if let Some(idx) = site { seq[*idx] } else { GAP })
             .collect()
     }
 

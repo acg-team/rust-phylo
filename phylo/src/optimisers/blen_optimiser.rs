@@ -10,6 +10,8 @@ use crate::optimisers::PhyloOptimisationResult;
 use crate::tree::NodeIdx;
 use crate::Result;
 
+use super::SingleValOptResult;
+
 pub struct BranchOptimiser<C: TreeSearchCost + Display + Clone> {
     pub(crate) epsilon: f64,
     pub(crate) c: RefCell<C>,
@@ -25,44 +27,49 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
 
     pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
         info!("Optimising branch lengths.");
+        let init_cost = self.c.borrow().cost();
         let mut tree = self.c.borrow().tree().clone();
-        let initial_logl = self.c.borrow().cost();
 
-        info!("Initial logl: {}.", initial_logl);
-        let mut curr_cost = initial_logl;
+        info!("Initial cost: {}.", init_cost);
+        let mut curr_cost = init_cost;
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
 
         let nodes: Vec<NodeIdx> = tree.iter().map(|node| node.idx).collect();
         while (curr_cost - prev_cost) > self.epsilon {
             iterations += 1;
-            info!("Iteration: {}, current logl: {}.", iterations, curr_cost);
+            info!("Iteration: {}, current cost: {}.", iterations, curr_cost);
             prev_cost = curr_cost;
+
             for branch in &nodes {
                 if tree.root == *branch {
                     continue;
                 }
-                debug!("Node {:?}: optimising", branch);
-                let (logl, length) = self.optimise_branch(branch)?;
-                if logl > curr_cost {
-                    curr_cost = logl;
-                    tree.set_blen(branch, length);
-                    debug!("    Optimised to {:.5} with logl {:.5}", length, curr_cost);
+                debug!("Node {:?}: optimising branch length.", branch);
+                let blen_opt = self.optimise_branch(branch)?;
+                if blen_opt.final_cost > curr_cost {
+                    curr_cost = blen_opt.final_cost;
+                    tree.set_blen(branch, blen_opt.value);
+                    debug!(
+                        "    Optimised to {:.5} with cost {:.5}",
+                        blen_opt.value, curr_cost
+                    );
                 }
                 // The branch length may have changed during the optimisation attempt, so the tree
                 // should be reset even if the optimisation was unsuccessful.
                 self.c.borrow_mut().update_tree(tree.clone(), &[*branch]);
             }
         }
+
+        debug_assert_eq!(curr_cost, self.c.borrow().cost());
         info!("Done optimising branch lengths.");
         info!(
-            "Final logl: {}, achieved in {} iteration(s).",
+            "Final cost: {}, achieved in {} iteration(s).",
             curr_cost, iterations
         );
-
         Ok(PhyloOptimisationResult {
-            initial_logl,
-            final_logl: curr_cost,
+            initial_cost: init_cost,
+            final_cost: curr_cost,
             iterations,
             cost: self.c.into_inner(),
         })
@@ -70,7 +77,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
 }
 
 impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
-    pub(crate) fn optimise_branch(&mut self, branch: &NodeIdx) -> Result<(f64, f64)> {
+    pub(crate) fn optimise_branch(&mut self, branch: &NodeIdx) -> Result<SingleValOptResult> {
         let start_blen = self.c.borrow().tree().node(branch).blen;
         let (start, end) = if start_blen == 0.0 {
             (0.0, 1.0)
@@ -86,7 +93,10 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
             .configure(|_| IterState::new().param(start_blen))
             .run()?;
         let state = res.state();
-        Ok((-state.best_cost, state.best_param.unwrap()))
+        Ok(SingleValOptResult {
+            final_cost: -state.best_cost,
+            value: state.best_param.unwrap(),
+        })
     }
 }
 

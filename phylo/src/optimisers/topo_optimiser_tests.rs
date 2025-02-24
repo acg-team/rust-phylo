@@ -4,7 +4,7 @@ use approx::assert_relative_eq;
 use bio::io::fasta::Record;
 
 use crate::alignment::Sequences;
-use crate::evolutionary_models::{EvoModel, FrequencyOptimisation::Empirical};
+use crate::evolutionary_models::FrequencyOptimisation::Empirical;
 use crate::io::write_newick_to_file;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{BranchOptimiser, ModelOptimiser, TopologyOptimiser};
@@ -32,12 +32,12 @@ fn k80_simple() {
     let unopt_logl = c.cost();
     let o = TopologyOptimiser::new(c).run().unwrap();
 
-    assert!(o.final_logl >= unopt_logl);
-    assert_eq!(o.initial_logl, unopt_logl);
-    assert_eq!(o.final_logl, o.cost.cost());
+    assert!(o.final_cost >= unopt_logl);
+    assert_eq!(o.initial_cost, unopt_logl);
+    assert_eq!(o.final_cost, o.cost.cost());
 
     let c = SCB::new(k80, o.cost.info.clone()).build().unwrap();
-    assert_relative_eq!(c.cost(), o.final_logl);
+    assert_relative_eq!(c.cost(), o.final_cost);
     assert_relative_eq!(c.cost(), o.cost.cost());
 }
 
@@ -53,13 +53,13 @@ fn k80_sim_data_from_given() {
     let unopt_logl = c.cost();
     let o = TopologyOptimiser::new(c).run().unwrap();
 
-    assert!(o.final_logl >= unopt_logl);
-    assert_eq!(o.initial_logl, unopt_logl);
-    assert_eq!(o.final_logl, o.cost.cost());
-    assert_relative_eq!(o.final_logl, -4060.91964, epsilon = 1e-5);
+    assert!(o.final_cost >= unopt_logl);
+    assert_eq!(o.initial_cost, unopt_logl);
+    assert_eq!(o.final_cost, o.cost.cost());
+    assert_relative_eq!(o.final_cost, -4060.91964, epsilon = 1e-5);
 
     let c = SCB::new(k80, o.cost.info.clone()).build().unwrap();
-    assert_relative_eq!(c.cost(), o.final_logl);
+    assert_relative_eq!(c.cost(), o.final_cost);
     assert_relative_eq!(c.cost(), o.cost.cost());
 }
 
@@ -73,13 +73,13 @@ fn k80_sim_data_from_nj() {
     let unopt_logl = c.cost();
     let o = TopologyOptimiser::new(c).run().unwrap();
 
-    assert!(o.final_logl >= unopt_logl);
-    assert_eq!(o.initial_logl, unopt_logl);
-    assert_eq!(o.final_logl, o.cost.cost());
-    assert_relative_eq!(o.final_logl, -4060.91964, epsilon = 1e-5);
+    assert!(o.final_cost >= unopt_logl);
+    assert_eq!(o.initial_cost, unopt_logl);
+    assert_eq!(o.final_cost, o.cost.cost());
+    assert_relative_eq!(o.final_cost, -4060.91964, epsilon = 1e-5);
 
     let c = SCB::new(k80, o.cost.info.clone()).build().unwrap();
-    assert_relative_eq!(c.cost(), o.final_logl);
+    assert_relative_eq!(c.cost(), o.final_cost);
     assert_relative_eq!(c.cost(), o.cost.cost());
 }
 
@@ -95,12 +95,12 @@ fn k80_sim_data_vs_phyml() {
     let unopt_logl = c.cost();
     let o = TopologyOptimiser::new(c).run().unwrap();
 
-    assert!(o.final_logl >= unopt_logl);
-    assert_eq!(o.initial_logl, unopt_logl);
-    assert_eq!(o.final_logl, o.cost.cost());
+    assert!(o.final_cost >= unopt_logl);
+    assert_eq!(o.initial_cost, unopt_logl);
+    assert_eq!(o.final_cost, o.cost.cost());
 
     let c = SCB::new(jc69.clone(), o.cost.info.clone()).build().unwrap();
-    assert_relative_eq!(c.cost(), o.final_logl);
+    assert_relative_eq!(c.cost(), o.final_cost);
     assert_relative_eq!(c.cost(), o.cost.cost());
 
     let phyml_info = PIB::with_attrs(
@@ -111,8 +111,8 @@ fn k80_sim_data_vs_phyml() {
     .unwrap();
 
     let phyml_c = SCB::new(jc69, phyml_info.clone()).build().unwrap();
-    assert_relative_eq!(o.final_logl, phyml_c.cost(), epsilon = 1e-5);
-    assert_relative_eq!(o.final_logl, -4038.721121221992, epsilon = 1e-5);
+    assert_relative_eq!(o.final_cost, phyml_c.cost(), epsilon = 1e-5);
+    assert_relative_eq!(o.final_cost, -4038.721121221992, epsilon = 1e-5);
 
     let tree = o.cost.tree();
     assert_eq!(tree.robinson_foulds(&phyml_info.tree), 0);
@@ -142,9 +142,9 @@ fn k80_sim_data_vs_phyml_wrong_start() {
     let unopt_logl = c.cost();
     let o = TopologyOptimiser::new(c).run().unwrap();
 
-    assert!(o.final_logl >= unopt_logl);
-    assert_eq!(o.initial_logl, unopt_logl);
-    assert_eq!(o.final_logl, o.cost.cost());
+    assert!(o.final_cost >= unopt_logl);
+    assert_eq!(o.initial_cost, unopt_logl);
+    assert_eq!(o.final_cost, o.cost.cost());
 
     let phyml_info = PIB::with_attrs(
         fldr.join("K80/K80.fasta"),
@@ -154,8 +154,8 @@ fn k80_sim_data_vs_phyml_wrong_start() {
     .unwrap();
     let phyml_c = SCB::new(jc69.clone(), phyml_info.clone()).build().unwrap();
 
-    assert_relative_eq!(o.final_logl, phyml_c.cost(), epsilon = 1e-5);
-    assert_relative_eq!(o.final_logl, -4038.721121221992, epsilon = 1e-5);
+    assert_relative_eq!(o.final_cost, phyml_c.cost(), epsilon = 1e-5);
+    assert_relative_eq!(o.final_cost, -4038.721121221992, epsilon = 1e-5);
 
     let tree = o.cost.tree();
     let taxa = ["Gorilla", "Orangutan", "Gibbon", "Human", "Chimpanzee"];
@@ -192,9 +192,9 @@ fn wag_no_gaps_vs_phyml_given_tree_start() {
             precomputed
         } else {
             let o = TopologyOptimiser::new(c.clone()).run().unwrap();
-            assert!(o.final_logl >= unopt_logl);
-            assert_eq!(o.initial_logl, unopt_logl);
-            assert_eq!(o.final_logl, o.cost.cost());
+            assert!(o.final_cost >= unopt_logl);
+            assert_eq!(o.initial_cost, unopt_logl);
+            assert_eq!(o.final_cost, o.cost.cost());
             assert!(write_newick_to_file(&[o.cost.tree().clone()], tree_file.clone()).is_ok());
             o.cost.info
         };
@@ -238,9 +238,9 @@ fn wag_no_gaps_vs_phyml_nj_tree_start() {
             precomputed
         } else {
             let o = TopologyOptimiser::new(c).run().unwrap();
-            assert!(o.final_logl >= unopt_logl);
-            assert_eq!(o.initial_logl, unopt_logl);
-            assert_eq!(o.final_logl, o.cost.cost());
+            assert!(o.final_cost >= unopt_logl);
+            assert_eq!(o.initial_cost, unopt_logl);
+            assert_eq!(o.final_cost, o.cost.cost());
             assert!(write_newick_to_file(&[o.cost.tree().clone()], tree_file.clone()).is_ok());
             o.cost.info
         };
@@ -292,8 +292,8 @@ fn pip_vs_subst_dna_tree() {
         .run()
         .unwrap();
     assert_relative_eq!(
-        k80_res.final_logl,
-        k80_pip_tree_res.final_logl,
+        k80_res.final_cost,
+        k80_pip_tree_res.final_cost,
         epsilon = 1e-3
     );
 
@@ -304,8 +304,8 @@ fn pip_vs_subst_dna_tree() {
             .run()
             .unwrap();
     assert_relative_eq!(
-        pip_res.final_logl,
-        pip_k80_tree_res.final_logl,
+        pip_res.final_cost,
+        pip_k80_tree_res.final_cost,
         epsilon = 1e-6
     );
 }
@@ -333,7 +333,7 @@ fn wag_nogaps_pip_vs_subst_tree_nj_start() {
             precomputed
         } else {
             let o = TopologyOptimiser::new(c_pip).run().unwrap();
-            assert!(o.final_logl >= unopt_pip_logl);
+            assert!(o.final_cost >= unopt_pip_logl);
             assert!(write_newick_to_file(&[o.cost.tree().clone()], pip_tree_file.clone()).is_ok());
             o.cost.info
         };
@@ -344,7 +344,7 @@ fn wag_nogaps_pip_vs_subst_tree_nj_start() {
             precomputed
         } else {
             let o = TopologyOptimiser::new(c_wag).run().unwrap();
-            assert!(o.final_logl >= unopt_wag_logl);
+            assert!(o.final_cost >= unopt_wag_logl);
             assert!(write_newick_to_file(&[o.cost.tree().clone()], wag_tree_file.clone()).is_ok());
             o.cost.info
         };
@@ -359,7 +359,7 @@ fn wag_nogaps_pip_vs_subst_tree_nj_start() {
             .unwrap();
     assert_relative_eq!(
         SCB::new(wag, result_wag.clone()).build().unwrap().cost(),
-        wag_pip_tree_res.final_logl,
+        wag_pip_tree_res.final_cost,
         epsilon = 1e-3
     );
 
@@ -373,14 +373,14 @@ fn wag_nogaps_pip_vs_subst_tree_nj_start() {
             .build()
             .unwrap()
             .cost(),
-        pip_wag_tree_res.final_logl,
+        pip_wag_tree_res.final_cost,
         epsilon = 1e-3
     );
 
     let new_pip_c = PIPCB::new(pip, result_pip).build().unwrap();
     let o2_subst = BranchOptimiser::new(new_pip_c.clone()).run().unwrap();
 
-    assert_relative_eq!(new_pip_c.cost(), o2_subst.final_logl, epsilon = 1e-4);
+    assert_relative_eq!(new_pip_c.cost(), o2_subst.final_cost, epsilon = 1e-4);
 }
 
 #[test]
@@ -402,7 +402,7 @@ fn protein_pip_optimise_model_tree() {
             let pip_c = PIPCB::new(pip.clone(), info).build().unwrap();
             let unopt_logl = pip_c.cost();
             let o = TopologyOptimiser::new(pip_c).run().unwrap();
-            assert!(o.final_logl >= unopt_logl);
+            assert!(o.final_cost >= unopt_logl);
             assert!(write_newick_to_file(&[o.cost.tree().clone()], tree_file.clone()).is_ok());
             o.cost.info
         };
@@ -416,10 +416,10 @@ fn protein_pip_optimise_model_tree() {
             let pip_c = PIPCB::new(pip.clone(), info).build().unwrap();
             let unopt_logl = pip_c.cost();
             let o = ModelOptimiser::new(pip_c, Empirical).run().unwrap();
-            let model_opt_logl = o.final_logl;
+            let model_opt_logl = o.final_cost;
             assert!(model_opt_logl >= unopt_logl);
             let o = TopologyOptimiser::new(o.cost).run().unwrap();
-            assert!(o.final_logl >= unopt_logl);
+            assert!(o.final_cost >= unopt_logl);
             assert!(write_newick_to_file(&[o.cost.tree().clone()], tree_file.clone()).is_ok());
             o.cost.info
         };
@@ -460,7 +460,7 @@ fn protein_wag_vs_phyml_empirical_freqs() {
     let unopt_logl = c_wag.cost();
 
     let o = ModelOptimiser::new(c_wag, Empirical).run().unwrap();
-    let model_opt_logl = o.final_logl;
+    let model_opt_logl = o.final_cost;
     assert!(model_opt_logl >= unopt_logl);
     let wag_opt = o.cost.model;
 
@@ -472,7 +472,7 @@ fn protein_wag_vs_phyml_empirical_freqs() {
             let c_wag_opt = SCB::new(wag_opt.clone(), info).build().unwrap();
             let unopt_logl = c_wag_opt.cost();
             let o = TopologyOptimiser::new(c_wag_opt).run().unwrap();
-            assert!(o.final_logl >= unopt_logl);
+            assert!(o.final_cost >= unopt_logl);
             let result = o.cost.info;
             assert!(write_newick_to_file(&[result.tree.clone()], tree_file.clone()).is_ok());
             result
@@ -505,7 +505,7 @@ fn protein_pip_vs_phyml_empirical_freqs() {
     let unopt_logl = c_wag.cost();
 
     let o = ModelOptimiser::new(c_wag, Empirical).run().unwrap();
-    let model_opt_logl = o.final_logl;
+    let model_opt_logl = o.final_cost;
     assert!(model_opt_logl >= unopt_logl);
     let wag_opt = o.cost.model;
 
@@ -517,7 +517,7 @@ fn protein_pip_vs_phyml_empirical_freqs() {
             let c_wag_opt = PIPCB::new(wag_opt.clone(), info).build().unwrap();
             let unopt_logl = c_wag_opt.cost();
             let o = TopologyOptimiser::new(c_wag_opt).run().unwrap();
-            assert!(o.final_logl >= unopt_logl);
+            assert!(o.final_cost >= unopt_logl);
             let result = o.cost.info;
             assert!(write_newick_to_file(&[result.tree.clone()], tree_file.clone()).is_ok());
             result
@@ -556,7 +556,7 @@ fn protein_wag_vs_phyml_fixed_freqs() {
             let c_wag = SCB::new(wag.clone(), info).build().unwrap();
             let unopt_logl = c_wag.cost();
             let o = TopologyOptimiser::new(c_wag).run().unwrap();
-            assert!(o.final_logl >= unopt_logl);
+            assert!(o.final_cost >= unopt_logl);
             let result = o.cost.info;
             assert!(write_newick_to_file(&[result.tree.clone()], tree_file.clone()).is_ok());
             result

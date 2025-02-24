@@ -13,9 +13,29 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  skip_check:
+    runs-on: ubuntu-latest
+    # Map a step output to a job output
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          # All of these options are optional, so you can remove them if you are happy with the defaults
+          concurrent_skipping: 'same_content_newer'
+          skip_after_successful_duplicate: 'true'
+          cancel_others: 'true'
+          paths_ignore: '["**/**.yml", "**/data/**"]'
+          do_not_skip: '["pull_request", "workflow_dispatch"]'
+
   fmt:
+    needs: skip_check
+    if: needs.skip_check.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     steps:
+      - name: Skip Duplicate Actions
+        uses: fkirc/skip-duplicate-actions@v5.3.1
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -26,6 +46,8 @@ jobs:
           args: --manifest-path ./phylo/Cargo.toml
 
   clippy_check:
+    needs: skip_check
+    if: needs.skip_check.outputs.should_skip != 'true' 
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

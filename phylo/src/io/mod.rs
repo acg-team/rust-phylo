@@ -9,6 +9,7 @@ use bio::alphabets;
 use bio::io::fasta::{Reader, Record, Writer};
 use log::info;
 
+use crate::alphabets::GAP;
 use crate::tree::{tree_parser, Tree};
 use crate::Result;
 
@@ -49,7 +50,7 @@ pub fn read_sequences_from_file(path: &PathBuf) -> Result<Vec<Record>> {
     let reader = Reader::from_file(path)?;
     let mut sequences = Vec::new();
     let mut alphabet = alphabets::protein::iupac_alphabet();
-    alphabet.insert(b'-');
+    alphabet.insert(GAP);
     for result in reader.records() {
         let rec = result?;
         if let Err(e) = rec.check() {
