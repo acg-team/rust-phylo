@@ -28,23 +28,36 @@ impl<C: ModelSearchCost + Display> ModelOptimiser<C> {
     }
 
     pub fn run(self) -> Result<ModelOptimisationResult<C>> {
-        let initial_cost = self.c.borrow().cost();
-        info!("Optimising {}.", self.c.borrow());
-        info!("Initial cost: {}.", initial_cost);
+        info!("Optimising the evolutionary model: {}.", self.c.borrow());
 
-        self.opt_frequencies();
-
+        let init_cost = self.c.borrow().cost();
+        info!("Initial cost: {}.", init_cost);
+        let mut curr_cost = init_cost;
         let mut prev_cost = f64::NEG_INFINITY;
-        let mut curr_cost = self.c.borrow().cost();
-        info!("Cost after frequency optimisation: {}.", curr_cost);
-
         let mut iterations = 0;
 
-        while curr_cost - prev_cost > self.epsilon {
+        match self.freq_opt {
+            FrequencyOptimisation::Empirical => {
+                info!("Setting stationary frequencies to empirical.");
+                self.empirical_freqs();
+                curr_cost = self.c.borrow().cost();
+                info!("Cost after frequency optimisation: {}.", curr_cost);
+            }
+            FrequencyOptimisation::Estimated => {
+                warn!("Stationary frequency estimation not available, falling back on empirical.");
+                self.empirical_freqs();
+                curr_cost = self.c.borrow().cost();
+                info!("Cost after frequency optimisation: {}.", curr_cost);
+            }
+            FrequencyOptimisation::Fixed => {}
+        }
+
+        while (curr_cost - prev_cost) > self.epsilon {
             iterations += 1;
             debug!("Iteration: {}", iterations);
             let parameters = self.c.borrow().params().to_vec();
             prev_cost = curr_cost;
+
             for (param, start_value) in parameters.iter().enumerate() {
                 debug!(
                     "Optimising parameter {:?} from value {} with cost {}",
@@ -65,32 +78,24 @@ impl<C: ModelSearchCost + Display> ModelOptimiser<C> {
             }
             debug!("New parameters: {}\n", self.c.borrow());
         }
+
+        debug_assert_eq!(curr_cost, self.c.borrow().cost());
+        info!("Done optimising model parameters.");
         info!(
             "Final cost: {}, achieved in {} iteration(s).",
             curr_cost, iterations
         );
         Ok(ModelOptimisationResult::<C> {
-            cost: self.c.into_inner(),
-            initial_cost,
+            initial_cost: init_cost,
             final_cost: curr_cost,
             iterations,
+            cost: self.c.into_inner(),
         })
     }
 
-    fn opt_frequencies(&self) {
-        match self.freq_opt {
-            FrequencyOptimisation::Fixed => {}
-            FrequencyOptimisation::Empirical => {
-                info!("Setting stationary frequencies to empirical.");
-                let emp_freqs = self.c.borrow().empirical_freqs();
-                self.c.borrow_mut().set_freqs(emp_freqs);
-            }
-            FrequencyOptimisation::Estimated => {
-                warn!("Stationary frequency estimation not available, falling back on empirical.");
-                let emp_freqs = self.c.borrow().empirical_freqs();
-                self.c.borrow_mut().set_freqs(emp_freqs);
-            }
-        }
+    fn empirical_freqs(&self) {
+        let emp_freqs = self.c.borrow().empirical_freqs();
+        self.c.borrow_mut().set_freqs(emp_freqs);
     }
 
     fn opt_parameter(&self, param: usize, start_value: f64) -> Result<SingleValOptResult> {

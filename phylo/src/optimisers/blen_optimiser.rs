@@ -27,8 +27,8 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
 
     pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
         info!("Optimising branch lengths.");
-        let mut tree = self.c.borrow().tree().clone();
         let init_cost = self.c.borrow().cost();
+        let mut tree = self.c.borrow().tree().clone();
 
         info!("Initial cost: {}.", init_cost);
         let mut curr_cost = init_cost;
@@ -40,6 +40,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
             iterations += 1;
             info!("Iteration: {}, current cost: {}.", iterations, curr_cost);
             prev_cost = curr_cost;
+
             for branch in &nodes {
                 if tree.root == *branch {
                     continue;
@@ -59,12 +60,13 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
                 self.c.borrow_mut().update_tree(tree.clone(), &[*branch]);
             }
         }
+
+        debug_assert_eq!(curr_cost, self.c.borrow().cost());
         info!("Done optimising branch lengths.");
         info!(
             "Final cost: {}, achieved in {} iteration(s).",
             curr_cost, iterations
         );
-
         Ok(PhyloOptimisationResult {
             initial_cost: init_cost,
             final_cost: curr_cost,

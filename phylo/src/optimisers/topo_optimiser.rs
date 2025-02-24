@@ -47,9 +47,9 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
         // the search stops.
         // This means that curr_cost is always hugher than or equel to prev_cost.
         while (curr_cost - prev_cost) > self.epsilon {
-            tree = self.c.borrow().tree().clone();
             iterations += 1;
             info!("Iteration: {}, current cost: {}.", iterations, curr_cost);
+            tree = self.c.borrow().tree().clone();
             prev_cost = curr_cost;
 
             for prune in &prune_locations {
