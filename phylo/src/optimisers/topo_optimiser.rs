@@ -64,6 +64,8 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
                 for regraft in &regraft_locations {
                     let mut new_tree = tree.rooted_spr(prune, regraft)?;
 
+                    // This clone is done to not have to reset the original cost function to the old tree.
+                    // Needs checking if this is necessary/efficient.
                     let mut cost_func = self.c.borrow().clone();
                     cost_func.update_tree(new_tree.clone(), &[*prune, *regraft]);
 
