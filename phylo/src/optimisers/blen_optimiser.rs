@@ -10,6 +10,8 @@ use crate::optimisers::PhyloOptimisationResult;
 use crate::tree::NodeIdx;
 use crate::Result;
 
+use super::SingleValOptResult;
+
 pub struct BranchOptimiser<C: TreeSearchCost + Display + Clone> {
     pub(crate) epsilon: f64,
     pub(crate) c: RefCell<C>,
@@ -42,12 +44,15 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
                 if tree.root == *branch {
                     continue;
                 }
-                debug!("Node {:?}: optimising", branch);
-                let (best_branch_cost, length) = self.optimise_branch(branch)?;
-                if best_branch_cost > curr_cost {
-                    curr_cost = best_branch_cost;
-                    tree.set_blen(branch, length);
-                    debug!("    Optimised to {:.5} with cost {:.5}", length, curr_cost);
+                debug!("Node {:?}: optimising branch length.", branch);
+                let blen_opt = self.optimise_branch(branch)?;
+                if blen_opt.final_cost > curr_cost {
+                    curr_cost = blen_opt.final_cost;
+                    tree.set_blen(branch, blen_opt.value);
+                    debug!(
+                        "    Optimised to {:.5} with cost {:.5}",
+                        blen_opt.value, curr_cost
+                    );
                 }
                 // The branch length may have changed during the optimisation attempt, so the tree
                 // should be reset even if the optimisation was unsuccessful.
@@ -56,7 +61,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
         }
         info!("Done optimising branch lengths.");
         info!(
-            "Final logl: {}, achieved in {} iteration(s).",
+            "Final cost: {}, achieved in {} iteration(s).",
             curr_cost, iterations
         );
 
@@ -70,7 +75,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
 }
 
 impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
-    pub(crate) fn optimise_branch(&mut self, branch: &NodeIdx) -> Result<(f64, f64)> {
+    pub(crate) fn optimise_branch(&mut self, branch: &NodeIdx) -> Result<SingleValOptResult> {
         let start_blen = self.c.borrow().tree().node(branch).blen;
         let (start, end) = if start_blen == 0.0 {
             (0.0, 1.0)
@@ -86,7 +91,10 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
             .configure(|_| IterState::new().param(start_blen))
             .run()?;
         let state = res.state();
-        Ok((-state.best_cost, state.best_param.unwrap()))
+        Ok(SingleValOptResult {
+            final_cost: -state.best_cost,
+            value: state.best_param.unwrap(),
+        })
     }
 }
 

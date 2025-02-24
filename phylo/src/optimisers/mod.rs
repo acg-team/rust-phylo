@@ -7,6 +7,11 @@ pub use model_optimiser::*;
 pub mod topo_optimiser;
 pub use topo_optimiser::*;
 
+pub struct SingleValOptResult {
+    pub final_cost: f64,
+    pub value: f64,
+}
+
 pub struct PhyloOptimisationResult<C: TreeSearchCost> {
     pub initial_cost: f64,
     pub final_cost: f64,

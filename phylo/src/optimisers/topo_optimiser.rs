@@ -73,10 +73,10 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
                     if move_cost <= curr_cost {
                         // reoptimise branch length at the regraft location
                         let mut o = BranchOptimiser::new(cost_func);
-                        let (best_move_cost, blen) = o.optimise_branch(regraft)?;
-                        if best_move_cost > move_cost {
-                            new_tree.set_blen(regraft, blen);
-                            move_cost = best_move_cost;
+                        let blen_opt = o.optimise_branch(regraft)?;
+                        if blen_opt.final_cost > move_cost {
+                            move_cost = blen_opt.final_cost;
+                            new_tree.set_blen(regraft, blen_opt.value);
                         }
                     }
                     debug!("    Regraft to {:?} w best cost {}.", regraft, move_cost);

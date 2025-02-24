@@ -10,6 +10,8 @@ use crate::likelihood::ModelSearchCost;
 use crate::optimisers::ModelOptimisationResult;
 use crate::Result;
 
+use super::SingleValOptResult;
+
 pub struct ModelOptimiser<C: ModelSearchCost + Display> {
     pub(crate) epsilon: f64,
     pub(crate) c: RefCell<C>,
@@ -48,17 +50,17 @@ impl<C: ModelSearchCost + Display> ModelOptimiser<C> {
                     "Optimising parameter {:?} from value {} with cost {}",
                     param, start_value, curr_cost
                 );
-                let (value, best_param_cost) = self.opt_parameter(param, *start_value)?;
-                if best_param_cost < curr_cost {
+                let param_opt = self.opt_parameter(param, *start_value)?;
+                if param_opt.final_cost < curr_cost {
                     // Parameter will have been reset by the optimiser, set it back to start value
                     self.c.borrow_mut().set_param(param, *start_value);
                     continue;
                 }
-                self.c.borrow_mut().set_param(param, value);
-                curr_cost = best_param_cost;
+                self.c.borrow_mut().set_param(param, param_opt.value);
+                curr_cost = param_opt.final_cost;
                 debug!(
                     "Optimised parameter {:?} to value {} with cost {}",
-                    param, value, curr_cost
+                    param, param_opt.value, curr_cost
                 );
             }
             debug!("New parameters: {}\n", self.c.borrow());
@@ -91,7 +93,7 @@ impl<C: ModelSearchCost + Display> ModelOptimiser<C> {
         }
     }
 
-    fn opt_parameter(&self, param: usize, start_value: f64) -> Result<(f64, f64)> {
+    fn opt_parameter(&self, param: usize, start_value: f64) -> Result<SingleValOptResult> {
         let optimiser = ParamOptimiser {
             cost: &self.c,
             param,
@@ -103,7 +105,10 @@ impl<C: ModelSearchCost + Display> ModelOptimiser<C> {
             .configure(|_| IterState::new().param(start_value).max_iters(500))
             .run()?;
         let cost = -res.state().best_cost;
-        Ok((res.state().best_param.unwrap(), cost))
+        Ok(SingleValOptResult {
+            value: res.state().best_param.unwrap(),
+            final_cost: cost,
+        })
     }
 }
 
