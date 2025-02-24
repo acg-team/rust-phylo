@@ -7,8 +7,11 @@ pub use model_optimiser::*;
 pub mod topo_optimiser;
 pub use topo_optimiser::*;
 
+// Struct for any single value optimisation result, e.g. branch length or evolutionary model parameter value
 pub struct SingleValOptResult {
+    // final cost after optimisation
     pub final_cost: f64,
+    // value of the parameter after optimisation
     pub value: f64,
 }
 
