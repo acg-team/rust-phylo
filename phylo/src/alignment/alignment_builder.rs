@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
 use anyhow::bail;
+use bio::io::fasta::Record;
 
 use crate::align;
 use crate::alignment::{Alignment, InternalMapping, Mapping, PairwiseAlignment, Sequences};
+use crate::alphabets::GAP;
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::Result;
 
@@ -53,10 +55,13 @@ impl<'a> AlignmentBuilder<'a> {
     }
 
     /// This assumes that the tree structure matches the alignment structure and that the sequences are aligned.
-    fn reconstruct_from_aligned_seqs(self) -> Result<Alignment> {
+    fn reconstruct_from_aligned_seqs(mut self) -> Result<Alignment> {
         if !self.seqs.aligned {
             bail!("Sequences are not aligned.")
         }
+
+        self.remove_gap_cols();
+
         let msa_len = self.seqs.record(0).seq().len();
         let mut stack = HashMap::<NodeIdx, Mapping>::with_capacity(self.tree.len());
         let mut msa = InternalMapping::with_capacity(self.tree.n);
@@ -90,6 +95,26 @@ impl<'a> AlignmentBuilder<'a> {
             node_map: msa,
             leaf_encoding,
         })
+    }
+
+    fn remove_gap_cols(&mut self) {
+        let mut gap_cols = Vec::new();
+        for col in 0..self.seqs.record(0).seq().len() {
+            if self.seqs.iter().all(|rec| rec.seq()[col] == GAP) {
+                gap_cols.push(col);
+            }
+        }
+        let new_seqs = self.seqs.iter().map(|rec| {
+            let seq: Vec<u8> = rec
+                .seq()
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| !gap_cols.contains(i))
+                .map(|(_, c)| *c)
+                .collect();
+            Record::with_attrs(rec.id(), rec.desc(), &seq)
+        });
+        self.seqs = Sequences::new(new_seqs.collect());
     }
 
     fn align_unaligned_seqs(self) -> Result<Alignment> {
