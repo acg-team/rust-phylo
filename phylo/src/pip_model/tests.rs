@@ -170,8 +170,8 @@ fn pip_normalised_check_template<Q: QMatrix + QMatrixMaker>(
             sum += pip.rate(char, other_char);
         }
         assert_relative_eq!(sum, 0.0, epsilon = 1e-14);
-        assert_relative_eq!(pip.rate(char, b'-'), params[1]);
-        assert_relative_eq!(pip.rate(b'-', char), 0.0);
+        assert_relative_eq!(pip.rate(char, GAP), params[1]);
+        assert_relative_eq!(pip.rate(GAP, char), 0.0);
     }
 }
 

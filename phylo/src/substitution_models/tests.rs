@@ -8,7 +8,7 @@ use nalgebra::dvector;
 use rand::Rng;
 
 use crate::alignment::Sequences;
-use crate::alphabets::{Alphabet, AMINOACIDS};
+use crate::alphabets::{Alphabet, AMINOACIDS, GAP};
 use crate::evolutionary_models::EvoModel;
 use crate::io::read_sequences_from_file;
 use crate::likelihood::ModelSearchCost;
@@ -365,7 +365,7 @@ fn protein_correct_access() {
 #[cfg(test)]
 fn protein_gap_access_template<Q: QMatrix + QMatrixMaker>() {
     let model = SubstModel::<Q>::new(&[], &[]).unwrap();
-    model.rate(b'-', b'L');
+    model.rate(GAP, b'L');
 }
 
 #[test]

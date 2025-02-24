@@ -5,7 +5,7 @@ use rand::thread_rng;
 use crate::alignment::{
     sequences::Sequences, AlignmentBuilder, InternalMapping, LeafMapping, PairwiseAlignment as PA,
 };
-use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, NUCLEOTIDES};
+use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, GAP, NUCLEOTIDES};
 use crate::tree::{
     tree_parser::from_newick,
     NodeIdx::{Internal as I, Leaf as L},
@@ -52,7 +52,7 @@ fn unaligned_seqs() -> Sequences {
                 rec.desc(),
                 &rec.seq()
                     .iter()
-                    .filter(|&c| c != &b'-')
+                    .filter(|&c| *c != GAP)
                     .copied()
                     .collect::<Vec<u8>>()
             )

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bio::io::fasta::Record;
 use nalgebra::DMatrix;
 
-use crate::alphabets::Alphabet;
+use crate::alphabets::{Alphabet, GAP};
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::Result;
 
@@ -152,13 +152,7 @@ impl Alignment {
 
     fn map_sequence(map: &Mapping, seq: &[u8]) -> Vec<u8> {
         map.iter()
-            .map(|site| {
-                if let Some(idx) = site {
-                    seq[*idx]
-                } else {
-                    b'-'
-                }
-            })
+            .map(|site| if let Some(idx) = site { seq[*idx] } else { GAP })
             .collect()
     }
 
