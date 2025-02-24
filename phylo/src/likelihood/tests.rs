@@ -145,7 +145,7 @@ fn alphabet_mismatch_subst_model_template<Q: QMatrix + QMatrixMaker>(
     let fldr = Path::new("./data");
     let records =
         read_sequences_from_file(&fldr.join("Huelsenbeck_example_long_DNA.fasta")).unwrap();
-    let seqs = Sequences::with_alphabet(records.clone(), alpha);
+    let seqs = Sequences::with_alphabet(records, alpha);
     let tree = tree!(&fs::read_to_string(fldr.join("Huelsenbeck_example.newick")).unwrap());
     let info = PIB::build_from_objects(seqs, tree).unwrap();
     let model = SubstModel::<Q>::new(freqs, params).unwrap();
