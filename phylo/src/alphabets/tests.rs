@@ -13,6 +13,7 @@ fn dna_type_test(#[case] input: &str) {
     let seqs = read_sequences_from_file(&PathBuf::from(input)).unwrap();
     let alphabet = detect_alphabet(&seqs);
     assert_eq!(alphabet, dna_alphabet());
+    assert!(format!("{}", dna_alphabet()).contains("DNA"));
 }
 
 #[rstest]
@@ -22,4 +23,5 @@ fn protein_type_test(#[case] input: &str) {
     let seqs = read_sequences_from_file(&PathBuf::from(input)).unwrap();
     let alphabet = detect_alphabet(&seqs);
     assert_eq!(alphabet, protein_alphabet());
+    assert!(format!("{}", protein_alphabet()).contains("protein"));
 }
