@@ -2,9 +2,12 @@ name: rustfmt and clippy with annotations
 
 on:
   push:
-    branches:    
-      - "**"
+    branches-ignore:    
+      - "develop"
+  pull_request:
+    branches: [ "develop" ]
   workflow_dispatch:
+  
 
 env:
   CARGO_TERM_COLOR: always

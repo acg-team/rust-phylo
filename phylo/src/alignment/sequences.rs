@@ -74,7 +74,7 @@ impl Sequences {
     }
 
     /// Removes all gaps from the sequences and returns a new Sequences object.
-    pub fn without_gaps(&self) -> Sequences {
+    pub fn into_gapless(&self) -> Sequences {
         let seqs = self
             .s
             .iter()

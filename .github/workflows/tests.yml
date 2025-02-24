@@ -2,8 +2,10 @@ name: tests on stable
 
 on:
   push:
-    branches:    
-      - "**"
+    branches-ignore:    
+      - "develop"
+  pull_request:
+    branches: [ "develop" ]
   workflow_dispatch:
     
 env:
