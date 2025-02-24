@@ -26,51 +26,51 @@ impl<C: ModelSearchCost + Display> ModelOptimiser<C> {
     }
 
     pub fn run(self) -> Result<ModelOptimisationResult<C>> {
-        let initial_logl = self.c.borrow().cost();
+        let initial_cost = self.c.borrow().cost();
         info!("Optimising {}.", self.c.borrow());
-        info!("Initial logl: {}.", initial_logl);
+        info!("Initial cost: {}.", initial_cost);
 
         self.opt_frequencies();
 
-        let mut prev_logl = f64::NEG_INFINITY;
-        let mut final_logl = self.c.borrow().cost();
-        info!("Initial logl after frequency optimisation: {}.", final_logl);
+        let mut prev_cost = f64::NEG_INFINITY;
+        let mut curr_cost = self.c.borrow().cost();
+        info!("Cost after frequency optimisation: {}.", curr_cost);
 
         let mut iterations = 0;
 
-        while final_logl - prev_logl > self.epsilon {
+        while curr_cost - prev_cost > self.epsilon {
             iterations += 1;
             debug!("Iteration: {}", iterations);
             let parameters = self.c.borrow().params().to_vec();
-            prev_logl = final_logl;
+            prev_cost = curr_cost;
             for (param, start_value) in parameters.iter().enumerate() {
                 debug!(
-                    "Optimising parameter {:?} from value {} with logl {}",
-                    param, start_value, final_logl
+                    "Optimising parameter {:?} from value {} with cost {}",
+                    param, start_value, curr_cost
                 );
-                let (value, logl) = self.opt_parameter(param, *start_value)?;
-                if logl < final_logl {
+                let (value, best_param_cost) = self.opt_parameter(param, *start_value)?;
+                if best_param_cost < curr_cost {
                     // Parameter will have been reset by the optimiser, set it back to start value
                     self.c.borrow_mut().set_param(param, *start_value);
                     continue;
                 }
                 self.c.borrow_mut().set_param(param, value);
-                final_logl = logl;
+                curr_cost = best_param_cost;
                 debug!(
-                    "Optimised parameter {:?} to value {} with logl {}",
-                    param, value, final_logl
+                    "Optimised parameter {:?} to value {} with cost {}",
+                    param, value, curr_cost
                 );
             }
             debug!("New parameters: {}\n", self.c.borrow());
         }
         info!(
-            "Final logl: {}, achieved in {} iteration(s).",
-            final_logl, iterations
+            "Final cost: {}, achieved in {} iteration(s).",
+            curr_cost, iterations
         );
         Ok(ModelOptimisationResult::<C> {
             cost: self.c.into_inner(),
-            initial_logl,
-            final_logl,
+            initial_cost,
+            final_cost: curr_cost,
             iterations,
         })
     }
@@ -102,8 +102,8 @@ impl<C: ModelSearchCost + Display> ModelOptimiser<C> {
         let res = Executor::new(optimiser, gss)
             .configure(|_| IterState::new().param(start_value).max_iters(500))
             .run()?;
-        let logl = -res.state().best_cost;
-        Ok((res.state().best_param.unwrap(), logl))
+        let cost = -res.state().best_cost;
+        Ok((res.state().best_param.unwrap(), cost))
     }
 }
 

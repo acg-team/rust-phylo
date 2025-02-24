@@ -26,28 +26,28 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
     pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
         info!("Optimising branch lengths.");
         let mut tree = self.c.borrow().tree().clone();
-        let initial_logl = self.c.borrow().cost();
+        let init_cost = self.c.borrow().cost();
 
-        info!("Initial logl: {}.", initial_logl);
-        let mut curr_cost = initial_logl;
+        info!("Initial cost: {}.", init_cost);
+        let mut curr_cost = init_cost;
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
 
         let nodes: Vec<NodeIdx> = tree.iter().map(|node| node.idx).collect();
         while (curr_cost - prev_cost) > self.epsilon {
             iterations += 1;
-            info!("Iteration: {}, current logl: {}.", iterations, curr_cost);
+            info!("Iteration: {}, current cost: {}.", iterations, curr_cost);
             prev_cost = curr_cost;
             for branch in &nodes {
                 if tree.root == *branch {
                     continue;
                 }
                 debug!("Node {:?}: optimising", branch);
-                let (logl, length) = self.optimise_branch(branch)?;
-                if logl > curr_cost {
-                    curr_cost = logl;
+                let (best_branch_cost, length) = self.optimise_branch(branch)?;
+                if best_branch_cost > curr_cost {
+                    curr_cost = best_branch_cost;
                     tree.set_blen(branch, length);
-                    debug!("    Optimised to {:.5} with logl {:.5}", length, curr_cost);
+                    debug!("    Optimised to {:.5} with cost {:.5}", length, curr_cost);
                 }
                 // The branch length may have changed during the optimisation attempt, so the tree
                 // should be reset even if the optimisation was unsuccessful.
@@ -61,8 +61,8 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
         );
 
         Ok(PhyloOptimisationResult {
-            initial_logl,
-            final_logl: curr_cost,
+            initial_cost: init_cost,
+            final_cost: curr_cost,
             iterations,
             cost: self.c.into_inner(),
         })

@@ -26,14 +26,14 @@ fn likelihood_improves_k80() {
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
-    assert!(o.final_logl > unopt_logl);
+    assert!(o.final_cost > unopt_logl);
 
     let model = SubstModel::<K80>::new(o.cost.freqs().into(), o.cost.params()).unwrap();
     let c2 = SCB::new(model, info).build().unwrap();
-    assert_relative_eq!(o.initial_logl, unopt_logl);
-    assert_relative_eq!(o.final_logl, o.cost.cost());
-    assert_relative_eq!(o.final_logl, c2.cost());
-    assert_relative_eq!(o.final_logl, -4034.500803, epsilon = 1e-5);
+    assert_relative_eq!(o.initial_cost, unopt_logl);
+    assert_relative_eq!(o.final_cost, o.cost.cost());
+    assert_relative_eq!(o.final_cost, c2.cost());
+    assert_relative_eq!(o.final_cost, -4034.500803, epsilon = 1e-5);
     assert_relative_eq!(o.cost.params()[0], 1.884815, epsilon = 1e-5);
 }
 
@@ -49,8 +49,8 @@ fn frequencies_unchanged_k80() {
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
-    assert_eq!(initial_logl, o.initial_logl);
-    assert_eq!(o.cost.cost(), o.final_logl);
+    assert_eq!(initial_logl, o.initial_cost);
+    assert_eq!(o.cost.cost(), o.final_cost);
     assert_ne!(o.cost.model.params(), model.params());
     assert_relative_eq!(o.cost.freqs(), &frequencies!(&[0.25; 4]));
     assert_relative_eq!(o.cost.freqs(), model.freqs());
@@ -68,8 +68,8 @@ fn parameter_change_k80() {
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
-    assert_eq!(initial_logl, o.initial_logl);
-    assert_eq!(o.cost.cost(), o.final_logl);
+    assert_eq!(initial_logl, o.initial_cost);
+    assert_eq!(o.cost.cost(), o.final_cost);
     assert_ne!(o.cost.model.params(), model.params());
     assert_relative_eq!(o.cost.freqs(), &frequencies!(&[0.25; 4]));
     assert_relative_eq!(o.cost.freqs(), model.freqs());
@@ -94,7 +94,7 @@ fn gtr_on_k80_data() {
         .run()
         .unwrap();
 
-    assert!(o_gtr.final_logl >= o_k80.final_logl);
+    assert!(o_gtr.final_cost >= o_k80.final_cost);
     assert_relative_eq!(
         o_gtr.cost.freqs(),
         &frequencies!(&[0.25; 4]),
@@ -116,9 +116,9 @@ fn improved_logl_fixed_freqs_template<Q: QMatrix + QMatrixMaker>() {
         .run()
         .unwrap();
 
-    assert_eq!(initial_logl, o.initial_logl);
-    assert_eq!(o.cost.cost(), o.final_logl);
-    assert!(o.final_logl > initial_logl);
+    assert_eq!(initial_logl, o.initial_cost);
+    assert_eq!(o.cost.cost(), o.final_cost);
+    assert!(o.final_cost > initial_logl);
     assert_ne!(o.cost.model.params(), model.params());
     assert_eq!(o.cost.freqs(), model.freqs());
 }
@@ -145,9 +145,9 @@ fn improved_logl_empirical_freqs_template<Q: QMatrix + QMatrixMaker>() {
         .run()
         .unwrap();
 
-    assert_eq!(initial_logl, o.initial_logl);
-    assert_eq!(o.cost.cost(), o.final_logl);
-    assert!(o.final_logl > initial_logl);
+    assert_eq!(initial_logl, o.initial_cost);
+    assert_eq!(o.cost.cost(), o.final_cost);
+    assert!(o.final_cost > initial_logl);
     assert_ne!(o.cost.model.params(), model.params());
     assert_ne!(o.cost.freqs(), model.freqs());
     assert_eq!(o.cost.freqs(), &o.cost.empirical_freqs());
@@ -192,13 +192,13 @@ fn gtr_vs_phyml() {
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
-    assert!(o.final_logl > phyml_logl);
-    assert!(o.final_logl > paml_logl);
+    assert!(o.final_cost > phyml_logl);
+    assert!(o.final_cost > paml_logl);
 
     let o2 = ModelOptimiser::new(o.cost, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
-    assert!(o2.final_logl >= o.final_logl);
+    assert!(o2.final_cost >= o.final_cost);
     assert!(o2.iterations < 10);
 }
 
@@ -223,16 +223,16 @@ fn k80_vs_phyml() {
     )
     .run()
     .unwrap();
-    assert!(o.final_logl > phyml_logl);
+    assert!(o.final_cost > phyml_logl);
 
     let o2 = ModelOptimiser::new(o.cost.clone(), FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
-    assert_relative_eq!(o2.final_logl, o.final_logl, epsilon = 1e-10);
-    assert!(o2.final_logl >= o.final_logl);
+    assert_relative_eq!(o2.final_cost, o.final_cost, epsilon = 1e-10);
+    assert!(o2.final_cost >= o.final_cost);
     assert!(o2.iterations < 10);
     assert_relative_eq!(o.cost.params(), phyml_model.params(), epsilon = 1e-2);
-    assert_relative_eq!(o.final_logl, phyml_logl, epsilon = 1e-6);
+    assert_relative_eq!(o.final_cost, phyml_logl, epsilon = 1e-6);
 }
 
 #[test]
@@ -252,7 +252,7 @@ fn hky_vs_phyml() {
     let o2 = ModelOptimiser::new(o.cost.clone(), FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
-    assert_relative_eq!(o2.final_logl, o.final_logl);
+    assert_relative_eq!(o2.final_cost, o.final_cost);
     assert!(o2.iterations < 10);
 
     // Optimized parameters from PhyML
@@ -261,11 +261,11 @@ fn hky_vs_phyml() {
     let phyml_logl = SCB::new(phyml_model.clone(), info).build().unwrap().cost();
     assert_relative_eq!(phyml_logl, -3483.9223510041406, epsilon = 1.0e-5);
 
-    assert!(o.final_logl >= phyml_logl);
+    assert!(o.final_cost >= phyml_logl);
     assert_relative_eq!(o.cost.freqs(), phyml_model.freqs());
     assert_relative_eq!(o.cost.params(), phyml_model.params(), epsilon = 1e-2);
-    assert_relative_eq!(o.final_logl, phyml_logl, epsilon = 1e-5);
-    assert_eq!(o.final_logl, o.cost.cost());
+    assert_relative_eq!(o.final_cost, phyml_logl, epsilon = 1e-5);
+    assert_eq!(o.final_cost, o.cost.cost());
 }
 
 #[test]
@@ -283,7 +283,7 @@ fn frequencies_fixed_opt_gtr() {
     .unwrap();
     assert_eq!(o.cost.freqs(), &frequencies!(&[0.25, 0.35, 0.3, 0.1]));
     assert_ne!(o.cost.params(), &[1.0; 5]);
-    assert_eq!(o.final_logl, o.cost.cost());
+    assert_eq!(o.final_cost, o.cost.cost());
 }
 
 #[cfg(test)]
@@ -302,10 +302,10 @@ fn frequencies_fixed_protein_template<Q: QMatrix + QMatrixMaker>() {
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
-    assert_eq!(initial_llik, o.initial_logl);
-    assert_eq!(initial_llik, o.final_logl);
+    assert_eq!(initial_llik, o.initial_cost);
+    assert_eq!(initial_llik, o.final_cost);
     assert_eq!(model.freqs(), o.cost.freqs());
-    assert_eq!(o.final_logl, o.cost.cost());
+    assert_eq!(o.final_cost, o.cost.cost());
 }
 
 #[test]
@@ -331,8 +331,8 @@ fn frequencies_empirical_protein_template<Q: QMatrix + QMatrixMaker>() {
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
-    assert_eq!(initial_llik, o.initial_logl);
-    assert_ne!(initial_llik, o.final_logl);
+    assert_eq!(initial_llik, o.initial_cost);
+    assert_ne!(initial_llik, o.final_cost);
     assert_ne!(model.freqs(), o.cost.freqs());
 }
 
@@ -362,19 +362,19 @@ fn arpip_example() {
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
-    assert_eq!(o.initial_logl, initial_logl);
-    assert_relative_eq!(o.initial_logl, -212.3260420492571, epsilon = 1e-6); // value from the python script
+    assert_eq!(o.initial_cost, initial_logl);
+    assert_relative_eq!(o.initial_cost, -212.3260420492571, epsilon = 1e-6); // value from the python script
 
-    assert!(o.final_logl > initial_logl);
+    assert!(o.final_cost > initial_logl);
     assert_ne!(o.cost.params(), pip_gtr.params());
     assert_ne!(o.cost.freqs(), pip_gtr.freqs());
-    assert_eq!(o.final_logl, o.cost.cost());
+    assert_eq!(o.final_cost, o.cost.cost());
 
     let pip_gtr = PIPModel::<GTR>::new(o.cost.freqs().as_slice(), o.cost.params()).unwrap();
     let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
-    assert_eq!(o.final_logl, c.cost());
+    assert_eq!(o.final_cost, c.cost());
 
-    assert_relative_eq!(o.final_logl, -161.70972212811094, epsilon = 1e-6); // value from python script
+    assert_relative_eq!(o.final_cost, -161.70972212811094, epsilon = 1e-6); // value from python script
 }
 
 #[test]
@@ -397,10 +397,10 @@ fn pip_propip_example() {
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
-    assert_eq!(o.initial_logl, initial_logl);
-    assert!(o.final_logl > initial_logl);
-    assert_relative_eq!(o.final_logl, -1081.7242569614295, epsilon = 1e-8); // value from the python script
-    assert_eq!(o.final_logl, o.cost.cost());
+    assert_eq!(o.initial_cost, initial_logl);
+    assert!(o.final_cost > initial_logl);
+    assert_relative_eq!(o.final_cost, -1081.7242569614295, epsilon = 1e-8); // value from the python script
+    assert_eq!(o.final_cost, o.cost.cost());
 }
 
 #[test]
@@ -424,9 +424,9 @@ fn pip_vs_python_no_gaps() {
     assert_ne!(params[0], 1.2);
     assert_ne!(params[1], 0.45);
     assert_ne!(params[2], 1.0);
-    assert!(o.final_logl > -361.18634412281443);
-    assert_relative_eq!(o.final_logl, -227.0848511231626, epsilon = 1e-7); // value from the python script
-    assert_eq!(o.final_logl, o.cost.cost());
+    assert!(o.final_cost > -361.18634412281443);
+    assert_relative_eq!(o.final_cost, -227.0848511231626, epsilon = 1e-7); // value from the python script
+    assert_eq!(o.final_cost, o.cost.cost());
 }
 
 #[test]
@@ -450,13 +450,13 @@ fn pip_gtr_optimisation() {
     let pip_gtr = PIPModel::<GTR>::new(pip_o.cost.freqs().as_slice(), pip_o.cost.params()).unwrap();
 
     let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
-    assert_eq!(pip_o.final_logl, c.cost());
+    assert_eq!(pip_o.final_cost, c.cost());
 
     assert_relative_eq!(initial_logl, -9988.840775519875, epsilon = 1e-5); // value from the python script
-    assert_relative_eq!(pip_o.initial_logl, initial_logl);
-    assert!(pip_o.final_logl > initial_logl);
-    assert_relative_eq!(pip_o.final_logl, -3481.828364024475, epsilon = 1e-5); // value from the python script
-    assert_eq!(pip_o.final_logl, pip_o.cost.cost());
+    assert_relative_eq!(pip_o.initial_cost, initial_logl);
+    assert!(pip_o.final_cost > initial_logl);
+    assert_relative_eq!(pip_o.final_cost, -3481.828364024475, epsilon = 1e-5); // value from the python script
+    assert_eq!(pip_o.final_cost, pip_o.cost.cost());
 }
 
 #[test]
@@ -500,9 +500,9 @@ fn pip_protein_example() {
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
-    assert!(o.final_logl > initial_logl);
-    assert_relative_eq!(o.initial_logl, initial_logl);
+    assert!(o.final_cost > initial_logl);
+    assert_relative_eq!(o.initial_cost, initial_logl);
     assert_ne!(o.cost.params()[0], 2.0);
     assert_ne!(o.cost.params()[1], 0.1);
-    assert_eq!(o.cost.cost(), o.final_logl);
+    assert_eq!(o.cost.cost(), o.final_cost);
 }

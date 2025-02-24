@@ -8,15 +8,15 @@ pub mod topo_optimiser;
 pub use topo_optimiser::*;
 
 pub struct PhyloOptimisationResult<C: TreeSearchCost> {
-    pub initial_logl: f64,
-    pub final_logl: f64,
+    pub initial_cost: f64,
+    pub final_cost: f64,
     pub iterations: usize,
     pub cost: C,
 }
 
 pub struct ModelOptimisationResult<C: ModelSearchCost> {
-    pub initial_logl: f64,
-    pub final_logl: f64,
+    pub initial_cost: f64,
+    pub final_cost: f64,
     pub iterations: usize,
     pub cost: C,
 }
