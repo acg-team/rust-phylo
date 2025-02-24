@@ -114,7 +114,7 @@ impl<'a> AlignmentBuilder<'a> {
                 .collect();
             Record::with_attrs(rec.id(), rec.desc(), &seq)
         });
-        self.seqs = Sequences::new(new_seqs.collect());
+        self.seqs = Sequences::with_alphabet(new_seqs.collect(), self.seqs.alphabet().clone());
     }
 
     fn align_unaligned_seqs(self) -> Result<Alignment> {
