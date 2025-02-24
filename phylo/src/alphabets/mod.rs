@@ -12,6 +12,7 @@ pub static NUCLEOTIDES: &[u8] = b"TCAG";
 pub static AMB_NUCLEOTIDES: &[u8] = b"RYSWKMBDHVNZX";
 pub static AMB_CHAR: u8 = b'X';
 pub static GAP: u8 = b'-';
+pub static POSSIBLE_GAPS: &[u8] = b"_*-";
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Alphabet {

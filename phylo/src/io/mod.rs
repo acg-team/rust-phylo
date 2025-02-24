@@ -5,11 +5,10 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use anyhow::bail;
-use bio::alphabets;
 use bio::io::fasta::{Reader, Record, Writer};
-use log::info;
+use log::{info, warn};
 
-use crate::alphabets::GAP;
+use crate::alphabets::{protein_alphabet, GAP, POSSIBLE_GAPS};
 use crate::tree::{tree_parser, Tree};
 use crate::Result;
 
@@ -49,8 +48,7 @@ pub fn read_sequences_from_file(path: &PathBuf) -> Result<Vec<Record>> {
     info!("Reading sequences from file {}.", path.display());
     let reader = Reader::from_file(path)?;
     let mut sequences = Vec::new();
-    let mut alphabet = alphabets::protein::iupac_alphabet();
-    alphabet.insert(GAP);
+
     for result in reader.records() {
         let rec = result?;
         if let Err(e) = rec.check() {
@@ -58,16 +56,24 @@ pub fn read_sequences_from_file(path: &PathBuf) -> Result<Vec<Record>> {
                 message: e.to_string()
             });
         }
-        if !alphabet.is_word(rec.seq()) {
+        let seq: Vec<u8> = rec
+            .seq()
+            .to_ascii_uppercase()
+            .iter()
+            .map(|c| if POSSIBLE_GAPS.contains(c) { GAP } else { *c })
+            .collect();
+
+        if !protein_alphabet().is_word(&seq) {
+            warn!(
+                "Invalid genetic sequence encountered: {}",
+                String::from_utf8(seq).unwrap()
+            );
             bail!(DataError {
                 message: String::from("Invalid genetic sequence encountered.")
             });
         }
-        sequences.push(Record::with_attrs(
-            rec.id(),
-            rec.desc(),
-            &rec.seq().to_ascii_uppercase(),
-        ));
+
+        sequences.push(Record::with_attrs(rec.id(), rec.desc(), &seq));
     }
     info!("Read sequences successfully.");
     Ok(sequences)
