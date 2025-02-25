@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use anyhow::bail;
 use bio::io::fasta::{Reader, Record, Writer};
-use log::{info, warn};
+use log::info;
 
 use crate::alphabets::{protein_alphabet, GAP, POSSIBLE_GAPS};
 use crate::tree::{tree_parser, Tree};
@@ -64,12 +64,11 @@ pub fn read_sequences_from_file(path: &PathBuf) -> Result<Vec<Record>> {
             .collect();
 
         if !protein_alphabet().is_word(&seq) {
-            warn!(
-                "Invalid genetic sequence encountered: {}",
-                String::from_utf8(seq).unwrap()
-            );
             bail!(DataError {
-                message: String::from("Invalid genetic sequence encountered.")
+                message: format!(
+                    "Invalid genetic sequence encountered: {}",
+                    String::from_utf8(seq).unwrap()
+                )
             });
         }
 
