@@ -528,6 +528,22 @@ fn newick_garbage() {
 }
 
 #[test]
+fn parse_scientific_floats() {
+    let tree = tree!(
+        "((((A:.00001,B:1.4e-10)F:2.25e3,C:-0.546)G:1.00030000,D:+003.95)H:1.0e-10,E:4.0e0)I:-.005;"
+    );
+    assert_eq!(tree.by_id("A").blen, 0.00001);
+    assert_eq!(tree.by_id("B").blen, 1.4e-10);
+    assert_eq!(tree.by_id("C").blen, -0.546);
+    assert_eq!(tree.by_id("D").blen, 3.95);
+    assert_eq!(tree.by_id("E").blen, 4.0);
+    assert_eq!(tree.by_id("F").blen, 2.25e3);
+    assert_eq!(tree.by_id("G").blen, 1.0003);
+    assert_eq!(tree.by_id("H").blen, 1.0e-10);
+    assert_eq!(tree.by_id("I").blen, -0.005);
+}
+
+#[test]
 fn check_getting_branch_lengths() {
     let tree = tree!("((((A:1.0,B:1.0)F:1.0,C:2.0)G:1.0,D:3.0)H:1.0,E:4.0)I:1.0;");
     let mut lengths = tree.iter().map(|n| n.blen).collect::<Vec<f64>>();
