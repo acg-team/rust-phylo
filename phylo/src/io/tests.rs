@@ -29,11 +29,19 @@ fn reading_correct_fasta() {
 }
 
 #[rstest]
-#[case::empty_sequence_name("./data/sequences_garbage_empty_name.fasta")]
-#[case::garbage_sequence("./data/sequences_garbage_non-ascii.fasta")]
-#[case::weird_chars("./data/sequences_garbage_weird_symbols.fasta")]
-fn reading_incorrect_fasta(#[case] input: &str) {
-    assert!(read_sequences_from_file(&PathBuf::from(input)).is_err());
+#[case::empty_sequence_name("./data/sequences_garbage_empty_name.fasta", "Expecting id")]
+#[case::garbage_sequence(
+    "./data/sequences_garbage_non-ascii.fasta",
+    "Non-ascii character found"
+)]
+#[case::weird_chars(
+    "./data/sequences_garbage_weird_symbols.fasta",
+    "Invalid genetic sequence"
+)]
+fn reading_incorrect_fasta(#[case] input: &str, #[case] exp_error: &str) {
+    let res = read_sequences_from_file(&PathBuf::from(input));
+    assert!(res.is_err());
+    assert!(res.unwrap_err().to_string().contains(exp_error));
 }
 
 #[test]
