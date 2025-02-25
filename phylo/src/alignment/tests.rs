@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use bio::io::fasta::Record;
 use rand::seq::IteratorRandom;
 use rand::thread_rng;
@@ -6,6 +8,7 @@ use crate::alignment::{
     sequences::Sequences, AlignmentBuilder, InternalMapping, LeafMapping, PairwiseAlignment as PA,
 };
 use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, NUCLEOTIDES};
+use crate::io::read_sequences_from_file;
 use crate::tree::{
     tree_parser::from_newick,
     NodeIdx::{Internal as I, Leaf as L},
@@ -268,4 +271,15 @@ fn compile_msa_leaf() {
             &[unaligned_seqs.record_by_id(&leaf_id).clone()],
         );
     }
+}
+
+#[test]
+fn input_msa_empty_col() {
+    let tree = test_tree();
+    let sequences = Sequences::new(
+        read_sequences_from_file(&PathBuf::from("./data/sequences_empty_col.fasta")).unwrap(),
+    );
+    let msa = AlignmentBuilder::new(&tree, sequences).build().unwrap();
+    assert_eq!(msa.len(), 40 - 1);
+    assert_eq!(msa.seq_count(), 5);
 }

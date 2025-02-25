@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::fmt::Display;
 
 use bio::io::fasta::Record;
 use lazy_static::lazy_static;
@@ -12,6 +13,7 @@ pub static NUCLEOTIDES: &[u8] = b"TCAG";
 pub static AMB_NUCLEOTIDES: &[u8] = b"RYSWKMBDHVNZX";
 pub static AMB_CHAR: u8 = b'X';
 pub static GAP: u8 = b'-';
+pub static POSSIBLE_GAPS: &[u8] = b"_*-";
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Alphabet {
@@ -20,6 +22,13 @@ pub struct Alphabet {
     char_sets: &'static [FreqVector],
     index: &'static [usize; 255],
     valid_symbols: &'static HashSet<u8>,
+    name: &'static str,
+}
+
+impl Display for Alphabet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
 }
 
 impl Alphabet {
@@ -71,6 +80,7 @@ pub(crate) fn dna_alphabet() -> Alphabet {
         index: &NUCLEOTIDE_INDEX,
         valid_symbols: &VALID_NUCLEOTIDES,
         char_sets: &NUCLEOTIDE_SETS,
+        name: "DNA",
     }
 }
 
@@ -81,6 +91,7 @@ pub(crate) fn protein_alphabet() -> Alphabet {
         index: &AMINOACID_INDEX,
         valid_symbols: &VALID_AMINOACIDS,
         char_sets: &AMINOACID_SETS,
+        name: "protein",
     }
 }
 
