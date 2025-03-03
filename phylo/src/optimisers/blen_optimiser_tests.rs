@@ -20,8 +20,7 @@ fn branch_opt_likelihood_increase_pip() {
     let model = PIPModel::<GTR>::new(
         &[0.25, 0.25, 0.25, 0.25],
         &[14.142_1, 0.1414, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-    )
-    .unwrap();
+    );
     let c = PIPCB::new(model.clone(), info.clone()).build().unwrap();
     assert_relative_eq!(c.cost(), -5664.780425829528, epsilon = 1e-6);
     let o = BranchOptimiser::new(c.clone()).run().unwrap();

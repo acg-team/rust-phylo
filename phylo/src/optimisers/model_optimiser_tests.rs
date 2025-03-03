@@ -352,8 +352,7 @@ fn arpip_example() {
     let pip_gtr = PIPModel::<GTR>::new(
         &[0.25, 0.25, 0.25, 0.25],
         &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-    )
-    .unwrap();
+    );
     let c = PIPCostBuilder::new(pip_gtr.clone(), info.clone())
         .build()
         .unwrap();
@@ -370,7 +369,7 @@ fn arpip_example() {
     assert_ne!(o.cost.freqs(), pip_gtr.freqs());
     assert_eq!(o.final_cost, o.cost.cost());
 
-    let pip_gtr = PIPModel::<GTR>::new(o.cost.freqs().as_slice(), o.cost.params()).unwrap();
+    let pip_gtr = PIPModel::<GTR>::new(o.cost.freqs().as_slice(), o.cost.params());
     let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
     assert_eq!(o.final_cost, c.cost());
 
@@ -387,8 +386,7 @@ fn pip_propip_example() {
     let pip_gtr = PIPModel::<GTR>::new(
         &[0.25, 0.25, 0.25, 0.25],
         &[14.142_1, 0.1414, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-    )
-    .unwrap();
+    );
     let c = PIPCostBuilder::new(pip_gtr.clone(), info).build().unwrap();
     let initial_logl = c.cost();
 
@@ -413,7 +411,7 @@ fn pip_vs_python_no_gaps() {
     .build()
     .unwrap();
 
-    let pip_hky = PIPModel::<HKY>::new(&[0.25; 4], &[1.2, 0.45, 1.0]).unwrap();
+    let pip_hky = PIPModel::<HKY>::new(&[0.25; 4], &[1.2, 0.45, 1.0]);
 
     let c = PIPCostBuilder::new(pip_hky, info).build().unwrap();
     assert_relative_eq!(c.cost(), -361.18634412281443, epsilon = 1e-7); // value from the python script
@@ -439,15 +437,14 @@ fn pip_gtr_optimisation() {
     let pip_gtr = PIPModel::<GTR>::new(
         &[0.24720, 0.35320, 0.29540, 0.10420],
         &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-    )
-    .unwrap();
+    );
     let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
 
     let initial_logl = c.cost();
     let pip_o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
-    let pip_gtr = PIPModel::<GTR>::new(pip_o.cost.freqs().as_slice(), pip_o.cost.params()).unwrap();
+    let pip_gtr = PIPModel::<GTR>::new(pip_o.cost.freqs().as_slice(), pip_o.cost.params());
 
     let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
     assert_eq!(pip_o.final_cost, c.cost());
@@ -469,8 +466,7 @@ fn pip_gtr_vs_gtr_params() {
     let pip_gtr = PIPModel::<GTR>::new(
         &[0.24720, 0.35320, 0.29540, 0.10420],
         &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-    )
-    .unwrap();
+    );
     let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
     let pip_o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
@@ -494,7 +490,7 @@ fn pip_protein_example() {
     let info = PIB::with_attrs(fldr.join("seqs.fasta"), fldr.join("true_tree.newick"))
         .build()
         .unwrap();
-    let pip = PIPModel::<WAG>::new(&[], &[2.0, 0.1]).unwrap();
+    let pip = PIPModel::<WAG>::new(&[], &[2.0, 0.1]);
     let c = PIPCostBuilder::new(pip, info).build().unwrap();
     let initial_logl = c.cost();
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)

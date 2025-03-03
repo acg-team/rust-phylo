@@ -278,7 +278,7 @@ fn pip_vs_subst_dna_tree() {
         .run()
         .unwrap();
 
-    let pip = PIPModel::<K80>::new(&[], &[0.5, 0.4, 4.0]).unwrap();
+    let pip = PIPModel::<K80>::new(&[], &[0.5, 0.4, 4.0]);
     let pip_res = TopologyOptimiser::new(PIPCB::new(pip.clone(), info).build().unwrap())
         .run()
         .unwrap();
@@ -322,7 +322,7 @@ fn wag_nogaps_pip_vs_subst_tree_nj_start() {
     let wag_tree_file = fldr.join("jati_wag_nogap_pip_vs_wag.newick");
 
     let info = PIB::new(seq_file.clone()).build().unwrap();
-    let pip = PIPModel::<WAG>::new(&[], &[50.0, 0.1]).unwrap();
+    let pip = PIPModel::<WAG>::new(&[], &[50.0, 0.1]);
     let wag = SubstModel::<WAG>::new(&[], &[]).unwrap();
     let c_pip = PIPCB::new(pip.clone(), info.clone()).build().unwrap();
     let c_wag = SCB::new(wag.clone(), info.clone()).build().unwrap();
@@ -391,7 +391,7 @@ fn protein_pip_optimise_model_tree() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
 
-    let pip = PIPModel::<WAG>::new(&[], &[1.4, 0.5]).unwrap();
+    let pip = PIPModel::<WAG>::new(&[], &[1.4, 0.5]);
 
     let tree_file = fldr.join("jati_pip_nj_start.newick");
     let result =
@@ -424,7 +424,7 @@ fn protein_pip_optimise_model_tree() {
             o.cost.info
         };
 
-    let pip_opt = PIPModel::<WAG>::new(&[], &[49.56941, 0.09352]).unwrap();
+    let pip_opt = PIPModel::<WAG>::new(&[], &[49.56941, 0.09352]);
     assert_eq!(result_model_opt.tree.robinson_foulds(&result.tree), 0);
 
     let pip_opt_new_res_logl = PIPCB::new(pip_opt.clone(), result_model_opt.clone())
@@ -499,7 +499,7 @@ fn protein_pip_vs_phyml_empirical_freqs() {
     let tree_file = fldr.join("jati_pip_wag_empirical.newick");
 
     let info = PIB::new(seq_file.clone()).build().unwrap();
-    let wag = PIPModel::<WAG>::new(&[], &[1.0, 2.0]).unwrap();
+    let wag = PIPModel::<WAG>::new(&[], &[1.0, 2.0]);
     let c_wag = PIPCB::new(wag.clone(), info.clone()).build().unwrap();
 
     let unopt_logl = c_wag.cost();
