@@ -26,7 +26,7 @@ jobs:
           skip_after_successful_duplicate: 'true'
           cancel_others: 'true'
           paths_ignore: '["**/**.yml", "**/data/**"]'
-          do_not_skip: '["pull_request", "workflow_dispatch"]'
+          do_not_skip: '["workflow_dispatch"]'
 
   check:
     name: cargo check
