@@ -1,11 +1,13 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display};
+use std::iter;
 use std::marker::PhantomData;
 use std::ops::Mul;
 use std::vec;
 
 use anyhow::bail;
+use log::warn;
 use nalgebra::{DMatrix, DVector};
 
 use crate::alignment::Mapping;
@@ -58,9 +60,12 @@ impl<Q: QMatrix> PIPModel<Q> {
 }
 
 impl<Q: QMatrix + QMatrixMaker> PIPModel<Q> {
-    pub fn new(frequencies: &[f64], params: &[f64]) -> Result<Self> {
+    pub fn new(frequencies: &[f64], params: &[f64]) -> Self {
+        let mut params = params.to_vec();
         if params.len() < 2 {
-            bail!("Too few values provided for PIP, 2 values required, lambda and mu.");
+            warn!("Too few values provided for PIP, 2 values required, lambda and mu.");
+            warn!("Falling back to default values.");
+            params.extend(iter::repeat(1.5).take(2 - params.len()));
         }
         let mu = params[1];
 
@@ -69,12 +74,12 @@ impl<Q: QMatrix + QMatrixMaker> PIPModel<Q> {
         let freqs = subst_q.freqs().clone().insert_row(n, 0.0);
         let mut q = SubstMatrix::zeros(n + 1, n + 1);
         pip_q(&mut q, subst_q.q(), mu);
-        Ok(PIPModel {
+        PIPModel {
             subst_q,
             q,
             freqs,
             params: params.to_vec(),
-        })
+        }
     }
 }
 
