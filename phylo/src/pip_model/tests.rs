@@ -116,26 +116,30 @@ fn pip_dna_hky_as_k80() {
 }
 
 #[cfg(test)]
-fn pip_too_few_params_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) {
+fn pip_too_few_params_template<Q: QMatrix + QMatrixMaker>(
+    freqs: &[f64],
+    params: &[f64],
+    expected: &[f64],
+) {
     let model = PIPModel::<Q>::new(freqs, params);
     assert_eq!(model.params().len(), 2);
-    assert_eq!(model.params(), &[0.2, 1.5]);
+    assert_eq!(model.params(), expected);
 }
 
 #[test]
 fn pip_dna_too_few_params() {
     // Not providing DNA model parameters makes no difference as defaults are taken
-    pip_too_few_params_template::<JC69>(&[], &[0.2]);
-    pip_too_few_params_template::<K80>(&[], &[0.2]);
-    pip_too_few_params_template::<HKY>(&[0.22, 0.26, 0.33, 0.19], &[0.2]);
+    pip_too_few_params_template::<JC69>(&[], &[0.2], &[0.2, 1.5]);
+    pip_too_few_params_template::<K80>(&[], &[], &[1.5, 1.5]);
+    pip_too_few_params_template::<HKY>(&[0.22, 0.26, 0.33, 0.19], &[0.6], &[0.6, 1.5]);
 }
 
 #[test]
 fn pip_protein_too_few_params() {
     // Not providing substitution model parameters makes no difference as defaults are taken
-    pip_too_few_params_template::<WAG>(&[], &[0.2]);
-    pip_too_few_params_template::<HIVB>(&[], &[0.2]);
-    pip_too_few_params_template::<BLOSUM>(&[0.22, 0.26, 0.33, 0.19], &[0.2]);
+    pip_too_few_params_template::<WAG>(&[], &[0.2], &[0.2, 1.5]);
+    pip_too_few_params_template::<HIVB>(&[], &[1.5], &[1.5, 1.5]);
+    pip_too_few_params_template::<BLOSUM>(&[0.22, 0.26, 0.33, 0.19], &[], &[1.5, 1.5]);
 }
 
 #[test]
