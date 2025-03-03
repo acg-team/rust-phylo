@@ -61,13 +61,13 @@ impl<Q: QMatrix + Display> Display for SubstModel<Q> {
 }
 
 impl<Q: QMatrix + QMatrixMaker> SubstModel<Q> {
-    pub fn new(frequencies: &[f64], params: &[f64]) -> Result<Self>
+    pub fn new(frequencies: &[f64], params: &[f64]) -> Self
     where
         Self: Sized,
     {
-        Ok(SubstModel {
+        SubstModel {
             qmatrix: Q::create(frequencies, params),
-        })
+        }
     }
 }
 

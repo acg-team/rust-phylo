@@ -33,7 +33,7 @@ fn test_subst_model<Q: QMatrix + QMatrixMaker>(
     let seqs = Sequences::with_alphabet(records.clone(), alpha);
     let tree = tree!(&fs::read_to_string(fldr.join("Huelsenbeck_example.newick")).unwrap());
     let info = PIB::build_from_objects(seqs, tree).unwrap();
-    let model = SubstModel::<Q>::new(freqs, params).unwrap();
+    let model = SubstModel::<Q>::new(freqs, params);
     SCB::new(model, info).build().unwrap()
 }
 
@@ -148,7 +148,7 @@ fn alphabet_mismatch_subst_model_template<Q: QMatrix + QMatrixMaker>(
     let seqs = Sequences::with_alphabet(records, alpha);
     let tree = tree!(&fs::read_to_string(fldr.join("Huelsenbeck_example.newick")).unwrap());
     let info = PIB::build_from_objects(seqs, tree).unwrap();
-    let model = SubstModel::<Q>::new(freqs, params).unwrap();
+    let model = SubstModel::<Q>::new(freqs, params);
     let res = SCB::new(model, info).build();
     assert!(res.is_err());
     assert!(res.err().unwrap().to_string().contains("Alphabet mismatch"));

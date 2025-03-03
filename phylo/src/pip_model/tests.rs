@@ -26,7 +26,7 @@ const UNNORMALIZED_PIP_HKY_Q: [f64; 25] = [
 #[cfg(test)]
 fn compare_pip_subst_rates_template<Q: QMatrix + QMatrixMaker>(chars: &[u8]) {
     let pip_model = PIPModel::<Q>::new(&[], &[0.1, 0.4]);
-    let subst_model = SubstModel::<Q>::new(&[], &[]).unwrap();
+    let subst_model = SubstModel::<Q>::new(&[], &[]);
     for (i, &char) in chars.iter().enumerate() {
         assert!(pip_model.rate(char, char) < 0.0);
         assert_relative_eq!(pip_model.q.row(i).sum(), 0.0, epsilon = 1e-10);
@@ -237,8 +237,7 @@ fn pip_dna_tn93_correct() {
         &[0.22, 0.26, 0.33, 0.19],
         &[0.2, 0.5, 0.5970915, 0.2940435, 0.00135],
     );
-    let tn93 = SubstModel::<TN93>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5970915, 0.2940435, 0.00135])
-        .unwrap();
+    let tn93 = SubstModel::<TN93>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5970915, 0.2940435, 0.00135]);
     let mut diff = SubstMatrix::zeros(4, 4);
     diff.fill_diagonal(-0.5);
     diff = diff.insert_column(4, 0.5).insert_row(4, 0.0);
