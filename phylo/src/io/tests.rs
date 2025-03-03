@@ -29,11 +29,19 @@ fn reading_correct_fasta() {
 }
 
 #[rstest]
-#[case::empty_sequence_name("./data/sequences_garbage_empty_name.fasta")]
-#[case::garbage_sequence("./data/sequences_garbage_non-ascii.fasta")]
-#[case::weird_chars("./data/sequences_garbage_weird_symbols.fasta")]
-fn reading_incorrect_fasta(#[case] input: &str) {
-    assert!(read_sequences_from_file(&PathBuf::from(input)).is_err());
+#[case::empty_sequence_name("./data/sequences_garbage_empty_name.fasta", "Expecting id")]
+#[case::garbage_sequence(
+    "./data/sequences_garbage_non-ascii.fasta",
+    "Non-ascii character found"
+)]
+#[case::weird_chars(
+    "./data/sequences_garbage_weird_symbols.fasta",
+    "Invalid genetic sequence"
+)]
+fn reading_incorrect_fasta(#[case] input: &str, #[case] exp_error: &str) {
+    let res = read_sequences_from_file(&PathBuf::from(input));
+    assert!(res.is_err());
+    assert!(res.unwrap_err().to_string().contains(exp_error));
 }
 
 #[test]
@@ -137,4 +145,24 @@ fn test_write_newick_to_existing_file() {
     let output_path = temp_dir.path().join("output.newick");
     File::create(&output_path).unwrap();
     assert!(write_newick_to_file(&[tree], output_path).is_err());
+}
+
+#[test]
+fn read_sequences_weird_gap_chars() {
+    let sequences_underscore =
+        read_sequences_from_file(&PathBuf::from("./data/sequences_gap_underscore.fasta")).unwrap();
+    let sequences_asterisk =
+        read_sequences_from_file(&PathBuf::from("./data/sequences_gap_asterisk.fasta")).unwrap();
+    let sequences =
+        read_sequences_from_file(&PathBuf::from("./data/sequences_gap_normal.fasta")).unwrap();
+
+    assert_eq!(sequences.len(), 4);
+    assert_eq!(sequences_underscore.len(), sequences.len());
+    assert_eq!(sequences_asterisk.len(), sequences.len());
+
+    for (i, seq) in sequences.into_iter().enumerate() {
+        assert_eq!(seq.seq().len(), 8);
+        assert_eq!(seq.seq(), sequences_underscore[i].seq());
+        assert_eq!(seq.seq(), sequences_asterisk[i].seq());
+    }
 }

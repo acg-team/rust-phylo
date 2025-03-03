@@ -7,6 +7,7 @@ use nalgebra::{DMatrix, DVector};
 use crate::alignment::Sequences;
 use crate::alphabets::{AMINOACIDS as aas, GAP, NUCLEOTIDES as nucls};
 use crate::evolutionary_models::EvoModel;
+use crate::io::read_sequences_from_file;
 use crate::likelihood::ModelSearchCost;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::pip_model::{PIPCostBuilder as PIPB, PIPModel, PIPModelInfo};
@@ -783,4 +784,18 @@ fn protein_avg_rate() {
     avg_rate_template::<WAG>(freqs, &[0.5, 1.0]);
     avg_rate_template::<HIVB>(freqs, &[2.5, 0.03]);
     avg_rate_template::<BLOSUM>(freqs, &[0.25, 1.5]);
+}
+
+#[test]
+fn logl_not_inf_for_empty_col() {
+    let tree = tree!("((A0:1.0, B1:1.0) I5:1.0,(C2:1.0,(D3:1.0, E4:1.0) I6:1.0) I7:1.0) I8:1.0;");
+    let sequences = Sequences::new(
+        read_sequences_from_file(&PathBuf::from("./data/sequences_empty_col.fasta")).unwrap(),
+    );
+    let info = PIB::build_from_objects(sequences, tree).unwrap();
+    let model = PIPModel::<WAG>::new(&[], &[0.5, 0.5]).unwrap();
+    let c = PIPB::new(model, info).build().unwrap();
+    let logl = c.cost();
+    assert_ne!(logl, f64::NEG_INFINITY);
+    assert!(logl < 0.0);
 }
