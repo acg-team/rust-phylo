@@ -20,8 +20,7 @@ fn branch_opt_likelihood_increase_pip() {
     let model = PIPModel::<GTR>::new(
         &[0.25, 0.25, 0.25, 0.25],
         &[14.142_1, 0.1414, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-    )
-    .unwrap();
+    );
     let c = PIPCB::new(model.clone(), info.clone()).build().unwrap();
     assert_relative_eq!(c.cost(), -5664.780425829528, epsilon = 1e-6);
     let o = BranchOptimiser::new(c.clone()).run().unwrap();
@@ -49,8 +48,7 @@ fn branch_opt_likelihood_increase_gtr() {
     let info = PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
         .build()
         .unwrap();
-    let gtr =
-        SubstModel::<GTR>::new(&[0.25, 0.25, 0.25, 0.25], &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]).unwrap();
+    let gtr = SubstModel::<GTR>::new(&[0.25, 0.25, 0.25, 0.25], &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]);
     let o = BranchOptimiser::new(SCB::new(gtr.clone(), info.clone()).build().unwrap())
         .run()
         .unwrap();
@@ -69,7 +67,7 @@ fn branch_optimiser_against_phyml() {
     let info = PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
         .build()
         .unwrap();
-    let model = SubstModel::<JC69>::new(&[], &[]).unwrap();
+    let model = SubstModel::<JC69>::new(&[], &[]);
     let o = BranchOptimiser::new(SCB::new(model.clone(), info.clone()).build().unwrap())
         .run()
         .unwrap();
