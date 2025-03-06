@@ -6,11 +6,26 @@ use std::collections::HashMap;
 use crate::alphabets::{detect_alphabet, Alphabet, GAP};
 use crate::Result;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Sequences {
     pub(crate) s: Vec<Record>,
     pub(crate) aligned: bool,
     pub(crate) alphabet: Alphabet,
+}
+
+impl PartialEq for Sequences {
+    fn eq(&self, other: &Self) -> bool {
+        self.s.len() == other.s.len()
+            && self.aligned == other.aligned
+            && self.alphabet == other.alphabet
+            && {
+                let mut self_records = self.s.clone();
+                let mut other_records = other.s.clone();
+                self_records.sort_by(|a, b| a.id().cmp(b.id()));
+                other_records.sort_by(|a, b| a.id().cmp(b.id()));
+                self_records == other_records
+            }
+    }
 }
 
 impl Sequences {
