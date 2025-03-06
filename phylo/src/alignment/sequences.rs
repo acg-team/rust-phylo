@@ -33,7 +33,7 @@ impl PartialEq for Sequences {
 impl Display for Sequences {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for record in &self.s {
-            writeln!(f, "{}", record)?;
+            write!(f, "{}", record)?;
         }
         Ok(())
     }

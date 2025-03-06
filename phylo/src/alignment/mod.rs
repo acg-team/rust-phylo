@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Display;
 
 use bio::io::fasta::Record;
 use nalgebra::DMatrix;
@@ -37,6 +38,12 @@ pub struct Alignment {
     node_map: InternalMapping,
     /// Leaf sequence encodings.
     pub(crate) leaf_encoding: HashMap<String, DMatrix<f64>>,
+}
+
+impl Display for Alignment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.seqs)
+    }
 }
 
 impl Alignment {
