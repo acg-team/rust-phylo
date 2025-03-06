@@ -158,21 +158,6 @@ fn sequences_into_gapless() {
 }
 
 #[test]
-fn build_from_map() {
-    let tree = test_tree();
-    let unaligned_seqs = aligned_seqs(&["A0", "B1", "C2", "D3", "E4"]).into_gapless();
-    let (node_map, leaf_map) = maps();
-    let msa = AlignmentBuilder::new(&tree, unaligned_seqs.clone())
-        .msa(node_map.clone())
-        .build()
-        .unwrap();
-    assert_eq!(msa.node_map, node_map);
-    assert_eq!(msa.leaf_map, leaf_map);
-    assert_eq!(msa.seqs, unaligned_seqs);
-    assert_eq!(msa.len(), 5);
-}
-
-#[test]
 fn build_from_aligned_sequences() {
     let tree = test_tree();
     let aligned_seqs = aligned_seqs(&["A0", "B1", "C2", "D3", "E4"]);
@@ -183,30 +168,6 @@ fn build_from_aligned_sequences() {
     assert_eq!(msa.leaf_map, leaf_map);
     assert_eq!(msa.seqs, unaligned_seqs);
     assert_eq!(msa.len(), 5);
-}
-
-#[test]
-fn different_build_compare() {
-    let tree = test_tree();
-    let unaligned_seqs = aligned_seqs(&["A0", "B1", "C2", "D3", "E4"]).into_gapless();
-    let (node_map, _) = maps();
-    let msa = AlignmentBuilder::new(&tree, unaligned_seqs)
-        .msa(node_map.clone())
-        .build()
-        .unwrap();
-    let aligned_seqs = aligned_seqs(&["A0", "B1", "C2", "D3", "E4"]);
-    let msa2 = AlignmentBuilder::new(&tree, aligned_seqs).build().unwrap();
-    assert_eq!(msa.node_map, msa2.node_map);
-    assert_eq!(msa.leaf_map, msa2.leaf_map);
-    assert_eq!(msa.seqs, msa2.seqs);
-    assert_alignment_eq(
-        &msa.compile(None, &tree).unwrap(),
-        &msa2.compile(None, &tree).unwrap(),
-    );
-    assert_alignment_eq(
-        &msa.compile(Some(&I(4)), &tree).unwrap(),
-        &msa2.compile(Some(&I(4)), &tree).unwrap(),
-    )
 }
 
 #[test]

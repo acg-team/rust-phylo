@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::bail;
 use bio::io::fasta::Record;
+use log::warn;
 
 use crate::align;
 use crate::alignment::{Alignment, InternalMapping, Mapping, PairwiseAlignment, Sequences};
@@ -12,46 +13,25 @@ use crate::Result;
 pub struct AlignmentBuilder<'a> {
     tree: &'a Tree,
     seqs: Sequences,
-    node_map: InternalMapping,
 }
 
 impl<'a> AlignmentBuilder<'a> {
     pub fn new(tree: &'a Tree, seqs: Sequences) -> AlignmentBuilder<'a> {
-        AlignmentBuilder {
-            tree,
-            seqs,
-            node_map: InternalMapping::new(),
-        }
-    }
-
-    pub fn msa(mut self, msa: InternalMapping) -> Self {
-        self.node_map = msa;
-        self
+        AlignmentBuilder { tree, seqs }
     }
 
     pub fn build(self) -> Result<Alignment> {
-        if !self.node_map.is_empty() {
-            self.compile_from_map()
-        } else if self.seqs.aligned {
+        if self.seqs.aligned {
             self.reconstruct_from_aligned_seqs()
         } else {
             self.align_unaligned_seqs()
         }
     }
 
-    /// This assumes that the tree structure matches the alignment structure.
-    fn compile_from_map(self) -> Result<Alignment> {
-        let mut alignment = Alignment {
-            seqs: Sequences::new(Vec::new()),
-            leaf_map: HashMap::new(),
-            node_map: self.node_map,
-            leaf_encoding: HashMap::new(),
-        };
-        let leaf_map = alignment.compile_leaf_map(&self.tree.root, self.tree)?;
-        alignment.leaf_map = leaf_map;
-        alignment.seqs = self.seqs.into_gapless();
-        alignment.leaf_encoding = alignment.seqs.generate_leaf_encoding();
-        Ok(alignment)
+    fn align_unaligned_seqs(self) -> Result<Alignment> {
+        // TODO: use parsimony to align the sequences.
+        warn!("Making an initial alignment using parsimony.");
+        bail!("Alignment of unaligned sequences is not yet implemented.")
     }
 
     /// This assumes that the tree structure matches the alignment structure and that the sequences are aligned.
@@ -115,11 +95,6 @@ impl<'a> AlignmentBuilder<'a> {
             Record::with_attrs(rec.id(), rec.desc(), &seq)
         });
         self.seqs = Sequences::with_alphabet(new_seqs.collect(), self.seqs.alphabet().clone());
-    }
-
-    fn align_unaligned_seqs(self) -> Result<Alignment> {
-        // TODO: use parsimony to align the sequences.
-        bail!("Unaligned sequences are not yet supported.")
     }
 
     fn stack_maps(msa_len: usize, map_x: &Mapping, map_y: &Mapping) -> Mapping {
