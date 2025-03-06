@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+use std::fmt::Display;
+
 use anyhow::bail;
 use bio::io::fasta::Record;
 use nalgebra::DMatrix;
-use std::collections::HashMap;
 
 use crate::alphabets::{detect_alphabet, Alphabet, GAP};
 use crate::Result;
@@ -25,6 +27,15 @@ impl PartialEq for Sequences {
                 other_records.sort_by(|a, b| a.id().cmp(b.id()));
                 self_records == other_records
             }
+    }
+}
+
+impl Display for Sequences {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for record in &self.s {
+            writeln!(f, "{}", record)?;
+        }
+        Ok(())
     }
 }
 
