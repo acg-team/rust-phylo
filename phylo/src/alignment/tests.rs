@@ -229,3 +229,55 @@ fn input_msa_empty_col() {
     assert_eq!(msa.len(), 40 - 1);
     assert_eq!(msa.seq_count(), 5);
 }
+
+#[test]
+fn display_sequences() {
+    let sequences = Sequences::new(
+        read_sequences_from_file(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap(),
+    );
+    let s = format!("{}", sequences);
+    let mut lines = s.lines().collect::<Vec<_>>();
+    lines.sort();
+    assert_eq!(lines.len(), 8);
+
+    let s = std::fs::read_to_string("./data/sequences_DNA1.fasta").unwrap();
+    let mut true_lines = s.lines().collect::<Vec<_>>();
+    true_lines.sort();
+    assert_eq!(lines, true_lines);
+}
+
+#[test]
+fn display_unaligned_sequences() {
+    let sequences = Sequences::new(
+        read_sequences_from_file(&PathBuf::from("./data/sequences_DNA2_unaligned.fasta")).unwrap(),
+    );
+    let s = format!("{}", sequences);
+    let mut lines = s.lines().collect::<Vec<_>>();
+    lines.sort();
+    assert_eq!(lines.len(), 8);
+
+    let s = std::fs::read_to_string("./data/sequences_DNA2_unaligned.fasta").unwrap();
+    let mut true_lines = s.lines().collect::<Vec<_>>();
+    true_lines.sort();
+    assert_eq!(lines, true_lines);
+}
+
+#[test]
+fn display_alignment() {
+    let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
+    let sequences = Sequences::new(
+        read_sequences_from_file(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap(),
+    );
+    let msa = AlignmentBuilder::new(&tree, sequences).build().unwrap();
+
+    let s = format!("{}", msa.compile(None, &tree).unwrap());
+    let mut lines = s.lines().collect::<Vec<_>>();
+    lines.sort();
+    assert_eq!(lines.len(), 8);
+
+    let s = std::fs::read_to_string("./data/sequences_DNA1.fasta").unwrap();
+    let mut true_lines = s.lines().collect::<Vec<_>>();
+    true_lines.sort();
+
+    assert_eq!(lines, true_lines);
+}
