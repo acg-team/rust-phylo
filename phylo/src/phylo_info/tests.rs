@@ -185,11 +185,10 @@ fn setup_aligned_msa() {
         assert!(!rec.seq().is_empty());
         assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
     });
-    let mut sequences =
-        read_sequences_from_file(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap();
-    sequences.sort();
-    let mut aligned_sequences = info.msa.compile(None, &info.tree).unwrap();
-    aligned_sequences.sort();
+    let sequences = Sequences::new(
+        read_sequences_from_file(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap(),
+    );
+    let aligned_sequences = info.msa.compile(None, &info.tree).unwrap();
     assert_eq!(aligned_sequences, sequences);
 }
 
@@ -206,10 +205,9 @@ fn correct_setup_when_sequences_empty() {
     info.msa.seqs.iter().for_each(|rec| {
         assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
     });
-    let mut sequences = read_sequences_from_file(&fldr.join("sequences_some_empty.fasta")).unwrap();
-    sequences.sort();
-    let mut aligned_sequences = info.msa.compile(None, &info.tree).unwrap();
-    aligned_sequences.sort();
+    let sequences =
+        Sequences::new(read_sequences_from_file(&fldr.join("sequences_some_empty.fasta")).unwrap());
+    let aligned_sequences = info.msa.compile(None, &info.tree).unwrap();
     assert_eq!(aligned_sequences, sequences);
 }
 

@@ -101,11 +101,7 @@ impl Alignment {
         self.leaf_map.get(node).unwrap()
     }
 
-    pub(crate) fn compile(
-        &self,
-        subroot_opt: Option<&NodeIdx>,
-        tree: &Tree,
-    ) -> Result<Vec<Record>> {
+    pub(crate) fn compile(&self, subroot_opt: Option<&NodeIdx>, tree: &Tree) -> Result<Sequences> {
         let subroot = subroot_opt.unwrap_or(&tree.root);
         let map = if subroot == &tree.root {
             self.leaf_map.clone()
@@ -118,7 +114,11 @@ impl Alignment {
             let aligned_seq = Self::map_sequence(map, rec.seq());
             records.push(Record::with_attrs(rec.id(), rec.desc(), &aligned_seq));
         }
-        Ok(records)
+
+        Ok(Sequences::with_alphabet(
+            records,
+            self.seqs.alphabet.clone(),
+        ))
     }
 
     fn compile_leaf_map(&self, root: &NodeIdx, tree: &Tree) -> Result<LeafMapping> {
