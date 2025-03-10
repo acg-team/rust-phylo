@@ -41,3 +41,11 @@ tempfile = "3.8.0"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
+
+[dev-dependencies]
+criterion = "0.5.1"
+
+
+[[bench]]
+name = "tree_from_msa"
+harness = false
