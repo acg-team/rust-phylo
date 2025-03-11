@@ -65,7 +65,7 @@ fn setup_info_correct_unaligned() {
         fldr.join("tree_diff_branch_lengths_2.newick"),
     )
     .build();
-    assert!(res_info.is_err());
+    assert!(res_info.is_ok());
 }
 
 #[test]
@@ -168,7 +168,7 @@ fn setup_unaligned() {
         fldr.join("tree_diff_branch_lengths_2.newick"),
     )
     .build();
-    assert!(info.is_err());
+    assert!(info.is_ok());
 }
 
 #[test]
@@ -212,7 +212,7 @@ fn correct_setup_when_sequences_empty() {
 }
 
 #[test]
-fn test_aligned_check() {
+fn unaligned_setup() {
     let sequences = Sequences::new(vec![
         record!("A0", b"AAAAA"),
         record!("B1", b"A"),
@@ -222,7 +222,14 @@ fn test_aligned_check() {
     ]);
     let tree = tree!("((A0:2.0,B1:2.0):1.0,(C2:2.0,(D3:1.0,E4:2.5):3.0):2.0):0.0;");
     let info = PIB::build_from_objects(sequences, tree.clone());
-    assert!(info.is_err());
+    assert!(info.is_ok());
+    let info = info.unwrap();
+    assert!(info.msa.len() >= 5);
+    assert_eq!(info.msa.seq_count(), 5);
+}
+
+#[test]
+fn aligned_setup() {
     let sequences = Sequences::new(vec![
         record!("A0", b"AAAAA"),
         record!("B1", b"A----"),
@@ -230,6 +237,7 @@ fn test_aligned_check() {
         record!("D3", b"AAAAA"),
         record!("E4", b"AAATT"),
     ]);
+    let tree = tree!("((A0:2.0,B1:2.0):1.0,(C2:2.0,(D3:1.0,E4:2.5):3.0):2.0):0.0;");
     let info = PIB::build_from_objects(sequences, tree);
     assert!(info.is_ok());
 }
@@ -247,14 +255,13 @@ fn check_phyloinfo_creation_newick_msa() {
 }
 
 #[test]
-#[should_panic]
 fn check_phyloinfo_creation_tree_no_msa() {
     let sequences = Sequences::new(vec![
         record!("A", b"CTATATAAC"),
         record!("B", b"ATATATATAA"),
         record!("C", b"TTATATATAT"),
     ]);
-    PIB::build_from_objects(sequences, tree!("((A:2.0,B:2.0):1.0,C:2.0):0.0;")).unwrap();
+    assert!(PIB::build_from_objects(sequences, tree!("((A:2.0,B:2.0):1.0,C:2.0):0.0;")).is_ok());
 }
 
 #[test]
@@ -306,7 +313,10 @@ fn check_phyloinfo_creation_tree_correct_no_msa() {
         ]),
         make_test_tree(),
     );
-    assert!(info.is_err());
+    assert!(info.is_ok());
+    let info = info.unwrap();
+    assert_eq!(info.msa.len(), 5);
+    assert_eq!(info.msa.seq_count(), 4);
 }
 
 #[test]

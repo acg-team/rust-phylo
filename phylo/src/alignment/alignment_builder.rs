@@ -2,11 +2,12 @@ use std::collections::HashMap;
 
 use anyhow::bail;
 use bio::io::fasta::Record;
-use log::warn;
 
 use crate::align;
 use crate::alignment::{Alignment, InternalMapping, Mapping, PairwiseAlignment, Sequences};
 use crate::alphabets::GAP;
+use crate::parsimony::costs::ParsimonyCostsSimple;
+use crate::parsimony::pars_align_on_tree;
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::Result;
 
@@ -29,9 +30,19 @@ impl<'a> AlignmentBuilder<'a> {
     }
 
     fn align_unaligned_seqs(self) -> Result<Alignment> {
-        // TODO: use parsimony to align the sequences.
-        warn!("Making an initial alignment using parsimony.");
-        bail!("Alignment of unaligned sequences is not yet implemented.")
+        let costs = ParsimonyCostsSimple::new_default();
+        let (aligns, _scores) = pars_align_on_tree(&costs, self.tree, self.seqs.clone());
+        let mut alignment = Alignment {
+            seqs: Sequences::new(Vec::new()),
+            leaf_map: HashMap::new(),
+            node_map: aligns,
+            leaf_encoding: HashMap::new(),
+        };
+        let leaf_map = alignment.compile_leaf_map(&self.tree.root, self.tree)?;
+        alignment.leaf_map = leaf_map;
+        alignment.seqs = self.seqs.into_gapless();
+        alignment.leaf_encoding = alignment.seqs.generate_leaf_encoding();
+        Ok(alignment)
     }
 
     /// This assumes that the tree structure matches the alignment structure and that the sequences are aligned.

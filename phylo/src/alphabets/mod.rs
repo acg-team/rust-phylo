@@ -17,12 +17,13 @@ pub static POSSIBLE_GAPS: &[u8] = b"_*-";
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Alphabet {
+    name: &'static str,
     symbols: &'static [u8],
     ambiguous: &'static [u8],
-    char_sets: &'static [FreqVector],
     index: &'static [usize; 255],
     valid_symbols: &'static HashSet<u8>,
-    name: &'static str,
+    conditional_probs: &'static [FreqVector],
+    parsimony_sets: &'static [HashSet<u8>],
 }
 
 impl Display for Alphabet {
@@ -47,11 +48,11 @@ impl Alphabet {
     }
 
     pub fn char_encoding(&self, char: u8) -> FreqVector {
-        self.char_sets[char.to_ascii_uppercase() as usize].clone()
+        self.conditional_probs[char.to_ascii_uppercase() as usize].clone()
     }
 
     pub fn empty_freqs(&self) -> FreqVector {
-        FreqVector::zeros(self.char_sets[AMB_CHAR as usize].nrows())
+        FreqVector::zeros(self.conditional_probs[AMB_CHAR as usize].nrows())
     }
 
     pub fn index(&self, char: &u8) -> usize {
@@ -59,7 +60,11 @@ impl Alphabet {
     }
 
     pub fn gap_encoding(&self) -> &FreqVector {
-        &self.char_sets[AMB_CHAR as usize]
+        &self.conditional_probs[AMB_CHAR as usize]
+    }
+
+    pub fn parsimony_set(&self, char: &u8) -> ParsimonySet {
+        self.parsimony_sets[*char as usize].clone()
     }
 }
 
@@ -73,26 +78,34 @@ pub fn detect_alphabet(sequences: &[Record]) -> Alphabet {
     dna_alphabet
 }
 
+pub(crate) type ParsimonySet = HashSet<u8>;
+
 pub(crate) fn dna_alphabet() -> Alphabet {
     Alphabet {
+        name: "DNA",
         symbols: NUCLEOTIDES,
         ambiguous: AMB_NUCLEOTIDES,
         index: &NUCLEOTIDE_INDEX,
         valid_symbols: &VALID_NUCLEOTIDES,
-        char_sets: &NUCLEOTIDE_SETS,
-        name: "DNA",
+        conditional_probs: &NUCL_COND_PROBS,
+        parsimony_sets: &NUCL_PARSIMONY_SETS,
     }
 }
 
 pub(crate) fn protein_alphabet() -> Alphabet {
     Alphabet {
+        name: "protein",
         symbols: AMINOACIDS,
         ambiguous: AMB_AMINOACIDS,
         index: &AMINOACID_INDEX,
         valid_symbols: &VALID_AMINOACIDS,
-        char_sets: &AMINOACID_SETS,
-        name: "protein",
+        conditional_probs: &AA_COND_PROBS,
+        parsimony_sets: &AA_PARSIMONY_SETS,
     }
+}
+
+pub(crate) fn gap_set() -> ParsimonySet {
+    ParsimonySet::from_iter([GAP])
 }
 
 lazy_static! {
@@ -105,14 +118,6 @@ lazy_static! {
         index[GAP as usize] = 4;
         index
     };
-    pub static ref NUCLEOTIDE_SETS: Vec<FreqVector> = {
-        let mut map = vec![frequencies!(&[0.0; 4]); 255];
-        for (i, elem) in map.iter_mut().enumerate() {
-            let char = i as u8;
-            elem.set_column(0, &generic_nucleotide_sets(char));
-        }
-        map
-    };
     pub static ref VALID_NUCLEOTIDES: HashSet<u8> = {
         NUCLEOTIDES
             .iter()
@@ -120,9 +125,25 @@ lazy_static! {
             .cloned()
             .collect()
     };
+    pub static ref NUCL_COND_PROBS: Vec<FreqVector> = {
+        let mut map = vec![frequencies!(&[0.0; 4]); 255];
+        for (i, elem) in map.iter_mut().enumerate() {
+            let char = i as u8;
+            elem.set_column(0, &nucl_cond_probs(char));
+        }
+        map
+    };
+    pub static ref NUCL_PARSIMONY_SETS: Vec<ParsimonySet> = {
+        let mut map: Vec<ParsimonySet> = vec![ParsimonySet::new(); 255];
+        for (i, elem) in map.iter_mut().enumerate() {
+            let char = i as u8;
+            *elem = nucl_parsimony_set(&char);
+        }
+        map
+    };
 }
 
-fn generic_nucleotide_sets(char: u8) -> FreqVector {
+fn nucl_cond_probs(char: u8) -> FreqVector {
     let char = char.to_ascii_uppercase();
     match char {
         b'T' => frequencies!(&[1.0, 0.0, 0.0, 0.0]),
@@ -143,6 +164,27 @@ fn generic_nucleotide_sets(char: u8) -> FreqVector {
     }
 }
 
+fn nucl_parsimony_set(char: &u8) -> ParsimonySet {
+    let char = char.to_ascii_uppercase();
+    if NUCLEOTIDES.contains(&char) {
+        return ParsimonySet::from_iter([char]);
+    }
+    match char {
+        b'-' => ParsimonySet::from_iter([GAP]),
+        b'M' => ParsimonySet::from_iter([b'C', b'A']),
+        b'R' => ParsimonySet::from_iter([b'A', b'G']),
+        b'W' => ParsimonySet::from_iter([b'T', b'A']),
+        b'S' => ParsimonySet::from_iter([b'C', b'G']),
+        b'Y' => ParsimonySet::from_iter([b'T', b'C']),
+        b'K' => ParsimonySet::from_iter([b'T', b'G']),
+        b'V' => ParsimonySet::from_iter([b'C', b'A', b'G']),
+        b'D' => ParsimonySet::from_iter([b'T', b'A', b'G']),
+        b'B' => ParsimonySet::from_iter([b'T', b'C', b'G']),
+        b'H' => ParsimonySet::from_iter([b'T', b'C', b'A']),
+        _ => ParsimonySet::from_iter(NUCLEOTIDES.iter().cloned()),
+    }
+}
+
 lazy_static! {
     pub static ref AMINOACID_INDEX: [usize; 255] = {
         let mut index = [0; 255];
@@ -153,14 +195,6 @@ lazy_static! {
         index[GAP as usize] = 20;
         index
     };
-    pub static ref AMINOACID_SETS: Vec<FreqVector> = {
-        let mut map: Vec<FreqVector> = vec![frequencies!(&[0.0; 20]); 255];
-        for (i, elem) in map.iter_mut().enumerate() {
-            let char = i as u8;
-            elem.set_column(0, &generic_aminoacid_sets(char));
-        }
-        map
-    };
     pub static ref VALID_AMINOACIDS: HashSet<u8> = {
         AMINOACIDS
             .iter()
@@ -168,9 +202,25 @@ lazy_static! {
             .cloned()
             .collect()
     };
+    pub static ref AA_COND_PROBS: Vec<FreqVector> = {
+        let mut map: Vec<FreqVector> = vec![frequencies!(&[0.0; 20]); 255];
+        for (i, elem) in map.iter_mut().enumerate() {
+            let char = i as u8;
+            elem.set_column(0, &aa_cond_probs(char));
+        }
+        map
+    };
+    pub static ref AA_PARSIMONY_SETS: Vec<ParsimonySet> = {
+        let mut map: Vec<ParsimonySet> = vec![ParsimonySet::new(); 255];
+        for (i, elem) in map.iter_mut().enumerate() {
+            let char = i as u8;
+            *elem = aa_parsimony_set(&char);
+        }
+        map
+    };
 }
 
-fn generic_aminoacid_sets(char: u8) -> FreqVector {
+fn aa_cond_probs(char: u8) -> FreqVector {
     let char = char.to_ascii_uppercase();
     let index = &AMINOACID_INDEX;
     if AMINOACIDS.contains(&char) {
@@ -200,6 +250,20 @@ fn generic_aminoacid_sets(char: u8) -> FreqVector {
         _ => {
             frequencies!(&[1.0; 20])
         }
+    }
+}
+
+fn aa_parsimony_set(char: &u8) -> ParsimonySet {
+    let char = char.to_ascii_uppercase();
+    if AMINOACIDS.contains(&char) {
+        return ParsimonySet::from_iter([char]);
+    }
+    match char {
+        b'-' => ParsimonySet::from_iter([GAP]),
+        b'B' => ParsimonySet::from_iter([b'D', b'N']),
+        b'Z' => ParsimonySet::from_iter([b'E', b'Q']),
+        b'J' => ParsimonySet::from_iter([b'I', b'L']),
+        _ => ParsimonySet::from_iter(AMINOACIDS.iter().cloned()),
     }
 }
 

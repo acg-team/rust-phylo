@@ -20,14 +20,20 @@ pub type LeafMapping = HashMap<NodeIdx, Mapping>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PairwiseAlignment {
-    map_x: Mapping,
-    map_y: Mapping,
+    pub map_x: Mapping,
+    pub map_y: Mapping,
 }
 
 impl PairwiseAlignment {
     pub fn new(map_x: Mapping, map_y: Mapping) -> PairwiseAlignment {
         debug_assert!((map_x.len() == map_y.len()) | map_y.is_empty());
         PairwiseAlignment { map_x, map_y }
+    }
+    pub fn empty() -> PairwiseAlignment {
+        PairwiseAlignment {
+            map_x: Vec::new(),
+            map_y: Vec::new(),
+        }
     }
 }
 

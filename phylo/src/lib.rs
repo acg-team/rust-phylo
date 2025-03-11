@@ -8,6 +8,7 @@ pub mod evolutionary_models;
 pub mod io;
 pub mod likelihood;
 pub mod optimisers;
+pub mod parsimony;
 pub mod phylo_info;
 pub mod pip_model;
 pub mod substitution_models;
@@ -45,7 +46,6 @@ impl Rounding {
     }
 }
 
-#[cfg(test)]
 pub(crate) fn cmp_f64() -> impl Fn(&f64, &f64) -> std::cmp::Ordering {
     |a, b| a.partial_cmp(b).unwrap()
 }
