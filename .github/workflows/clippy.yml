@@ -40,7 +40,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - uses: mbrobbel/rustfmt-check@master
+      - uses: mbrobbel/rustfmt-check@0.16.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --manifest-path ./phylo/Cargo.toml
