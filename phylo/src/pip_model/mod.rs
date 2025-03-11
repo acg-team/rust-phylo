@@ -465,6 +465,7 @@ impl<Q: QMatrix> PIPCost<Q> {
         let idx = usize::from(node_idx);
         let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
         let mut tmp = self.tmp.borrow_mut();
+        // TODO: unnecessary clone of whole matrix
         let x_anc = tmp.anc[children[0]].clone();
         let y_anc = tmp.anc[children[1]].clone();
         tmp.anc[idx].set_column(1, &x_anc.column(0));

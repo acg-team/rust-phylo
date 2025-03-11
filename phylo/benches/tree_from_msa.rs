@@ -66,7 +66,7 @@ fn bench_pip_protein_small(criterion: &mut criterion::Criterion) {
 }
 fn bench_pip_dna_tiny(criterion: &mut criterion::Criterion) {
     let (cfg, pip_cost) = black_box_setup::<GTR>("data/sim/GTR/gtr.fasta");
-    criterion.bench_function("PIP DNA(GTR) tiny", |bench| {
+    criterion.bench_function("PIP DNA(GTR) tiny but long", |bench| {
         bench.iter(|| {
             run_optimisation(pip_cost.clone(), cfg.freq_opt, cfg.max_iters, cfg.epsilon)
                 .expect("failed to run pip optimisation")
