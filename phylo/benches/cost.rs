@@ -4,7 +4,8 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use phylo::{
     likelihood::ModelSearchCost,
     phylo_info::PhyloInfoBuilder,
-    substitution_models::{SubstModel, SubstitutionCostBuilder, JC69},
+    pip_model::{PIPCostBuilder, PIPModel},
+    substitution_models::JC69,
 };
 
 fn pip_cost_tiny_but_long(criterion: &mut Criterion) {
@@ -13,8 +14,8 @@ fn pip_cost_tiny_but_long(criterion: &mut Criterion) {
             .build()
             .unwrap(),
     );
-    let jc69 = black_box(SubstModel::<JC69>::new(&[], &[]));
-    let c = black_box(SubstitutionCostBuilder::new(jc69, info).build().unwrap());
+    let jc69 = black_box(PIPModel::<JC69>::new(&[], &[]));
+    let c = black_box(PIPCostBuilder::new(jc69, info).build().unwrap());
     criterion.bench_function("PIP cost tiny but long", |bench| {
         bench.iter(|| {
             // clone because of interior mutability
