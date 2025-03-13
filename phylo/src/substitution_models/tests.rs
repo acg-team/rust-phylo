@@ -12,13 +12,13 @@ use crate::alphabets::{Alphabet, AMINOACIDS, GAP};
 use crate::evolutionary_models::EvoModel;
 use crate::io::read_sequences_from_file;
 use crate::likelihood::ModelSearchCost;
+use crate::parsimony::Rounding as R;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::substitution_models::{
     dna_models::*, protein_models::*, FreqVector, ParsimonyModel, QMatrix, QMatrixMaker,
     SubstMatrix, SubstModel, SubstitutionCostBuilder as SCB,
 };
 use crate::tree::{tree_parser::from_newick, Tree};
-use crate::Rounding as R;
 use crate::{frequencies, record_wo_desc as record, tree};
 
 #[cfg(test)]

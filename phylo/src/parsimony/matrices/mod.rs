@@ -1,10 +1,9 @@
-use std::f64::INFINITY as INF;
 use std::{fmt, iter::zip};
 
 use log::debug;
 
 use crate::alignment::{Mapping, PairwiseAlignment};
-use crate::alphabets::{gap_set, ParsimonySet};
+use crate::alphabets::{ParsimonySet, gap_set};
 use crate::cmp_f64;
 use crate::parsimony::BranchParsimonyCosts as BranchCosts;
 use crate::parsimony::{
@@ -91,7 +90,7 @@ fn score_match_one_branch(
 ) -> f64 {
     a_set
         .iter()
-        .map(|&ancestor| min_score(c_set, c_scor, ancestor))
+        .map(|ancestor| min_score(c_set, c_scor, ancestor))
         .min_by(cmp_f64())
         .unwrap()
 }
@@ -105,14 +104,14 @@ fn score_match_both_branches(
 ) -> f64 {
     a_set
         .iter()
-        .map(|&ancestor| min_score(x_set, x_scor, ancestor) + min_score(y_set, y_scor, ancestor))
+        .map(|ancestor| min_score(x_set, x_scor, ancestor) + min_score(y_set, y_scor, ancestor))
         .min_by(cmp_f64())
         .unwrap()
 }
 
-fn min_score(set: &ParsimonySet, scor: &dyn BranchCosts, ancestor: u8) -> f64 {
+fn min_score(set: &ParsimonySet, scor: &dyn BranchCosts, ancestor: &u8) -> f64 {
     set.iter()
-        .map(|&child| scor.r#match(ancestor, child))
+        .map(|child| scor.r#match(ancestor, child))
         .min_by(cmp_f64())
         .unwrap()
 }
@@ -208,8 +207,8 @@ impl ParsimonyAlignmentMatrices {
                 self.trace.x[i][0] = GapInY;
                 self.trace.y[i][0] = GapInY;
             }
-            self.score.y[i][0] = INF;
-            self.score.m[i][0] = INF;
+            self.score.y[i][0] = f64::INFINITY;
+            self.score.m[i][0] = f64::INFINITY;
         }
     }
 
@@ -231,8 +230,8 @@ impl ParsimonyAlignmentMatrices {
                 self.trace.x[0][j] = GapInX;
                 self.trace.y[0][j] = GapInX;
             }
-            self.score.x[0][j] = INF;
-            self.score.m[0][j] = INF;
+            self.score.x[0][j] = f64::INFINITY;
+            self.score.m[0][j] = f64::INFINITY;
         }
     }
 
@@ -252,12 +251,10 @@ impl ParsimonyAlignmentMatrices {
         };
         let match_score =
             score_match_both_branches(&anc_set, &x_info[i].set, x_scor, &y_info[j].set, y_scor);
-        // debug!(
-        //     "Match score for {} and {}: {}",
-        //     print_parsimony_set(&x_info[i].set),
-        //     print_parsimony_set(&y_info[j].set),
-        //     match_score
-        // );
+        debug!(
+            "Match score for {:?} and {:?}: {}",
+            x_info[i].set, y_info[j].set, match_score
+        );
         let (x_gap_adj, y_gap_adj) =
             self.score_match_gap_cost_adjustment(i, j, x_info, x_scor, y_info, y_scor);
         self.select_direction(
@@ -294,8 +291,8 @@ impl ParsimonyAlignmentMatrices {
                 y_info.iter().take(j + 1),
             )
             .rev()
-            .find(|(&dir, info)| dir != GapInX && !info.is_fixed())
-            .filter(|(&dir, _)| dir != Matc)
+            .find(|(dir, info)| **dir != GapInX && !info.is_fixed())
+            .filter(|(dir, _)| **dir != Matc)
             .map_or(0.0, |_| x_scor.gap_open() - x_scor.gap_ext())
         } else {
             x_scor.gap_open() - x_scor.gap_ext()
@@ -440,8 +437,8 @@ impl ParsimonyAlignmentMatrices {
             y_info.iter().take(j + 1),
         )
         .rev()
-        .find(|(&dir, info)| !(dir == GapInX && info.is_possible()))
-        .filter(|(&dir, info)| !(dir != GapInY && info.is_possible()))
+        .find(|(dir, info)| !(**dir == GapInX && info.is_possible()))
+        .filter(|(dir, info)| !(**dir != GapInY && info.is_possible()))
         .map_or(x_scor.gap_open(), |_| x_scor.gap_ext())
     }
 

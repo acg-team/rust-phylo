@@ -1,6 +1,7 @@
 use std::fmt::{self, Debug};
 
 use log::{debug, info};
+use nalgebra::DMatrix;
 use rand::prelude::*;
 
 use crate::alignment::{InternalMapping, PairwiseAlignment, Sequences};
@@ -8,9 +9,37 @@ use crate::tree::Tree;
 use crate::tree::{NodeIdx::Internal as Int, NodeIdx::Leaf};
 
 pub mod costs;
-use costs::{BranchParsimonyCosts, ParsimonyCosts};
+use costs::*;
 pub mod matrices;
 pub(crate) use matrices::*;
+
+pub(crate) type CostMatrix = DMatrix<f64>;
+
+pub struct Rounding {
+    pub round: bool,
+    pub digits: usize,
+}
+
+impl Rounding {
+    pub fn zero() -> Self {
+        Rounding {
+            round: true,
+            digits: 0,
+        }
+    }
+    pub fn four() -> Self {
+        Rounding {
+            round: true,
+            digits: 4,
+        }
+    }
+    pub fn none() -> Self {
+        Rounding {
+            round: false,
+            digits: 0,
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum Direction {
@@ -87,35 +116,42 @@ fn rng_len(l: usize) -> usize {
 
 fn pars_align_w_rng(
     x_info: &[ParsimonySite],
-    x_scoring: &dyn BranchParsimonyCosts,
+    x_blen: f64,
     y_info: &[ParsimonySite],
-    y_scoring: &dyn BranchParsimonyCosts,
+    y_blen: f64,
+    scoring: &dyn ParsimonyCosts,
     rng: fn(usize) -> usize,
 ) -> (Vec<ParsimonySite>, PairwiseAlignment, f64) {
     let mut pars_mats = ParsimonyAlignmentMatrices::new(x_info.len() + 1, y_info.len() + 1, rng);
     debug!(
         "x_scoring: {} {} {}",
-        x_scoring.avg(),
-        x_scoring.gap_open(),
-        x_scoring.gap_ext()
+        scoring.avg(x_blen),
+        scoring.gap_open(x_blen),
+        scoring.gap_ext(x_blen)
     );
     debug!(
         "y_scoring: {} {} {}",
-        y_scoring.avg(),
-        y_scoring.gap_open(),
-        y_scoring.gap_ext()
+        scoring.avg(y_blen),
+        scoring.gap_open(y_blen),
+        scoring.gap_ext(y_blen)
     );
-    pars_mats.fill_matrices(x_info, x_scoring, y_info, y_scoring);
+    pars_mats.fill_matrices(
+        x_info,
+        scoring.branch_costs(x_blen),
+        y_info,
+        scoring.branch_costs(y_blen),
+    );
     pars_mats.traceback(x_info, y_info)
 }
 
 fn pars_align(
     x_info: &[ParsimonySite],
-    x_scoring: &dyn BranchParsimonyCosts,
+    x_blen: f64,
     y_info: &[ParsimonySite],
-    y_scoring: &dyn BranchParsimonyCosts,
+    y_blen: f64,
+    scoring: &dyn ParsimonyCosts,
 ) -> (Vec<ParsimonySite>, PairwiseAlignment, f64) {
-    pars_align_w_rng(x_info, x_scoring, y_info, y_scoring, rng_len)
+    pars_align_w_rng(x_info, x_blen, y_info, y_blen, scoring, rng_len)
 }
 
 pub fn pars_align_on_tree(
@@ -152,12 +188,8 @@ pub fn pars_align_on_tree(
                     tree.node(&chy_idx).id,
                     y_branch,
                 );
-                let (info, alignment, score) = pars_align(
-                    x_info,
-                    scoring.branch_costs(x_branch),
-                    y_info,
-                    scoring.branch_costs(y_branch),
-                );
+                let (info, alignment, score) =
+                    pars_align(x_info, x_branch, y_info, y_branch, scoring);
                 node_info[idx] = info;
                 alignments.insert(node_idx, alignment);
                 scores[idx] = score;

@@ -11,6 +11,7 @@ use rand::Rng;
 
 use crate::alignment::Sequences;
 use crate::io::read_newick_from_file;
+use crate::parsimony::Rounding;
 use crate::tree::{
     argmin_wo_diagonal, build_nj_tree_from_matrix, compute_distance_matrix,
     nj_matrices::NJMat,
@@ -20,7 +21,7 @@ use crate::tree::{
     NodeIdx::{self, Internal as I, Leaf as L},
     Tree,
 };
-use crate::{cmp_f64, record_wo_desc as record, tree, Rounding};
+use crate::{cmp_f64, record_wo_desc as record, tree};
 
 #[cfg(test)]
 fn setup_test_tree() -> Tree {

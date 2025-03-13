@@ -9,11 +9,12 @@ use nalgebra::{max, DMatrix};
 use rand::random;
 
 use crate::alignment::Sequences;
+use crate::parsimony::Rounding;
 use crate::tree::{
     nj_matrices::{Mat, NJMat},
     NodeIdx::{Internal as Int, Leaf},
 };
-use crate::{Result, Rounding};
+use crate::Result;
 
 mod nj_matrices;
 pub mod tree_parser;

@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use ordered_float::OrderedFloat;
 
 use crate::evolutionary_models::EvoModel;
-use crate::f64_h;
+use crate::ord_f64;
+use crate::parsimony::Rounding;
 use crate::substitution_models::{QMatrix, SubstMatrix, SubstModel};
-use crate::Rounding;
 
 pub trait ParsimonyModel {
     fn generate_scorings(
@@ -32,9 +32,9 @@ impl<Q: QMatrix> ParsimonyModel for SubstModel<Q> {
         zero_diag: bool,
         rounding: &Rounding,
     ) -> HashMap<OrderedFloat<f64>, (SubstMatrix, f64)> {
-        HashMap::<f64_h, (SubstMatrix, f64)>::from_iter(times.iter().map(|&time| {
+        HashMap::<ord_f64, (SubstMatrix, f64)>::from_iter(times.iter().map(|&time| {
             (
-                f64_h::from(time),
+                ord_f64::from(time),
                 self.scoring_matrix_corrected(time, zero_diag, rounding),
             )
         }))

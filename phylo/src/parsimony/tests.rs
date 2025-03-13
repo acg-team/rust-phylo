@@ -2,7 +2,7 @@ use bio::io::fasta::Record;
 
 use crate::alignment::Sequences;
 use crate::alphabets::dna_alphabet as dna;
-use crate::parsimony::costs::{ParsimonyCosts, ParsimonyCostsSimple};
+use crate::parsimony::costs::ParsimonyCostsSimple;
 use crate::parsimony::SiteFlag::{self, GapOpen, NoGap};
 use crate::parsimony::{pars_align_on_tree, pars_align_w_rng, ParsimonySite};
 use crate::record_wo_desc as rec;
@@ -38,13 +38,8 @@ pub(crate) fn align_two_first_outcome() {
         .iter()
         .map(|c| ParsimonySite::new_leaf(dna.parsimony_set(c)))
         .collect::<Vec<ParsimonySite>>();
-    let (_info, alignment, score) = pars_align_w_rng(
-        &leaf_info1,
-        scoring.branch_costs(1.0),
-        &leaf_info2,
-        scoring.branch_costs(1.0),
-        |l| l - 1,
-    );
+    let (_info, alignment, score) =
+        pars_align_w_rng(&leaf_info1, 1.0, &leaf_info2, 1.0, &scoring, |l| l - 1);
     assert_eq!(score, 3.5);
     assert_eq!(alignment.map_x.len(), 4);
     assert_eq!(alignment.map_y.len(), 4);
@@ -75,13 +70,8 @@ pub(crate) fn align_two_second_outcome() {
         .iter()
         .map(|c| ParsimonySite::new_leaf(dna.parsimony_set(c)))
         .collect::<Vec<ParsimonySite>>();
-    let (_info, alignment, score) = pars_align_w_rng(
-        &leaf_info1,
-        scoring.branch_costs(1.0),
-        &leaf_info2,
-        scoring.branch_costs(1.0),
-        |_| 0,
-    );
+    let (_info, alignment, score) =
+        pars_align_w_rng(&leaf_info1, 1.0, &leaf_info2, 1.0, &scoring, |_| 0);
     assert_eq!(score, 3.5);
     assert_eq!(alignment.map_x.len(), 4);
     assert_eq!(alignment.map_y.len(), 4);
@@ -126,13 +116,8 @@ pub(crate) fn internal_alignment_first_outcome() {
 
     let leaf_info2 = [([b'G'], GapOpen), ([b'A'], NoGap)].map(create_site_info);
 
-    let (_, alignment, score) = pars_align_w_rng(
-        &leaf_info1,
-        scoring.branch_costs(1.0),
-        &leaf_info2,
-        scoring.branch_costs(1.0),
-        |_| 0,
-    );
+    let (_, alignment, score) =
+        pars_align_w_rng(&leaf_info1, 1.0, &leaf_info2, 1.0, &scoring, |_| 0);
     assert_eq!(score, 1.0);
     assert_eq!(alignment.map_x, align!(0 1 2 3));
     assert_eq!(alignment.map_y, align!(0 1 - -));
@@ -160,13 +145,8 @@ pub(crate) fn internal_alignment_second_outcome() {
 
     let leaf_info2 = [([b'G'], GapOpen), ([b'A'], NoGap)].map(create_site_info);
 
-    let (_info, alignment, score) = pars_align_w_rng(
-        &leaf_info1,
-        scoring.branch_costs(1.0),
-        &leaf_info2,
-        scoring.branch_costs(1.0),
-        |_| 0,
-    );
+    let (_info, alignment, score) =
+        pars_align_w_rng(&leaf_info1, 1.0, &leaf_info2, 1.0, &scoring, |_| 0);
     assert_eq!(score, 2.0);
     assert_eq!(alignment.map_x, align!(0 1 2 3));
     assert_eq!(alignment.map_y, align!(0 - -1));
@@ -189,13 +169,8 @@ pub(crate) fn internal_alignment_third_outcome() {
 
     let leaf_info2 = [(vec![b'G'], GapOpen), (vec![b'A'], NoGap)].map(create_site_info);
 
-    let (_info, alignment, score) = pars_align_w_rng(
-        &leaf_info1,
-        scoring.branch_costs(1.0),
-        &leaf_info2,
-        scoring.branch_costs(1.0),
-        |l| l - 1,
-    );
+    let (_info, alignment, score) =
+        pars_align_w_rng(&leaf_info1, 1.0, &leaf_info2, 1.0, &scoring, |l| l - 1);
     assert_eq!(score, 2.0);
     assert_eq!(alignment.map_x, align!(- 0 1 2 3));
     assert_eq!(alignment.map_y, align!(0 1 - - -));
