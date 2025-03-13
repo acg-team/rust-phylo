@@ -2,9 +2,9 @@ use crate::alphabets::dna_alphabet;
 
 use crate::parsimony::costs::parsimony_costs_model::ParsimonyCostsWModel;
 use crate::parsimony::{
-    BranchParsimonyCosts, GapMultipliers, ParsimonyCosts, Rounding, costs::ParsimonyCostsSimple,
+    costs::ParsimonyCostsSimple, BranchParsimonyCosts, GapMultipliers, ParsimonyCosts, Rounding,
 };
-use crate::substitution_models::{JC69, SubstModel, WAG};
+use crate::substitution_models::{SubstModel, JC69, WAG};
 
 #[test]
 fn default_costs() {

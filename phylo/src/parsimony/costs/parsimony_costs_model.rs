@@ -6,7 +6,7 @@ use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
 use crate::parsimony::{BranchParsimonyCosts, GapMultipliers, ParsimonyCosts, Rounding};
 use crate::substitution_models::ParsimonyModel;
-use crate::{Result, cmp_f64, ord_f64};
+use crate::{cmp_f64, ord_f64, Result};
 
 use super::CostMatrix;
 

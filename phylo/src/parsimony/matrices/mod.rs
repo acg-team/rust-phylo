@@ -3,7 +3,7 @@ use std::{fmt, iter::zip};
 use log::debug;
 
 use crate::alignment::{Mapping, PairwiseAlignment};
-use crate::alphabets::{ParsimonySet, gap_set};
+use crate::alphabets::{gap_set, ParsimonySet};
 use crate::cmp_f64;
 use crate::parsimony::BranchParsimonyCosts as BranchCosts;
 use crate::parsimony::{

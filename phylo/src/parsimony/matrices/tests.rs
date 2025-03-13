@@ -1,9 +1,9 @@
 use crate::alphabets::dna_alphabet as dna;
+use crate::parsimony::costs::{ParsimonyCosts, ParsimonyCostsSimple};
+use crate::parsimony::matrices::Direction::{GapInX, GapInY, Matc};
 use crate::parsimony::ParsimonyAlignmentMatrices as PAM;
 use crate::parsimony::ParsimonySite as PSI;
 use crate::parsimony::SiteFlag::{GapExt, GapFixed, GapOpen, NoGap};
-use crate::parsimony::costs::{ParsimonyCosts, ParsimonyCostsSimple};
-use crate::parsimony::matrices::Direction::{GapInX, GapInY, Matc};
 
 macro_rules! align {
     (@collect -) => { None };
