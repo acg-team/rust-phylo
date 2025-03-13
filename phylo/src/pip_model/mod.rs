@@ -9,7 +9,7 @@ use std::vec;
 use anyhow::bail;
 use lazy_static::lazy_static;
 use log::warn;
-use nalgebra::{DMatrix, DVector};
+use nalgebra::{DMatrix, DVector, Vector};
 
 use crate::alignment::Mapping;
 use crate::alphabets::{Alphabet, GAP};
@@ -361,6 +361,45 @@ impl<Q: QMatrix> PIPCost<Q> {
         }
     }
 
+    fn build_tree_order(tree: &Tree) {
+        type Mat = DMatrix<f64>;
+        type MatPair = (Mat, Mat);
+        /// 0:        [r]
+        /// 1:       [i,i]
+        /// 2:     [i,i i,i]
+        /// 3: [i,i  i,i  i,i  i,i]
+        ///
+        /// L2 accesses relevant values from L3 with
+        /// indices i*2, i*2+1
+        ///
+        ///
+        /// Assumptions:
+        /// - process the levels left to right to reduce sync effort
+        ///     when processing the next layer early.
+        ///     Its very easy to just 'unblock' all results up to the middle
+        ///     instead of trying to Semaphore/etc... each individual pair of children.
+        ///     
+        ///     This should not waste much time since each pair of nodes is assumed
+        ///     to take equal time to process (there are no conditional calculations)
+        struct TreeLevel {
+            level: usize,
+            /// CPU go brrrr when grug make code simple
+            /// so grug think that simpler when all ftilde processed
+            /// then all c0 (per level)
+            /// In science: MAYBE it helps branch prediciton to execute the same
+            /// code for as long as possible on contiguous memory,
+            /// then switch to the next piece of code and repeat (essentially
+            /// batch processing)
+            ///
+            /// If we implement threads per core then this might be worth to
+            /// separate by core. It should be fine to allow core 0 to start
+            /// 'pnu' or whatever calculations while the other cores keep faithfully
+            /// calculating ftilde without throwing off branch predicition
+            /// (maybe memory bandwidth becomes an issue here since it would not be
+            /// contiguous with the rest)
+            ftilde_pairs: Vec<MatPair>,
+        }
+    }
     fn set_internal(&self, tree: &Tree, node_idx: &NodeIdx) {
         self.set_model(tree, node_idx);
         let idx = usize::from(node_idx);
@@ -419,6 +458,14 @@ impl<Q: QMatrix> PIPCost<Q> {
         }
     }
 
+    /// Dependent:
+    /// - tmp.pnu of both children
+    /// - tmp.anc of this node
+    /// - tmp.f of this node
+    /// - tmp.surv_ins_weights of this node
+    ///
+    /// Modifies:
+    /// - tmp.pnu of this node
     fn set_pnu(&self, tree: &Tree, node_idx: &NodeIdx) {
         let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
         let idx = usize::from(node_idx);
@@ -432,12 +479,20 @@ impl<Q: QMatrix> PIPCost<Q> {
 
         let mut tmp = self.tmp.borrow_mut();
 
+        // TODO: why clone?
         tmp.pnu[idx] =
             tmp.f[idx].clone().component_mul(&ancestors.column(0)) * tmp.surv_ins_weights[idx];
         tmp.pnu[idx] +=
             ancestors.column(1).component_mul(&x_pnu) + ancestors.column(2).component_mul(&y_pnu);
     }
 
+    /// Dependent:
+    /// - tmp.models for both children
+    /// - tmp.ftilde for both children
+    ///
+    /// Modifies:
+    /// - tmp.ftile for this node
+    /// - tmp.f for this node
     fn set_ftilde(&self, tree: &Tree, node_idx: &NodeIdx) {
         let children = tree.children(node_idx);
         let idx = usize::from(node_idx);
@@ -461,6 +516,11 @@ impl<Q: QMatrix> PIPCost<Q> {
         }
     }
 
+    /// Dependent:
+    /// - tmp.anc of both children
+    ///
+    /// Modifies:
+    /// - tmp.anc of this node
     fn set_ancestors(&self, tree: &Tree, node_idx: &NodeIdx) {
         let idx = usize::from(node_idx);
         let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
@@ -480,6 +540,14 @@ impl<Q: QMatrix> PIPCost<Q> {
         }
     }
 
+    /// Dependent:
+    /// - blen of both children
+    /// - tmp.c0_f1 of both children
+    /// - tmp.c0_pnu of both children
+    ///
+    /// Modifies:
+    /// - tmp.c0_f1 of this node
+    /// - tmp.c0_pnu of this node
     fn set_c0(&self, tree: &Tree, node_idx: &NodeIdx) {
         let idx = usize::from(node_idx);
         let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
