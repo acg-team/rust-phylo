@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use log::{debug, info};
 
 use crate::alphabets::Alphabet;
-use crate::parsimony::{CostMatrix, GapMultipliers, ParsimonyCosts, ParsimonyModel, Rounding};
+use crate::parsimony::{CostMatrix, GapCost, ParsimonyCosts, ParsimonyModel, Rounding};
 use crate::{cmp_f64, ord_f64, Result};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -18,7 +18,7 @@ impl ModelCosts {
         model: &dyn ParsimonyModel,
         times: &[f64],
         zero_diag: bool,
-        gap_mult: &GapMultipliers,
+        gap: GapCost,
         rounding: &Rounding,
     ) -> Result<Self> {
         info!(
@@ -34,8 +34,7 @@ impl ModelCosts {
                 ord_f64::from(*time),
                 ModelBranchCosts {
                     avg,
-                    gap_open: gap_mult.open * avg,
-                    gap_ext: gap_mult.ext * avg,
+                    gap: gap.clone() * avg,
                     c: cost_matrix,
                 },
             );
@@ -84,11 +83,15 @@ impl ParsimonyCosts for ModelCosts {
     }
 
     fn gap_open(&self, blen: f64) -> f64 {
-        self.costs[&ord_f64::from(self.find_closest_branch_length(blen))].gap_open
+        self.costs[&ord_f64::from(self.find_closest_branch_length(blen))]
+            .gap
+            .open
     }
 
     fn gap_ext(&self, blen: f64) -> f64 {
-        self.costs[&ord_f64::from(self.find_closest_branch_length(blen))].gap_ext
+        self.costs[&ord_f64::from(self.find_closest_branch_length(blen))]
+            .gap
+            .ext
     }
 
     fn avg(&self, blen: f64) -> f64 {
@@ -102,8 +105,7 @@ impl ParsimonyCosts for ModelCosts {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ModelBranchCosts {
     avg: f64,
-    gap_open: f64,
-    gap_ext: f64,
+    gap: GapCost,
     c: CostMatrix,
 }
 
@@ -150,10 +152,7 @@ mod private_tests {
             &model,
             &[0.1, 0.3, 0.5, 0.7],
             false,
-            &GapMultipliers {
-                open: 2.5,
-                ext: 1.0,
-            },
+            GapCost::new(2.5, 1.0),
             &R::zero(),
         )
         .unwrap();

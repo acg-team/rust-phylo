@@ -1,7 +1,26 @@
+use std::ops::Mul;
+
 #[derive(Clone, Debug, PartialEq)]
-pub struct GapMultipliers {
-    pub(crate) open: f64,
-    pub(crate) ext: f64,
+pub struct GapCost {
+    open: f64,
+    ext: f64,
+}
+
+impl Mul<f64> for GapCost {
+    type Output = GapCost;
+
+    fn mul(self, rhs: f64) -> GapCost {
+        GapCost {
+            open: self.open * rhs,
+            ext: self.ext * rhs,
+        }
+    }
+}
+
+impl GapCost {
+    pub fn new(open: f64, ext: f64) -> GapCost {
+        GapCost { open, ext }
+    }
 }
 
 pub trait ParsimonyCosts {

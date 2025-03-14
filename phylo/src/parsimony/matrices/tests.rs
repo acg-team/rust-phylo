@@ -1,7 +1,7 @@
 use approx::assert_relative_eq;
 
 use crate::parsimony::costs::ModelCosts;
-use crate::parsimony::costs::{GapMultipliers, SimpleCosts};
+use crate::parsimony::costs::{GapCost, SimpleCosts};
 use crate::parsimony::matrices::Direction::{GapInX, GapInY, Matc};
 use crate::parsimony::ParsimonySite as PSI;
 use crate::parsimony::SiteFlag::{GapExt, GapFixed, GapOpen, NoGap};
@@ -17,10 +17,7 @@ macro_rules! align {
 #[test]
 fn fill_matrix() {
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 2.5,
-        ext: 0.5,
-    };
+    let gap = GapCost::new(2.5, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
 
     let node_info_1 = vec![PSI::new([b'C'], NoGap), PSI::new([b'C'], NoGap)];
@@ -84,10 +81,7 @@ fn fill_matrix() {
 #[test]
 fn fill_matrix_other_outcome() {
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 2.5,
-        ext: 0.5,
-    };
+    let gap = GapCost::new(2.5, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
 
     let node_info_1 = vec![PSI::new([b'C'], NoGap), PSI::new([b'C'], NoGap)];
@@ -151,10 +145,7 @@ fn fill_matrix_other_outcome() {
 #[test]
 fn traceback_correct() {
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 2.5,
-        ext: 0.5,
-    };
+    let gap = GapCost::new(2.5, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
 
     let node_info_1 = vec![PSI::new([b'C'], NoGap), PSI::new([b'C'], NoGap)];
@@ -189,10 +180,7 @@ fn fill_matrix_gap_adjustment_1() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_1.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_1.newick
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 5.5,
-        ext: 0.5,
-    };
+    let gap = GapCost::new(5.5, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
 
     let left_info = vec![
@@ -275,10 +263,7 @@ fn traceback_gap_adjustment_1() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_1.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_1.newick
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 5.5,
-        ext: 0.5,
-    };
+    let gap = GapCost::new(5.5, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
 
     let left_info = vec![
@@ -310,10 +295,7 @@ fn fill_matrix_gap_adjustment_2() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_2.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_2.newick
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 4.5,
-        ext: 1.0,
-    };
+    let gap = GapCost::new(4.5, 1.0);
 
     let scoring = SimpleCosts::new(mismatch, gap);
     let sites_left = vec![
@@ -392,10 +374,7 @@ fn traceback_gap_adjustment_2() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_2.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_2.newick
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 4.5,
-        ext: 1.0,
-    };
+    let gap = GapCost::new(4.5, 1.0);
     let scoring = SimpleCosts::new(mismatch, gap);
     let sites_left = vec![
         PSI::new([b'A'], GapOpen),
@@ -426,10 +405,7 @@ fn fill_matrix_gap_adjustment_3() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_3.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_3.newick
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 0.75,
-        ext: 0.5,
-    };
+    let gap = GapCost::new(0.75, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
     let left_info = vec![
         PSI::new([b'-'], GapFixed),
@@ -524,10 +500,7 @@ fn traceback_gap_adjustment_3() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_3.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_3.newick
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 0.75,
-        ext: 0.5,
-    };
+    let gap = GapCost::new(0.75, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
     let left_info = vec![
         PSI::new([b'-'], GapFixed),
@@ -564,10 +537,7 @@ fn fill_matrix_gap_adjustment_4() {
     // Tree file: tree_fill_matrix_gap_adjustment_3.newick
     // Slightly different setup to ensure there's a gap opening at the beginning of the alignment
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 0.75,
-        ext: 0.5,
-    };
+    let gap = GapCost::new(0.75, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
     let left_info = vec![
         PSI::new([b'-'], GapFixed),
@@ -663,10 +633,7 @@ fn traceback_gap_adjustment_4() {
     // Tree file: tree_fill_matrix_gap_adjustment_3.newick
     // Slightly different setup to ensure there's a gap opening at the beginning of the alignment
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 0.75,
-        ext: 0.5,
-    };
+    let gap = GapCost::new(0.75, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
     let left_info = vec![
         PSI::new([b'-'], GapFixed),
@@ -720,10 +687,7 @@ fn fill_matrix_diff_branch_models() {
         &model,
         &[1.0, 2.0],
         false,
-        &GapMultipliers {
-            open: 2.0,
-            ext: 0.5,
-        },
+        GapCost::new(2.0, 0.5),
         &Rounding::none(),
     )
     .unwrap();
@@ -805,10 +769,7 @@ fn traceback_diff_branch_models() {
         &model,
         &[1.0, 2.0],
         false,
-        &GapMultipliers {
-            open: 2.0,
-            ext: 0.5,
-        },
+        GapCost::new(2.0, 0.5),
         &Rounding::none(),
     )
     .unwrap();
@@ -846,10 +807,7 @@ fn fill_matrix_diff_branch_models_2() {
         &model,
         &[3.5, 3.0],
         false,
-        &GapMultipliers {
-            open: 1.5,
-            ext: 0.75,
-        },
+        GapCost::new(1.5, 0.75),
         &Rounding::none(),
     )
     .unwrap();
@@ -943,10 +901,7 @@ fn traceback_diff_branch_models_2() {
         &model,
         &[3.5, 3.0],
         false,
-        &GapMultipliers {
-            open: 1.5,
-            ext: 0.75,
-        },
+        GapCost::new(1.5, 0.75),
         &Rounding::none(),
     )
     .unwrap();
@@ -992,10 +947,7 @@ fn fill_matrix_diff_branch_models_3() {
         &model,
         &[0.52, 2.58],
         false,
-        &GapMultipliers {
-            open: 1.0,
-            ext: 0.75,
-        },
+        GapCost::new(1.0, 0.75),
         &Rounding::none(),
     )
     .unwrap();
@@ -1091,10 +1043,7 @@ fn traceback_diff_branch_models_3() {
         &model,
         &[0.52, 2.58],
         false,
-        &GapMultipliers {
-            open: 1.0,
-            ext: 0.75,
-        },
+        GapCost::new(1.0, 0.75),
         &Rounding::none(),
     )
     .unwrap();

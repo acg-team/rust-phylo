@@ -1,18 +1,15 @@
-use crate::parsimony::{GapMultipliers, ParsimonyCosts};
+use crate::parsimony::{GapCost, ParsimonyCosts};
 
 pub(crate) struct SimpleCosts {
     mismatch: f64,
-    gap: GapMultipliers,
+    gap: GapCost,
 }
 
 impl SimpleCosts {
-    pub fn new(mismatch: f64, gap: GapMultipliers) -> SimpleCosts {
+    pub fn new(mismatch: f64, gap: GapCost) -> SimpleCosts {
         SimpleCosts {
             mismatch,
-            gap: GapMultipliers {
-                open: gap.open * mismatch,
-                ext: gap.ext * mismatch,
-            },
+            gap: gap * mismatch,
         }
     }
 }

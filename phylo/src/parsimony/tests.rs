@@ -2,7 +2,7 @@ use bio::io::fasta::Record;
 
 use crate::alignment::Sequences;
 use crate::alphabets::dna_alphabet as dna;
-use crate::parsimony::costs::{GapMultipliers, SimpleCosts};
+use crate::parsimony::costs::{GapCost, SimpleCosts};
 use crate::parsimony::SiteFlag::{self, GapOpen, NoGap};
 use crate::parsimony::{pars_align_on_tree, pars_align_w_rng, ParsimonySite};
 use crate::tree::tree_parser::from_newick;
@@ -17,10 +17,7 @@ macro_rules! align {
 #[test]
 fn align_two_first_outcome() {
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 2.0,
-        ext: 0.5,
-    };
+    let gap = GapCost::new(2.0, 0.5);
 
     let scoring = SimpleCosts::new(mismatch, gap);
     let dna = dna();
@@ -52,10 +49,7 @@ fn align_two_first_outcome() {
 #[test]
 fn align_two_second_outcome() {
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 2.0,
-        ext: 0.5,
-    };
+    let gap = GapCost::new(2.0, 0.5);
 
     let scoring = SimpleCosts::new(mismatch, gap);
     let dna = dna();
@@ -87,10 +81,7 @@ fn align_two_second_outcome() {
 #[test]
 fn align_two_on_tree() {
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 2.0,
-        ext: 0.5,
-    };
+    let gap = GapCost::new(2.0, 0.5);
     let seqs = Sequences::new(vec![
         Record::with_attrs("A", None, b"AACT"),
         Record::with_attrs("B", None, b"AC"),
@@ -108,10 +99,7 @@ fn align_two_on_tree() {
 #[test]
 fn internal_alignment_first_outcome() {
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 2.0,
-        ext: 0.5,
-    };
+    let gap = GapCost::new(2.0, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
 
     let leaf_info1 = [
@@ -139,10 +127,7 @@ pub(crate) fn create_site_info(args: (impl IntoIterator<Item = u8>, SiteFlag)) -
 #[test]
 pub(crate) fn internal_alignment_second_outcome() {
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 2.0,
-        ext: 0.5,
-    };
+    let gap = GapCost::new(2.0, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
 
     let leaf_info1 = [
@@ -165,10 +150,7 @@ pub(crate) fn internal_alignment_second_outcome() {
 #[test]
 pub(crate) fn internal_alignment_third_outcome() {
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 2.0,
-        ext: 0.5,
-    };
+    let gap = GapCost::new(2.0, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
 
     let leaf_info1 = [
@@ -191,10 +173,7 @@ pub(crate) fn internal_alignment_third_outcome() {
 #[test]
 fn align_four_on_tree() {
     let mismatch = 1.0;
-    let gap = GapMultipliers {
-        open: 2.0,
-        ext: 0.5,
-    };
+    let gap = GapCost::new(2.0, 0.5);
 
     let sequences = Sequences::new(vec![
         rec!("A", b"AACT"),

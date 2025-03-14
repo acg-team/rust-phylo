@@ -1,11 +1,11 @@
 use crate::parsimony::costs::ModelCosts;
-use crate::parsimony::{GapMultipliers, ParsimonyCosts, Rounding, SimpleCosts};
+use crate::parsimony::{GapCost, ParsimonyCosts, Rounding, SimpleCosts};
 use crate::substitution_models::{SubstModel, JC69, WAG};
 
 #[test]
 fn default_costs() {
     let mismatch = 1.0;
-    let gap = GapMultipliers {
+    let gap = GapCost {
         open: 2.5,
         ext: 0.5,
     };
@@ -23,7 +23,7 @@ fn default_costs() {
 #[test]
 fn simple_costs() {
     let mismatch = 3.0;
-    let gap = GapMultipliers {
+    let gap = GapCost {
         open: 2.0,
         ext: 10.5,
     };
@@ -47,7 +47,7 @@ fn simple_costs() {
 
 #[test]
 fn protein_branch_scoring() {
-    let gap_mult = GapMultipliers {
+    let gap = GapCost {
         open: 2.5,
         ext: 0.5,
     };
@@ -56,16 +56,16 @@ fn protein_branch_scoring() {
     let times = [0.1, 0.7];
 
     let model = SubstModel::<WAG>::new(&[], &[]);
-    let cost = ModelCosts::new(&model, &times, false, &gap_mult, &Rounding::zero()).unwrap();
+    let cost = ModelCosts::new(&model, &times, false, gap.clone(), &Rounding::zero()).unwrap();
 
     assert_eq!(cost.avg(0.1), avg_01);
-    assert_eq!(cost.gap_ext(0.1), avg_01 * gap_mult.ext);
-    assert_eq!(cost.gap_open(0.1), avg_01 * gap_mult.open);
+    assert_eq!(cost.gap_ext(0.1), avg_01 * gap.ext);
+    assert_eq!(cost.gap_open(0.1), avg_01 * gap.open);
 
     assert_eq!(cost.avg(0.7), avg_07);
 
     let model = SubstModel::<WAG>::new(&[], &[]);
-    let cost = ModelCosts::new(&model, &times, true, &gap_mult, &Rounding::zero()).unwrap();
+    let cost = ModelCosts::new(&model, &times, true, gap, &Rounding::zero()).unwrap();
 
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.r#match(0.1, &b'A', &b'A'), 0.0);
@@ -76,7 +76,7 @@ fn protein_branch_scoring() {
 
 #[test]
 fn protein_scoring() {
-    let gap_mult = GapMultipliers {
+    let gap = GapCost {
         open: 2.0,
         ext: 0.1,
     };
@@ -88,11 +88,11 @@ fn protein_scoring() {
     let times = [0.1, 0.3, 0.5, 0.7];
     let model = SubstModel::<WAG>::new(&[], &[]);
 
-    let cost = ModelCosts::new(&model, &times, false, &gap_mult, &Rounding::zero()).unwrap();
+    let cost = ModelCosts::new(&model, &times, false, gap.clone(), &Rounding::zero()).unwrap();
 
     assert_eq!(cost.avg(0.1), avg_01);
-    assert_eq!(cost.gap_ext(0.1), avg_01 * gap_mult.ext);
-    assert_eq!(cost.gap_open(0.1), avg_01 * gap_mult.open);
+    assert_eq!(cost.gap_ext(0.1), avg_01 * gap.ext);
+    assert_eq!(cost.gap_open(0.1), avg_01 * gap.open);
     assert_eq!(cost.avg(0.3), avg_03);
     assert_eq!(cost.avg(0.5), avg_05);
     assert_eq!(cost.avg(0.7), avg_07);
@@ -100,7 +100,7 @@ fn protein_scoring() {
 
 #[test]
 fn protein_branch_scoring_nearest() {
-    let gap_mult = GapMultipliers {
+    let gap = GapCost {
         open: 2.0,
         ext: 0.1,
     };
@@ -109,11 +109,11 @@ fn protein_branch_scoring_nearest() {
     let times = [0.1, 0.5];
     let model = SubstModel::<WAG>::new(&[], &[]);
 
-    let cost = ModelCosts::new(&model, &times, false, &gap_mult, &Rounding::zero()).unwrap();
+    let cost = ModelCosts::new(&model, &times, false, gap.clone(), &Rounding::zero()).unwrap();
 
     assert_eq!(cost.avg(0.1), avg_01);
-    assert_eq!(cost.gap_ext(0.1), avg_01 * gap_mult.ext);
-    assert_eq!(cost.gap_open(0.1), avg_01 * gap_mult.open);
+    assert_eq!(cost.gap_ext(0.1), avg_01 * gap.ext);
+    assert_eq!(cost.gap_open(0.1), avg_01 * gap.open);
     assert_eq!(cost.avg(0.1), cost.avg(0.2));
     assert_eq!(cost.gap_ext(0.1), cost.gap_ext(0.2));
     assert_eq!(cost.gap_open(0.1), cost.gap_open(0.2));
@@ -126,7 +126,7 @@ fn protein_branch_scoring_nearest() {
 
 #[test]
 fn dna_branch_scoring() {
-    let gap_mult = GapMultipliers {
+    let gap = GapCost {
         open: 2.5,
         ext: 0.5,
     };
@@ -135,15 +135,15 @@ fn dna_branch_scoring() {
     let times = [0.1, 0.7];
 
     let model = SubstModel::<JC69>::new(&[], &[]);
-    let cost = ModelCosts::new(&model, &times, false, &gap_mult, &Rounding::zero()).unwrap();
+    let cost = ModelCosts::new(&model, &times, false, gap.clone(), &Rounding::zero()).unwrap();
 
     assert_eq!(cost.avg(0.1), avg_01);
-    assert_eq!(cost.gap_ext(0.1), avg_01 * gap_mult.ext);
-    assert_eq!(cost.gap_open(0.1), avg_01 * gap_mult.open);
+    assert_eq!(cost.gap_ext(0.1), avg_01 * gap.ext);
+    assert_eq!(cost.gap_open(0.1), avg_01 * gap.open);
 
     assert_eq!(cost.avg(0.7), avg_07);
 
-    let cost = ModelCosts::new(&model, &times, true, &gap_mult, &Rounding::zero()).unwrap();
+    let cost = ModelCosts::new(&model, &times, true, gap, &Rounding::zero()).unwrap();
 
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.r#match(0.1, &b'N', &b'N'), 0.0);
@@ -154,7 +154,7 @@ fn dna_branch_scoring() {
 
 #[test]
 fn dna_branch_scoring_nearest() {
-    let gap_mult = GapMultipliers {
+    let gap = GapCost {
         open: 3.0,
         ext: 0.75,
     };
@@ -163,11 +163,11 @@ fn dna_branch_scoring_nearest() {
     let times = [0.1, 0.7];
 
     let model = SubstModel::<JC69>::new(&[], &[]);
-    let cost = ModelCosts::new(&model, &times, false, &gap_mult, &Rounding::zero()).unwrap();
+    let cost = ModelCosts::new(&model, &times, false, gap.clone(), &Rounding::zero()).unwrap();
 
     assert_eq!(cost.avg(0.1), avg_01);
-    assert_eq!(cost.gap_ext(0.1), avg_01 * gap_mult.ext);
-    assert_eq!(cost.gap_open(0.1), avg_01 * gap_mult.open);
+    assert_eq!(cost.gap_ext(0.1), avg_01 * gap.ext);
+    assert_eq!(cost.gap_open(0.1), avg_01 * gap.open);
 
     assert_eq!(cost.avg(0.8), avg_07);
 
