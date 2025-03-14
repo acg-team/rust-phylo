@@ -1,11 +1,10 @@
 use approx::assert_relative_eq;
 
-use crate::parsimony::costs::ModelCosts;
-use crate::parsimony::costs::{GapCost, SimpleCosts};
+use crate::parsimony::costs::{GapCost as GC, ModelCosts, SimpleCosts};
 use crate::parsimony::matrices::Direction::{GapInX, GapInY, Matc};
-use crate::parsimony::ParsimonySite as PSI;
-use crate::parsimony::SiteFlag::{GapExt, GapFixed, GapOpen, NoGap};
-use crate::parsimony::{ParsimonyAlignmentMatrices as PAM, Rounding};
+use crate::parsimony::{
+    ParsimonyAlignmentMatrices as PAM, ParsimonySite, Rounding as R, SiteFlag::*, Zeroing as Z,
+};
 use crate::substitution_models::{SubstModel, K80};
 
 macro_rules! align {
@@ -14,14 +13,20 @@ macro_rules! align {
     ( $( $e:tt )* ) => {vec![ $( align!(@collect $e), )* ]};
 }
 
+macro_rules! site {
+    ($s:literal, $f:expr) => {
+        ParsimonySite::new($s.iter().copied(), $f) // Ensure conversion from &[u8] to u8 iterator
+    };
+}
+
 #[test]
 fn fill_matrix() {
     let mismatch = 1.0;
-    let gap = GapCost::new(2.5, 0.5);
+    let gap = GC::new(2.5, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
 
-    let node_info_1 = vec![PSI::new([b'C'], NoGap), PSI::new([b'C'], NoGap)];
-    let node_info_2 = vec![PSI::new([b'A'], NoGap), PSI::new([b'C'], NoGap)];
+    let node_info_1 = vec![site!(b"C", NoGap), site!(b"C", NoGap)];
+    let node_info_2 = vec![site!(b"A", NoGap), site!(b"C", NoGap)];
 
     let mut pars_mats = PAM::new(&node_info_1, 1.0, &node_info_2, 1.0, &scoring, |_| 0);
 
@@ -81,11 +86,11 @@ fn fill_matrix() {
 #[test]
 fn fill_matrix_other_outcome() {
     let mismatch = 1.0;
-    let gap = GapCost::new(2.5, 0.5);
+    let gap = GC::new(2.5, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
 
-    let node_info_1 = vec![PSI::new([b'C'], NoGap), PSI::new([b'C'], NoGap)];
-    let node_info_2 = vec![PSI::new([b'A'], NoGap), PSI::new([b'C'], NoGap)];
+    let node_info_1 = vec![site!(b"C", NoGap), site!(b"C", NoGap)];
+    let node_info_2 = vec![site!(b"A", NoGap), site!(b"C", NoGap)];
 
     let mut pars_mats = PAM::new(&node_info_1, 1.0, &node_info_2, 1.0, &scoring, |l| l - 1);
 
@@ -145,19 +150,19 @@ fn fill_matrix_other_outcome() {
 #[test]
 fn traceback_correct() {
     let mismatch = 1.0;
-    let gap = GapCost::new(2.5, 0.5);
+    let gap = GC::new(2.5, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
 
-    let node_info_1 = vec![PSI::new([b'C'], NoGap), PSI::new([b'C'], NoGap)];
-    let node_info_2 = vec![PSI::new([b'A'], NoGap), PSI::new([b'C'], NoGap)];
+    let node_info_1 = vec![site!(b"C", NoGap), site!(b"C", NoGap)];
+    let node_info_2 = vec![site!(b"A", NoGap), site!(b"C", NoGap)];
 
     let mut pars_mats = PAM::new(&node_info_1, 1.0, &node_info_2, 1.0, &scoring, |l| l - 1);
 
     pars_mats.fill_matrices();
 
     let (node_info, alignment, score) = pars_mats.traceback();
-    assert_eq!(node_info[0], PSI::new([b'C', b'A'], NoGap));
-    assert_eq!(node_info[1], PSI::new([b'C'], NoGap));
+    assert_eq!(node_info[0], site!(b"CA", NoGap));
+    assert_eq!(node_info[1], site!(b"C", NoGap));
     assert_eq!(alignment.map_x, align!(0 1));
     assert_eq!(alignment.map_y, align!(0 1));
     assert_eq!(score, 1.0);
@@ -167,8 +172,8 @@ fn traceback_correct() {
     pars_mats.fill_matrices();
 
     let (node_info, alignment, score) = pars_mats.traceback();
-    assert_eq!(node_info[0], PSI::new([b'C', b'A'], NoGap));
-    assert_eq!(node_info[1], PSI::new([b'C'], NoGap));
+    assert_eq!(node_info[0], site!(b"CA", NoGap));
+    assert_eq!(node_info[1], site!(b"C", NoGap));
     assert_eq!(alignment.map_x, align!(0 1));
     assert_eq!(alignment.map_y, align!(0 1));
     assert_eq!(score, 1.0);
@@ -180,16 +185,16 @@ fn fill_matrix_gap_adjustment_1() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_1.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_1.newick
     let mismatch = 1.0;
-    let gap = GapCost::new(5.5, 0.5);
+    let gap = GC::new(5.5, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
 
     let left_info = vec![
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'C'], NoGap),
-        PSI::new([b'C'], GapOpen),
-        PSI::new([b'A'], GapExt),
+        site!(b"A", NoGap),
+        site!(b"C", NoGap),
+        site!(b"C", GapOpen),
+        site!(b"A", GapExt),
     ];
-    let right_info = vec![PSI::new([b'A', b'C'], NoGap), PSI::new([b'C', b'A'], NoGap)];
+    let right_info = vec![site!(b"AC", NoGap), site!(b"CA", NoGap)];
 
     let mut pars_mats = PAM::new(&left_info, 1.0, &right_info, 1.0, &scoring, |_| 0);
     pars_mats.fill_matrices();
@@ -263,25 +268,25 @@ fn traceback_gap_adjustment_1() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_1.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_1.newick
     let mismatch = 1.0;
-    let gap = GapCost::new(5.5, 0.5);
+    let gap = GC::new(5.5, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
 
     let left_info = vec![
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'C'], NoGap),
-        PSI::new([b'C'], GapOpen),
-        PSI::new([b'A'], GapExt),
+        site!(b"A", NoGap),
+        site!(b"C", NoGap),
+        site!(b"C", GapOpen),
+        site!(b"A", GapExt),
     ];
-    let right_info = vec![PSI::new([b'A', b'C'], NoGap), PSI::new([b'C', b'A'], NoGap)];
+    let right_info = vec![site!(b"AC", NoGap), site!(b"CA", NoGap)];
 
     let mut pars_mats = PAM::new(&left_info, 1.0, &right_info, 1.0, &scoring, |_| 0);
     pars_mats.fill_matrices();
     let (node_info, alignment, score) = pars_mats.traceback();
     let true_info = vec![
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'C'], NoGap),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'-'], GapFixed),
+        site!(b"A", NoGap),
+        site!(b"C", NoGap),
+        site!(b"-", GapFixed),
+        site!(b"-", GapFixed),
     ];
     assert_eq!(node_info, true_info);
     assert_eq!(alignment.map_x, align!(0 1 2 3));
@@ -295,18 +300,18 @@ fn fill_matrix_gap_adjustment_2() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_2.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_2.newick
     let mismatch = 1.0;
-    let gap = GapCost::new(4.5, 1.0);
+    let gap = GC::new(4.5, 1.0);
 
     let scoring = SimpleCosts::new(mismatch, gap);
     let sites_left = vec![
-        PSI::new([b'A'], GapOpen),
-        PSI::new([b'C'], GapExt),
-        PSI::new([b'G', b'C'], NoGap),
+        site!(b"A", GapOpen),
+        site!(b"C", GapExt),
+        site!(b"GC", NoGap),
     ];
     let sites_right = vec![
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'C'], GapOpen),
-        PSI::new([b'G'], GapExt),
+        site!(b"A", NoGap),
+        site!(b"C", GapOpen),
+        site!(b"G", GapExt),
     ];
     let mut pars_mats = PAM::new(&sites_left, 1.0, &sites_right, 1.0, &scoring, |_| 0);
     pars_mats.fill_matrices();
@@ -374,26 +379,22 @@ fn traceback_gap_adjustment_2() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_2.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_2.newick
     let mismatch = 1.0;
-    let gap = GapCost::new(4.5, 1.0);
+    let gap = GC::new(4.5, 1.0);
     let scoring = SimpleCosts::new(mismatch, gap);
     let sites_left = vec![
-        PSI::new([b'A'], GapOpen),
-        PSI::new([b'C'], GapExt),
-        PSI::new([b'G', b'C'], NoGap),
+        site!(b"A", GapOpen),
+        site!(b"C", GapExt),
+        site!(b"GC", NoGap),
     ];
     let sites_right = vec![
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'C'], GapOpen),
-        PSI::new([b'G'], GapExt),
+        site!(b"A", NoGap),
+        site!(b"C", GapOpen),
+        site!(b"G", GapExt),
     ];
     let mut pars_mats = PAM::new(&sites_left, 1.0, &sites_right, 1.0, &scoring, |_| 0);
     pars_mats.fill_matrices();
     let (node_info, alignment, score) = pars_mats.traceback();
-    let true_info = vec![
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'C'], NoGap),
-        PSI::new([b'G'], NoGap),
-    ];
+    let true_info = vec![site!(b"A", NoGap), site!(b"C", NoGap), site!(b"G", NoGap)];
     assert_eq!(node_info, true_info);
     assert_eq!(alignment.map_x, align!(0 1 2));
     assert_eq!(alignment.map_y, align!(0 1 2));
@@ -405,17 +406,17 @@ fn fill_matrix_gap_adjustment_3() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_3.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_3.newick
     let mismatch = 1.0;
-    let gap = GapCost::new(0.75, 0.5);
+    let gap = GC::new(0.75, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
     let left_info = vec![
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'A'], GapOpen),
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'C'], NoGap),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'-'], GapFixed),
+        site!(b"-", GapFixed),
+        site!(b"A", GapOpen),
+        site!(b"A", NoGap),
+        site!(b"C", NoGap),
+        site!(b"-", GapFixed),
+        site!(b"-", GapFixed),
     ];
-    let right_info = vec![PSI::new([b'C'], NoGap), PSI::new([b'A'], NoGap)];
+    let right_info = vec![site!(b"C", NoGap), site!(b"A", NoGap)];
     let mut pars_mats = PAM::new(&left_info, 1.0, &right_info, 1.0, &scoring, |l| l - 1);
     pars_mats.fill_matrices();
 
@@ -500,29 +501,29 @@ fn traceback_gap_adjustment_3() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_3.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_3.newick
     let mismatch = 1.0;
-    let gap = GapCost::new(0.75, 0.5);
+    let gap = GC::new(0.75, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
     let left_info = vec![
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'A'], GapOpen),
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'C'], NoGap),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'-'], GapFixed),
+        site!(b"-", GapFixed),
+        site!(b"A", GapOpen),
+        site!(b"A", NoGap),
+        site!(b"C", NoGap),
+        site!(b"-", GapFixed),
+        site!(b"-", GapFixed),
     ];
-    let right_info = vec![PSI::new([b'C'], NoGap), PSI::new([b'A'], NoGap)];
+    let right_info = vec![site!(b"C", NoGap), site!(b"A", NoGap)];
     let mut pars_mats = PAM::new(&left_info, 1.0, &right_info, 1.0, &scoring, |l| l - 1);
 
     pars_mats.fill_matrices();
     let (node_info, alignment, score) = pars_mats.traceback();
     let true_info = vec![
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'A'], GapOpen),
-        PSI::new([b'C'], NoGap),
-        PSI::new([b'A'], GapOpen),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'-'], GapFixed),
+        site!(b"-", GapFixed),
+        site!(b"-", GapFixed),
+        site!(b"A", GapOpen),
+        site!(b"C", NoGap),
+        site!(b"A", GapOpen),
+        site!(b"-", GapFixed),
+        site!(b"-", GapFixed),
     ];
     assert_eq!(node_info.len(), true_info.len());
     assert_eq!(node_info, true_info);
@@ -537,17 +538,17 @@ fn fill_matrix_gap_adjustment_4() {
     // Tree file: tree_fill_matrix_gap_adjustment_3.newick
     // Slightly different setup to ensure there's a gap opening at the beginning of the alignment
     let mismatch = 1.0;
-    let gap = GapCost::new(0.75, 0.5);
+    let gap = GC::new(0.75, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
     let left_info = vec![
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'A'], GapOpen),
-        PSI::new([b'C'], NoGap),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'-'], GapFixed),
+        site!(b"-", GapFixed),
+        site!(b"A", NoGap),
+        site!(b"A", GapOpen),
+        site!(b"C", NoGap),
+        site!(b"-", GapFixed),
+        site!(b"-", GapFixed),
     ];
-    let right_info = vec![PSI::new([b'C'], NoGap), PSI::new([b'A'], NoGap)];
+    let right_info = vec![site!(b"C", NoGap), site!(b"A", NoGap)];
     let mut pars_mats = PAM::new(&left_info, 1.0, &right_info, 1.0, &scoring, |_| 0);
     pars_mats.fill_matrices();
 
@@ -633,29 +634,29 @@ fn traceback_gap_adjustment_4() {
     // Tree file: tree_fill_matrix_gap_adjustment_3.newick
     // Slightly different setup to ensure there's a gap opening at the beginning of the alignment
     let mismatch = 1.0;
-    let gap = GapCost::new(0.75, 0.5);
+    let gap = GC::new(0.75, 0.5);
     let scoring = SimpleCosts::new(mismatch, gap);
     let left_info = vec![
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'A'], GapOpen),
-        PSI::new([b'C'], NoGap),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'-'], GapFixed),
+        site!(b"-", GapFixed),
+        site!(b"A", NoGap),
+        site!(b"A", GapOpen),
+        site!(b"C", NoGap),
+        site!(b"-", GapFixed),
+        site!(b"-", GapFixed),
     ];
-    let right_info = vec![PSI::new([b'C'], NoGap), PSI::new([b'A'], NoGap)];
+    let right_info = vec![site!(b"C", NoGap), site!(b"A", NoGap)];
     let mut pars_mats = PAM::new(&left_info, 1.0, &right_info, 1.0, &scoring, |_| 0);
     pars_mats.fill_matrices();
     let (node_info, alignment, score) = pars_mats.traceback();
 
     let true_info = vec![
-        PSI::new([b'C'], GapOpen),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'C'], GapOpen),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'-'], GapFixed),
+        site!(b"C", GapOpen),
+        site!(b"-", GapFixed),
+        site!(b"A", NoGap),
+        site!(b"-", GapFixed),
+        site!(b"C", GapOpen),
+        site!(b"-", GapFixed),
+        site!(b"-", GapFixed),
     ];
     assert_eq!(node_info.len(), true_info.len());
     assert_eq!(node_info, true_info);
@@ -683,22 +684,17 @@ fn fill_matrix_diff_branch_models() {
     // Sequence file: sequences_diff_branch_lengths_1.fasta
     // Tree file: tree_diff_branch_lengths_1.newick
     let model = SubstModel::<K80>::new(&[], &[]);
-    let scoring = ModelCosts::new(
-        &model,
-        &[1.0, 2.0],
-        false,
-        GapCost::new(2.0, 0.5),
-        &Rounding::none(),
-    )
-    .unwrap();
+
+    let scoring =
+        ModelCosts::new(&model, GC::new(2.0, 0.5), Z::no(), R::none(), &[1.0, 2.0]).unwrap();
 
     let left_info = vec![
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'C'], NoGap),
-        PSI::new([b'C'], NoGap),
-        PSI::new([b'A'], NoGap),
+        site!(b"A", NoGap),
+        site!(b"C", NoGap),
+        site!(b"C", NoGap),
+        site!(b"A", NoGap),
     ];
-    let right_info = vec![PSI::new([b'A'], NoGap), PSI::new([b'C'], NoGap)];
+    let right_info = vec![site!(b"A", NoGap), site!(b"C", NoGap)];
     let mut pars_mats = PAM::new(&left_info, 1.0, &right_info, 2.0, &scoring, |_| 0);
     pars_mats.fill_matrices();
 
@@ -765,31 +761,25 @@ fn traceback_diff_branch_models() {
     // Sequence file: sequences_diff_branch_lengths_1.fasta
     // Tree file: tree_diff_branch_lengths_1.newick
     let model = SubstModel::<K80>::new(&[], &[]);
-    let scoring = ModelCosts::new(
-        &model,
-        &[1.0, 2.0],
-        false,
-        GapCost::new(2.0, 0.5),
-        &Rounding::none(),
-    )
-    .unwrap();
+    let times = &[1.0, 2.0];
+    let scoring = ModelCosts::new(&model, GC::new(2.0, 0.5), Z::no(), R::none(), times).unwrap();
 
     let left_info = vec![
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'C'], NoGap),
-        PSI::new([b'C'], NoGap),
-        PSI::new([b'A'], NoGap),
+        site!(b"A", NoGap),
+        site!(b"C", NoGap),
+        site!(b"C", NoGap),
+        site!(b"A", NoGap),
     ];
-    let right_info = vec![PSI::new([b'A'], NoGap), PSI::new([b'C'], NoGap)];
+    let right_info = vec![site!(b"A", NoGap), site!(b"C", NoGap)];
     let mut pars_mats = PAM::new(&left_info, 1.0, &right_info, 2.0, &scoring, |_| 0);
     pars_mats.fill_matrices();
 
     let (node_info, alignment, score) = pars_mats.traceback();
     let true_info = vec![
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'C'], NoGap),
-        PSI::new([b'C'], GapOpen),
-        PSI::new([b'A'], GapExt),
+        site!(b"A", NoGap),
+        site!(b"C", NoGap),
+        site!(b"C", GapOpen),
+        site!(b"A", GapExt),
     ];
     assert_eq!(node_info.len(), true_info.len());
     assert_eq!(node_info, true_info);
@@ -803,26 +793,21 @@ fn fill_matrix_diff_branch_models_2() {
     // Sequence file: sequences_diff_branch_lengths_2.fasta
     // Tree file: tree_diff_branch_lengths_2.newick
     let model = SubstModel::<K80>::new(&[], &[]);
-    let scoring = ModelCosts::new(
-        &model,
-        &[3.5, 3.0],
-        false,
-        GapCost::new(1.5, 0.75),
-        &Rounding::none(),
-    )
-    .unwrap();
+    let times = &[3.5, 3.0];
+
+    let scoring = ModelCosts::new(&model, GC::new(1.5, 0.75), Z::no(), R::none(), times).unwrap();
 
     let left_info = vec![
-        PSI::new([b'G'], GapOpen),
-        PSI::new([b'A'], GapExt),
-        PSI::new([b'C'], GapExt),
-        PSI::new([b'G', b'A'], NoGap),
-        PSI::new([b'C', b'G'], NoGap),
+        site!(b"G", GapOpen),
+        site!(b"A", GapExt),
+        site!(b"C", GapExt),
+        site!(b"GA", NoGap),
+        site!(b"CG", NoGap),
     ];
     let right_info = vec![
-        PSI::new([b'A', b'C'], NoGap),
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'C'], GapOpen),
+        site!(b"AC", NoGap),
+        site!(b"A", NoGap),
+        site!(b"C", GapOpen),
     ];
 
     let mut pars_mats = PAM::new(&left_info, 3.0, &right_info, 3.5, &scoring, |_| 0);
@@ -897,26 +882,20 @@ fn traceback_diff_branch_models_2() {
     // Sequence file: sequences_diff_branch_lengths_2.fasta
     // Tree file: tree_diff_branch_lengths_2.newick
     let model = SubstModel::<K80>::new(&[], &[]);
-    let scoring = ModelCosts::new(
-        &model,
-        &[3.5, 3.0],
-        false,
-        GapCost::new(1.5, 0.75),
-        &Rounding::none(),
-    )
-    .unwrap();
+    let times = &[3.5, 3.0];
+    let scoring = ModelCosts::new(&model, GC::new(1.5, 0.75), Z::no(), R::none(), times).unwrap();
 
     let left_info = vec![
-        PSI::new([b'G'], GapOpen),
-        PSI::new([b'A'], GapExt),
-        PSI::new([b'C'], GapExt),
-        PSI::new([b'G', b'A'], NoGap),
-        PSI::new([b'C', b'G'], NoGap),
+        site!(b"G", GapOpen),
+        site!(b"A", GapExt),
+        site!(b"C", GapExt),
+        site!(b"GA", NoGap),
+        site!(b"CG", NoGap),
     ];
     let right_info = vec![
-        PSI::new([b'A', b'C'], NoGap),
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'C'], GapOpen),
+        site!(b"AC", NoGap),
+        site!(b"A", NoGap),
+        site!(b"C", GapOpen),
     ];
 
     let mut pars_mats = PAM::new(&left_info, 3.0, &right_info, 3.5, &scoring, |_| 0);
@@ -924,12 +903,12 @@ fn traceback_diff_branch_models_2() {
 
     let (node_info, alignment, score) = pars_mats.traceback();
     let true_info = vec![
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'C', b'G', b'A'], NoGap),
-        PSI::new([b'-'], GapFixed),
+        site!(b"-", GapFixed),
+        site!(b"-", GapFixed),
+        site!(b"-", GapFixed),
+        site!(b"A", NoGap),
+        site!(b"CGA", NoGap),
+        site!(b"-", GapFixed),
     ];
     assert_eq!(node_info.len(), true_info.len());
     assert_eq!(node_info, true_info);
@@ -943,24 +922,18 @@ fn fill_matrix_diff_branch_models_3() {
     // Sequence file: sequences_diff_branch_lengths_3.fasta
     // Tree file: tree_diff_branch_lengths_3.newick
     let model = SubstModel::<K80>::new(&[], &[]);
-    let scoring = ModelCosts::new(
-        &model,
-        &[0.52, 2.58],
-        false,
-        GapCost::new(1.0, 0.75),
-        &Rounding::none(),
-    )
-    .unwrap();
+    let times = &[0.52, 2.58];
+    let scoring = ModelCosts::new(&model, GC::new(1.0, 0.75), Z::no(), R::none(), times).unwrap();
 
     let left_info = vec![
-        PSI::new([b'A'], GapOpen),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'C'], NoGap),
+        site!(b"A", GapOpen),
+        site!(b"-", GapFixed),
+        site!(b"-", GapFixed),
+        site!(b"-", GapFixed),
+        site!(b"A", NoGap),
+        site!(b"C", NoGap),
     ];
-    let right_info = vec![PSI::new([b'C'], NoGap), PSI::new([b'A'], NoGap)];
+    let right_info = vec![site!(b"C", NoGap), site!(b"A", NoGap)];
 
     let mut pars_mats = PAM::new(&left_info, 0.6, &right_info, 2.6, &scoring, |_| 0);
     pars_mats.fill_matrices();
@@ -1039,36 +1012,30 @@ fn traceback_diff_branch_models_3() {
     // Sequence file: sequences_diff_branch_lengths_3.fasta
     // Tree file: tree_diff_branch_lengths_3.newick
     let model = SubstModel::<K80>::new(&[], &[]);
-    let scoring = ModelCosts::new(
-        &model,
-        &[0.52, 2.58],
-        false,
-        GapCost::new(1.0, 0.75),
-        &Rounding::none(),
-    )
-    .unwrap();
+    let times = &[0.52, 2.58];
+    let scoring = ModelCosts::new(&model, GC::new(1.5, 0.75), Z::no(), R::none(), times).unwrap();
 
     let left_info = vec![
-        PSI::new([b'A'], GapOpen),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'A'], NoGap),
-        PSI::new([b'C'], NoGap),
+        site!(b"A", GapOpen),
+        site!(b"-", GapFixed),
+        site!(b"-", GapFixed),
+        site!(b"-", GapFixed),
+        site!(b"A", NoGap),
+        site!(b"C", NoGap),
     ];
-    let right_info = vec![PSI::new([b'C'], NoGap), PSI::new([b'A'], NoGap)];
+    let right_info = vec![site!(b"C", NoGap), site!(b"A", NoGap)];
 
     let mut pars_mats = PAM::new(&left_info, 0.6, &right_info, 2.6, &scoring, |_| 0);
     pars_mats.fill_matrices();
 
     let (node_info, alignment, score) = pars_mats.traceback();
     let true_info = vec![
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'-'], GapFixed),
-        PSI::new([b'C', b'A'], NoGap),
-        PSI::new([b'A', b'C'], NoGap),
+        site!(b"-", GapFixed),
+        site!(b"-", GapFixed),
+        site!(b"-", GapFixed),
+        site!(b"-", GapFixed),
+        site!(b"CA", NoGap),
+        site!(b"AC", NoGap),
     ];
     assert_eq!(node_info.len(), true_info.len());
     assert_eq!(node_info, true_info);

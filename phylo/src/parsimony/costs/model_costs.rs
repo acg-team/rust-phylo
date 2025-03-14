@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use log::{debug, info};
 
 use crate::alphabets::Alphabet;
-use crate::parsimony::{CostMatrix, GapCost, ParsimonyCosts, ParsimonyModel, Rounding};
+use crate::parsimony::{CostMatrix, GapCost, ParsimonyCosts, ParsimonyModel, Rounding, Zeroing};
 use crate::{cmp_f64, ord_f64, Result};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -16,10 +16,10 @@ pub struct ModelCosts {
 impl ModelCosts {
     pub fn new(
         model: &dyn ParsimonyModel,
-        times: &[f64],
-        zero_diag: bool,
         gap: GapCost,
-        rounding: &Rounding,
+        diagonal_zeros: Zeroing,
+        rounding: Rounding,
+        times: &[f64],
     ) -> Result<Self> {
         info!(
             "Setting up the parsimony scoring from the {} substitution model.",
@@ -29,7 +29,8 @@ impl ModelCosts {
         let mut costs = HashMap::<ord_f64, ModelBranchCosts>::with_capacity(times.len());
 
         for time in times {
-            let (cost_matrix, avg) = model.scoring_matrix_corrected(*time, zero_diag, rounding);
+            let (cost_matrix, avg) =
+                model.scoring_matrix_corrected(*time, diagonal_zeros.clone(), rounding.clone());
             costs.insert(
                 ord_f64::from(*time),
                 ModelBranchCosts {
@@ -117,6 +118,7 @@ mod private_tests {
     use crate::parsimony::{CostMatrix, ParsimonyModel, Rounding as R};
     use crate::substitution_models::{SubstModel, HIVB, K80, WAG};
 
+    use super::Zeroing as Z;
     use super::*;
 
     const TRUE_COST_MATRIX: [f64; 400] = [
@@ -150,10 +152,10 @@ mod private_tests {
         let model = SubstModel::<WAG>::new(&[], &[]);
         let scoring = ModelCosts::new(
             &model,
-            &[0.1, 0.3, 0.5, 0.7],
-            false,
             GapCost::new(2.5, 1.0),
-            &R::zero(),
+            Z::no(),
+            R::zero(),
+            &[0.1, 0.3, 0.5, 0.7],
         )
         .unwrap();
 
@@ -174,32 +176,32 @@ mod private_tests {
     fn protein_scoring_matrices() {
         let model = SubstModel::<WAG>::new(&[], &[]);
         let true_matrix_01 = CostMatrix::from_row_slice(20, 20, &TRUE_COST_MATRIX);
-        let (mat, avg) = ParsimonyModel::scoring_matrix(&model, 0.1, &R::zero());
+        let (mat, avg) = ParsimonyModel::scoring_matrix(&model, 0.1, R::zero());
 
         assert_relative_eq!(mat, true_matrix_01);
 
         assert_relative_eq!(avg, 5.7675);
-        let (_, avg) = ParsimonyModel::scoring_matrix(&model, 0.3, &R::zero());
+        let (_, avg) = ParsimonyModel::scoring_matrix(&model, 0.3, R::zero());
         assert_relative_eq!(avg, 4.7475);
-        let (_, avg) = ParsimonyModel::scoring_matrix(&model, 0.5, &R::zero());
+        let (_, avg) = ParsimonyModel::scoring_matrix(&model, 0.5, R::zero());
         assert_relative_eq!(avg, 4.2825);
-        let (_, avg) = ParsimonyModel::scoring_matrix(&model, 0.7, &R::zero());
+        let (_, avg) = ParsimonyModel::scoring_matrix(&model, 0.7, R::zero());
         assert_relative_eq!(avg, 4.0075);
     }
 
     #[test]
     fn matrix_entry_rounding() {
         let model = SubstModel::<K80>::new(&[], &[1.0, 2.0]);
-        let (mat_round, avg_round) = model.scoring_matrix_corrected(0.1, true, &R::zero());
-        let (mat, avg) = model.scoring_matrix_corrected(0.1, true, &R::none());
+        let (mat_round, avg_round) = model.scoring_matrix_corrected(0.1, Z::yes(), R::zero());
+        let (mat, avg) = model.scoring_matrix_corrected(0.1, Z::yes(), R::none());
         assert_ne!(avg_round, avg);
         assert_ne!(mat_round, mat);
         for &element in mat_round.as_slice() {
             assert_eq!(element.round(), element);
         }
         let model = SubstModel::<HIVB>::new(&[], &[]);
-        let (mat_round, avg_round) = model.scoring_matrix_corrected(0.1, true, &R::zero());
-        let (mat, avg) = model.scoring_matrix_corrected(0.1, true, &R::none());
+        let (mat_round, avg_round) = model.scoring_matrix_corrected(0.1, Z::yes(), R::zero());
+        let (mat, avg) = model.scoring_matrix_corrected(0.1, Z::yes(), R::none());
         assert_ne!(avg_round, avg);
         assert_ne!(mat_round, mat);
         for &element in mat_round.as_slice() {
@@ -210,8 +212,8 @@ mod private_tests {
     #[test]
     fn matrix_zero_diagonals() {
         let model = SubstModel::<HIVB>::new(&[], &[]);
-        let (mat_zeros, avg_zeros) = model.scoring_matrix_corrected(0.5, true, &R::zero());
-        let (mat, avg) = model.scoring_matrix_corrected(0.5, false, &R::zero());
+        let (mat_zeros, avg_zeros) = model.scoring_matrix_corrected(0.5, Z::yes(), R::zero());
+        let (mat, avg) = model.scoring_matrix_corrected(0.5, Z::no(), R::zero());
         assert_ne!(avg_zeros, avg);
         assert!(avg_zeros < avg);
         assert_ne!(mat_zeros, mat);

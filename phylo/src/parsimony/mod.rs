@@ -17,6 +17,7 @@ pub(crate) use matrices::*;
 
 pub(crate) type CostMatrix = DMatrix<f64>;
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct Rounding {
     pub round: bool,
     pub digits: usize,
@@ -43,14 +44,32 @@ impl Rounding {
     }
 }
 
+#[repr(transparent)]
+#[derive(Clone, Debug, PartialEq)]
+pub struct Zeroing {
+    is_set: bool,
+}
+
+impl Zeroing {
+    pub fn yes() -> Self {
+        Zeroing { is_set: true }
+    }
+    pub fn no() -> Self {
+        Zeroing { is_set: false }
+    }
+    pub fn is_set(&self) -> bool {
+        self.is_set
+    }
+}
+
 pub trait ParsimonyModel: Display + EvoModel {
-    fn scoring_matrix(&self, time: f64, rounding: &Rounding) -> (CostMatrix, f64);
+    fn scoring_matrix(&self, time: f64, rounding: Rounding) -> (CostMatrix, f64);
 
     fn scoring_matrix_corrected(
         &self,
         time: f64,
-        zero_diag: bool,
-        rounding: &Rounding,
+        diagonals: Zeroing,
+        rounding: Rounding,
     ) -> (CostMatrix, f64);
 }
 
