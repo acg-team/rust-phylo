@@ -7,38 +7,44 @@ use crate::substitution_models::{SubstModel, JC69, WAG};
 #[test]
 fn default_costs() {
     let mismatch = 1.0;
-    let gap_open = 2.5;
-    let gap_ext = 0.5;
-    let c = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, &dna_alphabet());
-    assert_eq!(c.r#match(1.0, &b'A', &b'B'), 1.0);
-    assert_eq!(c.r#match(1.0, &b'B', &b'A'), 1.0);
-    assert_eq!(c.r#match(1.0, &b'N', &b'K'), 1.0);
+    let gap = GapMultipliers {
+        open: 2.5,
+        ext: 0.5,
+    };
+
+    let c = ParsimonyCostsSimple::new(mismatch, gap.clone(), &dna_alphabet());
+    assert_eq!(c.r#match(1.0, &b'A', &b'B'), mismatch);
+    assert_eq!(c.r#match(1.0, &b'B', &b'A'), mismatch);
+    assert_eq!(c.r#match(1.0, &b'N', &b'K'), mismatch);
     assert_eq!(c.r#match(1.0, &b'C', &b'C'), 0.0);
-    assert_eq!(c.avg(2.0), 1.0);
-    assert_eq!(c.gap_ext(3.0), 0.5);
-    assert_eq!(c.gap_open(2.0), 2.5);
+    assert_eq!(c.avg(2.0), mismatch);
+    assert_eq!(c.gap_ext(3.0), gap.ext);
+    assert_eq!(c.gap_open(2.0), gap.open);
 }
 
 #[test]
 fn simple_costs() {
     let mismatch = 3.0;
-    let gap_open = 2.0;
-    let gap_ext = 10.5;
-    let c = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, &dna_alphabet());
+    let gap = GapMultipliers {
+        open: 2.0,
+        ext: 10.5,
+    };
+
+    let c = ParsimonyCostsSimple::new(mismatch, gap.clone(), &dna_alphabet());
     assert_eq!(c.r#match(1.0, &b'A', &b'B'), mismatch);
     assert_eq!(c.r#match(3.0, &b'A', &b'A'), 0.0);
     assert_eq!(c.avg(4.9), mismatch);
-    assert_eq!(c.gap_open(1.3), gap_open * mismatch);
-    assert_eq!(c.gap_ext(2.4), gap_ext * mismatch);
+    assert_eq!(c.gap_open(1.3), gap.open * mismatch);
+    assert_eq!(c.gap_ext(2.4), gap.ext * mismatch);
+
     let mismatch = 1.0;
-    let gap_open = 10.0;
-    let gap_ext = 2.5;
-    let c = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, &dna_alphabet());
+
+    let c = ParsimonyCostsSimple::new(mismatch, gap.clone(), &dna_alphabet());
     assert_eq!(c.r#match(1.0, &b'A', &b'B'), mismatch);
     assert_eq!(c.r#match(1.0, &b'A', &b'A'), 0.0);
     assert_eq!(c.avg(1.0), mismatch);
-    assert_eq!(c.gap_open(1.0), gap_open);
-    assert_eq!(c.gap_ext(1.0), gap_ext);
+    assert_eq!(c.gap_open(1.0), gap.open);
+    assert_eq!(c.gap_ext(1.0), gap.ext);
 }
 
 #[test]
@@ -114,19 +120,13 @@ fn protein_branch_scoring_nearest() {
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.gap_ext(0.1), avg_01 * gap_mult.ext);
     assert_eq!(cost.gap_open(0.1), avg_01 * gap_mult.open);
-
     assert_eq!(cost.avg(0.1), cost.avg(0.2));
     assert_eq!(cost.gap_ext(0.1), cost.gap_ext(0.2));
     assert_eq!(cost.gap_open(0.1), cost.gap_open(0.2));
-
     assert_eq!(cost.avg(0.005), avg_01);
-
     assert_eq!(cost.avg(0.15), avg_01);
-
     assert_eq!(cost.avg(0.45), avg_05);
-
     assert_eq!(cost.avg(0.5), avg_05);
-
     assert_eq!(cost.avg(100.0), avg_05);
 }
 

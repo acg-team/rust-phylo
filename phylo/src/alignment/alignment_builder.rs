@@ -6,7 +6,7 @@ use bio::io::fasta::Record;
 use crate::align;
 use crate::alignment::{Alignment, InternalMapping, Mapping, PairwiseAlignment, Sequences};
 use crate::alphabets::GAP;
-use crate::parsimony::costs::ParsimonyCostsSimple;
+use crate::parsimony::costs::{GapMultipliers, ParsimonyCostsSimple};
 use crate::parsimony::pars_align_on_tree;
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::Result;
@@ -30,7 +30,11 @@ impl<'a> AlignmentBuilder<'a> {
     }
 
     fn align_unaligned_seqs(self) -> Result<Alignment> {
-        let costs = ParsimonyCostsSimple::new(1.0, 2.5, 0.5, self.seqs.alphabet());
+        let gap = GapMultipliers {
+            open: 2.5,
+            ext: 0.5,
+        };
+        let costs = ParsimonyCostsSimple::new(1.0, gap, self.seqs.alphabet());
         let (aligns, _scores) = pars_align_on_tree(&costs, self.tree, self.seqs.clone());
         let mut alignment = Alignment {
             seqs: Sequences::new(Vec::new()),

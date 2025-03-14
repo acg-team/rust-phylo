@@ -1,5 +1,6 @@
 use crate::alphabets::Alphabet;
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct GapMultipliers {
     pub(crate) open: f64,
     pub(crate) ext: f64,

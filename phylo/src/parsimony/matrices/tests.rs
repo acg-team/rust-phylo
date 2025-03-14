@@ -17,10 +17,13 @@ macro_rules! align {
 
 #[test]
 fn fill_matrix() {
-    let mismatch_cost = 1.0;
-    let gap_open_cost = 2.5;
-    let gap_ext_cost = 0.5;
-    let scoring = ParsimonyCostsSimple::new(mismatch_cost, gap_open_cost, gap_ext_cost, &dna());
+    let mismatch = 1.0;
+    let gap = GapMultipliers {
+        open: 2.5,
+        ext: 0.5,
+    };
+
+    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
 
     let node_info_1 = vec![PSI::new([b'C'], NoGap), PSI::new([b'C'], NoGap)];
     let node_info_2 = vec![PSI::new([b'A'], NoGap), PSI::new([b'C'], NoGap)];
@@ -83,9 +86,11 @@ fn fill_matrix() {
 #[test]
 fn fill_matrix_other_outcome() {
     let mismatch = 1.0;
-    let gap_open = 2.5;
-    let gap_ext = 0.5;
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, &dna());
+    let gap = GapMultipliers {
+        open: 2.5,
+        ext: 0.5,
+    };
+    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
 
     let node_info_1 = vec![PSI::new([b'C'], NoGap), PSI::new([b'C'], NoGap)];
     let node_info_2 = vec![PSI::new([b'A'], NoGap), PSI::new([b'C'], NoGap)];
@@ -148,9 +153,11 @@ fn fill_matrix_other_outcome() {
 #[test]
 fn traceback_correct() {
     let mismatch = 1.0;
-    let gap_open = 2.5;
-    let gap_ext = 0.5;
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, &dna());
+    let gap = GapMultipliers {
+        open: 2.5,
+        ext: 0.5,
+    };
+    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
 
     let node_info_1 = vec![PSI::new([b'C'], NoGap), PSI::new([b'C'], NoGap)];
     let node_info_2 = vec![PSI::new([b'A'], NoGap), PSI::new([b'C'], NoGap)];
@@ -184,9 +191,11 @@ fn fill_matrix_gap_adjustment_1() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_1.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_1.newick
     let mismatch = 1.0;
-    let gap_open = 5.5;
-    let gap_ext = 0.5;
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, &dna());
+    let gap = GapMultipliers {
+        open: 5.5,
+        ext: 0.5,
+    };
+    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
 
     let left_info = vec![
         PSI::new([b'A'], NoGap),
@@ -268,9 +277,11 @@ fn traceback_gap_adjustment_1() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_1.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_1.newick
     let mismatch = 1.0;
-    let gap_open = 5.5;
-    let gap_ext = 0.5;
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, &dna());
+    let gap = GapMultipliers {
+        open: 5.5,
+        ext: 0.5,
+    };
+    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
 
     let left_info = vec![
         PSI::new([b'A'], NoGap),
@@ -301,9 +312,12 @@ fn fill_matrix_gap_adjustment_2() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_2.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_2.newick
     let mismatch = 1.0;
-    let gap_open = 4.5;
-    let gap_ext = 1.0;
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, &dna());
+    let gap = GapMultipliers {
+        open: 4.5,
+        ext: 1.0,
+    };
+
+    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
     let sites_left = vec![
         PSI::new([b'A'], GapOpen),
         PSI::new([b'C'], GapExt),
@@ -380,9 +394,11 @@ fn traceback_gap_adjustment_2() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_2.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_2.newick
     let mismatch = 1.0;
-    let gap_open = 4.5;
-    let gap_ext = 1.0;
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, &dna());
+    let gap = GapMultipliers {
+        open: 4.5,
+        ext: 1.0,
+    };
+    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
     let sites_left = vec![
         PSI::new([b'A'], GapOpen),
         PSI::new([b'C'], GapExt),
@@ -412,9 +428,11 @@ fn fill_matrix_gap_adjustment_3() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_3.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_3.newick
     let mismatch = 1.0;
-    let gap_open = 0.75;
-    let gap_ext = 0.5;
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, &dna());
+    let gap = GapMultipliers {
+        open: 0.75,
+        ext: 0.5,
+    };
+    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
     let left_info = vec![
         PSI::new([b'-'], GapFixed),
         PSI::new([b'A'], GapOpen),
@@ -508,9 +526,11 @@ fn traceback_gap_adjustment_3() {
     // Sequence file: sequences_fill_matrix_gap_adjustment_3.fasta
     // Tree file: tree_fill_matrix_gap_adjustment_3.newick
     let mismatch = 1.0;
-    let gap_open = 0.75;
-    let gap_ext = 0.5;
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, &dna());
+    let gap = GapMultipliers {
+        open: 0.75,
+        ext: 0.5,
+    };
+    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
     let left_info = vec![
         PSI::new([b'-'], GapFixed),
         PSI::new([b'A'], GapOpen),
@@ -546,9 +566,11 @@ fn fill_matrix_gap_adjustment_4() {
     // Tree file: tree_fill_matrix_gap_adjustment_3.newick
     // Slightly different setup to ensure there's a gap opening at the beginning of the alignment
     let mismatch = 1.0;
-    let gap_open = 0.75;
-    let gap_ext = 0.5;
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, &dna());
+    let gap = GapMultipliers {
+        open: 0.75,
+        ext: 0.5,
+    };
+    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
     let left_info = vec![
         PSI::new([b'-'], GapFixed),
         PSI::new([b'A'], NoGap),
@@ -643,9 +665,11 @@ fn traceback_gap_adjustment_4() {
     // Tree file: tree_fill_matrix_gap_adjustment_3.newick
     // Slightly different setup to ensure there's a gap opening at the beginning of the alignment
     let mismatch = 1.0;
-    let gap_open = 0.75;
-    let gap_ext = 0.5;
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, &dna());
+    let gap = GapMultipliers {
+        open: 0.75,
+        ext: 0.5,
+    };
+    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
     let left_info = vec![
         PSI::new([b'-'], GapFixed),
         PSI::new([b'A'], NoGap),

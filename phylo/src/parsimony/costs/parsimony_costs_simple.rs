@@ -1,5 +1,5 @@
 use crate::alphabets::Alphabet;
-use crate::parsimony::ParsimonyCosts;
+use crate::parsimony::{GapMultipliers, ParsimonyCosts};
 
 pub(crate) struct ParsimonyCostsSimple {
     mismatch: f64,
@@ -11,14 +11,13 @@ pub(crate) struct ParsimonyCostsSimple {
 impl ParsimonyCostsSimple {
     pub fn new(
         mismatch: f64,
-        gap_open: f64,
-        gap_ext: f64,
+        gap_mult: GapMultipliers,
         alphabet: &Alphabet,
     ) -> ParsimonyCostsSimple {
         ParsimonyCostsSimple {
             mismatch,
-            gap_open: gap_open * mismatch,
-            gap_ext: gap_ext * mismatch,
+            gap_open: gap_mult.open * mismatch,
+            gap_ext: gap_mult.ext * mismatch,
             alphabet: alphabet.clone(),
         }
     }
