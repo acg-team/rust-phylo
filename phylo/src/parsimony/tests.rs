@@ -2,12 +2,11 @@ use bio::io::fasta::Record;
 
 use crate::alignment::Sequences;
 use crate::alphabets::dna_alphabet as dna;
-use crate::parsimony::costs::{GapMultipliers, ParsimonyCostsSimple};
+use crate::parsimony::costs::{GapMultipliers, SimpleCosts};
 use crate::parsimony::SiteFlag::{self, GapOpen, NoGap};
 use crate::parsimony::{pars_align_on_tree, pars_align_w_rng, ParsimonySite};
-use crate::record_wo_desc as rec;
-use crate::tree;
 use crate::tree::tree_parser::from_newick;
+use crate::{record_wo_desc as rec, tree};
 
 macro_rules! align {
     (@collect -) => { None };
@@ -23,7 +22,7 @@ fn align_two_first_outcome() {
         ext: 0.5,
     };
 
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
+    let scoring = SimpleCosts::new(mismatch, gap);
     let dna = dna();
 
     let sequences = [
@@ -58,7 +57,7 @@ fn align_two_second_outcome() {
         ext: 0.5,
     };
 
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
+    let scoring = SimpleCosts::new(mismatch, gap);
     let dna = dna();
 
     let sequences = [
@@ -97,7 +96,7 @@ fn align_two_on_tree() {
         Record::with_attrs("B", None, b"AC"),
     ]);
     let tree = tree!("(A:1.0, B:1.0):0.0;");
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, seqs.alphabet());
+    let scoring = SimpleCosts::new(mismatch, gap);
 
     let (alignment_vec, score) = pars_align_on_tree(&scoring, &tree, seqs);
     assert_eq!(score[Into::<usize>::into(tree.root)], 3.5);
@@ -113,7 +112,7 @@ fn internal_alignment_first_outcome() {
         open: 2.0,
         ext: 0.5,
     };
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
+    let scoring = SimpleCosts::new(mismatch, gap);
 
     let leaf_info1 = [
         (vec![b'A'], NoGap),
@@ -144,7 +143,7 @@ pub(crate) fn internal_alignment_second_outcome() {
         open: 2.0,
         ext: 0.5,
     };
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
+    let scoring = SimpleCosts::new(mismatch, gap);
 
     let leaf_info1 = [
         (vec![b'A'], NoGap),
@@ -170,7 +169,7 @@ pub(crate) fn internal_alignment_third_outcome() {
         open: 2.0,
         ext: 0.5,
     };
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
+    let scoring = SimpleCosts::new(mismatch, gap);
 
     let leaf_info1 = [
         (vec![b'A'], NoGap),
@@ -205,7 +204,7 @@ fn align_four_on_tree() {
     ]);
 
     let tree = tree!("((A:1.0, B:1.0):1.0, (C:1.0, D:1.0):1.0);");
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
+    let scoring = SimpleCosts::new(mismatch, gap);
 
     let (alignment, score) = pars_align_on_tree(&scoring, &tree, sequences);
     // first cherry

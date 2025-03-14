@@ -1,8 +1,7 @@
 use approx::assert_relative_eq;
 
-use crate::alphabets::dna_alphabet as dna;
-use crate::parsimony::costs::parsimony_costs_model::ParsimonyCostsWModel;
-use crate::parsimony::costs::{GapMultipliers, ParsimonyCostsSimple};
+use crate::parsimony::costs::ModelCosts;
+use crate::parsimony::costs::{GapMultipliers, SimpleCosts};
 use crate::parsimony::matrices::Direction::{GapInX, GapInY, Matc};
 use crate::parsimony::ParsimonySite as PSI;
 use crate::parsimony::SiteFlag::{GapExt, GapFixed, GapOpen, NoGap};
@@ -22,8 +21,7 @@ fn fill_matrix() {
         open: 2.5,
         ext: 0.5,
     };
-
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
+    let scoring = SimpleCosts::new(mismatch, gap);
 
     let node_info_1 = vec![PSI::new([b'C'], NoGap), PSI::new([b'C'], NoGap)];
     let node_info_2 = vec![PSI::new([b'A'], NoGap), PSI::new([b'C'], NoGap)];
@@ -90,7 +88,7 @@ fn fill_matrix_other_outcome() {
         open: 2.5,
         ext: 0.5,
     };
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
+    let scoring = SimpleCosts::new(mismatch, gap);
 
     let node_info_1 = vec![PSI::new([b'C'], NoGap), PSI::new([b'C'], NoGap)];
     let node_info_2 = vec![PSI::new([b'A'], NoGap), PSI::new([b'C'], NoGap)];
@@ -157,7 +155,7 @@ fn traceback_correct() {
         open: 2.5,
         ext: 0.5,
     };
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
+    let scoring = SimpleCosts::new(mismatch, gap);
 
     let node_info_1 = vec![PSI::new([b'C'], NoGap), PSI::new([b'C'], NoGap)];
     let node_info_2 = vec![PSI::new([b'A'], NoGap), PSI::new([b'C'], NoGap)];
@@ -195,7 +193,7 @@ fn fill_matrix_gap_adjustment_1() {
         open: 5.5,
         ext: 0.5,
     };
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
+    let scoring = SimpleCosts::new(mismatch, gap);
 
     let left_info = vec![
         PSI::new([b'A'], NoGap),
@@ -281,7 +279,7 @@ fn traceback_gap_adjustment_1() {
         open: 5.5,
         ext: 0.5,
     };
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
+    let scoring = SimpleCosts::new(mismatch, gap);
 
     let left_info = vec![
         PSI::new([b'A'], NoGap),
@@ -317,7 +315,7 @@ fn fill_matrix_gap_adjustment_2() {
         ext: 1.0,
     };
 
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
+    let scoring = SimpleCosts::new(mismatch, gap);
     let sites_left = vec![
         PSI::new([b'A'], GapOpen),
         PSI::new([b'C'], GapExt),
@@ -398,7 +396,7 @@ fn traceback_gap_adjustment_2() {
         open: 4.5,
         ext: 1.0,
     };
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
+    let scoring = SimpleCosts::new(mismatch, gap);
     let sites_left = vec![
         PSI::new([b'A'], GapOpen),
         PSI::new([b'C'], GapExt),
@@ -432,7 +430,7 @@ fn fill_matrix_gap_adjustment_3() {
         open: 0.75,
         ext: 0.5,
     };
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
+    let scoring = SimpleCosts::new(mismatch, gap);
     let left_info = vec![
         PSI::new([b'-'], GapFixed),
         PSI::new([b'A'], GapOpen),
@@ -530,7 +528,7 @@ fn traceback_gap_adjustment_3() {
         open: 0.75,
         ext: 0.5,
     };
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
+    let scoring = SimpleCosts::new(mismatch, gap);
     let left_info = vec![
         PSI::new([b'-'], GapFixed),
         PSI::new([b'A'], GapOpen),
@@ -570,7 +568,7 @@ fn fill_matrix_gap_adjustment_4() {
         open: 0.75,
         ext: 0.5,
     };
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
+    let scoring = SimpleCosts::new(mismatch, gap);
     let left_info = vec![
         PSI::new([b'-'], GapFixed),
         PSI::new([b'A'], NoGap),
@@ -669,7 +667,7 @@ fn traceback_gap_adjustment_4() {
         open: 0.75,
         ext: 0.5,
     };
-    let scoring = ParsimonyCostsSimple::new(mismatch, gap, &dna());
+    let scoring = SimpleCosts::new(mismatch, gap);
     let left_info = vec![
         PSI::new([b'-'], GapFixed),
         PSI::new([b'A'], NoGap),
@@ -718,7 +716,7 @@ fn fill_matrix_diff_branch_models() {
     // Sequence file: sequences_diff_branch_lengths_1.fasta
     // Tree file: tree_diff_branch_lengths_1.newick
     let model = SubstModel::<K80>::new(&[], &[]);
-    let scoring = ParsimonyCostsWModel::new(
+    let scoring = ModelCosts::new(
         &model,
         &[1.0, 2.0],
         false,
@@ -803,7 +801,7 @@ fn traceback_diff_branch_models() {
     // Sequence file: sequences_diff_branch_lengths_1.fasta
     // Tree file: tree_diff_branch_lengths_1.newick
     let model = SubstModel::<K80>::new(&[], &[]);
-    let scoring = ParsimonyCostsWModel::new(
+    let scoring = ModelCosts::new(
         &model,
         &[1.0, 2.0],
         false,
@@ -844,7 +842,7 @@ fn fill_matrix_diff_branch_models_2() {
     // Sequence file: sequences_diff_branch_lengths_2.fasta
     // Tree file: tree_diff_branch_lengths_2.newick
     let model = SubstModel::<K80>::new(&[], &[]);
-    let scoring = ParsimonyCostsWModel::new(
+    let scoring = ModelCosts::new(
         &model,
         &[3.5, 3.0],
         false,
@@ -941,7 +939,7 @@ fn traceback_diff_branch_models_2() {
     // Sequence file: sequences_diff_branch_lengths_2.fasta
     // Tree file: tree_diff_branch_lengths_2.newick
     let model = SubstModel::<K80>::new(&[], &[]);
-    let scoring = ParsimonyCostsWModel::new(
+    let scoring = ModelCosts::new(
         &model,
         &[3.5, 3.0],
         false,
@@ -990,7 +988,7 @@ fn fill_matrix_diff_branch_models_3() {
     // Sequence file: sequences_diff_branch_lengths_3.fasta
     // Tree file: tree_diff_branch_lengths_3.newick
     let model = SubstModel::<K80>::new(&[], &[]);
-    let scoring = ParsimonyCostsWModel::new(
+    let scoring = ModelCosts::new(
         &model,
         &[0.52, 2.58],
         false,
@@ -1089,7 +1087,7 @@ fn traceback_diff_branch_models_3() {
     // Sequence file: sequences_diff_branch_lengths_3.fasta
     // Tree file: tree_diff_branch_lengths_3.newick
     let model = SubstModel::<K80>::new(&[], &[]);
-    let scoring = ParsimonyCostsWModel::new(
+    let scoring = ModelCosts::new(
         &model,
         &[0.52, 2.58],
         false,

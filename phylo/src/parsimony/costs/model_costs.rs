@@ -7,13 +7,13 @@ use crate::parsimony::{CostMatrix, GapMultipliers, ParsimonyCosts, ParsimonyMode
 use crate::{cmp_f64, ord_f64, Result};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ParsimonyCostsWModel {
+pub struct ModelCosts {
     alphabet: Alphabet,
     times: Vec<f64>,
-    costs: HashMap<ord_f64, BranchCostsWModel>,
+    costs: HashMap<ord_f64, ModelBranchCosts>,
 }
 
-impl ParsimonyCostsWModel {
+impl ModelCosts {
     pub fn new(
         model: &dyn ParsimonyModel,
         times: &[f64],
@@ -26,17 +26,17 @@ impl ParsimonyCostsWModel {
             model
         );
 
-        let mut costs = HashMap::<ord_f64, BranchCostsWModel>::with_capacity(times.len());
+        let mut costs = HashMap::<ord_f64, ModelBranchCosts>::with_capacity(times.len());
 
         for time in times {
             let (cost_matrix, avg) = model.scoring_matrix_corrected(*time, zero_diag, rounding);
             costs.insert(
                 ord_f64::from(*time),
-                BranchCostsWModel {
+                ModelBranchCosts {
                     avg,
                     gap_open: gap_mult.open * avg,
                     gap_ext: gap_mult.ext * avg,
-                    costs: cost_matrix,
+                    c: cost_matrix,
                 },
             );
         }
@@ -46,9 +46,8 @@ impl ParsimonyCostsWModel {
             model, times
         );
         debug!("The scoring matrices are: {:?}", costs);
-        Ok(ParsimonyCostsWModel {
+        Ok(ModelCosts {
             alphabet: model.alphabet().clone(),
-
             times: sort_times(times),
             costs,
         })
@@ -61,7 +60,7 @@ fn sort_times(times: &[f64]) -> Vec<f64> {
     sorted_times
 }
 
-impl ParsimonyCostsWModel {
+impl ModelCosts {
     fn find_closest_branch_length(&self, target: f64) -> f64 {
         debug!("Getting scoring for time {}", target);
         let time = match self
@@ -78,13 +77,9 @@ impl ParsimonyCostsWModel {
     }
 }
 
-impl ParsimonyCosts for ParsimonyCostsWModel {
-    fn alphabet(&self) -> &Alphabet {
-        &self.alphabet
-    }
-
+impl ParsimonyCosts for ModelCosts {
     fn r#match(&self, blen: f64, i: &u8, j: &u8) -> f64 {
-        self.costs[&ord_f64::from(self.find_closest_branch_length(blen))].costs
+        self.costs[&ord_f64::from(self.find_closest_branch_length(blen))].c
             [(self.alphabet.index(i), self.alphabet.index(j))]
     }
 
@@ -105,11 +100,11 @@ impl ParsimonyCosts for ParsimonyCostsWModel {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct BranchCostsWModel {
+pub(crate) struct ModelBranchCosts {
     avg: f64,
     gap_open: f64,
     gap_ext: f64,
-    costs: CostMatrix,
+    c: CostMatrix,
 }
 
 #[cfg(test)]
@@ -151,7 +146,7 @@ mod private_tests {
     #[test]
     fn generate_protein_scorings() {
         let model = SubstModel::<WAG>::new(&[], &[]);
-        let scoring = ParsimonyCostsWModel::new(
+        let scoring = ModelCosts::new(
             &model,
             &[0.1, 0.3, 0.5, 0.7],
             false,
@@ -168,7 +163,7 @@ mod private_tests {
             .get(&ordered_float::OrderedFloat(0.1))
             .unwrap();
         let true_matrix_01 = CostMatrix::from_row_slice(20, 20, &TRUE_COST_MATRIX);
-        assert_relative_eq!(mat_01.costs, true_matrix_01);
+        assert_relative_eq!(mat_01.c, true_matrix_01);
         assert_relative_eq!(mat_01.avg, 5.7675);
 
         assert_relative_eq!(scoring.avg(0.3), 4.7475);
