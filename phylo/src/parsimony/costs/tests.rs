@@ -50,7 +50,7 @@ fn protein_branch_scoring() {
 
     let model = SubstModel::<WAG>::new(&[], &[]);
     let cost =
-        ParsimonyCostsWModel::new(model, &times, false, &gap_mult, &Rounding::zero()).unwrap();
+        ParsimonyCostsWModel::new(&model, &times, false, &gap_mult, &Rounding::zero()).unwrap();
 
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.gap_ext(0.1), avg_01 * gap_mult.ext);
@@ -60,7 +60,7 @@ fn protein_branch_scoring() {
 
     let model = SubstModel::<WAG>::new(&[], &[]);
     let cost =
-        ParsimonyCostsWModel::new(model, &times, true, &gap_mult, &Rounding::zero()).unwrap();
+        ParsimonyCostsWModel::new(&model, &times, true, &gap_mult, &Rounding::zero()).unwrap();
 
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.r#match(0.1, &b'A', &b'A'), 0.0);
@@ -84,7 +84,7 @@ fn protein_scoring() {
     let model = SubstModel::<WAG>::new(&[], &[]);
 
     let cost =
-        ParsimonyCostsWModel::new(model, &times, false, &gap_mult, &Rounding::zero()).unwrap();
+        ParsimonyCostsWModel::new(&model, &times, false, &gap_mult, &Rounding::zero()).unwrap();
 
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.gap_ext(0.1), avg_01 * gap_mult.ext);
@@ -106,7 +106,7 @@ fn protein_branch_scoring_nearest() {
     let model = SubstModel::<WAG>::new(&[], &[]);
 
     let cost =
-        ParsimonyCostsWModel::new(model, &times, false, &gap_mult, &Rounding::zero()).unwrap();
+        ParsimonyCostsWModel::new(&model, &times, false, &gap_mult, &Rounding::zero()).unwrap();
 
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.gap_ext(0.1), avg_01 * gap_mult.ext);
@@ -139,8 +139,7 @@ fn dna_branch_scoring() {
 
     let model = SubstModel::<JC69>::new(&[], &[]);
     let cost =
-        ParsimonyCostsWModel::new(model.clone(), &times, false, &gap_mult, &Rounding::zero())
-            .unwrap();
+        ParsimonyCostsWModel::new(&model, &times, false, &gap_mult, &Rounding::zero()).unwrap();
 
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.gap_ext(0.1), avg_01 * gap_mult.ext);
@@ -148,8 +147,8 @@ fn dna_branch_scoring() {
 
     assert_eq!(cost.avg(0.7), avg_07);
 
-    let cost = ParsimonyCostsWModel::new(model.clone(), &times, true, &gap_mult, &Rounding::zero())
-        .unwrap();
+    let cost =
+        ParsimonyCostsWModel::new(&model, &times, true, &gap_mult, &Rounding::zero()).unwrap();
 
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.r#match(0.1, &b'N', &b'N'), 0.0);
@@ -170,8 +169,7 @@ fn dna_branch_scoring_nearest() {
 
     let model = SubstModel::<JC69>::new(&[], &[]);
     let cost =
-        ParsimonyCostsWModel::new(model.clone(), &times, false, &gap_mult, &Rounding::zero())
-            .unwrap();
+        ParsimonyCostsWModel::new(&model, &times, false, &gap_mult, &Rounding::zero()).unwrap();
 
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.gap_ext(0.1), avg_01 * gap_mult.ext);

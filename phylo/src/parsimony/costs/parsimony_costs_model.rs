@@ -3,21 +3,19 @@ use std::collections::HashMap;
 use log::{debug, info};
 
 use crate::alphabets::Alphabet;
-use crate::evolutionary_models::EvoModel;
 use crate::parsimony::{CostMatrix, GapMultipliers, ParsimonyCosts, ParsimonyModel, Rounding};
 use crate::{cmp_f64, ord_f64, Result};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ParsimonyCostsWModel<M: ParsimonyModel> {
-    subst_model: M,
+pub struct ParsimonyCostsWModel {
     alphabet: Alphabet,
     times: Vec<f64>,
     costs: HashMap<ord_f64, BranchCostsWModel>,
 }
 
-impl<M: ParsimonyModel + EvoModel> ParsimonyCostsWModel<M> {
+impl ParsimonyCostsWModel {
     pub fn new(
-        model: M,
+        model: &dyn ParsimonyModel,
         times: &[f64],
         zero_diag: bool,
         gap_mult: &GapMultipliers,
@@ -50,7 +48,7 @@ impl<M: ParsimonyModel + EvoModel> ParsimonyCostsWModel<M> {
         debug!("The scoring matrices are: {:?}", costs);
         Ok(ParsimonyCostsWModel {
             alphabet: model.alphabet().clone(),
-            subst_model: model,
+
             times: sort_times(times),
             costs,
         })
@@ -63,7 +61,7 @@ fn sort_times(times: &[f64]) -> Vec<f64> {
     sorted_times
 }
 
-impl<M: ParsimonyModel> ParsimonyCostsWModel<M> {
+impl ParsimonyCostsWModel {
     fn find_closest_branch_length(&self, target: f64) -> f64 {
         debug!("Getting scoring for time {}", target);
         let time = match self
@@ -80,9 +78,9 @@ impl<M: ParsimonyModel> ParsimonyCostsWModel<M> {
     }
 }
 
-impl<M: ParsimonyModel + EvoModel> ParsimonyCosts for ParsimonyCostsWModel<M> {
+impl ParsimonyCosts for ParsimonyCostsWModel {
     fn alphabet(&self) -> &Alphabet {
-        self.subst_model.alphabet()
+        &self.alphabet
     }
 
     fn r#match(&self, blen: f64, i: &u8, j: &u8) -> f64 {
@@ -154,7 +152,7 @@ mod private_tests {
     fn generate_protein_scorings() {
         let model = SubstModel::<WAG>::new(&[], &[]);
         let scoring = ParsimonyCostsWModel::new(
-            model,
+            &model,
             &[0.1, 0.3, 0.5, 0.7],
             false,
             &GapMultipliers {

@@ -1,4 +1,4 @@
-use std::fmt::{self, Debug};
+use std::fmt::{self, Debug, Display};
 
 use log::info;
 use nalgebra::DMatrix;
@@ -6,6 +6,7 @@ use rand::prelude::*;
 
 use crate::alignment::{InternalMapping, PairwiseAlignment, Sequences};
 use crate::alphabets::ParsimonySet;
+use crate::evolutionary_models::EvoModel;
 use crate::tree::Tree;
 use crate::tree::{NodeIdx::Internal as Int, NodeIdx::Leaf};
 
@@ -42,7 +43,7 @@ impl Rounding {
     }
 }
 
-pub trait ParsimonyModel {
+pub trait ParsimonyModel: Display + EvoModel {
     fn scoring_matrix(&self, time: f64, rounding: &Rounding) -> (CostMatrix, f64);
 
     fn scoring_matrix_corrected(

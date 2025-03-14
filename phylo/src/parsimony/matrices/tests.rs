@@ -695,7 +695,7 @@ fn fill_matrix_diff_branch_models() {
     // Tree file: tree_diff_branch_lengths_1.newick
     let model = SubstModel::<K80>::new(&[], &[]);
     let scoring = ParsimonyCostsWModel::new(
-        model,
+        &model,
         &[1.0, 2.0],
         false,
         &GapMultipliers {
@@ -780,7 +780,7 @@ fn traceback_diff_branch_models() {
     // Tree file: tree_diff_branch_lengths_1.newick
     let model = SubstModel::<K80>::new(&[], &[]);
     let scoring = ParsimonyCostsWModel::new(
-        model,
+        &model,
         &[1.0, 2.0],
         false,
         &GapMultipliers {
@@ -821,7 +821,7 @@ fn fill_matrix_diff_branch_models_2() {
     // Tree file: tree_diff_branch_lengths_2.newick
     let model = SubstModel::<K80>::new(&[], &[]);
     let scoring = ParsimonyCostsWModel::new(
-        model,
+        &model,
         &[3.5, 3.0],
         false,
         &GapMultipliers {
@@ -918,7 +918,7 @@ fn traceback_diff_branch_models_2() {
     // Tree file: tree_diff_branch_lengths_2.newick
     let model = SubstModel::<K80>::new(&[], &[]);
     let scoring = ParsimonyCostsWModel::new(
-        model,
+        &model,
         &[3.5, 3.0],
         false,
         &GapMultipliers {
@@ -967,7 +967,7 @@ fn fill_matrix_diff_branch_models_3() {
     // Tree file: tree_diff_branch_lengths_3.newick
     let model = SubstModel::<K80>::new(&[], &[]);
     let scoring = ParsimonyCostsWModel::new(
-        model,
+        &model,
         &[0.52, 2.58],
         false,
         &GapMultipliers {
@@ -1066,7 +1066,7 @@ fn traceback_diff_branch_models_3() {
     // Tree file: tree_diff_branch_lengths_3.newick
     let model = SubstModel::<K80>::new(&[], &[]);
     let scoring = ParsimonyCostsWModel::new(
-        model,
+        &model,
         &[0.52, 2.58],
         false,
         &GapMultipliers {
