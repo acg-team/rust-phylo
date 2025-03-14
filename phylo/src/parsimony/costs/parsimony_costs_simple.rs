@@ -1,4 +1,4 @@
-use crate::alphabets::{dna_alphabet, Alphabet};
+use crate::alphabets::Alphabet;
 use crate::parsimony::ParsimonyCosts;
 
 pub(crate) struct ParsimonyCostsSimple {
@@ -8,24 +8,18 @@ pub(crate) struct ParsimonyCostsSimple {
     pub(crate) alphabet: Alphabet,
 }
 
-#[allow(dead_code)]
 impl ParsimonyCostsSimple {
-    pub(crate) fn new_default() -> ParsimonyCostsSimple {
-        Self::new(1.0, 2.5, 0.5, dna_alphabet())
-    }
-
-    pub(crate) fn new(
+    pub fn new(
         mismatch: f64,
         gap_open: f64,
         gap_ext: f64,
-        alphabet: Alphabet,
+        alphabet: &Alphabet,
     ) -> ParsimonyCostsSimple {
         ParsimonyCostsSimple {
             mismatch,
             gap_open: gap_open * mismatch,
             gap_ext: gap_ext * mismatch,
-
-            alphabet,
+            alphabet: alphabet.clone(),
         }
     }
 }

@@ -30,7 +30,7 @@ impl<'a> AlignmentBuilder<'a> {
     }
 
     fn align_unaligned_seqs(self) -> Result<Alignment> {
-        let costs = ParsimonyCostsSimple::new_default();
+        let costs = ParsimonyCostsSimple::new(1.0, 2.5, 0.5, self.seqs.alphabet());
         let (aligns, _scores) = pars_align_on_tree(&costs, self.tree, self.seqs.clone());
         let mut alignment = Alignment {
             seqs: Sequences::new(Vec::new()),

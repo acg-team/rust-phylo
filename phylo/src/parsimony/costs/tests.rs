@@ -6,14 +6,17 @@ use crate::substitution_models::{SubstModel, JC69, WAG};
 
 #[test]
 fn default_costs() {
-    let def = ParsimonyCostsSimple::new_default();
-    assert_eq!(def.r#match(1.0, &b'A', &b'B'), 1.0);
-    assert_eq!(def.r#match(1.0, &b'B', &b'A'), 1.0);
-    assert_eq!(def.r#match(1.0, &b'N', &b'K'), 1.0);
-    assert_eq!(def.r#match(1.0, &b'C', &b'C'), 0.0);
-    assert_eq!(def.avg(2.0), 1.0);
-    assert_eq!(def.gap_ext(3.0), 0.5);
-    assert_eq!(def.gap_open(2.0), 2.5);
+    let mismatch = 1.0;
+    let gap_open = 2.5;
+    let gap_ext = 0.5;
+    let c = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, &dna_alphabet());
+    assert_eq!(c.r#match(1.0, &b'A', &b'B'), 1.0);
+    assert_eq!(c.r#match(1.0, &b'B', &b'A'), 1.0);
+    assert_eq!(c.r#match(1.0, &b'N', &b'K'), 1.0);
+    assert_eq!(c.r#match(1.0, &b'C', &b'C'), 0.0);
+    assert_eq!(c.avg(2.0), 1.0);
+    assert_eq!(c.gap_ext(3.0), 0.5);
+    assert_eq!(c.gap_open(2.0), 2.5);
 }
 
 #[test]
@@ -21,7 +24,7 @@ fn simple_costs() {
     let mismatch = 3.0;
     let gap_open = 2.0;
     let gap_ext = 10.5;
-    let c = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, dna_alphabet());
+    let c = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, &dna_alphabet());
     assert_eq!(c.r#match(1.0, &b'A', &b'B'), mismatch);
     assert_eq!(c.r#match(3.0, &b'A', &b'A'), 0.0);
     assert_eq!(c.avg(4.9), mismatch);
@@ -30,7 +33,7 @@ fn simple_costs() {
     let mismatch = 1.0;
     let gap_open = 10.0;
     let gap_ext = 2.5;
-    let c = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, dna_alphabet());
+    let c = ParsimonyCostsSimple::new(mismatch, gap_open, gap_ext, &dna_alphabet());
     assert_eq!(c.r#match(1.0, &b'A', &b'B'), mismatch);
     assert_eq!(c.r#match(1.0, &b'A', &b'A'), 0.0);
     assert_eq!(c.avg(1.0), mismatch);
