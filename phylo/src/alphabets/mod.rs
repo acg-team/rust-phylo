@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::fmt::Display;
 
 use bio::io::fasta::Record;
+use itertools::join;
 use lazy_static::lazy_static;
 
 use crate::frequencies;
@@ -79,6 +80,13 @@ pub fn detect_alphabet(sequences: &[Record]) -> Alphabet {
 }
 
 pub(crate) type ParsimonySet = HashSet<u8>;
+
+#[allow(dead_code)]
+pub(crate) fn print_parsimony_set(set: &ParsimonySet) -> String {
+    let mut chars: Vec<char> = set.iter().map(|&a| a as char).collect();
+    chars.sort();
+    join(chars, " ")
+}
 
 pub(crate) fn dna_alphabet() -> Alphabet {
     Alphabet {

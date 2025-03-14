@@ -1,9 +1,14 @@
-use bio::io::fasta::Record;
 use rstest::*;
 
 use std::path::PathBuf;
 
-use crate::alphabets::{detect_alphabet, dna_alphabet as dna, gap_set, protein_alphabet as prot};
+use bio::io::fasta::Record;
+use itertools::join;
+
+use crate::alphabets::{
+    detect_alphabet, dna_alphabet as dna, gap_set, print_parsimony_set, protein_alphabet as prot,
+    ParsimonySet,
+};
 use crate::io::read_sequences_from_file;
 
 #[rstest]
@@ -26,14 +31,6 @@ fn protein_type_test(#[case] input: &str) {
     assert_eq!(alphabet, prot());
     assert!(format!("{}", prot()).contains("protein"));
 }
-
-// use crate::parsimony_alignment::parsimony_sets::{
-//     gap_set, dna.parsimony_set, get_parsimony_sets, get_protein_set,
-// };
-// use bio::io::fasta::Record;
-// use itertools::join;
-// use phylo::sequences::{SequenceType, AMINOACIDS_STR};
-// use rstest::rstest;
 
 #[test]
 fn dna_sets() {
@@ -127,15 +124,16 @@ fn protein_characters() {
     );
 }
 
-// #[rstest]
-// #[case(vec![b'A', b'C', b'G', b'T'], "ACGT")]
-// #[case(vec![b'T', b'G', b'A', b'C'], "ACGT")]
-// #[case(vec![b'V', b'G'], "GV")]
-// #[case(vec![b'Q', b'I', b'F', b'G', b'W', b'P', b'M', b'N', b'K', b'S', b'E', b'Y', b'T', b'V', b'C', b'R', b'A', b'H', b'L', b'D'], AMINOACIDS_STR)]
-// fn test_parsimony_set_printing(#[case] input: Vec<u8>, #[case] output: &str) {
-//     let set = make_parsimony_set(input);
-//     assert_eq!(
-//         print_parsimony_set(&set),
-//         join(output.chars(), " ").as_str()
-//     );
-// }
+#[rstest]
+#[case(vec![b'A', b'C', b'G', b'T'], "ACGT")]
+#[case(vec![b'T', b'G', b'A', b'C'], "ACGT")]
+#[case(vec![b'V', b'G'], "GV")]
+#[case(vec![b'Q', b'I', b'F', b'G', b'W', b'P', b'M', b'N', b'K', b'S', b'E', b'Y', b'T', b'V', b'C', b'R', b'A', b'H', b'L', b'D'], "ACDEFGHIKLMNPQRSTVWY")]
+
+fn test_parsimony_set_printing(#[case] input: Vec<u8>, #[case] output: &str) {
+    let set = ParsimonySet::from_iter(input);
+    assert_eq!(
+        print_parsimony_set(&set),
+        join(output.chars(), " ").as_str()
+    );
+}
