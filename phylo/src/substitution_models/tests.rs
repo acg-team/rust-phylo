@@ -12,11 +12,10 @@ use crate::alphabets::{Alphabet, AMINOACIDS, GAP};
 use crate::evolutionary_models::EvoModel;
 use crate::io::read_sequences_from_file;
 use crate::likelihood::ModelSearchCost;
-use crate::parsimony::Rounding as R;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::substitution_models::{
-    dna_models::*, protein_models::*, FreqVector, ParsimonyModel, QMatrix, QMatrixMaker,
-    SubstMatrix, SubstModel, SubstitutionCostBuilder as SCB,
+    dna_models::*, protein_models::*, FreqVector, QMatrix, QMatrixMaker, SubstMatrix, SubstModel,
+    SubstitutionCostBuilder as SCB,
 };
 use crate::tree::{tree_parser::from_newick, Tree};
 use crate::{frequencies, record_wo_desc as record, tree};
@@ -405,140 +404,6 @@ fn dna_normalised() {
     normalised_template::<HKY>();
     normalised_template::<TN93>();
     normalised_template::<GTR>();
-}
-
-#[cfg(test)]
-fn dna_scoring_matrices_template<Q: QMatrix + QMatrixMaker>(
-    freqs: &[f64],
-    params: &[f64],
-    times: &[f64],
-    rounding: &R,
-) {
-    let model = SubstModel::<Q>::new(freqs, params);
-    let scorings = ParsimonyModel::generate_scorings(&model, times, false, rounding);
-    for &time in times {
-        let (_, avg_0) = ParsimonyModel::scoring_matrix(&model, time, rounding);
-        let (_, avg_1) = scorings.get(&ordered_float::OrderedFloat(time)).unwrap();
-        assert_relative_eq!(avg_0, avg_1);
-    }
-}
-
-#[test]
-fn dna_scoring_matrices() {
-    dna_scoring_matrices_template::<JC69>(&[], &[], &[0.1, 0.3, 0.5, 0.7], &R::four());
-    dna_scoring_matrices_template::<K80>(&[], &[], &[0.01], &R::zero());
-    dna_scoring_matrices_template::<HKY>(
-        &[0.22, 0.26, 0.33, 0.19],
-        &[0.5],
-        &[0.1, 0.2, 0.3],
-        &R::none(),
-    );
-    dna_scoring_matrices_template::<TN93>(
-        &[0.22, 0.26, 0.33, 0.19],
-        &[0.5970915, 0.2940435, 0.00135],
-        &[0.1, 0.3, 0.5, 0.7],
-        &R::zero(),
-    );
-    dna_scoring_matrices_template::<GTR>(
-        &[0.1, 0.3, 0.4, 0.2],
-        &[5.0, 1.0, 1.0, 1.0, 1.0],
-        &[0.2, 0.8],
-        &R::four(),
-    );
-}
-
-const TRUE_MATRIX: [f64; 400] = [
-    0.0, 6.0, 6.0, 5.0, 6.0, 6.0, 5.0, 4.0, 7.0, 7.0, 6.0, 5.0, 6.0, 7.0, 5.0, 4.0, 4.0, 9.0, 7.0,
-    4.0, 5.0, 0.0, 6.0, 7.0, 7.0, 5.0, 6.0, 5.0, 5.0, 7.0, 5.0, 3.0, 7.0, 8.0, 6.0, 5.0, 6.0, 6.0,
-    7.0, 6.0, 5.0, 6.0, 0.0, 4.0, 8.0, 5.0, 5.0, 5.0, 5.0, 6.0, 7.0, 4.0, 8.0, 8.0, 7.0, 4.0, 4.0,
-    9.0, 6.0, 6.0, 5.0, 7.0, 4.0, 0.0, 9.0, 6.0, 3.0, 5.0, 6.0, 8.0, 7.0, 6.0, 8.0, 8.0, 6.0, 5.0,
-    6.0, 9.0, 7.0, 7.0, 5.0, 6.0, 7.0, 8.0, 0.0, 8.0, 8.0, 6.0, 7.0, 7.0, 6.0, 7.0, 7.0, 6.0, 7.0,
-    5.0, 6.0, 7.0, 6.0, 5.0, 5.0, 4.0, 5.0, 6.0, 8.0, 0.0, 4.0, 6.0, 5.0, 7.0, 5.0, 4.0, 6.0, 8.0,
-    5.0, 5.0, 5.0, 8.0, 7.0, 6.0, 4.0, 6.0, 6.0, 3.0, 9.0, 4.0, 0.0, 5.0, 6.0, 7.0, 7.0, 4.0, 7.0,
-    8.0, 6.0, 5.0, 5.0, 8.0, 7.0, 5.0, 4.0, 6.0, 5.0, 5.0, 7.0, 7.0, 6.0, 0.0, 7.0, 8.0, 7.0, 6.0,
-    8.0, 8.0, 7.0, 5.0, 6.0, 8.0, 8.0, 7.0, 6.0, 5.0, 4.0, 5.0, 8.0, 4.0, 6.0, 6.0, 0.0, 7.0, 5.0,
-    5.0, 7.0, 6.0, 6.0, 5.0, 6.0, 8.0, 4.0, 7.0, 6.0, 7.0, 6.0, 8.0, 8.0, 8.0, 7.0, 8.0, 8.0, 0.0,
-    4.0, 6.0, 5.0, 5.0, 8.0, 6.0, 5.0, 8.0, 6.0, 3.0, 6.0, 6.0, 7.0, 8.0, 7.0, 6.0, 7.0, 7.0, 7.0,
-    4.0, 0.0, 6.0, 5.0, 5.0, 6.0, 6.0, 6.0, 7.0, 6.0, 4.0, 5.0, 4.0, 4.0, 6.0, 9.0, 4.0, 4.0, 6.0,
-    6.0, 6.0, 6.0, 0.0, 6.0, 8.0, 6.0, 5.0, 5.0, 8.0, 8.0, 6.0, 5.0, 6.0, 7.0, 7.0, 7.0, 5.0, 6.0,
-    6.0, 7.0, 4.0, 3.0, 5.0, 0.0, 5.0, 7.0, 6.0, 5.0, 7.0, 6.0, 4.0, 6.0, 8.0, 8.0, 8.0, 7.0, 8.0,
-    8.0, 8.0, 6.0, 5.0, 4.0, 7.0, 6.0, 0.0, 7.0, 6.0, 7.0, 6.0, 4.0, 5.0, 4.0, 6.0, 7.0, 6.0, 8.0,
-    6.0, 6.0, 6.0, 6.0, 7.0, 6.0, 6.0, 8.0, 7.0, 0.0, 5.0, 5.0, 8.0, 7.0, 6.0, 4.0, 5.0, 4.0, 5.0,
-    6.0, 6.0, 5.0, 5.0, 6.0, 6.0, 6.0, 5.0, 7.0, 6.0, 5.0, 0.0, 4.0, 7.0, 6.0, 6.0, 4.0, 6.0, 5.0,
-    6.0, 7.0, 6.0, 5.0, 6.0, 7.0, 5.0, 6.0, 5.0, 6.0, 7.0, 6.0, 4.0, 0.0, 9.0, 7.0, 5.0, 7.0, 5.0,
-    8.0, 7.0, 7.0, 7.0, 7.0, 6.0, 7.0, 7.0, 5.0, 7.0, 7.0, 5.0, 7.0, 6.0, 7.0, 0.0, 5.0, 6.0, 6.0,
-    6.0, 5.0, 6.0, 7.0, 7.0, 7.0, 7.0, 5.0, 6.0, 6.0, 7.0, 7.0, 4.0, 7.0, 5.0, 6.0, 6.0, 0.0, 6.0,
-    4.0, 7.0, 7.0, 7.0, 6.0, 7.0, 6.0, 6.0, 8.0, 3.0, 4.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 8.0, 7.0,
-    0.0,
-];
-
-#[test]
-fn protein_scoring_matrices() {
-    let model = SubstModel::<WAG>::new(&[], &[]);
-    let true_matrix_01 = SubstMatrix::from_row_slice(20, 20, &TRUE_MATRIX);
-    let (mat, avg) = ParsimonyModel::scoring_matrix(&model, 0.1, &R::zero());
-
-    assert_relative_eq!(mat, true_matrix_01);
-
-    assert_relative_eq!(avg, 5.7675);
-    let (_, avg) = ParsimonyModel::scoring_matrix(&model, 0.3, &R::zero());
-    assert_relative_eq!(avg, 4.7475);
-    let (_, avg) = ParsimonyModel::scoring_matrix(&model, 0.5, &R::zero());
-    assert_relative_eq!(avg, 4.2825);
-    let (_, avg) = ParsimonyModel::scoring_matrix(&model, 0.7, &R::zero());
-    assert_relative_eq!(avg, 4.0075);
-}
-
-#[test]
-fn generate_protein_scorings() {
-    let model = SubstModel::<WAG>::new(&[], &[]);
-    let scorings =
-        ParsimonyModel::generate_scorings(&model, &[0.1, 0.3, 0.5, 0.7], false, &R::zero());
-    let true_matrix_01 = SubstMatrix::from_row_slice(20, 20, &TRUE_MATRIX);
-    let (mat_01, avg_01) = scorings.get(&ordered_float::OrderedFloat(0.1)).unwrap();
-
-    assert_relative_eq!(*mat_01, true_matrix_01);
-
-    assert_relative_eq!(*avg_01, 5.7675);
-    let (_, avg_03) = scorings.get(&ordered_float::OrderedFloat(0.3)).unwrap();
-    assert_relative_eq!(*avg_03, 4.7475);
-    let (_, avg_05) = scorings.get(&ordered_float::OrderedFloat(0.5)).unwrap();
-    assert_relative_eq!(*avg_05, 4.2825);
-    let (_, avg_07) = scorings.get(&ordered_float::OrderedFloat(0.7)).unwrap();
-    assert_relative_eq!(*avg_07, 4.0075);
-}
-
-#[test]
-fn matrix_entry_rounding() {
-    let model = SubstModel::<K80>::new(&[], &[1.0, 2.0]);
-    let (mat_round, avg_round) = model.scoring_matrix_corrected(0.1, true, &R::zero());
-    let (mat, avg) = model.scoring_matrix_corrected(0.1, true, &R::none());
-    assert_ne!(avg_round, avg);
-    assert_ne!(mat_round, mat);
-    for &element in mat_round.as_slice() {
-        assert_eq!(element.round(), element);
-    }
-    let model = SubstModel::<HIVB>::new(&[], &[]);
-    let (mat_round, avg_round) = model.scoring_matrix_corrected(0.1, true, &R::zero());
-    let (mat, avg) = model.scoring_matrix_corrected(0.1, true, &R::none());
-    assert_ne!(avg_round, avg);
-    assert_ne!(mat_round, mat);
-    for &element in mat_round.as_slice() {
-        assert_eq!(element.round(), element);
-    }
-}
-
-#[test]
-fn matrix_zero_diagonals() {
-    let model = SubstModel::<HIVB>::new(&[], &[]);
-    let (mat_zeros, avg_zeros) = model.scoring_matrix_corrected(0.5, true, &R::zero());
-    let (mat, avg) = model.scoring_matrix_corrected(0.5, false, &R::zero());
-    assert_ne!(avg_zeros, avg);
-    assert!(avg_zeros < avg);
-    assert_ne!(mat_zeros, mat);
-    for &element in mat_zeros.diagonal().iter() {
-        assert_eq!(element, 0.0);
-    }
 }
 
 #[test]

@@ -1,10 +1,11 @@
 use std::fmt::{self, Debug};
 
-use log::{debug, info};
+use log::info;
 use nalgebra::DMatrix;
 use rand::prelude::*;
 
 use crate::alignment::{InternalMapping, PairwiseAlignment, Sequences};
+use crate::alphabets::ParsimonySet;
 use crate::tree::Tree;
 use crate::tree::{NodeIdx::Internal as Int, NodeIdx::Leaf};
 
@@ -41,14 +42,23 @@ impl Rounding {
     }
 }
 
+pub trait ParsimonyModel {
+    fn scoring_matrix(&self, time: f64, rounding: &Rounding) -> (CostMatrix, f64);
+
+    fn scoring_matrix_corrected(
+        &self,
+        time: f64,
+        zero_diag: bool,
+        rounding: &Rounding,
+    ) -> (CostMatrix, f64);
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum Direction {
     Matc,
     GapInY,
     GapInX,
 }
-
-use crate::alphabets::ParsimonySet;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum SiteFlag {
@@ -122,26 +132,11 @@ fn pars_align_w_rng(
     scoring: &dyn ParsimonyCosts,
     rng: fn(usize) -> usize,
 ) -> (Vec<ParsimonySite>, PairwiseAlignment, f64) {
-    let mut pars_mats = ParsimonyAlignmentMatrices::new(x_info.len() + 1, y_info.len() + 1, rng);
-    debug!(
-        "x_scoring: {} {} {}",
-        scoring.avg(x_blen),
-        scoring.gap_open(x_blen),
-        scoring.gap_ext(x_blen)
-    );
-    debug!(
-        "y_scoring: {} {} {}",
-        scoring.avg(y_blen),
-        scoring.gap_open(y_blen),
-        scoring.gap_ext(y_blen)
-    );
-    pars_mats.fill_matrices(
-        x_info,
-        scoring.branch_costs(x_blen),
-        y_info,
-        scoring.branch_costs(y_blen),
-    );
-    pars_mats.traceback(x_info, y_info)
+    let mut pars_mats =
+        ParsimonyAlignmentMatrices::new(x_info, x_blen, y_info, y_blen, scoring, rng);
+
+    pars_mats.fill_matrices();
+    pars_mats.traceback()
 }
 
 fn pars_align(

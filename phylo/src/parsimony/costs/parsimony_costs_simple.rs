@@ -1,8 +1,10 @@
 use crate::alphabets::{dna_alphabet, Alphabet};
-use crate::parsimony::{BranchParsimonyCosts, CostMatrix, ParsimonyCosts};
+use crate::parsimony::ParsimonyCosts;
 
 pub(crate) struct ParsimonyCostsSimple {
-    pub(crate) branch: BranchParsimonyCostsSimple,
+    mismatch: f64,
+    gap_open: f64,
+    gap_ext: f64,
     pub(crate) alphabet: Alphabet,
 }
 
@@ -19,21 +21,16 @@ impl ParsimonyCostsSimple {
         alphabet: Alphabet,
     ) -> ParsimonyCostsSimple {
         ParsimonyCostsSimple {
-            branch: BranchParsimonyCostsSimple {
-                mismatch,
-                gap_open: gap_open * mismatch,
-                gap_ext: gap_ext * mismatch,
-            },
+            mismatch,
+            gap_open: gap_open * mismatch,
+            gap_ext: gap_ext * mismatch,
+
             alphabet,
         }
     }
 }
 
 impl ParsimonyCosts for ParsimonyCostsSimple {
-    fn branch_costs(&self, _: f64) -> &dyn BranchParsimonyCosts {
-        &self.branch
-    }
-
     fn alphabet(&self) -> &Alphabet {
         &self.alphabet
     }
@@ -42,49 +39,18 @@ impl ParsimonyCosts for ParsimonyCostsSimple {
         if char_i == char_j {
             0.0
         } else {
-            self.branch.mismatch
-        }
-    }
-    fn gap_ext(&self, _: f64) -> f64 {
-        self.branch.gap_ext
-    }
-
-    fn gap_open(&self, _: f64) -> f64 {
-        self.branch.gap_open
-    }
-
-    fn avg(&self, _: f64) -> f64 {
-        self.branch.mismatch
-    }
-}
-
-pub(crate) struct BranchParsimonyCostsSimple {
-    mismatch: f64,
-    gap_open: f64,
-    gap_ext: f64,
-}
-
-impl BranchParsimonyCosts for BranchParsimonyCostsSimple {
-    fn r#match(&self, char_i: &u8, char_j: &u8) -> f64 {
-        if char_i == char_j {
-            0.0
-        } else {
             self.mismatch
         }
     }
-    fn gap_ext(&self) -> f64 {
+    fn gap_ext(&self, _: f64) -> f64 {
         self.gap_ext
     }
 
-    fn gap_open(&self) -> f64 {
+    fn gap_open(&self, _: f64) -> f64 {
         self.gap_open
     }
 
-    fn avg(&self) -> f64 {
+    fn avg(&self, _: f64) -> f64 {
         self.mismatch
-    }
-
-    fn cost_matrix(&self) -> &CostMatrix {
-        unimplemented!()
     }
 }

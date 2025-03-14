@@ -1,14 +1,11 @@
 use std::{fmt, iter::zip};
 
-use log::debug;
-
 use crate::alignment::{Mapping, PairwiseAlignment};
-use crate::alphabets::{ParsimonySet, gap_set};
+use crate::alphabets::{gap_set, ParsimonySet};
 use crate::cmp_f64;
-use crate::parsimony::BranchParsimonyCosts as BranchCosts;
 use crate::parsimony::{
     Direction::{self, GapInX, GapInY, Matc},
-    ParsimonySite as SiteInfo,
+    ParsimonyCosts, ParsimonySite as SiteInfo,
     SiteFlag::{self, *},
 };
 
@@ -44,16 +41,21 @@ impl TracebackMatrices {
     }
 }
 
-pub(crate) struct ParsimonyAlignmentMatrices {
-    pub(crate) rows: usize,
-    pub(crate) cols: usize,
+pub(crate) struct ParsimonyAlignmentMatrices<'a> {
+    rows: usize,
+    cols: usize,
+    scoring: &'a dyn ParsimonyCosts,
+    x_info: &'a [SiteInfo],
+    x_blen: f64,
+    y_info: &'a [SiteInfo],
+    y_blen: f64,
     pub(super) score: ScoreMatrices,
     pub(super) trace: TracebackMatrices,
     pub(super) direction_picker: [&'static [Direction]; 8],
     pub(crate) rng: fn(usize) -> usize,
 }
 
-impl fmt::Display for ParsimonyAlignmentMatrices {
+impl fmt::Display for ParsimonyAlignmentMatrices<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "S.M").unwrap();
         for row in &self.score.m {
@@ -67,64 +69,41 @@ impl fmt::Display for ParsimonyAlignmentMatrices {
         for row in &self.score.y {
             writeln!(f, "{:?}", row).unwrap();
         }
-        // writeln!(f, "T.M").unwrap();
-        // for row in &self.trace.m {
-        //     writeln!(f, "{:?}", row).unwrap();
-        // }
-        // writeln!(f, "T.X").unwrap();
-        // for row in &self.trace.x {
-        //     writeln!(f, "{:?}", row).unwrap();
-        // }
-        // writeln!(f, "T.Y").unwrap();
-        // for row in &self.trace.y {
-        //     writeln!(f, "{:?}", row).unwrap();
-        // }
+        writeln!(f, "T.M").unwrap();
+        for row in &self.trace.m {
+            writeln!(f, "{:?}", row).unwrap();
+        }
+        writeln!(f, "T.X").unwrap();
+        for row in &self.trace.x {
+            writeln!(f, "{:?}", row).unwrap();
+        }
+        writeln!(f, "T.Y").unwrap();
+        for row in &self.trace.y {
+            writeln!(f, "{:?}", row).unwrap();
+        }
         Ok(())
     }
 }
 
-fn score_match_one_branch(
-    a_set: &ParsimonySet,
-    c_set: &ParsimonySet,
-    c_scor: &dyn BranchCosts,
-) -> f64 {
-    a_set
-        .iter()
-        .map(|ancestor| min_score(c_set, c_scor, ancestor))
-        .min_by(cmp_f64())
-        .unwrap()
-}
-
-fn score_match_both_branches(
-    a_set: &ParsimonySet,
-    x_set: &ParsimonySet,
-    x_scor: &dyn BranchCosts,
-    y_set: &ParsimonySet,
-    y_scor: &dyn BranchCosts,
-) -> f64 {
-    a_set
-        .iter()
-        .map(|ancestor| min_score(x_set, x_scor, ancestor) + min_score(y_set, y_scor, ancestor))
-        .min_by(cmp_f64())
-        .unwrap()
-}
-
-fn min_score(set: &ParsimonySet, scor: &dyn BranchCosts, ancestor: &u8) -> f64 {
-    set.iter()
-        .map(|child| scor.r#match(ancestor, child))
-        .min_by(cmp_f64())
-        .unwrap()
-}
-
-impl ParsimonyAlignmentMatrices {
+impl<'a> ParsimonyAlignmentMatrices<'a> {
     pub(crate) fn new(
-        rows: usize,
-        cols: usize,
+        x_info: &'a [SiteInfo],
+        x_blen: f64,
+        y_info: &'a [SiteInfo],
+        y_blen: f64,
+        scoring: &'a dyn ParsimonyCosts,
         rng: fn(usize) -> usize,
-    ) -> ParsimonyAlignmentMatrices {
+    ) -> ParsimonyAlignmentMatrices<'a> {
+        let rows = x_info.len() + 1;
+        let cols = y_info.len() + 1;
         ParsimonyAlignmentMatrices {
             rows,
             cols,
+            scoring,
+            x_info,
+            x_blen,
+            y_info,
+            y_blen,
             score: ScoreMatrices::new(rows, cols),
             trace: TracebackMatrices::new(rows, cols),
             direction_picker: [
@@ -139,6 +118,21 @@ impl ParsimonyAlignmentMatrices {
             ],
             rng,
         }
+    }
+
+    fn min_score(&self, blen: f64, set: &ParsimonySet, ancestor: &u8) -> f64 {
+        set.iter()
+            .map(|child| self.scoring.r#match(blen, ancestor, child))
+            .min_by(cmp_f64())
+            .unwrap()
+    }
+
+    fn score_match_one_branch(&self, blen: f64, a_set: &ParsimonySet, c_set: &ParsimonySet) -> f64 {
+        a_set
+            .iter()
+            .map(|ancestor| self.min_score(blen, c_set, ancestor))
+            .min_by(cmp_f64())
+            .unwrap()
     }
 
     fn select_direction(&self, sm: f64, sx: f64, sy: f64) -> (f64, Direction) {
@@ -159,50 +153,43 @@ impl ParsimonyAlignmentMatrices {
         )
     }
 
-    pub(crate) fn fill_matrices(
-        &mut self,
-        x_info: &[SiteInfo],
-        x_scor: &dyn BranchCosts,
-        y_info: &[SiteInfo],
-        y_scor: &dyn BranchCosts,
-    ) {
-        self.init_x(x_info, x_scor, y_scor);
-        self.init_y(y_info, x_scor, y_scor);
+    pub(crate) fn fill_matrices(&mut self) {
+        self.init_x();
+        self.init_y();
         for i in 1..self.rows {
             for j in 1..self.cols {
-                if x_info[i - 1].is_fixed() || y_info[j - 1].is_fixed() {
-                    let ni = i - x_info[i - 1].is_fixed() as usize;
-                    let nj = j - y_info[j - 1].is_fixed() as usize;
+                if self.x_info[i - 1].is_fixed() || self.y_info[j - 1].is_fixed() {
+                    let ni = i - self.x_info[i - 1].is_fixed() as usize;
+                    let nj = j - self.y_info[j - 1].is_fixed() as usize;
                     self.score.m[i][j] = self.score.m[ni][nj];
                     self.score.x[i][j] = self.score.x[ni][nj];
                     self.score.y[i][j] = self.score.y[ni][nj];
                 } else {
-                    (self.score.m[i][j], self.trace.m[i][j]) =
-                        self.fill_s_m(i - 1, j - 1, x_info, x_scor, y_info, y_scor);
-                    (self.score.x[i][j], self.trace.x[i][j]) =
-                        self.fill_s_x(i - 1, j, x_info, x_scor, y_info, y_scor);
-                    (self.score.y[i][j], self.trace.y[i][j]) =
-                        self.fill_s_y(i, j - 1, x_info, x_scor, y_info, y_scor);
+                    (self.score.m[i][j], self.trace.m[i][j]) = self.fill_s_m(i - 1, j - 1);
+                    (self.score.x[i][j], self.trace.x[i][j]) = self.fill_s_x(i - 1, j);
+                    (self.score.y[i][j], self.trace.y[i][j]) = self.fill_s_y(i, j - 1);
                 }
             }
         }
-        debug!("{}", self);
     }
 
-    fn init_x(&mut self, x_info: &[SiteInfo], x_scor: &dyn BranchCosts, y_scor: &dyn BranchCosts) {
+    fn init_x(&mut self) {
         for i in 1..self.rows {
             self.score.x[i][0] = self.score.x[i - 1][0]
-                + if x_info[i - 1].no_gap() {
-                    score_match_one_branch(&x_info[i - 1].set, &x_info[i - 1].set, x_scor)
-                        + if self.score.x[i - 1][0] == 0.0 {
-                            y_scor.gap_open()
-                        } else {
-                            y_scor.gap_ext()
-                        }
+                + if self.x_info[i - 1].no_gap() {
+                    self.score_match_one_branch(
+                        self.x_blen,
+                        &self.x_info[i - 1].set,
+                        &self.x_info[i - 1].set,
+                    ) + if self.score.x[i - 1][0] == 0.0 {
+                        self.scoring.gap_open(self.y_blen)
+                    } else {
+                        self.scoring.gap_ext(self.y_blen)
+                    }
                 } else {
                     0.0
                 };
-            if !x_info[i - 1].is_fixed() {
+            if !self.x_info[i - 1].is_fixed() {
                 self.trace.m[i][0] = GapInY;
                 self.trace.x[i][0] = GapInY;
                 self.trace.y[i][0] = GapInY;
@@ -212,20 +199,23 @@ impl ParsimonyAlignmentMatrices {
         }
     }
 
-    fn init_y(&mut self, y_info: &[SiteInfo], x_scor: &dyn BranchCosts, y_scor: &dyn BranchCosts) {
+    fn init_y(&mut self) {
         for j in 1..self.cols {
             self.score.y[0][j] = self.score.y[0][j - 1]
-                + if y_info[j - 1].no_gap() {
-                    score_match_one_branch(&y_info[j - 1].set, &y_info[j - 1].set, y_scor)
-                        + if self.score.y[0][j - 1] == 0.0 {
-                            x_scor.gap_open()
-                        } else {
-                            x_scor.gap_ext()
-                        }
+                + if self.y_info[j - 1].no_gap() {
+                    self.score_match_one_branch(
+                        self.y_blen,
+                        &self.y_info[j - 1].set,
+                        &self.y_info[j - 1].set,
+                    ) + if self.score.y[0][j - 1] == 0.0 {
+                        self.scoring.gap_open(self.x_blen)
+                    } else {
+                        self.scoring.gap_ext(self.x_blen)
+                    }
                 } else {
                     0.0
                 };
-            if !y_info[j - 1].is_fixed() {
+            if !self.y_info[j - 1].is_fixed() {
                 self.trace.m[0][j] = GapInX;
                 self.trace.x[0][j] = GapInX;
                 self.trace.y[0][j] = GapInX;
@@ -235,28 +225,18 @@ impl ParsimonyAlignmentMatrices {
         }
     }
 
-    fn fill_s_m(
-        &self,
-        i: usize,
-        j: usize,
-        x_info: &[SiteInfo],
-        x_scor: &dyn BranchCosts,
-        y_info: &[SiteInfo],
-        y_scor: &dyn BranchCosts,
-    ) -> (f64, Direction) {
+    fn fill_s_m(&self, i: usize, j: usize) -> (f64, Direction) {
+        let x_info = &self.x_info;
+        let y_info = &self.y_info;
+
         let anc_set = if !(&x_info[i].set & &y_info[j].set).is_empty() {
             &x_info[i].set & &y_info[j].set
         } else {
             &x_info[i].set | &y_info[j].set
         };
-        let match_score =
-            score_match_both_branches(&anc_set, &x_info[i].set, x_scor, &y_info[j].set, y_scor);
-        debug!(
-            "Match score for {:?} and {:?}: {}",
-            x_info[i].set, y_info[j].set, match_score
-        );
-        let (x_gap_adj, y_gap_adj) =
-            self.score_match_gap_cost_adjustment(i, j, x_info, x_scor, y_info, y_scor);
+        let match_score = self.score_match_both_branches(&anc_set, &x_info[i].set, &y_info[j].set);
+
+        let (x_gap_adj, y_gap_adj) = self.score_match_gap_cost_adjustment(i, j);
         self.select_direction(
             self.score.m[i][j] + match_score,
             self.score.x[i][j] + x_gap_adj + match_score,
@@ -264,208 +244,192 @@ impl ParsimonyAlignmentMatrices {
         )
     }
 
-    fn score_match_gap_cost_adjustment(
+    fn score_match_both_branches(
         &self,
-        i: usize,
-        j: usize,
-        x_info: &[SiteInfo],
-        x_scor: &dyn BranchCosts,
-        y_info: &[SiteInfo],
-        y_scor: &dyn BranchCosts,
-    ) -> (f64, f64) {
-        if !x_info[i].is_ext() && !y_info[j].is_ext() {
+        a_set: &ParsimonySet,
+        x_set: &ParsimonySet,
+        y_set: &ParsimonySet,
+    ) -> f64 {
+        a_set
+            .iter()
+            .map(|ancestor| {
+                self.min_score(self.x_blen, x_set, ancestor)
+                    + self.min_score(self.y_blen, y_set, ancestor)
+            })
+            .min_by(cmp_f64())
+            .unwrap()
+    }
+
+    fn score_match_gap_cost_adjustment(&self, i: usize, j: usize) -> (f64, f64) {
+        if !self.x_info[i].is_ext() && !self.y_info[j].is_ext() {
             return (0.0, 0.0);
         }
-        let x_gap_adj = if y_info[j].is_ext() {
-            zip(self.trace.x.iter().take(i + 1), x_info.iter().take(i + 1))
-                .rev()
-                .find(|(dir, info)| dir[j] != GapInY && !info.is_fixed())
-                .filter(|(dir, _)| dir[j] != Matc)
-                .map_or(0.0, |_| y_scor.gap_open() - y_scor.gap_ext())
+        let x_gap_adj = if self.y_info[j].is_ext() {
+            zip(
+                self.trace.x.iter().take(i + 1),
+                self.x_info.iter().take(i + 1),
+            )
+            .rev()
+            .find(|(dir, info)| dir[j] != GapInY && !info.is_fixed())
+            .filter(|(dir, _)| dir[j] != Matc)
+            .map_or(0.0, |_| {
+                self.scoring.gap_open(self.y_blen) - self.scoring.gap_ext(self.y_blen)
+            })
         } else {
-            y_scor.gap_open() - y_scor.gap_ext()
+            self.scoring.gap_open(self.y_blen) - self.scoring.gap_ext(self.y_blen)
         };
-        let y_gap_adj = if x_info[i].is_ext() {
+        let y_gap_adj = if self.x_info[i].is_ext() {
             zip(
                 self.trace.y[i].iter().take(j + 1),
-                y_info.iter().take(j + 1),
+                self.y_info.iter().take(j + 1),
             )
             .rev()
             .find(|(dir, info)| **dir != GapInX && !info.is_fixed())
             .filter(|(dir, _)| **dir != Matc)
-            .map_or(0.0, |_| x_scor.gap_open() - x_scor.gap_ext())
+            .map_or(0.0, |_| {
+                self.scoring.gap_open(self.x_blen) - self.scoring.gap_ext(self.x_blen)
+            })
         } else {
-            x_scor.gap_open() - x_scor.gap_ext()
+            self.scoring.gap_open(self.x_blen) - self.scoring.gap_ext(self.x_blen)
         };
         (x_gap_adj, y_gap_adj)
     }
 
-    fn fill_s_x(
-        &self,
-        i: usize,
-        j: usize,
-        x_info: &[SiteInfo],
-        x_scor: &dyn BranchCosts,
-        y_info: &[SiteInfo],
-        y_scor: &dyn BranchCosts,
-    ) -> (f64, Direction) {
-        let (sm, sx, sy) = match x_info[i].flag {
+    fn fill_s_x(&self, i: usize, j: usize) -> (f64, Direction) {
+        let (sm, sx, sy) = match self.x_info[i].flag {
             GapOpen | GapFixed => (self.score.m[i][j], self.score.x[i][j], self.score.y[i][j]),
             GapExt => (
-                self.score.m[i][j] + x_scor.gap_open() - x_scor.gap_ext(),
+                self.score.m[i][j] + self.scoring.gap_open(self.x_blen)
+                    - self.scoring.gap_ext(self.x_blen),
                 self.score.x[i][j],
-                self.score.y[i][j] + self.gap_y_cost_adjustment(i, j, x_info, x_scor, y_info),
+                self.score.y[i][j] + self.gap_y_cost_adjustment(i, j),
             ),
             NoGap => {
-                let match_score = score_match_one_branch(&x_info[i].set, &x_info[i].set, x_scor);
+                let match_score = self.score_match_one_branch(
+                    self.x_blen,
+                    &self.x_info[i].set,
+                    &self.x_info[i].set,
+                );
                 (
-                    self.score.m[i][j] + match_score + y_scor.gap_open(),
-                    self.score.x[i][j] + match_score + self.new_gap_y_score(i, j, x_info, y_scor),
-                    self.score.y[i][j] + match_score + y_scor.gap_open(),
+                    self.score.m[i][j] + match_score + self.scoring.gap_open(self.y_blen),
+                    self.score.x[i][j] + match_score + self.new_gap_y_score(i, j),
+                    self.score.y[i][j] + match_score + self.scoring.gap_open(self.y_blen),
                 )
             }
         };
         self.select_direction(sm, sx, sy)
     }
 
-    fn gap_y_cost_adjustment(
-        &self,
-        i: usize,
-        j: usize,
-        x_info: &[SiteInfo],
-        x_scor: &dyn BranchCosts,
-        y_info: &[SiteInfo],
-    ) -> f64 {
+    fn gap_y_cost_adjustment(&self, i: usize, j: usize) -> f64 {
         let mut ni = i;
         let mut nj = j;
         while nj > 0
             && ni > 0
-            && (x_info[ni - 1].is_fixed()
-                || y_info[nj - 1].is_fixed()
+            && (self.x_info[ni - 1].is_fixed()
+                || self.y_info[nj - 1].is_fixed()
                 || self.trace.y[ni][nj] == GapInX)
         {
-            ni -= (x_info[ni - 1].is_fixed()) as usize;
-            nj -= (y_info[nj - 1].is_fixed() || self.trace.y[ni][nj] == GapInX) as usize;
+            ni -= (self.x_info[ni - 1].is_fixed()) as usize;
+            nj -= (self.y_info[nj - 1].is_fixed() || self.trace.y[ni][nj] == GapInX) as usize;
         }
         if self.trace.y[ni][nj] != GapInY {
-            x_scor.gap_open() - x_scor.gap_ext()
+            self.scoring.gap_open(self.x_blen) - self.scoring.gap_ext(self.x_blen)
         } else {
             0.0
         }
     }
 
-    fn new_gap_y_score(
-        &self,
-        i: usize,
-        j: usize,
-        x_info: &[SiteInfo],
-        y_scor: &dyn BranchCosts,
-    ) -> f64 {
+    fn new_gap_y_score(&self, i: usize, j: usize) -> f64 {
         zip(
             self.trace.x.iter().take(i + 1).skip(1),
-            x_info.iter().take(i + 1),
+            self.x_info.iter().take(i + 1),
         )
         .rev()
         .find(|(dir, info)| !(dir[j] == GapInY && info.is_possible()))
         .filter(|(dir, info)| !(dir[j] != GapInY && info.is_possible()))
-        .map_or(y_scor.gap_open(), |_| y_scor.gap_ext())
+        .map_or(self.scoring.gap_open(self.y_blen), |_| {
+            self.scoring.gap_ext(self.y_blen)
+        })
     }
 
-    fn fill_s_y(
-        &self,
-        i: usize,
-        j: usize,
-        x_info: &[SiteInfo],
-        x_scor: &dyn BranchCosts,
-        y_info: &[SiteInfo],
-        y_scor: &dyn BranchCosts,
-    ) -> (f64, Direction) {
-        let (sm, sx, sy) = match y_info[j].flag {
+    fn fill_s_y(&self, i: usize, j: usize) -> (f64, Direction) {
+        let (sm, sx, sy) = match self.y_info[j].flag {
             GapFixed | GapOpen => (self.score.m[i][j], self.score.x[i][j], self.score.y[i][j]),
             GapExt => (
-                self.score.m[i][j] + y_scor.gap_open() - y_scor.gap_ext(),
-                self.score.x[i][j] + self.gap_x_cost_adjustment(i, j, x_info, y_info, y_scor),
+                self.score.m[i][j] + self.scoring.gap_open(self.y_blen)
+                    - self.scoring.gap_ext(self.y_blen),
+                self.score.x[i][j] + self.gap_x_cost_adjustment(i, j),
                 self.score.y[i][j],
             ),
             NoGap => {
-                let match_score = score_match_one_branch(&y_info[j].set, &y_info[j].set, y_scor);
+                let match_score = self.score_match_one_branch(
+                    self.y_blen,
+                    &self.y_info[j].set,
+                    &self.y_info[j].set,
+                );
                 (
-                    self.score.m[i][j] + match_score + x_scor.gap_open(),
-                    self.score.x[i][j] + match_score + x_scor.gap_open(),
-                    self.score.y[i][j] + match_score + self.new_x_gap_score(i, j, y_info, x_scor),
+                    self.score.m[i][j] + match_score + self.scoring.gap_open(self.x_blen),
+                    self.score.x[i][j] + match_score + self.scoring.gap_open(self.x_blen),
+                    self.score.y[i][j] + match_score + self.new_x_gap_score(i, j),
                 )
             }
         };
         self.select_direction(sm, sx, sy)
     }
 
-    fn gap_x_cost_adjustment(
-        &self,
-        i: usize,
-        j: usize,
-        x_info: &[SiteInfo],
-        y_info: &[SiteInfo],
-        y_scor: &dyn BranchCosts,
-    ) -> f64 {
+    fn gap_x_cost_adjustment(&self, i: usize, j: usize) -> f64 {
         let mut ni = i;
         let mut nj = j;
         while ni > 0
             && nj > 0
-            && (y_info[nj - 1].is_fixed()
-                || x_info[ni - 1].is_fixed()
+            && (self.y_info[nj - 1].is_fixed()
+                || self.x_info[ni - 1].is_fixed()
                 || self.trace.x[ni][nj] == GapInY)
         {
-            ni -= (x_info[ni - 1].is_fixed() || self.trace.x[ni][nj] == GapInY) as usize;
-            nj -= (y_info[nj - 1].is_fixed()) as usize;
+            ni -= (self.x_info[ni - 1].is_fixed() || self.trace.x[ni][nj] == GapInY) as usize;
+            nj -= (self.y_info[nj - 1].is_fixed()) as usize;
         }
         if self.trace.x[ni][nj] != GapInX {
-            y_scor.gap_open() - y_scor.gap_ext()
+            self.scoring.gap_open(self.y_blen) - self.scoring.gap_ext(self.y_blen)
         } else {
             0.0
         }
     }
 
-    fn new_x_gap_score(
-        &self,
-        i: usize,
-        j: usize,
-        y_info: &[SiteInfo],
-        x_scor: &dyn BranchCosts,
-    ) -> f64 {
+    fn new_x_gap_score(&self, i: usize, j: usize) -> f64 {
         zip(
             self.trace.y[i].iter().take(j + 1).skip(1),
-            y_info.iter().take(j + 1),
+            self.y_info.iter().take(j + 1),
         )
         .rev()
         .find(|(dir, info)| !(**dir == GapInX && info.is_possible()))
         .filter(|(dir, info)| !(**dir != GapInY && info.is_possible()))
-        .map_or(x_scor.gap_open(), |_| x_scor.gap_ext())
+        .map_or(self.scoring.gap_open(self.x_blen), |_| {
+            self.scoring.gap_ext(self.x_blen)
+        })
     }
 
-    pub(crate) fn traceback(
-        &self,
-        x_info: &[SiteInfo],
-        y_info: &[SiteInfo],
-    ) -> (Vec<SiteInfo>, PairwiseAlignment, f64) {
+    pub(crate) fn traceback(&self) -> (Vec<SiteInfo>, PairwiseAlignment, f64) {
         let mut i = self.rows - 1;
         let mut j = self.cols - 1;
         let (pars_score, mut action) =
             self.select_direction(self.score.m[i][j], self.score.x[i][j], self.score.y[i][j]);
-        let max_alignment_length = x_info.len() + y_info.len();
+        let max_alignment_length = self.rows + self.cols - 2;
         let mut node_info = Vec::<SiteInfo>::with_capacity(max_alignment_length);
         let mut alignment = PairwiseAlignment::new(
             Mapping::with_capacity(max_alignment_length),
             Mapping::with_capacity(max_alignment_length),
         );
         while i > 0 || j > 0 {
-            if (i > 0 && x_info[i - 1].is_fixed()) || (j > 0 && y_info[j - 1].is_fixed()) {
-                if i > 0 && x_info[i - 1].is_fixed() {
+            if (i > 0 && self.x_info[i - 1].is_fixed()) || (j > 0 && self.y_info[j - 1].is_fixed())
+            {
+                if i > 0 && self.x_info[i - 1].is_fixed() {
                     i -= 1;
                     alignment.map_x.push(Some(i));
                     alignment.map_y.push(None);
                     node_info.push(SiteInfo::new(gap_set(), GapFixed));
                 }
-                if j > 0 && y_info[j - 1].is_fixed() {
+                if j > 0 && self.y_info[j - 1].is_fixed() {
                     j -= 1;
                     alignment.map_x.push(None);
                     alignment.map_y.push(Some(j));
@@ -477,18 +441,18 @@ impl ParsimonyAlignmentMatrices {
                         action = self.trace.m[i][j];
                         i -= 1;
                         j -= 1;
-                        let mut set = &x_info[i].set & &y_info[j].set;
+                        let mut set = &self.x_info[i].set & &self.y_info[j].set;
                         if set.is_empty() {
-                            set = &x_info[i].set | &y_info[j].set;
+                            set = &self.x_info[i].set | &self.y_info[j].set;
                         }
                         (Some(i), Some(j), set, NoGap)
                     }
                     GapInY => {
                         action = self.trace.x[i][j];
                         i -= 1;
-                        let (set, flag) = match x_info[i].flag {
+                        let (set, flag) = match self.x_info[i].flag {
                             GapOpen | GapExt => (gap_set(), GapFixed),
-                            NoGap => (x_info[i].set.clone(), self.gap_x_open_or_ext(i, j, x_info)),
+                            NoGap => (self.x_info[i].set.clone(), self.gap_x_open_or_ext(i, j)),
                             GapFixed => unreachable!(),
                         };
                         (Some(i), None, set, flag)
@@ -496,9 +460,9 @@ impl ParsimonyAlignmentMatrices {
                     GapInX => {
                         action = self.trace.y[i][j];
                         j -= 1;
-                        let (set, flag) = match y_info[j].flag {
+                        let (set, flag) = match self.y_info[j].flag {
                             GapOpen | GapExt => (gap_set(), GapFixed),
-                            NoGap => (y_info[j].set.clone(), self.gap_y_open_or_ext(i, j, y_info)),
+                            NoGap => (self.y_info[j].set.clone(), self.gap_y_open_or_ext(i, j)),
                             GapFixed => unreachable!(),
                         };
                         (None, Some(j), set, flag)
@@ -515,10 +479,10 @@ impl ParsimonyAlignmentMatrices {
         (node_info, alignment, pars_score)
     }
 
-    fn gap_x_open_or_ext(&self, i: usize, j: usize, x_info: &[SiteInfo]) -> SiteFlag {
+    fn gap_x_open_or_ext(&self, i: usize, j: usize) -> SiteFlag {
         if self.trace.x[i + 1][j] != GapInY
             || i == 0
-            || (x_info[i - 1].is_possible() && self.trace.x[i][j] != GapInX)
+            || (self.x_info[i - 1].is_possible() && self.trace.x[i][j] != GapInX)
         {
             GapOpen
         } else {
@@ -526,10 +490,10 @@ impl ParsimonyAlignmentMatrices {
         }
     }
 
-    fn gap_y_open_or_ext(&self, i: usize, j: usize, y_info: &[SiteInfo]) -> SiteFlag {
+    fn gap_y_open_or_ext(&self, i: usize, j: usize) -> SiteFlag {
         if self.trace.y[i][j + 1] != GapInX
             || j == 0
-            || (y_info[j - 1].is_possible() && self.trace.y[i][j] != GapInY)
+            || (self.y_info[j - 1].is_possible() && self.trace.y[i][j] != GapInY)
         {
             GapOpen
         } else {
