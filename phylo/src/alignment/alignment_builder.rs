@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use anyhow::bail;
-use bio::io::fasta::Record;
 
 use crate::align;
 use crate::alignment::{Alignment, InternalMapping, Mapping, PairwiseAlignment, Sequences};

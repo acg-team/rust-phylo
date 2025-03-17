@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 
 use approx::assert_relative_eq;
-use bio::io::fasta::Record;
 use nalgebra::{DMatrix, DVector};
 
 use crate::alignment::Sequences;
@@ -14,7 +13,6 @@ use crate::pip_model::{PIPCostBuilder as PIPB, PIPModel, PIPModelInfo};
 use crate::substitution_models::{
     dna_models::*, protein_models::*, FreqVector, QMatrix, QMatrixMaker, SubstMatrix, SubstModel,
 };
-use crate::tree::tree_parser::from_newick;
 
 use crate::{frequencies, record_wo_desc as record, tree};
 

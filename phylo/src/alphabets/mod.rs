@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::fmt::Display;
 
-use bio::io::fasta::Record;
 use itertools::join;
 use lazy_static::lazy_static;
 

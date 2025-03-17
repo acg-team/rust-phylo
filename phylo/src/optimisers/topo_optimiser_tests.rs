@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use approx::assert_relative_eq;
-use bio::io::fasta::Record;
 
 use crate::alignment::Sequences;
 use crate::evolutionary_models::FrequencyOptimisation::Empirical;
@@ -13,7 +12,6 @@ use crate::pip_model::{PIPCostBuilder as PIPCB, PIPModel};
 use crate::substitution_models::{
     dna_models::*, protein_models::*, SubstModel, SubstitutionCostBuilder as SCB,
 };
-use crate::tree::tree_parser::from_newick;
 use crate::{record_wo_desc as record, tree};
 
 #[test]

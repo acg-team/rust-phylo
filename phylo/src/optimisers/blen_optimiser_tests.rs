@@ -7,8 +7,6 @@ use crate::optimisers::BranchOptimiser;
 use crate::phylo_info::PhyloInfoBuilder as PIB;
 use crate::pip_model::{PIPCostBuilder as PIPCB, PIPModel};
 use crate::substitution_models::{dna_models::*, SubstModel, SubstitutionCostBuilder as SCB};
-use crate::tree::tree_parser::from_newick;
-
 use crate::tree;
 
 #[test]

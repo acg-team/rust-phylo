@@ -3,7 +3,6 @@ use std::ops::Mul;
 use std::path::Path;
 
 use approx::assert_relative_eq;
-use bio::io::fasta::Record;
 use nalgebra::dvector;
 use rand::Rng;
 
@@ -18,7 +17,7 @@ use crate::substitution_models::{
     dna_models::*, protein_models::*, FreqVector, QMatrix, QMatrixMaker, SubstMatrix, SubstModel,
     SubstitutionCostBuilder as SCB,
 };
-use crate::tree::{tree_parser::from_newick, Tree};
+use crate::tree::Tree;
 use crate::{frequencies, record_wo_desc as record, tree};
 
 #[cfg(test)]

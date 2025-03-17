@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use bio::io::fasta::Record;
 use rand::seq::IteratorRandom;
 use rand::thread_rng;
 
@@ -10,7 +9,6 @@ use crate::alignment::{
 use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, NUCLEOTIDES};
 use crate::io::read_sequences_from_file;
 use crate::tree::{
-    tree_parser::from_newick,
     NodeIdx::{Internal as I, Leaf as L},
     Tree,
 };

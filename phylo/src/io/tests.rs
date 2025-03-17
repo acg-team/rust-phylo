@@ -1,13 +1,12 @@
-use bio::io::fasta::Record;
+use rstest::*;
+
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-use rstest::*;
 use tempfile::tempdir;
 
 use crate::io::{read_sequences_from_file, write_newick_to_file, write_sequences_to_file};
-use crate::tree::tree_parser::from_newick;
 use crate::{record_wo_desc as record, tree};
 
 #[test]

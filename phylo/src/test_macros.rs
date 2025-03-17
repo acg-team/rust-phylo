@@ -1,22 +1,25 @@
 #[macro_export]
 macro_rules! record_wo_desc {
-    ($e1:expr,$e2:expr) => {
+    ($e1:expr,$e2:expr) => {{
+        use bio::io::fasta::Record;
         Record::with_attrs($e1, None, $e2)
-    };
+    }};
 }
 
 #[macro_export]
 macro_rules! record {
-    ($e1:expr,$e2:expr,$e3:expr) => {
+    ($e1:expr,$e2:expr,$e3:expr) => {{
+        use bio::io::fasta::Record;
         Record::with_attrs($e1, $e2, $e3)
-    };
+    }};
 }
 
 #[macro_export]
 macro_rules! tree {
-    ($e:expr) => {
+    ($e:expr) => {{
+        use $crate::tree::tree_parser::from_newick;
         from_newick($e).unwrap().pop().unwrap()
-    };
+    }};
 }
 
 #[macro_export]

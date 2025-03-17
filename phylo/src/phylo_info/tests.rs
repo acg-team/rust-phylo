@@ -2,7 +2,6 @@ use std::{fmt::Debug, fmt::Display, path::PathBuf};
 
 use approx::assert_relative_eq;
 use assert_matches::assert_matches;
-use bio::io::fasta::Record;
 
 use crate::alignment::Sequences;
 use crate::frequencies;
@@ -10,7 +9,7 @@ use crate::io::{read_sequences_from_file, DataError};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::substitution_models::FreqVector;
 use crate::tree::{
-    tree_parser::{from_newick, ParsingError},
+    tree_parser::ParsingError,
     NodeIdx::{Internal as I, Leaf as L},
     Tree,
 };
@@ -188,7 +187,7 @@ fn setup_aligned_msa() {
     let sequences = Sequences::new(
         read_sequences_from_file(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap(),
     );
-    let aligned_sequences = info.msa.compile(None, &info.tree).unwrap();
+    let aligned_sequences = info.msa.compile_subroot(None, &info.tree).unwrap();
     assert_eq!(aligned_sequences, sequences);
 }
 
@@ -207,7 +206,7 @@ fn correct_setup_when_sequences_empty() {
     });
     let sequences =
         Sequences::new(read_sequences_from_file(&fldr.join("sequences_some_empty.fasta")).unwrap());
-    let aligned_sequences = info.msa.compile(None, &info.tree).unwrap();
+    let aligned_sequences = info.msa.compile_subroot(None, &info.tree).unwrap();
     assert_eq!(aligned_sequences, sequences);
 }
 

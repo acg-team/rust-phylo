@@ -1,6 +1,5 @@
-use std::path::Path;
-
 use std::fs;
+use std::path::Path;
 
 use crate::alignment::Sequences;
 use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet};
@@ -13,7 +12,6 @@ use crate::substitution_models::{
     SubstitutionCostBuilder as SCB,
 };
 use crate::tree;
-use crate::tree::tree_parser::from_newick;
 
 #[cfg(test)]
 fn search_costs_equal_template<C: ModelSearchCost + TreeSearchCost>(cost: C) {

@@ -4,7 +4,6 @@ use std::iter::repeat;
 use std::path::Path;
 
 use approx::assert_relative_eq;
-use bio::io::fasta::Record;
 use nalgebra::{dmatrix, DMatrix};
 use pest::error::ErrorVariant;
 use rand::Rng;

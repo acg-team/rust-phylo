@@ -5,7 +5,6 @@ use crate::alphabets::dna_alphabet as dna;
 use crate::parsimony::costs::{GapCost, SimpleCosts};
 use crate::parsimony::SiteFlag::{self, GapOpen, NoGap};
 use crate::parsimony::{pars_align_on_tree, pars_align_w_rng, ParsimonySite};
-use crate::tree::tree_parser::from_newick;
 use crate::{record_wo_desc as rec, tree};
 
 macro_rules! align {
