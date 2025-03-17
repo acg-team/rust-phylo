@@ -2,7 +2,9 @@ use log::{debug, info};
 use ordered_float::OrderedFloat;
 
 use crate::alphabets::Alphabet;
-use crate::parsimony::{CostMatrix, DiagonalZeros, GapCost, ParsimonyCosts, ParsimonyModel, Rounding};
+use crate::parsimony::{
+    CostMatrix, DiagonalZeros, GapCost, ParsimonyCosts, ParsimonyModel, Rounding,
+};
 use crate::Result;
 
 #[derive(Clone, Debug, PartialEq)]
