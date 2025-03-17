@@ -3,7 +3,8 @@ use approx::assert_relative_eq;
 use crate::parsimony::costs::{GapCost as GC, ModelCosts, SimpleCosts};
 use crate::parsimony::matrices::Direction::{GapInX, GapInY, Matc};
 use crate::parsimony::{
-    ParsimonyAlignmentMatrices as PAM, ParsimonySite, Rounding as R, SiteFlag::*, Zero as Z,
+    DiagonalZeros as Z, ParsimonyAlignmentMatrices as PAM, ParsimonySite, Rounding as R,
+    SiteFlag::*,
 };
 use crate::substitution_models::{SubstModel, K80};
 
@@ -685,8 +686,14 @@ fn fill_matrix_diff_branch_models() {
     // Tree file: tree_diff_branch_lengths_1.newick
     let model = SubstModel::<K80>::new(&[], &[]);
 
-    let scoring =
-        ModelCosts::new(&model, GC::new(2.0, 0.5), Z::no(), R::none(), &[1.0, 2.0]).unwrap();
+    let scoring = ModelCosts::new(
+        &model,
+        GC::new(2.0, 0.5),
+        Z::non_zero(),
+        R::none(),
+        &[1.0, 2.0],
+    )
+    .unwrap();
 
     let left_info = vec![
         site!(b"A", NoGap),
@@ -762,7 +769,8 @@ fn traceback_diff_branch_models() {
     // Tree file: tree_diff_branch_lengths_1.newick
     let model = SubstModel::<K80>::new(&[], &[]);
     let times = &[1.0, 2.0];
-    let scoring = ModelCosts::new(&model, GC::new(2.0, 0.5), Z::no(), R::none(), times).unwrap();
+    let scoring =
+        ModelCosts::new(&model, GC::new(2.0, 0.5), Z::non_zero(), R::none(), times).unwrap();
 
     let left_info = vec![
         site!(b"A", NoGap),
@@ -795,7 +803,8 @@ fn fill_matrix_diff_branch_models_2() {
     let model = SubstModel::<K80>::new(&[], &[]);
     let times = &[3.5, 3.0];
 
-    let scoring = ModelCosts::new(&model, GC::new(1.5, 0.75), Z::no(), R::none(), times).unwrap();
+    let scoring =
+        ModelCosts::new(&model, GC::new(1.5, 0.75), Z::non_zero(), R::none(), times).unwrap();
 
     let left_info = vec![
         site!(b"G", GapOpen),
@@ -883,7 +892,8 @@ fn traceback_diff_branch_models_2() {
     // Tree file: tree_diff_branch_lengths_2.newick
     let model = SubstModel::<K80>::new(&[], &[]);
     let times = &[3.5, 3.0];
-    let scoring = ModelCosts::new(&model, GC::new(1.5, 0.75), Z::no(), R::none(), times).unwrap();
+    let scoring =
+        ModelCosts::new(&model, GC::new(1.5, 0.75), Z::non_zero(), R::none(), times).unwrap();
 
     let left_info = vec![
         site!(b"G", GapOpen),
@@ -923,7 +933,8 @@ fn fill_matrix_diff_branch_models_3() {
     // Tree file: tree_diff_branch_lengths_3.newick
     let model = SubstModel::<K80>::new(&[], &[]);
     let times = &[0.52, 2.58];
-    let scoring = ModelCosts::new(&model, GC::new(1.0, 0.75), Z::no(), R::none(), times).unwrap();
+    let scoring =
+        ModelCosts::new(&model, GC::new(1.0, 0.75), Z::non_zero(), R::none(), times).unwrap();
 
     let left_info = vec![
         site!(b"A", GapOpen),
@@ -1013,7 +1024,8 @@ fn traceback_diff_branch_models_3() {
     // Tree file: tree_diff_branch_lengths_3.newick
     let model = SubstModel::<K80>::new(&[], &[]);
     let times = &[0.52, 2.58];
-    let scoring = ModelCosts::new(&model, GC::new(1.5, 0.75), Z::no(), R::none(), times).unwrap();
+    let scoring =
+        ModelCosts::new(&model, GC::new(1.5, 0.75), Z::non_zero(), R::none(), times).unwrap();
 
     let left_info = vec![
         site!(b"A", GapOpen),

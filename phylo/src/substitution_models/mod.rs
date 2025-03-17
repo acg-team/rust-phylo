@@ -10,7 +10,7 @@ use nalgebra::{DMatrix, DVector};
 use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
-use crate::parsimony::{ParsimonyModel, Rounding, Zero};
+use crate::parsimony::{DiagonalZeros, ParsimonyModel, Rounding};
 use crate::tree::{
     NodeIdx::{self, Internal, Leaf},
     Tree,
@@ -327,25 +327,25 @@ impl<Q: QMatrix> SubstModelInfo<Q> {
 }
 
 impl<Q: QMatrix> ParsimonyModel for SubstModel<Q> {
-    fn scoring_matrix(&self, time: f64, rounding: Rounding) -> (SubstMatrix, f64) {
-        self.scoring_matrix_corrected(time, Zero::no(), rounding)
+    fn scoring(&self, time: f64, rounding: Rounding) -> (SubstMatrix, f64) {
+        self.scoring_corrected(time, DiagonalZeros::non_zero(), rounding)
     }
 
-    fn scoring_matrix_corrected(
+    fn scoring_corrected(
         &self,
         time: f64,
-        zero_diag: Zero,
+        diagonal_zeros: DiagonalZeros,
         rounding: Rounding,
     ) -> (SubstMatrix, f64) {
         let mut scores = self.p(time);
         scores.iter_mut().for_each(|x| *x = -(*x).ln());
-        if rounding.round {
+        if rounding.yes() {
             scores.iter_mut().for_each(|x| {
                 *x = (*x * 10.0_f64.powf(rounding.digits as f64)).round()
                     / 10.0_f64.powf(rounding.digits as f64)
             });
         }
-        if zero_diag.is_set() {
+        if diagonal_zeros.yes() {
             scores.fill_diagonal(0.0);
         }
         let mean = scores.mean();

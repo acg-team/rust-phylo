@@ -476,7 +476,7 @@ pub fn percentiles_rounded(lengths: &[f64], categories: u32, rounding: &Rounding
         .map(|cat| 1.0 / ((categories + 1) as f64) * (cat as f64))
         .collect();
     let mut values = lengths.percentiles(percentiles).unwrap().unwrap();
-    if rounding.round {
+    if rounding.yes() {
         values.iter_mut().for_each(|len| {
             *len = (*len * (10.0_f64.powf(rounding.digits as f64))).round()
                 / (10.0_f64.powf(rounding.digits as f64))

@@ -19,56 +19,59 @@ pub(crate) type CostMatrix = DMatrix<f64>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Rounding {
-    pub round: bool,
+    is_round: bool,
     pub digits: usize,
 }
 
 impl Rounding {
     pub fn zero() -> Self {
         Rounding {
-            round: true,
+            is_round: true,
             digits: 0,
         }
     }
     pub fn four() -> Self {
         Rounding {
-            round: true,
+            is_round: true,
             digits: 4,
         }
     }
     pub fn none() -> Self {
         Rounding {
-            round: false,
+            is_round: false,
             digits: 0,
         }
+    }
+    pub fn yes(&self) -> bool {
+        self.is_round
     }
 }
 
 #[repr(transparent)]
 #[derive(Clone, Debug, PartialEq)]
-pub struct Zero {
-    is_set: bool,
+pub struct DiagonalZeros {
+    is_zero: bool,
 }
 
-impl Zero {
-    pub fn yes() -> Self {
-        Zero { is_set: true }
+impl DiagonalZeros {
+    pub fn zero() -> Self {
+        DiagonalZeros { is_zero: true }
     }
-    pub fn no() -> Self {
-        Zero { is_set: false }
+    pub fn non_zero() -> Self {
+        DiagonalZeros { is_zero: false }
     }
-    pub fn is_set(&self) -> bool {
-        self.is_set
+    pub fn yes(&self) -> bool {
+        self.is_zero
     }
 }
 
 pub trait ParsimonyModel: Display + EvoModel {
-    fn scoring_matrix(&self, time: f64, rounding: Rounding) -> (CostMatrix, f64);
+    fn scoring(&self, time: f64, rounding: Rounding) -> (CostMatrix, f64);
 
-    fn scoring_matrix_corrected(
+    fn scoring_corrected(
         &self,
         time: f64,
-        diagonals: Zero,
+        diagonals: DiagonalZeros,
         rounding: Rounding,
     ) -> (CostMatrix, f64);
 }
