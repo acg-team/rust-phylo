@@ -1,3 +1,4 @@
+use crate::alphabets::{AMINOACIDS, NUCLEOTIDES};
 use crate::parsimony::costs::ModelCosts;
 use crate::parsimony::{DiagonalZeros as Z, GapCost, ParsimonyCosts, Rounding as R, SimpleCosts};
 use crate::substitution_models::{SubstModel, JC69, WAG};
@@ -29,8 +30,15 @@ fn simple_costs() {
     };
 
     let c = SimpleCosts::new(mismatch, gap.clone());
-    assert_eq!(c.r#match(1.0, &b'A', &b'B'), mismatch);
-    assert_eq!(c.r#match(3.0, &b'A', &b'A'), 0.0);
+    for char in AMINOACIDS.iter() {
+        for char2 in AMINOACIDS.iter() {
+            if char == char2 {
+                assert_eq!(c.r#match(1.0, char, char2), 0.0);
+            } else {
+                assert_eq!(c.r#match(1.0, char, char2), mismatch);
+            }
+        }
+    }
     assert_eq!(c.avg(4.9), mismatch);
     assert_eq!(c.gap_open(1.3), gap.open * mismatch);
     assert_eq!(c.gap_ext(2.4), gap.ext * mismatch);
@@ -38,8 +46,15 @@ fn simple_costs() {
     let mismatch = 1.0;
 
     let c = SimpleCosts::new(mismatch, gap.clone());
-    assert_eq!(c.r#match(1.0, &b'A', &b'B'), mismatch);
-    assert_eq!(c.r#match(1.0, &b'A', &b'A'), 0.0);
+    for char in NUCLEOTIDES.iter() {
+        for char2 in NUCLEOTIDES.iter() {
+            if char == char2 {
+                assert_eq!(c.r#match(1.0, char, char2), 0.0);
+            } else {
+                assert_eq!(c.r#match(1.0, char, char2), mismatch);
+            }
+        }
+    }
     assert_eq!(c.avg(1.0), mismatch);
     assert_eq!(c.gap_open(1.0), gap.open);
     assert_eq!(c.gap_ext(1.0), gap.ext);
@@ -115,8 +130,10 @@ fn protein_branch_scoring_nearest() {
     assert_eq!(cost.avg(0.1), cost.avg(0.2));
     assert_eq!(cost.gap_ext(0.1), cost.gap_ext(0.2));
     assert_eq!(cost.gap_open(0.1), cost.gap_open(0.2));
+
     assert_eq!(cost.avg(0.005), avg_01);
     assert_eq!(cost.avg(0.15), avg_01);
+
     assert_eq!(cost.avg(0.45), avg_05);
     assert_eq!(cost.avg(0.5), avg_05);
     assert_eq!(cost.avg(100.0), avg_05);
@@ -134,7 +151,6 @@ fn dna_branch_scoring() {
 
     let model = SubstModel::<JC69>::new(&[], &[]);
     let cost = ModelCosts::new(&model, gap.clone(), Z::non_zero(), R::zero(), &times).unwrap();
-
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.gap_ext(0.1), avg_01 * gap.ext);
     assert_eq!(cost.gap_open(0.1), avg_01 * gap.open);
@@ -142,7 +158,6 @@ fn dna_branch_scoring() {
     assert_eq!(cost.avg(0.7), avg_07);
 
     let cost = ModelCosts::new(&model, gap, Z::zero(), R::zero(), &times).unwrap();
-
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.r#match(0.1, &b'N', &b'N'), 0.0);
 
