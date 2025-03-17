@@ -10,7 +10,7 @@ use nalgebra::{DMatrix, DVector};
 use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
-use crate::parsimony::{DiagonalZeros, ParsimonyModel, Rounding};
+use crate::parsimony::{CostMatrix, DiagonalZeros, ParsimonyModel, Rounding};
 use crate::tree::{
     NodeIdx::{self, Internal, Leaf},
     Tree,
@@ -327,7 +327,7 @@ impl<Q: QMatrix> SubstModelInfo<Q> {
 }
 
 impl<Q: QMatrix> ParsimonyModel for SubstModel<Q> {
-    fn scoring(&self, time: f64, rounding: Rounding) -> (SubstMatrix, f64) {
+    fn scoring(&self, time: f64, rounding: Rounding) -> CostMatrix {
         self.scoring_corrected(time, DiagonalZeros::non_zero(), rounding)
     }
 
@@ -336,7 +336,7 @@ impl<Q: QMatrix> ParsimonyModel for SubstModel<Q> {
         time: f64,
         diagonal_zeros: DiagonalZeros,
         rounding: Rounding,
-    ) -> (SubstMatrix, f64) {
+    ) -> CostMatrix {
         let mut scores = self.p(time);
         scores.iter_mut().for_each(|x| *x = -(*x).ln());
         if rounding.yes() {
@@ -348,8 +348,7 @@ impl<Q: QMatrix> ParsimonyModel for SubstModel<Q> {
         if diagonal_zeros.yes() {
             scores.fill_diagonal(0.0);
         }
-        let mean = scores.mean();
-        (scores, mean)
+        scores
     }
 }
 

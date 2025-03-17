@@ -66,14 +66,14 @@ impl DiagonalZeros {
 }
 
 pub trait ParsimonyModel: Display + EvoModel {
-    fn scoring(&self, time: f64, rounding: Rounding) -> (CostMatrix, f64);
+    fn scoring(&self, time: f64, rounding: Rounding) -> CostMatrix;
 
     fn scoring_corrected(
         &self,
         time: f64,
         diagonals: DiagonalZeros,
         rounding: Rounding,
-    ) -> (CostMatrix, f64);
+    ) -> CostMatrix;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

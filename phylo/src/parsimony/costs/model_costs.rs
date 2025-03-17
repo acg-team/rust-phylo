@@ -2,7 +2,9 @@ use log::{debug, info};
 use ordered_float::OrderedFloat;
 
 use crate::alphabets::Alphabet;
-use crate::parsimony::{CostMatrix, DiagonalZeros, GapCost, ParsimonyCosts, ParsimonyModel, Rounding};
+use crate::parsimony::{
+    CostMatrix, DiagonalZeros, GapCost, ParsimonyCosts, ParsimonyModel, Rounding,
+};
 use crate::Result;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -41,8 +43,9 @@ impl ModelCosts {
         let costs: Vec<(OrderedFloat<f64>, ModelBranchCosts)> = times
             .iter()
             .map(|time| {
-                let (cost_matrix, avg) =
+                let cost_matrix =
                     model.scoring_corrected(f64::from(*time), diagonal.clone(), rounding.clone());
+                let avg = cost_matrix.mean();
                 (
                     *time,
                     ModelBranchCosts {
@@ -113,7 +116,7 @@ impl ParsimonyCosts for ModelCosts {
 mod private_tests {
     use approx::assert_relative_eq;
 
-    use crate::substitution_models::{SubstModel, HIVB, K80, WAG};
+    use crate::substitution_models::*;
 
     use super::*;
     use super::{DiagonalZeros as Z, Rounding as R};
@@ -145,7 +148,7 @@ mod private_tests {
     ];
 
     #[test]
-    fn generate_protein_scorings() {
+    fn protein_scorings() {
         let s = ModelCosts::new(
             &SubstModel::<WAG>::new(&[], &[]),
             GapCost::new(2.5, 1.0),
@@ -159,59 +162,87 @@ mod private_tests {
         let true_matrix_01 = CostMatrix::from_row_slice(20, 20, &TRUE_COST_MATRIX);
         assert_relative_eq!(mat_01.c, true_matrix_01);
         assert_relative_eq!(mat_01.avg, 5.7675);
-
         assert_relative_eq!(s.avg(0.3), 4.7475);
         assert_relative_eq!(s.avg(0.5), 4.2825);
         assert_relative_eq!(s.avg(0.7), 4.0075);
     }
 
-    #[test]
-    fn protein_scoring_matrices() {
-        let model = SubstModel::<WAG>::new(&[], &[]);
-        let true_matrix_01 = CostMatrix::from_row_slice(20, 20, &TRUE_COST_MATRIX);
-        let (mat, avg) = model.scoring(0.1, R::zero());
-
-        assert_relative_eq!(mat, true_matrix_01);
-
-        assert_relative_eq!(avg, 5.7675);
-        let (_, avg) = model.scoring(0.3, R::zero());
-        assert_relative_eq!(avg, 4.7475);
-        let (_, avg) = model.scoring(0.5, R::zero());
-        assert_relative_eq!(avg, 4.2825);
-        let (_, avg) = model.scoring(0.7, R::zero());
-        assert_relative_eq!(avg, 4.0075);
+    #[cfg(test)]
+    fn rounding_template<P: ParsimonyModel>(model: P) {
+        let g = GapCost::new(2.5, 1.0);
+        let t = OrderedFloat(0.1);
+        let s_rounded =
+            ModelCosts::new(&model, g.clone(), Z::zero(), R::zero(), &[0.1, 0.4, 0.2]).unwrap();
+        let s = ModelCosts::new(&model, g.clone(), Z::zero(), R::none(), &[0.3, 0.1, 0.6]).unwrap();
+        assert_ne!(s_rounded.avg(0.1), s.avg(0.1));
+        assert_ne!(s_rounded.scoring(t), s.scoring(t));
+        for (&e1, &e2) in s_rounded.scoring(t).c.iter().zip(s.scoring(t).c.iter()) {
+            assert_relative_eq!(e1, e1.round());
+            assert_relative_eq!(e1, e2.round());
+        }
     }
 
     #[test]
     fn matrix_entry_rounding() {
-        let model = SubstModel::<K80>::new(&[], &[1.0, 2.0]);
-        let (mat_round, avg_round) = model.scoring_corrected(0.1, Z::zero(), R::zero());
-        let (mat, avg) = model.scoring_corrected(0.1, Z::zero(), R::none());
-        assert_ne!(avg_round, avg);
-        assert_ne!(mat_round, mat);
-        for &element in mat_round.as_slice() {
-            assert_eq!(element.round(), element);
-        }
-        let model = SubstModel::<HIVB>::new(&[], &[]);
-        let (mat_round, avg_round) = model.scoring_corrected(0.1, Z::zero(), R::zero());
-        let (mat, avg) = model.scoring_corrected(0.1, Z::zero(), R::none());
-        assert_ne!(avg_round, avg);
-        assert_ne!(mat_round, mat);
-        for &element in mat_round.as_slice() {
-            assert_eq!(element.round(), element);
+        rounding_template(SubstModel::<HIVB>::new(&[], &[]));
+        rounding_template(SubstModel::<WAG>::new(&[], &[]));
+        rounding_template(SubstModel::<BLOSUM>::new(&[], &[]));
+
+        rounding_template(SubstModel::<JC69>::new(&[], &[]));
+        rounding_template(SubstModel::<K80>::new(&[], &[]));
+        rounding_template(SubstModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5]));
+        rounding_template(SubstModel::<TN93>::new(
+            &[0.22, 0.26, 0.33, 0.19],
+            &[0.5970915, 0.2940435, 0.00135],
+        ));
+        rounding_template(SubstModel::<GTR>::new(
+            &[0.1, 0.3, 0.4, 0.2],
+            &[5.0, 1.0, 1.0, 1.0, 1.0, 5.0],
+        ));
+    }
+
+    #[cfg(test)]
+    fn matrix_zero_diagonals_template<P: ParsimonyModel>(model: P) {
+        let g = GapCost::new(2.5, 1.0);
+        let t = OrderedFloat(0.1);
+        let s_zero_diags =
+            ModelCosts::new(&model, g.clone(), Z::zero(), R::none(), &[0.1, 0.4, 0.2]).unwrap();
+        let s = ModelCosts::new(&model, g.clone(), Z::non_zero(), R::none(), &[0.3, 0.1]).unwrap();
+        assert_ne!(s_zero_diags.avg(0.1), s.avg(0.1));
+        assert!(s_zero_diags.avg(0.1) < s.avg(0.1));
+        assert_ne!(
+            s_zero_diags.scoring(OrderedFloat(0.1)),
+            s.scoring(OrderedFloat(0.1))
+        );
+        for (&e1, &e2) in s_zero_diags
+            .scoring(t)
+            .c
+            .diagonal()
+            .iter()
+            .zip(s.scoring(t).c.diagonal().iter())
+        {
+            assert_eq!(e1, 0.0);
+            assert_ne!(e1, e2);
+            assert_ne!(e2, 0.0);
         }
     }
 
     #[test]
     fn matrix_zero_diagonals() {
-        let model = SubstModel::<HIVB>::new(&[], &[]);
-        let (mat_zeros, avg_zeros) = model.scoring_corrected(0.5, Z::zero(), R::zero());
-        let (mat, avg) = model.scoring_corrected(0.5, Z::non_zero(), R::zero());
-        assert_ne!(avg_zeros, avg);
-        assert!(avg_zeros < avg);
-        assert_ne!(mat_zeros, mat);
-        for &element in mat_zeros.diagonal().iter() {
-            assert_eq!(element, 0.0);
-        }
+        matrix_zero_diagonals_template(SubstModel::<HIVB>::new(&[], &[]));
+        matrix_zero_diagonals_template(SubstModel::<WAG>::new(&[], &[]));
+        matrix_zero_diagonals_template(SubstModel::<BLOSUM>::new(&[], &[]));
+
+        matrix_zero_diagonals_template(SubstModel::<JC69>::new(&[], &[]));
+        matrix_zero_diagonals_template(SubstModel::<K80>::new(&[], &[]));
+        matrix_zero_diagonals_template(SubstModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5]));
+        matrix_zero_diagonals_template(SubstModel::<TN93>::new(
+            &[0.22, 0.26, 0.33, 0.19],
+            &[0.5970915, 0.2940435, 0.00135],
+        ));
+        matrix_zero_diagonals_template(SubstModel::<GTR>::new(
+            &[0.1, 0.3, 0.4, 0.2],
+            &[5.0, 1.0, 1.0, 1.0, 1.0, 5.0],
+        ));
     }
 }
