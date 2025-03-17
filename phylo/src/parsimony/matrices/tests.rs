@@ -3,7 +3,7 @@ use approx::assert_relative_eq;
 use crate::parsimony::costs::{GapCost as GC, ModelCosts, SimpleCosts};
 use crate::parsimony::matrices::Direction::{GapInX, GapInY, Matc};
 use crate::parsimony::{
-    ParsimonyAlignmentMatrices as PAM, ParsimonySite, Rounding as R, SiteFlag::*, Zeroing as Z,
+    ParsimonyAlignmentMatrices as PAM, ParsimonySite, Rounding as R, SiteFlag::*, Zero as Z,
 };
 use crate::substitution_models::{SubstModel, K80};
 

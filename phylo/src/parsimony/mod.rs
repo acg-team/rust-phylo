@@ -46,16 +46,16 @@ impl Rounding {
 
 #[repr(transparent)]
 #[derive(Clone, Debug, PartialEq)]
-pub struct Zeroing {
+pub struct Zero {
     is_set: bool,
 }
 
-impl Zeroing {
+impl Zero {
     pub fn yes() -> Self {
-        Zeroing { is_set: true }
+        Zero { is_set: true }
     }
     pub fn no() -> Self {
-        Zeroing { is_set: false }
+        Zero { is_set: false }
     }
     pub fn is_set(&self) -> bool {
         self.is_set
@@ -68,7 +68,7 @@ pub trait ParsimonyModel: Display + EvoModel {
     fn scoring_matrix_corrected(
         &self,
         time: f64,
-        diagonals: Zeroing,
+        diagonals: Zero,
         rounding: Rounding,
     ) -> (CostMatrix, f64);
 }

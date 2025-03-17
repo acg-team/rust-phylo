@@ -1,5 +1,5 @@
 use crate::parsimony::costs::ModelCosts;
-use crate::parsimony::{GapCost, ParsimonyCosts, Rounding as R, SimpleCosts, Zeroing as Z};
+use crate::parsimony::{GapCost, ParsimonyCosts, Rounding as R, SimpleCosts, Zero as Z};
 use crate::substitution_models::{SubstModel, JC69, WAG};
 
 #[test]
