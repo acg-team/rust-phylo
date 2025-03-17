@@ -29,7 +29,7 @@ impl PhyloInfo {
     /// If `subroot` is None, the whole alignment is compiled.
     /// Bails if the tree does not contain the subroot or does not match the alignment.
     pub fn compile_alignment(&self, subroot: Option<&NodeIdx>) -> Result<Sequences> {
-        self.msa.compile(subroot, &self.tree)
+        self.msa.compile_subroot(subroot, &self.tree)
     }
 
     /// Returns the empirical frequencies of the symbols in the sequences.

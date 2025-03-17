@@ -159,7 +159,7 @@ fn build_from_aligned_sequences() {
     assert_eq!(msa.leaf_map, leaf_map);
     assert_eq!(msa.seqs, unaligned_seqs);
     assert_eq!(msa.len(), 5);
-    assert_eq!(msa.compile(None, &tree).unwrap(), aligned_seqs);
+    assert_eq!(msa.compile_subroot(None, &tree).unwrap(), aligned_seqs);
 }
 
 #[test]
@@ -173,7 +173,7 @@ fn compile_msa_root() {
     let msa = AlignmentBuilder::new(&tree, aligned_seqs.clone())
         .build()
         .unwrap();
-    assert_eq!(msa.compile(None, &tree).unwrap(), aligned_seqs);
+    assert_eq!(msa.compile_subroot(None, &tree).unwrap(), aligned_seqs);
 }
 
 #[test]
@@ -182,7 +182,7 @@ fn compile_msa_int1() {
     let aligned_seqs = test_alignment(&["A0", "B1", "C2", "D3", "E4"]);
     let msa = AlignmentBuilder::new(&tree, aligned_seqs).build().unwrap();
     assert_eq!(
-        msa.compile(Some(&tree.idx("I5")), &tree).unwrap(),
+        msa.compile_subroot(Some(&tree.idx("I5")), &tree).unwrap(),
         test_alignment(&["A0", "B1"]),
     );
 }
@@ -198,7 +198,10 @@ fn compile_msa_int2() {
         record!(d3.id(), d3.desc(), b"-A-"),
         record!(e4.id(), e4.desc(), b"AAA"),
     ]);
-    assert_eq!(msa.compile(Some(&tree.idx("I6")), &tree).unwrap(), data);
+    assert_eq!(
+        msa.compile_subroot(Some(&tree.idx("I6")), &tree).unwrap(),
+        data
+    );
 }
 
 #[test]
@@ -211,7 +214,8 @@ fn compile_msa_leaf() {
         .unwrap();
     for leaf_id in tree.leaf_ids() {
         assert_eq!(
-            msa.compile(Some(&tree.idx(&leaf_id)), &tree).unwrap(),
+            msa.compile_subroot(Some(&tree.idx(&leaf_id)), &tree)
+                .unwrap(),
             Sequences::new(vec![unaligned_seqs.record_by_id(&leaf_id).clone()])
         );
     }
@@ -268,7 +272,7 @@ fn display_alignment() {
     );
     let msa = AlignmentBuilder::new(&tree, sequences).build().unwrap();
 
-    let s = format!("{}", msa.compile(None, &tree).unwrap());
+    let s = format!("{}", msa.compile_subroot(None, &tree).unwrap());
     let mut lines = s.lines().collect::<Vec<_>>();
     lines.sort();
     assert_eq!(lines.len(), 8);
