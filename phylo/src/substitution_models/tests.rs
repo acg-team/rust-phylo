@@ -12,6 +12,7 @@ use crate::alphabets::{Alphabet, AMINOACIDS, GAP};
 use crate::evolutionary_models::EvoModel;
 use crate::io::read_sequences_from_file;
 use crate::likelihood::ModelSearchCost;
+use crate::parsimony::{DiagonalZeros as Z, ParsimonyModel, Rounding as R};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::substitution_models::{
     dna_models::*, protein_models::*, FreqVector, QMatrix, QMatrixMaker, SubstMatrix, SubstModel,
@@ -1084,4 +1085,69 @@ fn protein_avg_rate() {
     avg_rate_template::<WAG>(freqs, &[]);
     avg_rate_template::<HIVB>(freqs, &[]);
     avg_rate_template::<BLOSUM>(freqs, &[]);
+}
+
+#[cfg(test)]
+fn parsimony_rounding_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) {
+    let model = SubstModel::<Q>::new(freqs, params);
+    let mat_round = model.scoring_corrected(0.1, Z::zero(), R::zero());
+    let mat = model.scoring_corrected(0.1, Z::zero(), R::none());
+    assert_ne!(mat_round.mean(), mat.mean());
+    assert_ne!(mat_round, mat);
+    for (&e1, &e2) in mat_round.as_slice().iter().zip(mat.as_slice().iter()) {
+        assert_relative_eq!(e1, e1.round());
+        assert_relative_eq!(e1, e2.round());
+    }
+}
+
+#[test]
+fn protein_rounding_scores() {
+    parsimony_rounding_template::<HIVB>(&[], &[]);
+    parsimony_rounding_template::<WAG>(&[], &[]);
+    parsimony_rounding_template::<BLOSUM>(&[], &[]);
+}
+
+#[test]
+fn dna_rounding_scores() {
+    parsimony_rounding_template::<JC69>(&[], &[]);
+    parsimony_rounding_template::<K80>(&[], &[]);
+    parsimony_rounding_template::<HKY>(&[0.22, 0.26, 0.33, 0.19], &[0.5]);
+    parsimony_rounding_template::<TN93>(
+        &[0.22, 0.26, 0.33, 0.19],
+        &[0.5970915, 0.2940435, 0.00135],
+    );
+    parsimony_rounding_template::<GTR>(&[0.1, 0.3, 0.4, 0.2], &[5.0, 1.0, 1.0, 1.0, 1.0]);
+}
+
+#[cfg(test)]
+fn parsimony_zero_diag_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) {
+    let model = SubstModel::<Q>::new(freqs, params);
+    let mat_zeros = model.scoring_corrected(0.1, Z::zero(), R::none());
+    let mat = model.scoring_corrected(0.1, Z::non_zero(), R::none());
+    assert_ne!(mat_zeros.mean(), mat.mean());
+    assert_ne!(mat_zeros, mat);
+    for (&e1, &e2) in mat_zeros.diagonal().iter().zip(mat.diagonal().iter()) {
+        assert_relative_eq!(e1, 0.0);
+        assert_ne!(e1, e2);
+        assert_ne!(e2, 0.0);
+    }
+}
+
+#[test]
+fn protein_zero_diag_scores() {
+    parsimony_zero_diag_template::<HIVB>(&[], &[]);
+    parsimony_zero_diag_template::<WAG>(&[], &[]);
+    parsimony_zero_diag_template::<BLOSUM>(&[], &[]);
+}
+
+#[test]
+fn dna_zero_diag_scores() {
+    parsimony_zero_diag_template::<JC69>(&[], &[]);
+    parsimony_zero_diag_template::<K80>(&[], &[]);
+    parsimony_zero_diag_template::<HKY>(&[0.22, 0.26, 0.33, 0.19], &[0.5]);
+    parsimony_zero_diag_template::<TN93>(
+        &[0.22, 0.26, 0.33, 0.19],
+        &[0.5970915, 0.2940435, 0.00135],
+    );
+    parsimony_zero_diag_template::<GTR>(&[0.1, 0.3, 0.4, 0.2], &[5.0, 1.0, 1.0, 1.0, 1.0]);
 }
