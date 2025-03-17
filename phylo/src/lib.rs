@@ -17,10 +17,3 @@ pub mod tree;
 pub(crate) mod test_macros;
 
 type Result<T> = std::result::Result<T, Error>;
-
-#[allow(non_camel_case_types)]
-type ord_f64 = ordered_float::OrderedFloat<f64>;
-
-pub(crate) fn cmp_f64() -> impl Fn(&f64, &f64) -> std::cmp::Ordering {
-    |a, b| a.partial_cmp(b).unwrap()
-}

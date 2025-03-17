@@ -21,7 +21,7 @@ use crate::tree::{
     NodeIdx::{self, Internal as I, Leaf as L},
     Tree,
 };
-use crate::{cmp_f64, record_wo_desc as record, tree};
+use crate::{record_wo_desc as record, tree};
 
 #[cfg(test)]
 fn setup_test_tree() -> Tree {
@@ -548,12 +548,12 @@ fn parse_scientific_floats() {
 fn check_getting_branch_lengths() {
     let tree = tree!("((((A:1.0,B:1.0)F:1.0,C:2.0)G:1.0,D:3.0)H:1.0,E:4.0)I:1.0;");
     let mut lengths = tree.iter().map(|n| n.blen).collect::<Vec<f64>>();
-    lengths.sort_by(cmp_f64());
+    lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
     assert_eq!(lengths, vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 3.0, 4.0]);
 
     let tree = tree!("((((A:0.11,B:0.22)F:0.33,C:0.44)G:0.55,D:0.66)H:0.77,E:0.88)I:0.99;");
     lengths = tree.iter().map(|n| n.blen).collect();
-    lengths.sort_by(cmp_f64());
+    lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
     assert_eq!(
         lengths,
         vec![0.11, 0.22, 0.33, 0.44, 0.55, 0.66, 0.77, 0.88, 0.99]
@@ -561,7 +561,7 @@ fn check_getting_branch_lengths() {
 
     let tree = tree!("((A:1.0,B:1.0)E:1.0,(C:1.0,D:1.0)F:1.0)G:1.0;");
     lengths = tree.iter().map(|n| n.blen).collect();
-    lengths.sort_by(cmp_f64());
+    lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
     assert_eq!(
         lengths,
         repeat(1.0).take(lengths.len()).collect::<Vec<f64>>()

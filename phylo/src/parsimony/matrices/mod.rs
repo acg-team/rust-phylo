@@ -2,7 +2,6 @@ use std::{fmt, iter::zip};
 
 use crate::alignment::{Mapping, PairwiseAlignment};
 use crate::alphabets::{gap_set, ParsimonySet};
-use crate::cmp_f64;
 use crate::parsimony::{
     Direction::{self, GapInX, GapInY, Matc},
     ParsimonyCosts, ParsimonySite as SiteInfo,
@@ -123,7 +122,7 @@ impl<'a> ParsimonyAlignmentMatrices<'a> {
     fn min_score(&self, blen: f64, set: &ParsimonySet, ancestor: &u8) -> f64 {
         set.iter()
             .map(|child| self.scoring.r#match(blen, ancestor, child))
-            .min_by(cmp_f64())
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap()
     }
 
@@ -131,7 +130,7 @@ impl<'a> ParsimonyAlignmentMatrices<'a> {
         a_set
             .iter()
             .map(|ancestor| self.min_score(blen, c_set, ancestor))
-            .min_by(cmp_f64())
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap()
     }
 
@@ -256,7 +255,7 @@ impl<'a> ParsimonyAlignmentMatrices<'a> {
                 self.min_score(self.x_blen, x_set, ancestor)
                     + self.min_score(self.y_blen, y_set, ancestor)
             })
-            .min_by(cmp_f64())
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap()
     }
 
