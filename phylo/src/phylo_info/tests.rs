@@ -224,6 +224,7 @@ fn unaligned_setup() {
     let info = PIB::build_from_objects(sequences, tree.clone());
     assert!(info.is_ok());
     let info = info.unwrap();
+    println!("{}", info.compile_alignment(None).unwrap());
     assert!(info.msa.len() >= 5);
     assert_eq!(info.msa.seq_count(), 5);
 }
