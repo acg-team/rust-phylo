@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use anyhow::bail;
 use log::{info, warn};
 
-use crate::alignment::{AlignmentBuilder, Sequences};
+use crate::alignment::{Alignment, AlignmentBuilder, Sequences};
 use crate::io::{self, DataError};
 use crate::phylo_info::PhyloInfo;
 use crate::tree::{build_nj_tree, Tree};
@@ -150,7 +150,14 @@ impl PhyloInfoBuilder {
             });
         }
         Self::validate_tree_sequence_ids(&tree, &sequences)?;
-        let msa = AlignmentBuilder::new(&tree, sequences).build()?;
+        let msa = if sequences.aligned {
+            info!("Sequences are aligned.");
+            Alignment::from_aligned_sequences(sequences, &tree)?
+        } else {
+            info!("Sequences are not aligned, aligning sequences.");
+            AlignmentBuilder::new(&tree, sequences).build()?
+        };
+
         Ok(PhyloInfo {
             tree: tree.clone(),
             msa,

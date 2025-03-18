@@ -187,7 +187,7 @@ fn setup_aligned_msa() {
     let sequences = Sequences::new(
         read_sequences_from_file(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap(),
     );
-    let aligned_sequences = info.msa.compile_subroot(None, &info.tree).unwrap();
+    let aligned_sequences = info.compile_alignment(None).unwrap();
     assert_eq!(aligned_sequences, sequences);
 }
 
@@ -206,7 +206,7 @@ fn correct_setup_when_sequences_empty() {
     });
     let sequences =
         Sequences::new(read_sequences_from_file(&fldr.join("sequences_some_empty.fasta")).unwrap());
-    let aligned_sequences = info.msa.compile_subroot(None, &info.tree).unwrap();
+    let aligned_sequences = info.compile_alignment(None).unwrap();
     assert_eq!(aligned_sequences, sequences);
 }
 

@@ -68,16 +68,6 @@ impl Alphabet {
     }
 }
 
-pub fn detect_alphabet(sequences: &[Record]) -> Alphabet {
-    let dna_alphabet = dna_alphabet();
-    for record in sequences.iter() {
-        if !dna_alphabet.is_word(record.seq()) {
-            return protein_alphabet();
-        }
-    }
-    dna_alphabet
-}
-
 pub(crate) type ParsimonySet = HashSet<u8>;
 
 #[allow(dead_code)]
@@ -87,7 +77,7 @@ pub(crate) fn print_parsimony_set(set: &ParsimonySet) -> String {
     join(chars, " ")
 }
 
-pub(crate) fn dna_alphabet() -> Alphabet {
+pub fn dna_alphabet() -> Alphabet {
     Alphabet {
         name: "DNA",
         symbols: NUCLEOTIDES,
@@ -99,7 +89,7 @@ pub(crate) fn dna_alphabet() -> Alphabet {
     }
 }
 
-pub(crate) fn protein_alphabet() -> Alphabet {
+pub fn protein_alphabet() -> Alphabet {
     Alphabet {
         name: "protein",
         symbols: AMINOACIDS,

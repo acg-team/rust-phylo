@@ -5,7 +5,7 @@ use anyhow::bail;
 use bio::io::fasta::Record;
 use nalgebra::DMatrix;
 
-use crate::alphabets::{detect_alphabet, Alphabet, GAP};
+use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet, GAP};
 use crate::Result;
 
 #[derive(Debug, Clone)]
@@ -40,10 +40,20 @@ impl Display for Sequences {
 }
 
 impl Sequences {
+    fn detect_alphabet(sequences: &[Record]) -> Alphabet {
+        let dna_alphabet = dna_alphabet();
+        for record in sequences.iter() {
+            if !dna_alphabet.is_word(record.seq()) {
+                return protein_alphabet();
+            }
+        }
+        dna_alphabet
+    }
+
     /// Creates a new Sequences object from a vector of bio::io::fasta::Record.
     /// The Sequences object is considered aligned if all sequences have the same length.
     pub fn new(s: Vec<Record>) -> Sequences {
-        let alphabet = detect_alphabet(&s);
+        let alphabet = Self::detect_alphabet(&s);
         Self::with_alphabet(s, alphabet)
     }
 
@@ -121,6 +131,27 @@ impl Sequences {
         }
     }
 
+    /// Removes all columns that only contain gaps from the sequences.
+    pub fn remove_gap_cols(&mut self) {
+        let mut gap_cols = Vec::new();
+        for col in 0..self.s[0].seq().len() {
+            if self.s.iter().all(|rec| rec.seq()[col] == GAP) {
+                gap_cols.push(col);
+            }
+        }
+        let new_seqs = self.s.iter().map(|rec| {
+            let seq: Vec<u8> = rec
+                .seq()
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| !gap_cols.contains(i))
+                .map(|(_, c)| *c)
+                .collect();
+            Record::with_attrs(rec.id(), rec.desc(), &seq)
+        });
+        self.s = new_seqs.collect();
+    }
+
     /// Creates a the character encoding for each given ungapped sequence.
     /// Used for the likelihood calculation to avoid having to get the character encoding
     /// from scratch every time the likelihood is optimised.
@@ -144,5 +175,37 @@ impl Sequences {
             );
         }
         leaf_encoding
+    }
+}
+
+#[cfg(test)]
+mod private_tests {
+    use rstest::rstest;
+
+    use std::path::PathBuf;
+
+    use crate::io::read_sequences_from_file;
+
+    use super::*;
+
+    #[rstest]
+    #[case::aligned("./data/sequences_DNA1.fasta")]
+    #[case::unaligned("./data/sequences_DNA2_unaligned.fasta")]
+    #[case::long("./data/sequences_long.fasta")]
+    fn dna_type_test(#[case] input: &str) {
+        let seqs = read_sequences_from_file(&PathBuf::from(input)).unwrap();
+        let alphabet = Sequences::detect_alphabet(&seqs);
+        assert_eq!(alphabet, dna_alphabet());
+        assert!(format!("{}", alphabet).contains("DNA"));
+    }
+
+    #[rstest]
+    #[case("./data/sequences_protein1.fasta")]
+    #[case("./data/sequences_protein2.fasta")]
+    fn protein_type_test(#[case] input: &str) {
+        let seqs = read_sequences_from_file(&PathBuf::from(input)).unwrap();
+        let alphabet = Sequences::detect_alphabet(&seqs);
+        assert_eq!(alphabet, protein_alphabet());
+        assert!(format!("{}", alphabet).contains("protein"));
     }
 }

@@ -1,36 +1,11 @@
 use rstest::*;
 
-use std::path::PathBuf;
-
 use bio::io::fasta::Record;
 use itertools::join;
 
 use crate::alphabets::{
-    detect_alphabet, dna_alphabet as dna, gap_set, print_parsimony_set, protein_alphabet as prot,
-    ParsimonySet,
+    dna_alphabet, gap_set, print_parsimony_set, protein_alphabet, ParsimonySet,
 };
-use crate::io::read_sequences_from_file;
-
-#[rstest]
-#[case::aligned("./data/sequences_DNA1.fasta")]
-#[case::unaligned("./data/sequences_DNA2_unaligned.fasta")]
-#[case::long("./data/sequences_long.fasta")]
-fn dna_type_test(#[case] input: &str) {
-    let seqs = read_sequences_from_file(&PathBuf::from(input)).unwrap();
-    let alphabet = detect_alphabet(&seqs);
-    assert_eq!(alphabet, dna());
-    assert!(format!("{}", dna()).contains("DNA"));
-}
-
-#[rstest]
-#[case("./data/sequences_protein1.fasta")]
-#[case("./data/sequences_protein2.fasta")]
-fn protein_type_test(#[case] input: &str) {
-    let seqs = read_sequences_from_file(&PathBuf::from(input)).unwrap();
-    let alphabet = detect_alphabet(&seqs);
-    assert_eq!(alphabet, prot());
-    assert!(format!("{}", prot()).contains("protein"));
-}
 
 #[test]
 fn dna_sets() {
@@ -39,7 +14,7 @@ fn dna_sets() {
     let sets = record
         .seq()
         .iter()
-        .map(|c| dna().parsimony_set(c))
+        .map(|c| dna_alphabet().parsimony_set(c))
         .collect::<Vec<_>>();
     assert_eq!(sets.len(), 11);
     assert_eq!(sets[0], sets[1]);
@@ -57,7 +32,7 @@ fn protein_sets() {
     let sets = record
         .seq()
         .iter()
-        .map(|c| prot().parsimony_set(c))
+        .map(|c| protein_alphabet().parsimony_set(c))
         .collect::<Vec<_>>();
     assert_eq!(sets.len(), 11);
     assert_eq!(sets[0], sets[1]);
@@ -70,7 +45,7 @@ fn protein_sets() {
 
 #[test]
 fn dna_characters() {
-    let dna = dna();
+    let dna = dna_alphabet();
     assert_eq!(dna.parsimony_set(&b'N'), dna.parsimony_set(&b'X'));
     assert_eq!(
         &(&dna.parsimony_set(&b'A') | &dna.parsimony_set(&b'C'))
@@ -101,7 +76,7 @@ fn dna_characters() {
 
 #[test]
 fn protein_characters() {
-    let prot = prot();
+    let prot = protein_alphabet();
     assert_eq!(prot.parsimony_set(&b'X'), prot.parsimony_set(&b'O'));
     assert_eq!(prot.parsimony_set(&b'-'), gap_set());
     assert!(prot
