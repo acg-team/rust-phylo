@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use approx::assert_relative_eq;
 use nalgebra::{DMatrix, DVector};
 
-use crate::alignment::Sequences;
+use crate::alignment::{Alignment, Sequences};
 use crate::alphabets::{AMINOACIDS as aas, GAP, NUCLEOTIDES as nucls};
 use crate::evolutionary_models::EvoModel;
 use crate::io::read_sequences;
@@ -275,13 +275,18 @@ fn pip_p_example_matrix() {
 
 #[cfg(test)]
 fn setup_example_phylo_info() -> PhyloInfo {
-    let sequences = Sequences::new(vec![
-        record!("A", b"-A--"),
-        record!("B", b"CA--"),
-        record!("C", b"-A-G"),
-        record!("D", b"-CAA"),
-    ]);
-    PIB::build_from_objects(sequences, tree!("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;")).unwrap()
+    let tree = tree!("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;");
+    let msa = Alignment::from_aligned(
+        Sequences::new(vec![
+            record!("A", b"-A--"),
+            record!("B", b"CA--"),
+            record!("C", b"-A-G"),
+            record!("D", b"-CAA"),
+        ]),
+        &tree,
+    )
+    .unwrap();
+    PhyloInfo { msa, tree }
 }
 
 #[cfg(test)]
@@ -508,13 +513,18 @@ fn pip_hky_likelihood_example_final() {
 
 #[cfg(test)]
 fn setup_example_phylo_info_2() -> PhyloInfo {
-    let sequences = Sequences::new(vec![
-        record!("A", b"--A--"),
-        record!("B", b"-CA--"),
-        record!("C", b"--A-G"),
-        record!("D", b"T-CAA"),
-    ]);
-    PIB::build_from_objects(sequences, tree!("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;")).unwrap()
+    let tree = tree!("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;");
+    let msa = Alignment::from_aligned(
+        Sequences::new(vec![
+            record!("A", b"--A--"),
+            record!("B", b"-CA--"),
+            record!("C", b"--A-G"),
+            record!("D", b"T-CAA"),
+        ]),
+        &tree,
+    )
+    .unwrap();
+    PhyloInfo { msa, tree }
 }
 
 #[test]
@@ -710,14 +720,22 @@ fn designation() {
 fn pip_logl_correct_w_diff_info() {
     let tree1 = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let tree2 = tree!("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);");
-    let sequences = Sequences::new(vec![
+    let seqs = Sequences::new(vec![
         record!("A", b"P"),
         record!("B", b"P"),
         record!("C", b"P"),
         record!("D", b"P"),
     ]);
-    let info1 = PIB::build_from_objects(sequences.clone(), tree1).unwrap();
-    let info2 = PIB::build_from_objects(sequences, tree2).unwrap();
+
+    let info1 = PhyloInfo {
+        msa: Alignment::from_aligned(seqs.clone(), &tree1).unwrap(),
+        tree: tree1,
+    };
+
+    let info2 = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree2).unwrap(),
+        tree: tree2,
+    };
 
     let pip_wag = PIPModel::<WAG>::new(&[], &[50.0, 0.1]);
 

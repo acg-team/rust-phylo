@@ -69,7 +69,7 @@ impl Alignment {
     ///     record!("B1", Some("B1 sequence"), b"---A"),
     ///     record!("C2", Some("C2 sequence"), b"AA--"),
     /// ], dna_alphabet());
-    /// let msa = Alignment::from_aligned_sequences(seqs, &tree).unwrap();
+    /// let msa = Alignment::from_aligned(seqs, &tree).unwrap();
     /// assert_eq!(*msa.alphabet(), dna_alphabet());
     ///
     pub fn alphabet(&self) -> &Alphabet {
@@ -90,7 +90,7 @@ impl Alignment {
     ///     record!("B1", Some("B1 sequence"), b"---A"),
     ///     record!("C2", Some("C2 sequence"), b"AA--"),
     /// ]);
-    /// let msa = Alignment::from_aligned_sequences(seqs, &tree).unwrap();
+    /// let msa = Alignment::from_aligned(seqs, &tree).unwrap();
     /// assert_eq!(msa.len(), 4);
     /// ```
     #[allow(clippy::len_without_is_empty)]
@@ -116,7 +116,7 @@ impl Alignment {
     ///     record!("B1", Some("B1 sequence"), b"---A"),
     ///     record!("C2", Some("C2 sequence"), b"AA--"),
     /// ]);
-    /// let msa = Alignment::from_aligned_sequences(seqs, &tree).unwrap();
+    /// let msa = Alignment::from_aligned(seqs, &tree).unwrap();
     /// assert_eq!(msa.seq_count(), 3);
     /// ```
     pub fn seq_count(&self) -> usize {
@@ -138,11 +138,11 @@ impl Alignment {
     ///     record!("B1", Some("B1 sequence"), b"---A"),
     ///     record!("C2", Some("C2 sequence"), b"AA--"),
     /// ]);
-    /// let msa = Alignment::from_aligned_sequences(seqs.clone(), &tree).unwrap();
+    /// let msa = Alignment::from_aligned(seqs.clone(), &tree).unwrap();
     /// let aligned_seqs = msa.compile(&tree).unwrap();
     /// assert_eq!(aligned_seqs, seqs);
     /// ```
-    pub fn from_aligned_sequences(mut seqs: Sequences, tree: &Tree) -> Result<Alignment> {
+    pub fn from_aligned(mut seqs: Sequences, tree: &Tree) -> Result<Alignment> {
         if !seqs.aligned {
             bail!("Sequences are not aligned.")
         }

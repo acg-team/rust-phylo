@@ -155,7 +155,7 @@ fn build_from_aligned_sequences() {
     let aligned_seqs = test_alignment(&["A0", "B1", "C2", "D3", "E4"]);
     let unaligned_seqs = aligned_seqs.into_gapless();
     let (node_map, leaf_map) = maps();
-    let msa = Alignment::from_aligned_sequences(aligned_seqs.clone(), &tree).unwrap();
+    let msa = Alignment::from_aligned(aligned_seqs.clone(), &tree).unwrap();
 
     assert_eq!(msa.node_map, node_map);
     assert_eq!(msa.leaf_map, leaf_map);
@@ -174,7 +174,7 @@ fn fail_from_unaligned_sequences() {
         record!("E4", Some("E4 sequence"), b"AAAA"),
     ]);
     let tree = test_tree();
-    let msa = Alignment::from_aligned_sequences(seqs, &tree);
+    let msa = Alignment::from_aligned(seqs, &tree);
     assert!(msa.is_err());
 }
 
@@ -186,7 +186,7 @@ fn compile_msa_root() {
             .into_iter()
             .choose_multiple(&mut thread_rng(), 5),
     );
-    let msa = Alignment::from_aligned_sequences(aligned_seqs.clone(), &tree).unwrap();
+    let msa = Alignment::from_aligned(aligned_seqs.clone(), &tree).unwrap();
     assert_eq!(msa.compile(&tree).unwrap(), aligned_seqs);
 }
 
@@ -194,7 +194,7 @@ fn compile_msa_root() {
 fn compile_msa_int1() {
     let tree = test_tree();
     let aligned_seqs = test_alignment(&["A0", "B1", "C2", "D3", "E4"]);
-    let msa = Alignment::from_aligned_sequences(aligned_seqs, &tree).unwrap();
+    let msa = Alignment::from_aligned(aligned_seqs, &tree).unwrap();
     assert_eq!(
         msa.compile_subroot(Some(&tree.idx("I5")), &tree).unwrap(),
         test_alignment(&["A0", "B1"]),
@@ -205,7 +205,7 @@ fn compile_msa_int1() {
 fn compile_msa_int2() {
     let tree = test_tree();
     let aligned_seqs = test_alignment(&["A0", "B1", "C2", "D3", "E4"]);
-    let msa = Alignment::from_aligned_sequences(aligned_seqs, &tree).unwrap();
+    let msa = Alignment::from_aligned(aligned_seqs, &tree).unwrap();
     let d3 = test_alignment(&["D3"]).s.pop().unwrap();
     let e4 = test_alignment(&["E4"]).s.pop().unwrap();
     let data = Sequences::new(vec![
@@ -223,7 +223,7 @@ fn compile_msa_leaf() {
     let tree = test_tree();
     let aligned_seqs = test_alignment(&["A0", "B1", "C2", "D3", "E4"]);
     let unaligned_seqs = aligned_seqs.clone().into_gapless();
-    let msa = Alignment::from_aligned_sequences(aligned_seqs.clone(), &tree).unwrap();
+    let msa = Alignment::from_aligned(aligned_seqs.clone(), &tree).unwrap();
     for leaf_id in tree.leaf_ids() {
         assert_eq!(
             msa.compile_subroot(Some(&tree.idx(&leaf_id)), &tree)
@@ -277,9 +277,9 @@ fn display_unaligned_sequences() {
 #[test]
 fn display_alignment() {
     let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
-    let msa = Alignment::from_aligned_sequences(sequences, &tree).unwrap();
     let sequences =
         Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
+    let msa = Alignment::from_aligned(sequences, &tree).unwrap();
 
     let s = format!("{}", msa.compile(&tree).unwrap());
     let mut lines = s.lines().collect::<Vec<_>>();

@@ -6,7 +6,7 @@ use approx::assert_relative_eq;
 use nalgebra::dvector;
 use rand::Rng;
 
-use crate::alignment::Sequences;
+use crate::alignment::{Alignment, Sequences};
 use crate::alphabets::{Alphabet, AMINOACIDS, GAP};
 use crate::evolutionary_models::EvoModel;
 use crate::io::read_sequences;
@@ -453,9 +453,13 @@ fn designation() {
 
 #[cfg(test)]
 fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
-    let sequences = Sequences::new(vec![record!("A0", b"A"), record!("B1", b"A")]);
     let tree = tree!(format!("((A0:{},B1:{}):1.0);", blen_i, blen_j).as_str());
-    PIB::build_from_objects(sequences, tree).unwrap()
+    let msa = Alignment::from_aligned(
+        Sequences::new(vec![record!("A0", b"A"), record!("B1", b"A")]),
+        &tree,
+    )
+    .unwrap();
+    PhyloInfo { msa, tree }
 }
 
 #[test]
@@ -473,14 +477,18 @@ fn dna_simple_likelihood() {
 
 #[cfg(test)]
 fn setup_cb_example_phylo_info() -> PhyloInfo {
-    let sequences = Sequences::new(vec![
-        record!("one", b"C"),
-        record!("two", b"A"),
-        record!("three", b"T"),
-        record!("four", b"G"),
-    ]);
-    let newick = "((one:2,two:2):1,(three:1,four:1):2);".to_string();
-    PIB::build_from_objects(sequences, tree!(&newick)).unwrap()
+    let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
+    let msa = Alignment::from_aligned(
+        Sequences::new(vec![
+            record!("one", b"C"),
+            record!("two", b"A"),
+            record!("three", b"T"),
+            record!("four", b"G"),
+        ]),
+        &tree,
+    )
+    .unwrap();
+    PhyloInfo { msa, tree }
 }
 
 #[cfg(test)]
@@ -558,20 +566,31 @@ fn same_likelihood_on_param_change() {
 #[cfg(test)]
 fn dna_gaps_as_ambigs_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) {
     let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
-    let sequences = Sequences::new(vec![
-        record!("one", b"CCCCCCXX"),
-        record!("two", b"XXAAAAAA"),
-        record!("three", b"TTTNNTTT"),
-        record!("four", b"GNGGGGNG"),
-    ]);
-    let info_ambig = PIB::build_from_objects(sequences, tree.clone()).unwrap();
-    let sequences = Sequences::new(vec![
-        record!("one", b"CCCCCC--"),
-        record!("two", b"--AAAAAA"),
-        record!("three", b"TTT--TTT"),
-        record!("four", b"G-GGGG-G"),
-    ]);
-    let info_gaps = PIB::build_from_objects(sequences, tree.clone()).unwrap();
+    let msa = Alignment::from_aligned(
+        Sequences::new(vec![
+            record!("one", b"CCCCCCXX"),
+            record!("two", b"XXAAAAAA"),
+            record!("three", b"TTTNNTTT"),
+            record!("four", b"GNGGGGNG"),
+        ]),
+        &tree,
+    )
+    .unwrap();
+    let info_ambig = PhyloInfo {
+        msa,
+        tree: tree.clone(),
+    };
+    let msa = Alignment::from_aligned(
+        Sequences::new(vec![
+            record!("one", b"CCCCCC--"),
+            record!("two", b"--AAAAAA"),
+            record!("three", b"TTT--TTT"),
+            record!("four", b"G-GGGG-G"),
+        ]),
+        &tree,
+    )
+    .unwrap();
+    let info_gaps = PhyloInfo { msa, tree };
 
     let model = SubstModel::<Q>::new(freqs, params);
     let c_ambig = SCB::new(model.clone(), info_ambig).build().unwrap();
@@ -593,9 +612,10 @@ fn dna_gaps_as_ambigs() {
 
 #[cfg(test)]
 fn setup_phylo_info_single_leaf() -> PhyloInfo {
-    let sequences = Sequences::new(vec![record!("A0", b"AAAAAA")]);
-    let tree = Tree::new(&sequences).unwrap();
-    PIB::build_from_objects(sequences, tree).unwrap()
+    let tree = tree!("(A0:1.0);");
+    let msa =
+        Alignment::from_aligned(Sequences::new(vec![record!("A0", b"AAAAAA")]), &tree).unwrap();
+    PhyloInfo { msa, tree }
 }
 
 #[cfg(test)]
@@ -651,15 +671,19 @@ fn dna_cb_example_likelihood() {
 
 #[cfg(test)]
 fn setup_mol_evo_example_phylo_info() -> PhyloInfo {
-    let sequences = Sequences::new(vec![
-        record!("one", b"T"),
-        record!("two", b"C"),
-        record!("three", b"A"),
-        record!("four", b"C"),
-        record!("five", b"C"),
-    ]);
-    let newick = "(((one:0.2,two:0.2):0.1,three:0.2):0.1,(four:0.2,five:0.2):0.1);".to_string();
-    PIB::build_from_objects(sequences, tree!(&newick)).unwrap()
+    let tree = tree!("(((one:0.2,two:0.2):0.1,three:0.2):0.1,(four:0.2,five:0.2):0.1);");
+    let msa = Alignment::from_aligned(
+        Sequences::new(vec![
+            record!("one", b"T"),
+            record!("two", b"C"),
+            record!("three", b"A"),
+            record!("four", b"C"),
+            record!("five", b"C"),
+        ]),
+        &tree,
+    )
+    .unwrap();
+    PhyloInfo { msa, tree }
 }
 
 #[test]
@@ -764,7 +788,8 @@ fn protein_example_likelihood() {
 
 #[cfg(test)]
 fn simple_reroot_info(alphabet: &Alphabet) -> (PhyloInfo, PhyloInfo) {
-    let sequences = Sequences::with_alphabet(
+    let tree = tree!("((A:2.0,B:2.0):1.0,C:2.0):0.0;");
+    let seqs = Sequences::with_alphabet(
         vec![
             record!("A", b"CTATATATACIJL"),
             record!("B", b"ATATATATAAIHL"),
@@ -772,10 +797,17 @@ fn simple_reroot_info(alphabet: &Alphabet) -> (PhyloInfo, PhyloInfo) {
         ],
         alphabet.clone(),
     );
-    let info = PIB::build_from_objects(sequences.clone(), tree!("((A:2.0,B:2.0):1.0,C:2.0):0.0;"))
-        .unwrap();
-    let info_rerooted =
-        PIB::build_from_objects(sequences, tree!("(A:1.0,(B:2.0,C:3.0):1.0):0.0;")).unwrap();
+
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        tree,
+    };
+    let tree_rerooted = tree!("(A:1.0,(B:2.0,C:3.0):1.0):0.0;");
+    let info_rerooted = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree_rerooted).unwrap(),
+        tree: tree_rerooted,
+    };
+
     (info, info_rerooted)
 }
 
@@ -853,14 +885,21 @@ fn huelsenbeck_reversibility() {
 fn logl_correct_w_diff_info<Q: QMatrix + QMatrixMaker>(llik1: f64, llik2: f64) {
     let tree1 = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let tree2 = tree!("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);");
-    let sequences = Sequences::new(vec![
+    let seqs = Sequences::new(vec![
         record!("A", b"P"),
         record!("B", b"P"),
         record!("C", b"P"),
         record!("D", b"P"),
     ]);
-    let info1 = PIB::build_from_objects(sequences.clone(), tree1).unwrap();
-    let info2 = PIB::build_from_objects(sequences, tree2).unwrap();
+
+    let info1 = PhyloInfo {
+        msa: Alignment::from_aligned(seqs.clone(), &tree1).unwrap(),
+        tree: tree1,
+    };
+    let info2 = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree2).unwrap(),
+        tree: tree2,
+    };
 
     let model = SubstModel::<Q>::new(&[], &[]);
     let c1 = SCB::new(model.clone(), info1).build().unwrap();
@@ -890,7 +929,11 @@ fn one_site_one_char_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: 
         model.qmatrix.alphabet().clone(),
     );
     let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
-    let info = PIB::build_from_objects(sequences, tree).unwrap();
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(sequences, &tree).unwrap(),
+        tree,
+    };
+
     let c = SCB::new(model, info).build().unwrap();
 
     assert_ne!(c.cost(), f64::NEG_INFINITY);
@@ -949,54 +992,69 @@ fn dna_single_char_gaps_against_phyml() {
     let tree =
         tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001)0.000000:0.08716381);");
 
-    let sequences = Sequences::new(vec![
+    let seqs = Sequences::new(vec![
         record!("A", b"A"),
         record!("B", b"A"),
         record!("C", b"A"),
         record!("D", b"T"),
     ]);
-    let info = PIB::build_from_objects(sequences, tree.clone()).unwrap();
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree: tree.clone(),
+    };
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     assert_relative_eq!(c.cost(), -2.920437792326963); // Compare against PhyML
 
-    let sequences = Sequences::new(vec![
+    let seqs = Sequences::new(vec![
         record!("A", b"X"),
         record!("B", b"X"),
         record!("C", b"X"),
         record!("D", b"X"),
     ]);
-    let info = PIB::build_from_objects(sequences, tree.clone()).unwrap();
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree: tree.clone(),
+    };
 
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     assert_relative_eq!(c.cost(), 0.0, epsilon = 1e-10); // Compare against PhyML
 
-    let sequences = Sequences::new(vec![
+    let seqs = Sequences::new(vec![
         record!("A", b"X"),
         record!("B", b"X"),
         record!("C", b"X"),
         record!("D", b"T"),
     ]);
-    let info = PIB::build_from_objects(sequences, tree.clone()).unwrap();
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree: tree.clone(),
+    };
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     assert_relative_eq!(c.cost(), -1.38629, epsilon = 1e-5); // Compare against PhyML
 
-    let sequences = Sequences::new(vec![
+    let seqs = Sequences::new(vec![
         record!("A", b"-"),
         record!("B", b"-"),
         record!("C", b"A"),
         record!("D", b"T"),
     ]);
-    let info = PIB::build_from_objects(sequences, tree.clone()).unwrap();
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree: tree.clone(),
+    };
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     assert_relative_eq!(c.cost(), -2.77259, epsilon = 1e-5); // Compare against PhyML
 
-    let sequences = Sequences::new(vec![
+    let seqs = Sequences::new(vec![
         record!("A", b"-"),
         record!("B", b"A"),
         record!("C", b"A"),
         record!("D", b"T"),
     ]);
-    let info = PIB::build_from_objects(sequences, tree).unwrap();
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree,
+    };
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     assert_relative_eq!(c.cost(), -2.92044, epsilon = 1e-5); // Compare against PhyML
 }
@@ -1005,13 +1063,16 @@ fn dna_single_char_gaps_against_phyml() {
 fn dna_ambig_chars_against_phyml() {
     let jc69 = SubstModel::<JC69>::new(&[], &[]);
     let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001)0.0:0.08716381);");
-    let sequences = Sequences::new(vec![
+    let seqs = Sequences::new(vec![
         record!("A", b"B"),
         record!("B", b"A"),
         record!("C", b"A"),
         record!("D", b"T"),
     ]);
-    let info = PIB::build_from_objects(sequences, tree).unwrap();
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree,
+    };
     let c = SCB::new(jc69, info).build().unwrap();
     assert_relative_eq!(c.cost(), -21.28936836, epsilon = 1e-7);
 }
@@ -1020,8 +1081,11 @@ fn dna_ambig_chars_against_phyml() {
 fn dna_x_simple_fully_likely() {
     let jc69 = SubstModel::<JC69>::new(&[], &[]);
     let tree = tree!("(A:0.05,B:0.0005):0.0;");
-    let sequences = Sequences::new(vec![record!("A", b"X"), record!("B", b"X")]);
-    let info = PIB::build_from_objects(sequences, tree).unwrap();
+    let seqs = Sequences::new(vec![record!("A", b"X"), record!("B", b"X")]);
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree,
+    };
     let c = SCB::new(jc69.clone(), info.clone()).build().unwrap();
     assert_relative_eq!(c.cost(), 0.0, epsilon = 1e-15);
 }
@@ -1030,16 +1094,19 @@ fn dna_x_simple_fully_likely() {
 fn x_fully_likely_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) {
     let model = SubstModel::<Q>::new(freqs, params);
     let tree = tree!("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);");
-    let sequences = Sequences::with_alphabet(
+    let seqs = Sequences::with_alphabet(
         vec![
             record!("A", b"X"),
             record!("B", b"X"),
             record!("C", b"X"),
             record!("D", b"X"),
         ],
-        model.qmatrix.alphabet().clone(),
+        model.alphabet().clone(),
     );
-    let info = PIB::build_from_objects(sequences, tree).unwrap();
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree,
+    };
     let c = SCB::new(model, info).build().unwrap();
     assert_relative_eq!(c.cost(), 0.0, epsilon = 1e-5);
 }

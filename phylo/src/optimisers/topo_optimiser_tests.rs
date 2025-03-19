@@ -2,12 +2,12 @@ use std::path::Path;
 
 use approx::assert_relative_eq;
 
-use crate::alignment::Sequences;
+use crate::alignment::{Alignment, Sequences};
 use crate::evolutionary_models::FrequencyOptimisation::Empirical;
 use crate::io::write_newick_to_file;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{BranchOptimiser, ModelOptimiser, TopologyOptimiser};
-use crate::phylo_info::PhyloInfoBuilder as PIB;
+use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::pip_model::{PIPCostBuilder as PIPCB, PIPModel};
 use crate::substitution_models::{
     dna_models::*, protein_models::*, SubstModel, SubstitutionCostBuilder as SCB,
@@ -18,13 +18,18 @@ use crate::{record_wo_desc as record, tree};
 fn k80_simple() {
     // Check that optimisation on k80 data improves k80 likelihood when starting from a given tree
     let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
-    let sequences = Sequences::new(vec![
-        record!("A", b"CTATATATAC"),
-        record!("B", b"ATATATATAA"),
-        record!("C", b"TTATATATAT"),
-        record!("D", b"TTATATATAT"),
-    ]);
-    let info = PIB::build_from_objects(sequences, tree).unwrap();
+    let msa = Alignment::from_aligned(
+        Sequences::new(vec![
+            record!("A", b"CTATATATAC"),
+            record!("B", b"ATATATATAA"),
+            record!("C", b"TTATATATAT"),
+            record!("D", b"TTATATATAT"),
+        ]),
+        &tree,
+    )
+    .unwrap();
+    let info = PhyloInfo { msa, tree };
+
     let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
     let c = SCB::new(k80.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
