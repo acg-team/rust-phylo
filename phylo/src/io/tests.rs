@@ -11,8 +11,7 @@ use crate::{record_wo_desc as record, tree};
 
 #[test]
 fn reading_correct_fasta() {
-    let sequences =
-        read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap();
+    let sequences = read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap();
     assert_eq!(sequences.len(), 4);
     for seq in sequences {
         assert_eq!(seq.seq().len(), 5);
@@ -45,9 +44,7 @@ fn reading_incorrect_fasta(#[case] input: &str, #[case] exp_error: &str) {
 
 #[test]
 fn reading_nonexistent_fasta() {
-    assert!(
-        read_sequences(&PathBuf::from("./data/sequences_nonexistent.fasta")).is_err()
-    );
+    assert!(read_sequences(&PathBuf::from("./data/sequences_nonexistent.fasta")).is_err());
 }
 
 #[test]
@@ -152,8 +149,7 @@ fn read_sequences_weird_gap_chars() {
         read_sequences(&PathBuf::from("./data/sequences_gap_underscore.fasta")).unwrap();
     let sequences_asterisk =
         read_sequences(&PathBuf::from("./data/sequences_gap_asterisk.fasta")).unwrap();
-    let sequences =
-        read_sequences(&PathBuf::from("./data/sequences_gap_normal.fasta")).unwrap();
+    let sequences = read_sequences(&PathBuf::from("./data/sequences_gap_normal.fasta")).unwrap();
 
     assert_eq!(sequences.len(), 4);
     assert_eq!(sequences_underscore.len(), sequences.len());
