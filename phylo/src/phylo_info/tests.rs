@@ -1,20 +1,15 @@
-use std::{fmt::Debug, fmt::Display, path::PathBuf};
+use std::fmt::{Debug, Display};
+use std::path::PathBuf;
 
 use approx::assert_relative_eq;
 use assert_matches::assert_matches;
 
-use crate::alignment::Sequences;
-use crate::frequencies;
-use crate::io::{read_sequences_from_file, DataError};
+use crate::alignment::{Alignment, Sequences};
+use crate::io::{read_sequences, DataError};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::substitution_models::FreqVector;
-use crate::tree::{
-    tree_parser::ParsingError,
-    NodeIdx::{Internal as I, Leaf as L},
-    Tree,
-};
-
-use crate::{record_wo_desc as record, tree};
+use crate::tree::tree_parser::ParsingError;
+use crate::{frequencies, record_wo_desc as record, tree};
 
 #[cfg(test)]
 fn downcast_error<T: Display + Debug + Send + Sync + 'static>(
@@ -115,7 +110,7 @@ fn setup_info_empty_sequence_file() {
     .build();
     assert_matches!(
         downcast_error::<DataError>(&info).to_string().as_str(),
-        "No sequences provided, aborting."
+        "No sequences found in file"
     );
 }
 
@@ -184,9 +179,8 @@ fn setup_aligned_msa() {
         assert!(!rec.seq().is_empty());
         assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
     });
-    let sequences = Sequences::new(
-        read_sequences_from_file(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap(),
-    );
+    let sequences =
+        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
     let aligned_sequences = info.compile_alignment(None).unwrap();
     assert_eq!(aligned_sequences, sequences);
 }

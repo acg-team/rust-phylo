@@ -8,7 +8,7 @@ use crate::alignment::{
     sequences::Sequences, InternalMapping, LeafMapping, PairwiseAlignment as PA,
 };
 use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, NUCLEOTIDES};
-use crate::io::read_sequences_from_file;
+use crate::io::read_sequences;
 use crate::tree::{
     NodeIdx::{Internal as I, Leaf as L},
     Tree,
@@ -236,19 +236,17 @@ fn compile_msa_leaf() {
 #[test]
 fn input_msa_empty_col() {
     let tree = test_tree();
-    let sequences = Sequences::new(
-        read_sequences_from_file(&PathBuf::from("./data/sequences_empty_col.fasta")).unwrap(),
-    );
-    let msa = Alignment::from_aligned_sequences(sequences, &tree).unwrap();
+    let sequences =
+        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_empty_col.fasta")).unwrap());
+    let msa = Alignment::from_aligned(sequences, &tree).unwrap();
     assert_eq!(msa.len(), 40 - 1);
     assert_eq!(msa.seq_count(), 5);
 }
 
 #[test]
 fn display_sequences() {
-    let sequences = Sequences::new(
-        read_sequences_from_file(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap(),
-    );
+    let sequences =
+        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
     let s = format!("{}", sequences);
     let mut lines = s.lines().collect::<Vec<_>>();
     lines.sort();
@@ -263,7 +261,7 @@ fn display_sequences() {
 #[test]
 fn display_unaligned_sequences() {
     let sequences = Sequences::new(
-        read_sequences_from_file(&PathBuf::from("./data/sequences_DNA2_unaligned.fasta")).unwrap(),
+        read_sequences(&PathBuf::from("./data/sequences_DNA2_unaligned.fasta")).unwrap(),
     );
     let s = format!("{}", sequences);
     let mut lines = s.lines().collect::<Vec<_>>();
@@ -279,10 +277,9 @@ fn display_unaligned_sequences() {
 #[test]
 fn display_alignment() {
     let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
-    let sequences = Sequences::new(
-        read_sequences_from_file(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap(),
-    );
     let msa = Alignment::from_aligned_sequences(sequences, &tree).unwrap();
+    let sequences =
+        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
 
     let s = format!("{}", msa.compile(&tree).unwrap());
     let mut lines = s.lines().collect::<Vec<_>>();

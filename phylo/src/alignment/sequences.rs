@@ -184,7 +184,7 @@ mod private_tests {
 
     use std::path::PathBuf;
 
-    use crate::io::read_sequences_from_file;
+    use crate::io::read_sequences;
 
     use super::*;
 
@@ -193,7 +193,7 @@ mod private_tests {
     #[case::unaligned("./data/sequences_DNA2_unaligned.fasta")]
     #[case::long("./data/sequences_long.fasta")]
     fn dna_type_test(#[case] input: &str) {
-        let seqs = read_sequences_from_file(&PathBuf::from(input)).unwrap();
+        let seqs = read_sequences(&PathBuf::from(input)).unwrap();
         let alphabet = Sequences::detect_alphabet(&seqs);
         assert_eq!(alphabet, dna_alphabet());
         assert!(format!("{}", alphabet).contains("DNA"));
@@ -203,7 +203,7 @@ mod private_tests {
     #[case("./data/sequences_protein1.fasta")]
     #[case("./data/sequences_protein2.fasta")]
     fn protein_type_test(#[case] input: &str) {
-        let seqs = read_sequences_from_file(&PathBuf::from(input)).unwrap();
+        let seqs = read_sequences(&PathBuf::from(input)).unwrap();
         let alphabet = Sequences::detect_alphabet(&seqs);
         assert_eq!(alphabet, protein_alphabet());
         assert!(format!("{}", alphabet).contains("protein"));

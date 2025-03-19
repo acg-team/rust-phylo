@@ -9,7 +9,7 @@ use rand::Rng;
 use crate::alignment::Sequences;
 use crate::alphabets::{Alphabet, AMINOACIDS, GAP};
 use crate::evolutionary_models::EvoModel;
-use crate::io::read_sequences_from_file;
+use crate::io::read_sequences;
 use crate::likelihood::ModelSearchCost;
 use crate::parsimony::{DiagonalZeros as Z, ParsimonyModel, Rounding as R};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
@@ -17,7 +17,6 @@ use crate::substitution_models::{
     dna_models::*, protein_models::*, FreqVector, QMatrix, QMatrixMaker, SubstMatrix, SubstModel,
     SubstitutionCostBuilder as SCB,
 };
-use crate::tree::Tree;
 use crate::{frequencies, record_wo_desc as record, tree};
 
 #[cfg(test)]
@@ -929,12 +928,14 @@ fn hiv_subset_valid_subst_likelihood() {
 
 #[test]
 fn dna_gaps_against_phyml() {
-    let newick =
-        "(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001)0.000000:0.08716381);".to_string();
-    let sequences = Sequences::new(
-        read_sequences_from_file(&Path::new("./data/").join("sequences_DNA1.fasta")).unwrap(),
-    );
-    let info = PIB::build_from_objects(sequences, tree!(&newick)).unwrap();
+    let tree =
+        tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001)0.000000:0.08716381);");
+    let seqs =
+        Sequences::new(read_sequences(&Path::new("./data/").join("sequences_DNA1.fasta")).unwrap());
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree,
+    };
     let jc69 = SubstModel::<JC69>::new(&[], &[]);
     let c = SCB::new(jc69, info).build().unwrap();
 
