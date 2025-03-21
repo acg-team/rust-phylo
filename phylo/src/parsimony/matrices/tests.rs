@@ -7,18 +7,7 @@ use crate::parsimony::{
     SiteFlag::*,
 };
 use crate::substitution_models::{SubstModel, K80};
-
-macro_rules! align {
-    (@collect -) => { None };
-    (@collect $l:tt) => { Some($l) };
-    ( $( $e:tt )* ) => {vec![ $( align!(@collect $e), )* ]};
-}
-
-macro_rules! site {
-    ($s:literal, $f:expr) => {
-        ParsimonySite::new($s.iter().copied(), $f) // Ensure conversion from &[u8] to u8 iterator
-    };
-}
+use crate::{site, test_align as align};
 
 #[test]
 fn fill_matrix() {

@@ -39,3 +39,17 @@ macro_rules! align {
             .collect::<Vec<_>>()
     }};
 }
+
+#[macro_export]
+macro_rules! test_align {
+    (@collect -) => { None };
+    (@collect $l:tt) => { Some($l) };
+    ( $( $e:tt )* ) => {vec![ $( align!(@collect $e), )* ]};
+}
+
+#[macro_export]
+macro_rules! site {
+    ($s:literal, $f:expr) => {
+        ParsimonySite::new($s.iter().copied(), $f) // Ensure conversion from &[u8] to u8 iterator
+    };
+}
