@@ -28,8 +28,7 @@ fn test_subst_model<Q: QMatrix + QMatrixMaker>(
 
     let fldr = Path::new("./data");
     let tree = tree!(&fs::read_to_string(fldr.join("Huelsenbeck_example.newick")).unwrap());
-    let records =
-        read_sequences(&fldr.join("Huelsenbeck_example_long_DNA.fasta")).unwrap();
+    let records = read_sequences(&fldr.join("Huelsenbeck_example_long_DNA.fasta")).unwrap();
     let msa =
         Alignment::from_aligned(Sequences::with_alphabet(records.clone(), alpha), &tree).unwrap();
     let info = PhyloInfo { msa, tree };
@@ -79,8 +78,7 @@ fn test_pip_model<Q: QMatrix + QMatrixMaker>(
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
 
     let fldr = Path::new("./data");
-    let records =
-        read_sequences(&fldr.join("Huelsenbeck_example_long_DNA.fasta")).unwrap();
+    let records = read_sequences(&fldr.join("Huelsenbeck_example_long_DNA.fasta")).unwrap();
 
     let tree = tree!(&fs::read_to_string(fldr.join("Huelsenbeck_example.newick")).unwrap());
     let msa =
@@ -147,8 +145,7 @@ fn alphabet_mismatch_subst_model_template<Q: QMatrix + QMatrixMaker>(
 ) {
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
     let fldr = Path::new("./data");
-    let records =
-        read_sequences(&fldr.join("Huelsenbeck_example_long_DNA.fasta")).unwrap();
+    let records = read_sequences(&fldr.join("Huelsenbeck_example_long_DNA.fasta")).unwrap();
     let tree = tree!(&fs::read_to_string(fldr.join("Huelsenbeck_example.newick")).unwrap());
     let msa = Alignment::from_aligned(Sequences::with_alphabet(records, alpha), &tree).unwrap();
     let info = PhyloInfo { msa, tree };
@@ -191,8 +188,7 @@ fn alphabet_mismatch_subst_pip_template<Q: QMatrix + QMatrixMaker>(
 ) {
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
     let fldr = Path::new("./data");
-    let records =
-        read_sequences(&fldr.join("Huelsenbeck_example_long_DNA.fasta")).unwrap();
+    let records = read_sequences(&fldr.join("Huelsenbeck_example_long_DNA.fasta")).unwrap();
     let tree = tree!(&fs::read_to_string(fldr.join("Huelsenbeck_example.newick")).unwrap());
     let msa =
         Alignment::from_aligned(Sequences::with_alphabet(records.clone(), alpha), &tree).unwrap();
