@@ -1,33 +1,33 @@
-use std::cell::RefCell;
 use std::fmt::Display;
 
 use log::{debug, info};
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult};
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
 
-pub struct TopologyOptimiser<C: TreeSearchCost + Display + Clone> {
+pub struct TopologyOptimiser<C: TreeSearchCost + Display + Clone + Send> {
     pub(crate) epsilon: f64,
-    pub(crate) c: RefCell<C>,
+    pub(crate) c: C,
 }
 
-impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
+impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
     // TODO: make tree search work under parsimony
     pub fn new(cost: C) -> Self {
         Self {
             epsilon: 1e-3,
-            c: RefCell::new(cost),
+            c: cost,
         }
     }
 
-    pub fn run(self) -> Result<PhyloOptimisationResult<C>> {
-        debug_assert!(self.c.borrow().tree().len() > 3);
+    pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
+        debug_assert!(self.c.tree().len() > 3);
 
         info!("Optimising tree topology with SPRs.");
-        let init_cost = self.c.borrow().cost();
-        let mut tree = self.c.borrow().tree().clone();
+        let init_cost = self.c.cost();
+        let mut tree = self.c.tree().clone();
 
         info!("Initial cost: {}.", init_cost);
         debug!("Initial tree: \n{}", tree);
@@ -57,7 +57,7 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
         while (curr_cost - prev_cost) > self.epsilon {
             iterations += 1;
             info!("Iteration: {}, current cost: {}.", iterations, curr_cost);
-            tree = self.c.borrow().tree().clone();
+            tree = self.c.tree().clone();
             prev_cost = curr_cost;
 
             #[cfg(not(feature = "deterministic"))]
@@ -72,30 +72,50 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
                     continue;
                 }
                 let regraft_locations = Self::find_regraft_options(prune, &tree);
-                let mut moves = Vec::<(f64, NodeIdx, Tree)>::with_capacity(regraft_locations.len());
 
                 info!("Node {:?}: trying to regraft", prune);
-                for regraft in &regraft_locations {
-                    let mut new_tree = tree.rooted_spr(prune, regraft)?;
+                let cost_funcs = vec![self.c.clone(); regraft_locations.len()];
+                println!("MERBUG n regraft: {}", regraft_locations.len());
+                let moves = regraft_locations
+                    .into_par_iter()
+                    .zip(cost_funcs)
+                    .map(|(regraft, mut cost_func)| {
+                        let mut new_tree = tree.rooted_spr(prune, &regraft)?;
 
-                    // This clone is done to not have to reset the original cost function to the old tree.
-                    // Needs checking if this is necessary/efficient.
-                    let mut cost_func = self.c.borrow().clone();
-                    cost_func.update_tree(new_tree.clone(), &[*prune, *regraft]);
+                        // This clone is done to not have to reset the original cost function to the old tree.
+                        // Needs checking if this is necessary/efficient.
+                        // let mut cost_func = self.c.clone();
+                        cost_func.update_tree(new_tree.clone(), &[*prune, regraft]);
 
-                    let mut move_cost = cost_func.cost();
-                    if move_cost <= curr_cost {
-                        // reoptimise branch length at the regraft location
-                        let mut o = BranchOptimiser::new(cost_func);
-                        let blen_opt = o.optimise_branch(regraft)?;
-                        if blen_opt.final_cost > move_cost {
-                            move_cost = blen_opt.final_cost;
-                            new_tree.set_blen(regraft, blen_opt.value);
+                        // let nodes_with_two_internal_children = cost_func
+                        //     .tree()
+                        //     .nodes
+                        //     .iter()
+                        //     .filter(|node| {
+                        //         !node.children.is_empty()
+                        //             && node
+                        //                 .children
+                        //                 .iter()
+                        //                 .all(|child| matches!(child, NodeIdx::Internal(_)))
+                        //     })
+                        //     .count();
+                        // total should be 2N-1 but lets be sure
+                        // eprintln!("MERBUG: nodes with two internal children: {nodes_with_two_internal_children} / {}", cost_func.tree().nodes.len());
+
+                        let mut move_cost = cost_func.cost();
+                        if move_cost <= curr_cost {
+                            // reoptimise branch length at the regraft location
+                            let mut o = BranchOptimiser::new(cost_func);
+                            let blen_opt = o.optimise_branch(&regraft)?;
+                            if blen_opt.final_cost > move_cost {
+                                move_cost = blen_opt.final_cost;
+                                new_tree.set_blen(&regraft, blen_opt.value);
+                            }
                         }
-                    }
-                    debug!("    Regraft to {:?} w best cost {}.", regraft, move_cost);
-                    moves.push((move_cost, *regraft, new_tree));
-                }
+                        debug!("    Regraft to {:?} w best cost {}.", regraft, move_cost);
+                        Ok::<_, anyhow::Error>((move_cost, regraft, new_tree))
+                    })
+                    .collect::<Result<Vec<_>>>()?;
                 let (best_move_cost, regraft, best_tree) = moves
                     .into_iter()
                     .max_by(|(a, _, _), (b, _, _)| a.partial_cmp(b).unwrap())
@@ -113,19 +133,15 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
             }
 
             // Optimise branch lengths on current tree to match PhyML
-            let o = BranchOptimiser::new(self.c.borrow().clone()).run()?;
+            let o = BranchOptimiser::new(self.c.clone()).run()?;
             if o.final_cost > curr_cost {
                 curr_cost = o.final_cost;
-                self.c.borrow_mut().update_tree(o.cost.tree().clone(), &[]);
+                self.c.update_tree(o.cost.tree().clone(), &[]);
             }
-            debug!(
-                "Tree after iteration {}: \n{}",
-                iterations,
-                self.c.borrow().tree()
-            );
+            debug!("Tree after iteration {}: \n{}", iterations, self.c.tree());
         }
 
-        debug_assert_eq!(curr_cost, self.c.borrow().cost());
+        debug_assert_eq!(curr_cost, self.c.cost());
         info!("Done optimising tree topology.");
         info!(
             "Final cost: {}, achieved in {} iteration(s).",
@@ -135,7 +151,7 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
             initial_cost: init_cost,
             final_cost: curr_cost,
             iterations,
-            cost: self.c.into_inner(),
+            cost: self.c,
         })
     }
 
