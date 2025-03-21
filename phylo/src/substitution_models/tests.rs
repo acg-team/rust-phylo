@@ -1157,8 +1157,8 @@ fn protein_avg_rate() {
 #[cfg(test)]
 fn parsimony_rounding_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) {
     let model = SubstModel::<Q>::new(freqs, params);
-    let mat_round = model.scoring_corrected(0.1, Z::zero(), R::zero());
-    let mat = model.scoring_corrected(0.1, Z::zero(), R::none());
+    let mat_round = model.scoring(0.1, &Z::zero(), &R::zero());
+    let mat = model.scoring(0.1, &Z::zero(), &R::none());
     assert_ne!(mat_round.mean(), mat.mean());
     assert_ne!(mat_round, mat);
     for (&e1, &e2) in mat_round.as_slice().iter().zip(mat.as_slice().iter()) {
@@ -1189,8 +1189,8 @@ fn dna_rounding_scores() {
 #[cfg(test)]
 fn parsimony_zero_diag_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) {
     let model = SubstModel::<Q>::new(freqs, params);
-    let mat_zeros = model.scoring_corrected(0.1, Z::zero(), R::none());
-    let mat = model.scoring_corrected(0.1, Z::non_zero(), R::none());
+    let mat_zeros = model.scoring(0.1, &Z::zero(), &R::none());
+    let mat = model.scoring(0.1, &Z::non_zero(), &R::none());
     assert_ne!(mat_zeros.mean(), mat.mean());
     assert_ne!(mat_zeros, mat);
     for (&e1, &e2) in mat_zeros.diagonal().iter().zip(mat.diagonal().iter()) {

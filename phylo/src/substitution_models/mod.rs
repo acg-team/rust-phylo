@@ -327,15 +327,11 @@ impl<Q: QMatrix> SubstModelInfo<Q> {
 }
 
 impl<Q: QMatrix> ParsimonyModel for SubstModel<Q> {
-    fn scoring(&self, time: f64, rounding: Rounding) -> CostMatrix {
-        self.scoring_corrected(time, DiagonalZeros::non_zero(), rounding)
-    }
-
-    fn scoring_corrected(
+    fn scoring(
         &self,
         time: f64,
-        diagonal_zeros: DiagonalZeros,
-        rounding: Rounding,
+        diagonal_zeros: &DiagonalZeros,
+        rounding: &Rounding,
     ) -> CostMatrix {
         let mut scores = self.p(time);
         scores.iter_mut().for_each(|x| *x = -(*x).ln());
