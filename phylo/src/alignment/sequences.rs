@@ -1,8 +1,8 @@
-use std::collections::HashMap;
 use std::fmt::Display;
 
 use anyhow::bail;
 use bio::io::fasta::Record;
+use hashbrown::HashMap;
 use nalgebra::DMatrix;
 
 use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet, GAP};
