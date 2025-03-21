@@ -7,31 +7,78 @@ use crate::parsimony::{
 };
 use crate::Result;
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct ModelCosts {
-    alphabet: Alphabet,
-    costs: Vec<(OrderedFloat<f64>, ModelBranchCosts)>,
+pub struct ModelCostBuilder {
+    model: Box<dyn ParsimonyModel>,
+    gap: GapCost,
+    diagonal: DiagonalZeros,
+    rounding: Rounding,
+    times: Vec<f64>,
+}
+
+impl ModelCostBuilder {
+    pub fn new(model: Box<dyn ParsimonyModel>) -> Self {
+        ModelCostBuilder {
+            model,
+            gap: GapCost::new(2.5, 1.0),
+            diagonal: DiagonalZeros::non_zero(),
+            rounding: Rounding::none(),
+            times: Vec::new(),
+        }
+    }
+
+    pub fn gap_cost(mut self, gap: GapCost) -> Self {
+        self.gap = gap;
+        self
+    }
+
+    pub fn diagonal_zeros(mut self, diagonal: DiagonalZeros) -> Self {
+        self.diagonal = diagonal;
+        self
+    }
+
+    pub fn rounding(mut self, rounding: Rounding) -> Self {
+        self.rounding = rounding;
+        self
+    }
+
+    pub fn times(mut self, times: Vec<f64>) -> Self {
+        self.times = times;
+        self
+    }
+
+    pub fn build(self) -> Result<ModelCosts> {
+        ModelCosts::new(
+            &*self.model,
+            self.gap,
+            self.diagonal,
+            self.rounding,
+            &self.times,
+        )
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct ModelBranchCosts {
+pub struct ModelCosts {
+    alphabet: Alphabet,
+    costs: Vec<(OrderedFloat<f64>, TimeCosts)>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct TimeCosts {
     avg: f64,
     gap: GapCost,
     c: CostMatrix,
 }
 
 impl ModelCosts {
-    pub fn new(
+    pub(crate) fn new(
         model: &dyn ParsimonyModel,
         gap: GapCost,
         diagonal: DiagonalZeros,
         rounding: Rounding,
         times: &[f64],
     ) -> Result<Self> {
-        info!(
-            "Setting up the parsimony scoring from the {} substitution model.",
-            model
-        );
+        info!("Setting up the parsimony scoring from the {} model.", model);
 
         let mut times = times
             .iter()
@@ -40,15 +87,14 @@ impl ModelCosts {
             .collect::<Vec<_>>();
         times.sort();
 
-        let costs: Vec<(OrderedFloat<f64>, ModelBranchCosts)> = times
+        let costs: Vec<(OrderedFloat<f64>, TimeCosts)> = times
             .iter()
             .map(|time| {
-                let cost_matrix =
-                    model.scoring_corrected(f64::from(*time), diagonal.clone(), rounding.clone());
+                let cost_matrix = model.scoring(f64::from(*time), &diagonal, &rounding);
                 let avg = cost_matrix.mean();
                 (
                     *time,
-                    ModelBranchCosts {
+                    TimeCosts {
                         avg,
                         gap: gap.clone() * avg,
                         c: cost_matrix,
@@ -70,7 +116,7 @@ impl ModelCosts {
 }
 
 impl ModelCosts {
-    fn scoring(&self, target: OrderedFloat<f64>) -> &ModelBranchCosts {
+    fn scoring(&self, target: OrderedFloat<f64>) -> &TimeCosts {
         let target = OrderedFloat(target);
         match self.costs.binary_search_by(|(time, _)| time.cmp(&target)) {
             Ok(idx) => &self.costs[idx].1, // Exact match
