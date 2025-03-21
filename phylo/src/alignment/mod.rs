@@ -60,7 +60,7 @@ impl Alignment {
     /// ```
     /// # use bio::io::fasta::Record;
     /// use phylo::alignment::Alignment;
-    /// use phylo::alignment::sequences::Sequences;
+    /// use phylo::alignment::Sequences;
     /// use phylo::alphabets::dna_alphabet;
     /// use phylo::{record, tree};
     /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
@@ -82,7 +82,7 @@ impl Alignment {
     /// ```
     /// # use bio::io::fasta::Record;
     /// use phylo::alignment::Alignment;
-    /// use phylo::alignment::sequences::Sequences;
+    /// use phylo::alignment::Sequences;
     /// use phylo::{record, tree};
     /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
     /// let seqs = Sequences::new(vec![
@@ -108,7 +108,7 @@ impl Alignment {
     /// ```
     /// # use bio::io::fasta::Record;
     /// use phylo::alignment::Alignment;
-    /// use phylo::alignment::sequences::Sequences;
+    /// use phylo::alignment::Sequences;
     /// use phylo::{record, tree};
     /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
     /// let seqs = Sequences::new(vec![
@@ -129,8 +129,7 @@ impl Alignment {
     /// ```
     /// # use bio::io::fasta::Record;
     /// use phylo::alignment::Alignment;
-    /// use phylo::alignment::sequences::Sequences;
-    /// use phylo::tree::tree_parser::from_newick;
+    /// use phylo::alignment::Sequences;
     /// use phylo::{record, tree};
     /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
     /// let seqs = Sequences::new(vec![
