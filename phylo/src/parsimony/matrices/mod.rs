@@ -4,7 +4,7 @@ use crate::alignment::{Mapping, PairwiseAlignment};
 use crate::alphabets::ParsimonySet;
 use crate::parsimony::{
     Direction::{self, GapInX, GapInY, Matc},
-    ParsimonyCosts, ParsimonySite as SiteInfo,
+    ParsimonyCosts, ParsimonySite,
     SiteFlag::{self, *},
 };
 
@@ -44,9 +44,9 @@ pub(crate) struct ParsimonyAlignmentMatrices<'a> {
     rows: usize,
     cols: usize,
     scoring: &'a dyn ParsimonyCosts,
-    x_info: &'a [SiteInfo],
+    x_info: &'a [ParsimonySite],
     x_blen: f64,
-    y_info: &'a [SiteInfo],
+    y_info: &'a [ParsimonySite],
     y_blen: f64,
     pub(super) score: ScoreMatrices,
     pub(super) trace: TracebackMatrices,
@@ -86,9 +86,9 @@ impl fmt::Display for ParsimonyAlignmentMatrices<'_> {
 
 impl<'a> ParsimonyAlignmentMatrices<'a> {
     pub(crate) fn new(
-        x_info: &'a [SiteInfo],
+        x_info: &'a [ParsimonySite],
         x_blen: f64,
-        y_info: &'a [SiteInfo],
+        y_info: &'a [ParsimonySite],
         y_blen: f64,
         scoring: &'a dyn ParsimonyCosts,
         rng: fn(usize) -> usize,
@@ -408,13 +408,13 @@ impl<'a> ParsimonyAlignmentMatrices<'a> {
         })
     }
 
-    pub(crate) fn traceback(&self) -> (Vec<SiteInfo>, PairwiseAlignment, f64) {
+    pub(crate) fn traceback(&self) -> (Vec<ParsimonySite>, PairwiseAlignment, f64) {
         let mut i = self.rows - 1;
         let mut j = self.cols - 1;
         let (pars_score, mut action) =
             self.select_direction(self.score.m[i][j], self.score.x[i][j], self.score.y[i][j]);
         let max_alignment_length = self.rows + self.cols - 2;
-        let mut node_info = Vec::<SiteInfo>::with_capacity(max_alignment_length);
+        let mut node_info = Vec::<ParsimonySite>::with_capacity(max_alignment_length);
         let mut alignment = PairwiseAlignment::new(
             Mapping::with_capacity(max_alignment_length),
             Mapping::with_capacity(max_alignment_length),
@@ -426,13 +426,13 @@ impl<'a> ParsimonyAlignmentMatrices<'a> {
                     i -= 1;
                     alignment.map_x.push(Some(i));
                     alignment.map_y.push(None);
-                    node_info.push(SiteInfo::new(ParsimonySet::gap(), GapFixed));
+                    node_info.push(ParsimonySite::new(ParsimonySet::gap(), GapFixed));
                 }
                 if j > 0 && self.y_info[j - 1].is_fixed() {
                     j -= 1;
                     alignment.map_x.push(None);
                     alignment.map_y.push(Some(j));
-                    node_info.push(SiteInfo::new(ParsimonySet::gap(), GapFixed));
+                    node_info.push(ParsimonySite::new(ParsimonySet::gap(), GapFixed));
                 }
             } else {
                 let (map_x, map_y, set, flag) = match action {
@@ -467,7 +467,7 @@ impl<'a> ParsimonyAlignmentMatrices<'a> {
                         (None, Some(j), set, flag)
                     }
                 };
-                node_info.push(SiteInfo::new(set, flag));
+                node_info.push(ParsimonySite::new(set, flag));
                 alignment.map_x.push(map_x);
                 alignment.map_y.push(map_y);
             }
