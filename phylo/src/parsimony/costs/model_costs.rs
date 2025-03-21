@@ -83,7 +83,7 @@ impl ModelCosts {
                     // Pick closest value
                     let (before, _) = self.costs[idx - 1];
                     let (after, _) = self.costs[idx];
-                    if (target.0 - before.0).abs() <= (after - target.0).abs() {
+                    if (target.0 - before).abs() <= (after - target.0).abs() {
                         &self.costs[idx - 1].1
                     } else {
                         &self.costs[idx].1
