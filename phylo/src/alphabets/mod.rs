@@ -1,11 +1,13 @@
-use std::collections::HashSet;
 use std::fmt::Display;
 
-use itertools::join;
+use hashbrown::HashSet;
 use lazy_static::lazy_static;
 
 use crate::frequencies;
 use crate::substitution_models::FreqVector;
+
+pub mod parsimony_set;
+pub use parsimony_set::*;
 
 pub static AMINOACIDS: &[u8] = b"ARNDCQEGHILKMFPSTWYV";
 pub static AMB_AMINOACIDS: &[u8] = b"BJZX";
@@ -23,7 +25,7 @@ pub struct Alphabet {
     index: &'static [usize; 255],
     valid_symbols: &'static HashSet<u8>,
     conditional_probs: &'static [FreqVector],
-    parsimony_sets: &'static [HashSet<u8>],
+    parsimony_sets: &'static [ParsimonySet],
 }
 
 impl Display for Alphabet {
@@ -68,15 +70,6 @@ impl Alphabet {
     }
 }
 
-pub(crate) type ParsimonySet = HashSet<u8>;
-
-#[allow(dead_code)]
-pub(crate) fn print_parsimony_set(set: &ParsimonySet) -> String {
-    let mut chars: Vec<char> = set.iter().map(|&a| a as char).collect();
-    chars.sort();
-    join(chars, " ")
-}
-
 pub fn dna_alphabet() -> Alphabet {
     Alphabet {
         name: "DNA",
@@ -99,10 +92,6 @@ pub fn protein_alphabet() -> Alphabet {
         conditional_probs: &AA_COND_PROBS,
         parsimony_sets: &AA_PARSIMONY_SETS,
     }
-}
-
-pub(crate) fn gap_set() -> ParsimonySet {
-    ParsimonySet::from_iter([GAP])
 }
 
 lazy_static! {

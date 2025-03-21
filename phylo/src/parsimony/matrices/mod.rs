@@ -1,7 +1,7 @@
 use std::{fmt, iter::zip};
 
 use crate::alignment::{Mapping, PairwiseAlignment};
-use crate::alphabets::{gap_set, ParsimonySet};
+use crate::alphabets::ParsimonySet;
 use crate::parsimony::{
     Direction::{self, GapInX, GapInY, Matc},
     ParsimonyCosts, ParsimonySite as SiteInfo,
@@ -426,13 +426,13 @@ impl<'a> ParsimonyAlignmentMatrices<'a> {
                     i -= 1;
                     alignment.map_x.push(Some(i));
                     alignment.map_y.push(None);
-                    node_info.push(SiteInfo::new(gap_set(), GapFixed));
+                    node_info.push(SiteInfo::new(ParsimonySet::gap(), GapFixed));
                 }
                 if j > 0 && self.y_info[j - 1].is_fixed() {
                     j -= 1;
                     alignment.map_x.push(None);
                     alignment.map_y.push(Some(j));
-                    node_info.push(SiteInfo::new(gap_set(), GapFixed));
+                    node_info.push(SiteInfo::new(ParsimonySet::gap(), GapFixed));
                 }
             } else {
                 let (map_x, map_y, set, flag) = match action {
@@ -450,7 +450,7 @@ impl<'a> ParsimonyAlignmentMatrices<'a> {
                         action = self.trace.x[i][j];
                         i -= 1;
                         let (set, flag) = match self.x_info[i].flag {
-                            GapOpen | GapExt => (gap_set(), GapFixed),
+                            GapOpen | GapExt => (ParsimonySet::gap(), GapFixed),
                             NoGap => (self.x_info[i].set.clone(), self.gap_x_open_or_ext(i, j)),
                             GapFixed => unreachable!(),
                         };
@@ -460,7 +460,7 @@ impl<'a> ParsimonyAlignmentMatrices<'a> {
                         action = self.trace.y[i][j];
                         j -= 1;
                         let (set, flag) = match self.y_info[j].flag {
-                            GapOpen | GapExt => (gap_set(), GapFixed),
+                            GapOpen | GapExt => (ParsimonySet::gap(), GapFixed),
                             NoGap => (self.y_info[j].set.clone(), self.gap_y_open_or_ext(i, j)),
                             GapFixed => unreachable!(),
                         };
