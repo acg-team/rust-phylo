@@ -4,19 +4,20 @@ use std::path::PathBuf;
 use anyhow::bail;
 use log::{info, warn};
 
-use crate::alignment::{Alignment, AlignmentBuilder, Sequences};
+use crate::alignment::{Aligner, Alignment, Sequences};
 use crate::io::{self, DataError};
+use crate::parsimony::ParsimonyAligner;
 use crate::phylo_info::PhyloInfo;
 use crate::tree::{build_nj_tree, Tree};
 use crate::Result;
 
-pub struct PhyloInfoBuilder<'a> {
+pub struct PhyloInfoBuilder {
     sequence_file: PathBuf,
     tree_file: Option<PathBuf>,
-    alignment_builder: Option<AlignmentBuilder<'a>>,
+    alignment_builder: Option<Box<dyn Aligner>>,
 }
 
-impl<'a> PhyloInfoBuilder<'a> {
+impl PhyloInfoBuilder {
     /// Creates a new empty PhyloInfoBuilder struct with only the sequence file path set.
     /// The tree file path is set to None.
     ///
@@ -29,7 +30,7 @@ impl<'a> PhyloInfoBuilder<'a> {
     /// use phylo::phylo_info::PhyloInfoBuilder;
     /// let builder = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta"));
     /// ```
-    pub fn new(sequence_file: PathBuf) -> PhyloInfoBuilder<'a> {
+    pub fn new(sequence_file: PathBuf) -> PhyloInfoBuilder {
         PhyloInfoBuilder {
             sequence_file,
             tree_file: None,
@@ -51,7 +52,7 @@ impl<'a> PhyloInfoBuilder<'a> {
     ///     PathBuf::from("./data/sequences_DNA_small.fasta"),
     ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"));
     /// ```
-    pub fn with_attrs(sequence_file: PathBuf, tree_file: PathBuf) -> PhyloInfoBuilder<'a> {
+    pub fn with_attrs(sequence_file: PathBuf, tree_file: PathBuf) -> PhyloInfoBuilder {
         PhyloInfoBuilder {
             sequence_file,
             tree_file: Some(tree_file),
@@ -72,7 +73,7 @@ impl<'a> PhyloInfoBuilder<'a> {
     /// let builder = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta"))
     ///    .sequence_file(PathBuf::from("./data/sequences_DNA_small.fasta"));
     /// ```
-    pub fn sequence_file(mut self, path: PathBuf) -> PhyloInfoBuilder<'a> {
+    pub fn sequence_file(mut self, path: PathBuf) -> PhyloInfoBuilder {
         self.sequence_file = path;
         self
     }
@@ -90,7 +91,7 @@ impl<'a> PhyloInfoBuilder<'a> {
     /// let builder = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta"))
     ///   .tree_file(Some(PathBuf::from("./data/tree_diff_branch_lengths_2.newick")));
     /// ```
-    pub fn tree_file(mut self, path: Option<PathBuf>) -> PhyloInfoBuilder<'a> {
+    pub fn tree_file(mut self, path: Option<PathBuf>) -> PhyloInfoBuilder {
         self.tree_file = path;
         self
     }
@@ -132,10 +133,10 @@ impl<'a> PhyloInfoBuilder<'a> {
             info!("Sequences are aligned.");
             Alignment::from_aligned(sequences, &tree)?
         } else {
-            info!("Sequences are not aligned, aligning sequences with IndelMAP.");
+            info!("Sequences are not aligned, aligning.");
             self.alignment_builder
-                .unwrap_or(AlignmentBuilder::new(&tree, sequences))
-                .build()?
+                .unwrap_or(Box::new(ParsimonyAligner::default()))
+                .align(&sequences, &tree)?
         };
 
         Ok(PhyloInfo { tree, msa })

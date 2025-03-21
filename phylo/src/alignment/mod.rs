@@ -1,8 +1,8 @@
-use std::collections::HashMap;
 use std::fmt::Display;
 
 use anyhow::bail;
 use bio::io::fasta::Record;
+use hashbrown::HashMap;
 use nalgebra::DMatrix;
 
 use crate::alphabets::{Alphabet, GAP};
@@ -11,8 +11,8 @@ use crate::{align, Result};
 
 pub mod sequences;
 pub use sequences::*;
-pub mod alignment_builder;
-pub use alignment_builder::*;
+pub mod aligner;
+pub use aligner::*;
 
 pub type Position = Option<usize>;
 pub type Mapping = Vec<Option<usize>>;
@@ -41,8 +41,8 @@ impl PairwiseAlignment {
 #[derive(Debug, Clone)]
 pub struct Alignment {
     pub(crate) seqs: Sequences,
-    leaf_map: LeafMapping,
-    node_map: InternalMapping,
+    pub(crate) leaf_map: LeafMapping,
+    pub(crate) node_map: InternalMapping,
     /// Leaf sequence encodings.
     pub(crate) leaf_encoding: HashMap<String, DMatrix<f64>>,
 }
@@ -215,7 +215,7 @@ impl Alignment {
         ))
     }
 
-    fn compile_leaf_map(&self, root: &NodeIdx, tree: &Tree) -> Result<LeafMapping> {
+    pub(crate) fn compile_leaf_map(&self, root: &NodeIdx, tree: &Tree) -> Result<LeafMapping> {
         let order = &tree.preorder_subroot(root);
         let msa_len = match root {
             Int(_) => self.node_map[root].map_x.len(),
