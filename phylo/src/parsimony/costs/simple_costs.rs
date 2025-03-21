@@ -1,6 +1,6 @@
 use crate::parsimony::{GapCost, ParsimonyCosts};
 
-pub(crate) struct SimpleCosts {
+pub struct SimpleCosts {
     mismatch: f64,
     gap: GapCost,
 }

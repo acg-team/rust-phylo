@@ -1,5 +1,10 @@
 use std::ops::Mul;
 
+pub mod model_costs;
+pub use model_costs::*;
+pub mod simple_costs;
+pub use simple_costs::*;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct GapCost {
     open: f64,
@@ -29,12 +34,6 @@ pub trait ParsimonyCosts {
     fn gap_ext(&self, blen: f64) -> f64;
     fn avg(&self, blen: f64) -> f64;
 }
-
-pub mod model_costs;
-#[allow(unused_imports)]
-pub(crate) use model_costs::*;
-pub mod simple_costs;
-pub(crate) use simple_costs::*;
 
 #[cfg(test)]
 mod tests;
