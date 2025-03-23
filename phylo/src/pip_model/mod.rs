@@ -364,22 +364,10 @@ impl<Q: QMatrix> PIPCost<Q> {
     fn build_tree_order(tree: &Tree) {
         type Mat = DMatrix<f64>;
         type MatPair = (Mat, Mat);
-        /// n leaves = 8, n internal = 8 + 4 + 2 + 1 = 15 = 2n-1
-        /// n leaves = 4, n internal = 4 + 2 + 1 = 7 = 2n-1
         /// 0:        [r]
-        /// 1:       [i,l]
-        /// 2:      [i,l]
-        /// 3:     [i,l]
-        /// 4:    [i,l]
-        /// 5:   [i,l]
-        /// 6:  [i,l]
-        /// 7: [l,l]
-        ///
-        /// 0:      [r]
-        /// 1:    [i, -]
-        /// 2:  [ i, -  -]
-        /// 3:  [i,-  -  -]
-        /// L: [l,l l, l  l]
+        /// 1:       [i,i]
+        /// 2:     [i,i i,i]
+        /// 3: [i,i  i,i  i,i  i,i]
         ///
         /// L2 accesses relevant values from L3 with
         /// indices i*2, i*2+1
@@ -388,7 +376,7 @@ impl<Q: QMatrix> PIPCost<Q> {
         /// Assumptions:
         /// - process the levels left to right to reduce sync effort
         ///     when processing the next layer early.
-        ///     Its very easy to just 'unblock' all results up to e.g. the middle
+        ///     Its very easy to just 'unblock' all results up to the middle
         ///     instead of trying to Semaphore/etc... each individual pair of children.
         ///     
         ///     This should not waste much time since each pair of nodes is assumed

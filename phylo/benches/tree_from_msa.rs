@@ -75,7 +75,7 @@ fn bench_pip_dna_tiny(criterion: &mut criterion::Criterion) {
 }
 
 fn run_optimisation(
-    cost: impl TreeSearchCost + ModelSearchCost + Display + Clone + Send,
+    cost: impl TreeSearchCost + ModelSearchCost + Display + Clone,
     freq_opt: FrequencyOptimisation,
     max_iterations: usize,
     epsilon: f64,
@@ -102,7 +102,7 @@ fn run_optimisation(
 
 criterion_group! {
 name = pip_inferrence_tiny;
-config = Criterion::default().measurement_time(Duration::from_secs(30)).sample_size(10);
+config = Criterion::default().measurement_time(Duration::from_secs(20)).sample_size(30);
 targets = bench_pip_dna_tiny
 }
 criterion_group! {
