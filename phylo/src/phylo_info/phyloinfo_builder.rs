@@ -147,7 +147,7 @@ impl PhyloInfoBuilder {
             Sequences::new(io::read_sequences_from_file(&self.sequence_file)?)
         } else {
             info!(
-                "Using provided alphabet {}",
+                "Using provided {} alphabet",
                 self.alphabet.as_ref().unwrap()
             );
             Sequences::with_alphabet(
