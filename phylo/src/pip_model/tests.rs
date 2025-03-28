@@ -794,3 +794,17 @@ fn logl_not_inf_for_empty_col() {
     assert_ne!(logl, f64::NEG_INFINITY);
     assert!(logl < 0.0);
 }
+
+#[test]
+fn blen_leading_to_inf() {
+    let fldr = Path::new("./data/");
+    let seq_file = fldr.join("p105.msa.fa");
+    let tree_file = fldr.join("p105.newick");
+    let info = PIB::with_attrs(seq_file, tree_file).build().unwrap();
+
+    let model = PIPModel::<WAG>::new(&[], &[]);
+    let c = PIPB::new(model, info).build().unwrap();
+    let logl = c.cost();
+    assert_ne!(logl, f64::NEG_INFINITY);
+    assert!(logl < 0.0);
+}
