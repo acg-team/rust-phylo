@@ -317,7 +317,13 @@ impl<Q: QMatrix> PIPCost<Q> {
         let root_idx = usize::from(&self.info.tree.root);
         let msa_length = self.info.msa.len();
 
-        tmp.pnu[root_idx].map(|x| x.ln()).sum() + tmp.c0_pnu[root_idx]
+        // If a branch length is ridiculously long it breaks the values and some sites end up with a 0.0
+        // probability. This is a workaround that sets the value to the smallest representable positive
+        // float instead.
+        tmp.pnu[root_idx]
+            .map(|x| if x == 0.0f64 { f64::MIN_POSITIVE } else { x }.ln())
+            .sum()
+            + tmp.c0_pnu[root_idx]
             - log_factorial_shifted(msa_length)
     }
 
