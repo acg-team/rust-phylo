@@ -94,7 +94,7 @@ impl<'a> AlignmentBuilder<'a> {
                 .collect();
             Record::with_attrs(rec.id(), rec.desc(), &seq)
         });
-        self.seqs = Sequences::with_alphabet(new_seqs.collect(), self.seqs.alphabet().clone());
+        self.seqs = Sequences::with_alphabet(new_seqs.collect(), *self.seqs.alphabet());
     }
 
     fn stack_maps(msa_len: usize, map_x: &Mapping, map_y: &Mapping) -> Mapping {

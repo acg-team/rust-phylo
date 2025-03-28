@@ -117,7 +117,7 @@ impl Sequences {
         Sequences {
             s: seqs,
             aligned: false,
-            alphabet: self.alphabet.clone(),
+            alphabet: *self.alphabet(),
         }
     }
 
