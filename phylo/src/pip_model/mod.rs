@@ -321,7 +321,14 @@ impl<Q: QMatrix> PIPCost<Q> {
         // probability. This is a workaround that sets the value to the smallest representable positive
         // float instead.
         tmp.pnu[root_idx]
-            .map(|x| if x == 0.0f64 { f64::MIN_POSITIVE } else { x }.ln())
+            .map(|x| {
+                if x.abs() < f64::MIN_POSITIVE {
+                    f64::MIN_POSITIVE
+                } else {
+                    x
+                }
+                .ln()
+            })
             .sum()
             + tmp.c0_pnu[root_idx]
             - log_factorial_shifted(msa_length)
