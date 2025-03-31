@@ -5,6 +5,7 @@ use assert_matches::assert_matches;
 use bio::io::fasta::Record;
 
 use crate::alignment::Sequences;
+use crate::alphabets::{dna_alphabet, protein_alphabet};
 use crate::frequencies;
 use crate::io::{read_sequences_from_file, DataError};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
@@ -424,4 +425,19 @@ fn empirical_frequencies_no_aas() {
         frequencies!(&[3.0 / 10.0, 3.0 / 10.0, 1.0 / 10.0, 3.0 / 10.0]),
         epsilon = 1e-6
     );
+}
+
+#[test]
+fn force_protein_alphabet() {
+    // If data is severely subsampled it might look like DNA even though it's really protein
+    let fldr = PathBuf::from("./data");
+    let info = PIB::new(fldr.join("p226.msa.fa")).build().unwrap();
+    assert_eq!(info.msa.alphabet(), &dna_alphabet());
+
+    let fldr = PathBuf::from("./data");
+    let info = PIB::new(fldr.join("p226.msa.fa"))
+        .alphabet(Some(protein_alphabet()))
+        .build()
+        .unwrap();
+    assert_eq!(info.msa.alphabet(), &protein_alphabet());
 }
