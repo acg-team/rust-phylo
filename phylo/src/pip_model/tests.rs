@@ -5,7 +5,7 @@ use bio::io::fasta::Record;
 use nalgebra::{DMatrix, DVector};
 
 use crate::alignment::Sequences;
-use crate::alphabets::{AMINOACIDS as aas, GAP, NUCLEOTIDES as nucls};
+use crate::alphabets::{protein_alphabet, AMINOACIDS as aas, GAP, NUCLEOTIDES as nucls};
 use crate::evolutionary_models::EvoModel;
 use crate::io::read_sequences_from_file;
 use crate::likelihood::ModelSearchCost;
@@ -796,7 +796,7 @@ fn logl_not_inf_for_empty_col() {
 }
 
 #[test]
-fn blen_leading_to_inf() {
+fn blen_leading_to_small_probs() {
     let fldr = Path::new("./data/");
     let seq_file = fldr.join("p105.msa.fa");
     let tree_file = fldr.join("p105.newick");
@@ -807,4 +807,29 @@ fn blen_leading_to_inf() {
     let logl = c.cost();
     assert_ne!(logl, f64::NEG_INFINITY);
     assert!(logl < 0.0);
+}
+
+#[test]
+fn blen_leading_to_minusinf() {
+    let sequences = Sequences::with_alphabet(
+        vec![
+            record!("284813", b"-"),
+            record!("284811", b"W"),
+            record!("284593", b"W"),
+            record!("237561", b"W"),
+            record!("284591", b"W"),
+            record!("284812", b"W"),
+        ],
+        protein_alphabet(),
+    );
+    let tree = tree!("((284811:0.0000000000000002,(284593:0.1,(237561:0.3,(284812:0.3,(284813:400.9,284591:0.2):40000000000000.2):0.05):0.1):0.04):0);");
+    let info = PIB::build_from_objects(sequences, tree).unwrap();
+    //0.0012197623652386346
+    //0.0012197623652386337
+
+    let model = PIPModel::<WAG>::new(&[], &[]);
+    let c = PIPB::new(model, info).build().unwrap();
+    let logl = c.cost();
+    assert_ne!(logl, f64::NEG_INFINITY);
+    assert!(logl.is_sign_negative());
 }
