@@ -330,7 +330,7 @@ impl<Q: QMatrix> PIPCost<Q> {
         // which is equivalent to restricting the log likelihood to f64::MIN.
         tmp.pnu[root_idx]
             .map(|x| {
-                if x == 0.0 || x.is_subnormal() || x.is_nan() {
+                if x == 0.0 || x.is_subnormal() {
                     *MINLOGPROB
                 } else {
                     x.ln()
