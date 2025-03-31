@@ -105,8 +105,7 @@ fn repeated_optimisation_limit() {
 
     let fldr = Path::new("./data/");
     let seq_file = fldr.join("p105.msa.fa");
-    let tree_file = fldr.join("p105.newick");
-    let info = PIB::with_attrs(seq_file, tree_file).build().unwrap();
+    let info = PIB::new(seq_file).build().unwrap();
 
     let model = PIPModel::<WAG>::new(&[], &[]);
 
