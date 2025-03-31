@@ -7,6 +7,7 @@ use std::ops::Mul;
 use std::vec;
 
 use anyhow::bail;
+use lazy_static::lazy_static;
 use log::warn;
 use nalgebra::{DMatrix, DVector};
 
@@ -24,6 +25,10 @@ use crate::Result;
 
 // (2.0 * PI).ln() / 2.0;
 pub static SHIFT: f64 = 0.9189385332046727;
+
+lazy_static! {
+    pub static ref MINLOGPROB: f64 = (f64::MIN_POSITIVE).ln();
+}
 
 fn log_factorial_shifted(n: usize) -> f64 {
     // An approximation using Stirling's formula, minus constant log(sqrt(2*PI)).
@@ -326,11 +331,10 @@ impl<Q: QMatrix> PIPCost<Q> {
         tmp.pnu[root_idx]
             .map(|x| {
                 if x == 0.0 || x.is_subnormal() || x.is_nan() {
-                    f64::MIN_POSITIVE
+                    *MINLOGPROB
                 } else {
-                    x
+                    x.ln()
                 }
-                .ln()
             })
             .sum()
             + tmp.c0_pnu[root_idx]
