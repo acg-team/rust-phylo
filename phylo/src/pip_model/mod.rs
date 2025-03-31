@@ -9,7 +9,7 @@ use std::vec;
 use anyhow::bail;
 use lazy_static::lazy_static;
 use log::warn;
-use nalgebra::{DMatrix, DVector, Vector};
+use nalgebra::{DMatrix, DVector};
 
 use crate::alignment::Mapping;
 use crate::alphabets::{Alphabet, GAP};
@@ -361,45 +361,6 @@ impl<Q: QMatrix> PIPCost<Q> {
         }
     }
 
-    fn build_tree_order(tree: &Tree) {
-        type Mat = DMatrix<f64>;
-        type MatPair = (Mat, Mat);
-        /// 0:        [r]
-        /// 1:       [i,i]
-        /// 2:     [i,i i,i]
-        /// 3: [i,i  i,i  i,i  i,i]
-        ///
-        /// L2 accesses relevant values from L3 with
-        /// indices i*2, i*2+1
-        ///
-        ///
-        /// Assumptions:
-        /// - process the levels left to right to reduce sync effort
-        ///     when processing the next layer early.
-        ///     Its very easy to just 'unblock' all results up to the middle
-        ///     instead of trying to Semaphore/etc... each individual pair of children.
-        ///     
-        ///     This should not waste much time since each pair of nodes is assumed
-        ///     to take equal time to process (there are no conditional calculations)
-        struct TreeLevel {
-            level: usize,
-            /// CPU go brrrr when grug make code simple
-            /// so grug think that simpler when all ftilde processed
-            /// then all c0 (per level)
-            /// In science: MAYBE it helps branch prediciton to execute the same
-            /// code for as long as possible on contiguous memory,
-            /// then switch to the next piece of code and repeat (essentially
-            /// batch processing)
-            ///
-            /// If we implement threads per core then this might be worth to
-            /// separate by core. It should be fine to allow core 0 to start
-            /// 'pnu' or whatever calculations while the other cores keep faithfully
-            /// calculating ftilde without throwing off branch predicition
-            /// (maybe memory bandwidth becomes an issue here since it would not be
-            /// contiguous with the rest)
-            ftilde_pairs: Vec<MatPair>,
-        }
-    }
     fn set_internal(&self, tree: &Tree, node_idx: &NodeIdx) {
         self.set_model(tree, node_idx);
         let idx = usize::from(node_idx);
