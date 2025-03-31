@@ -317,9 +317,12 @@ impl<Q: QMatrix> PIPCost<Q> {
         let root_idx = usize::from(&self.info.tree.root);
         let msa_length = self.info.msa.len();
 
-        // If a branch length is ridiculously long it breaks the values and some sites end up with a 0.0
-        // probability. This is a workaround that sets the value to the smallest representable positive
-        // float instead.
+        // In certain scenarios (e.g. a completely unrelated sequence, see data/p105.msa.fa)
+        // individual column probabilities become too close to 0.0 (become subnormal)
+        // and the log likelihood becomes -Inf. This is mathematically reasonable, but during branch
+        // length optimisation BrentOpt cannot handle it and proposes NaN branch lengths.
+        // This is a workaround that sets the probability to the smallest posible positive float,
+        // which is equivalent to restricting the log likelihood to f64::MIN.
         tmp.pnu[root_idx]
             .map(|x| {
                 if x.is_subnormal() {
