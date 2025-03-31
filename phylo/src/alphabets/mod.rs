@@ -15,7 +15,7 @@ pub static AMB_CHAR: u8 = b'X';
 pub static GAP: u8 = b'-';
 pub static POSSIBLE_GAPS: &[u8] = b"_*-";
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Alphabet {
     symbols: &'static [u8],
     ambiguous: &'static [u8],
@@ -64,35 +64,21 @@ impl Alphabet {
 }
 
 pub fn detect_alphabet(sequences: &[Record]) -> Alphabet {
-    let dna_alphabet = dna_alphabet();
+    let dna_alphabet = *DNA_ALPHABET;
     for record in sequences.iter() {
         if !dna_alphabet.is_word(record.seq()) {
-            return protein_alphabet();
+            return *PROTEIN_ALPHABET;
         }
     }
     dna_alphabet
 }
 
-pub(crate) fn dna_alphabet() -> Alphabet {
-    Alphabet {
-        symbols: NUCLEOTIDES,
-        ambiguous: AMB_NUCLEOTIDES,
-        index: &NUCLEOTIDE_INDEX,
-        valid_symbols: &VALID_NUCLEOTIDES,
-        char_sets: &NUCLEOTIDE_SETS,
-        name: "DNA",
-    }
+pub fn dna_alphabet() -> Alphabet {
+    *DNA_ALPHABET
 }
 
-pub(crate) fn protein_alphabet() -> Alphabet {
-    Alphabet {
-        symbols: AMINOACIDS,
-        ambiguous: AMB_AMINOACIDS,
-        index: &AMINOACID_INDEX,
-        valid_symbols: &VALID_AMINOACIDS,
-        char_sets: &AMINOACID_SETS,
-        name: "protein",
-    }
+pub fn protein_alphabet() -> Alphabet {
+    *PROTEIN_ALPHABET
 }
 
 lazy_static! {
@@ -119,6 +105,14 @@ lazy_static! {
             .chain(AMB_NUCLEOTIDES.iter().chain([GAP].iter()))
             .cloned()
             .collect()
+    };
+    pub static ref DNA_ALPHABET: Alphabet = Alphabet {
+        symbols: NUCLEOTIDES,
+        ambiguous: AMB_NUCLEOTIDES,
+        index: &NUCLEOTIDE_INDEX,
+        valid_symbols: &VALID_NUCLEOTIDES,
+        char_sets: &NUCLEOTIDE_SETS,
+        name: "DNA",
     };
 }
 
@@ -167,6 +161,14 @@ lazy_static! {
             .chain(AMB_AMINOACIDS.iter().chain([GAP].iter()))
             .cloned()
             .collect()
+    };
+    pub static ref PROTEIN_ALPHABET: Alphabet = Alphabet {
+        symbols: AMINOACIDS,
+        ambiguous: AMB_AMINOACIDS,
+        index: &AMINOACID_INDEX,
+        valid_symbols: &VALID_AMINOACIDS,
+        char_sets: &AMINOACID_SETS,
+        name: "protein",
     };
 }
 

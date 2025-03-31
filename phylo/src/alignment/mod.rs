@@ -122,10 +122,7 @@ impl Alignment {
             records.push(Record::with_attrs(rec.id(), rec.desc(), &aligned_seq));
         }
 
-        Ok(Sequences::with_alphabet(
-            records,
-            self.seqs.alphabet.clone(),
-        ))
+        Ok(Sequences::with_alphabet(records, self.seqs.alphabet))
     }
 
     fn compile_leaf_map(&self, root: &NodeIdx, tree: &Tree) -> Result<LeafMapping> {
