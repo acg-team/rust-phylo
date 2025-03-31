@@ -102,12 +102,12 @@ fn run_optimisation(
 
 criterion_group! {
 name = pip_inferrence_tiny;
-config = Criterion::default().measurement_time(Duration::from_secs(20)).sample_size(30);
+config = Criterion::default().measurement_time(Duration::from_secs(30)).sample_size(10);
 targets = bench_pip_dna_tiny
 }
 criterion_group! {
 name = pip_inferrence_small;
-config = Criterion::default().measurement_time(Duration::from_secs(20)).sample_size(10);
+config = Criterion::default().measurement_time(Duration::from_secs(30)).sample_size(30);
 targets = bench_pip_protein_small
 }
 criterion_main!(pip_inferrence_tiny, pip_inferrence_small);
