@@ -322,7 +322,7 @@ impl<Q: QMatrix> PIPCost<Q> {
         // float instead.
         tmp.pnu[root_idx]
             .map(|x| {
-                if x.abs() < f64::MIN_POSITIVE {
+                if x.is_subnormal() {
                     f64::MIN_POSITIVE
                 } else {
                     x
