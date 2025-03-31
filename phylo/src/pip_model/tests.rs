@@ -824,8 +824,6 @@ fn blen_leading_to_minusinf() {
     );
     let tree = tree!("((284811:0.0000000000000002,(284593:0.1,(237561:0.3,(284812:0.3,(284813:400.9,284591:0.2):40000000000000.2):0.05):0.1):0.04):0);");
     let info = PIB::build_from_objects(sequences, tree).unwrap();
-    //0.0012197623652386346
-    //0.0012197623652386337
 
     let model = PIPModel::<WAG>::new(&[], &[]);
     let c = PIPB::new(model, info).build().unwrap();
