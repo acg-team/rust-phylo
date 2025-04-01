@@ -73,7 +73,13 @@ impl<Q: QMatrix + QMatrixMaker> SubstModel<Q> {
 
 impl<Q: QMatrix> EvoModel for SubstModel<Q> {
     fn p(&self, time: f64) -> SubstMatrix {
-        (self.q().clone() * time).exp()
+        // If time > 1e10f64 the matrix exponentiation breaks and stops converging, but before it breaks
+        // starting with 1e5f64 it converges to the same result.
+        if time > 1e5f64 {
+            (self.q().clone() * 1e5f64).exp()
+        } else {
+            (self.q().clone() * time).exp()
+        }
     }
 
     fn q(&self) -> &SubstMatrix {
