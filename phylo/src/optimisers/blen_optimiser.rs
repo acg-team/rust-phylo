@@ -80,7 +80,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
         let (min, max) = if start_blen == 0.0 {
             (0.0, 1.0)
         } else {
-            (start_blen * 0.1, start_blen * 10.0)
+            (start_blen * 0.1, 1e5f64.min(start_blen * 10.0))
         };
         let optimiser = SingleBranchOptimiser {
             cost: &mut self.c,
