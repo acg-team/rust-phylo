@@ -20,6 +20,8 @@ type Result<T> = std::result::Result<T, Error>;
 #[allow(non_camel_case_types)]
 type f64_h = ordered_float::OrderedFloat<f64>;
 
+pub(crate) const MAX_BLEN: f64 = 1e5f64;
+
 pub struct Rounding {
     pub round: bool,
     pub digits: usize,

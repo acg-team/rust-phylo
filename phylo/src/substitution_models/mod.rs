@@ -10,11 +10,12 @@ use nalgebra::{DMatrix, DVector};
 use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
+use crate::phylo_info::PhyloInfo;
 use crate::tree::{
     NodeIdx::{self, Internal, Leaf},
     Tree,
 };
-use crate::{phylo_info::PhyloInfo, Result};
+use crate::{Result, MAX_BLEN};
 
 pub mod dna_models;
 pub use dna_models::*;
@@ -73,7 +74,13 @@ impl<Q: QMatrix + QMatrixMaker> SubstModel<Q> {
 
 impl<Q: QMatrix> EvoModel for SubstModel<Q> {
     fn p(&self, time: f64) -> SubstMatrix {
-        (self.q().clone() * time).exp()
+        // If time > 1e10f64 the matrix exponentiation breaks and stops converging, but before it breaks
+        // starting with 1e5f64 it converges to the same result.
+        if time > MAX_BLEN {
+            (self.q().clone() * MAX_BLEN).exp()
+        } else {
+            (self.q().clone() * time).exp()
+        }
     }
 
     fn q(&self) -> &SubstMatrix {

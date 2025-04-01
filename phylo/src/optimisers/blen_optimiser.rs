@@ -8,7 +8,7 @@ use log::{debug, info};
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{PhyloOptimisationResult, SingleValOptResult};
 use crate::tree::NodeIdx;
-use crate::Result;
+use crate::{Result, MAX_BLEN};
 
 pub struct BranchOptimiser<C: TreeSearchCost + Display + Clone> {
     pub(crate) epsilon: f64,
@@ -80,7 +80,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
         let (min, max) = if start_blen == 0.0 {
             (0.0, 1.0)
         } else {
-            (start_blen * 0.1, start_blen * 10.0)
+            (start_blen * 0.1, MAX_BLEN.min(start_blen * 10.0))
         };
         let optimiser = SingleBranchOptimiser {
             cost: &mut self.c,
