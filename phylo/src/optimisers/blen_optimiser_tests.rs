@@ -1,14 +1,17 @@
 use std::path::Path;
 
 use approx::assert_relative_eq;
+use bio::io::fasta::Record;
 
+use crate::alignment::Sequences;
+use crate::alphabets::protein_alphabet;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::BranchOptimiser;
 use crate::phylo_info::PhyloInfoBuilder as PIB;
 use crate::pip_model::{PIPCostBuilder as PIPCB, PIPModel};
 use crate::substitution_models::{dna_models::*, SubstModel, SubstitutionCostBuilder as SCB, WAG};
-use crate::tree;
 use crate::tree::tree_parser::from_newick;
+use crate::{record_wo_desc as record, tree};
 
 #[test]
 fn branch_opt_likelihood_increase_pip() {
@@ -124,4 +127,20 @@ fn repeated_optimisation_limit() {
         final_cost = branch_o.final_cost;
         cost = branch_o.cost;
     }
+}
+
+#[test]
+fn only_gap_sequence() {
+    let tree = tree!("((5207:0.8699783346462397,284812:226000000):0);");
+    let sequences = Sequences::with_alphabet(
+        vec![record!("284812", b"-"), record!("5207", b"V")],
+        protein_alphabet(),
+    );
+    let info = PIB::build_from_objects(sequences, tree).unwrap();
+    let model = SubstModel::<WAG>::new(&[], &[]);
+    let c = SCB::new(model, info).build().unwrap();
+
+    let o = BranchOptimiser::new(c).run().unwrap();
+    assert!(o.final_cost >= o.initial_cost);
+    assert!(o.final_cost.is_sign_negative());
 }
