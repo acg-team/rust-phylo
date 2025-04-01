@@ -6,11 +6,9 @@ use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
 use crate::likelihood::TreeSearchCost;
-use crate::optimisers::PhyloOptimisationResult;
+use crate::optimisers::{PhyloOptimisationResult, SingleValOptResult};
 use crate::tree::NodeIdx;
 use crate::Result;
-
-use super::SingleValOptResult;
 
 pub struct BranchOptimiser<C: TreeSearchCost + Display + Clone> {
     pub(crate) epsilon: f64,
@@ -79,7 +77,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
 impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
     pub(crate) fn optimise_branch(&mut self, branch: &NodeIdx) -> Result<SingleValOptResult> {
         let start_blen = self.c.borrow().tree().node(branch).blen;
-        let (start, end) = if start_blen == 0.0 {
+        let (min, max) = if start_blen == 0.0 {
             (0.0, 1.0)
         } else {
             (start_blen * 0.1, start_blen * 10.0)
@@ -88,7 +86,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
             cost: &mut self.c,
             branch: *branch,
         };
-        let gss = BrentOpt::new(start, end);
+        let gss = BrentOpt::new(min, max);
         let res = Executor::new(optimiser, gss)
             .configure(|_| IterState::new().param(start_blen))
             .run()?;

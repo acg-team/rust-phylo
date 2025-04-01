@@ -795,7 +795,7 @@ fn simple_reroot_info(alphabet: &Alphabet) -> (PhyloInfo, PhyloInfo) {
             record!("B", b"ATATATATAAIHL"),
             record!("C", b"TTATATATATIJL"),
         ],
-        alphabet.clone(),
+        *alphabet,
     );
 
     let info = PhyloInfo {
@@ -926,7 +926,7 @@ fn one_site_one_char_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: 
             record!("three", b"-"),
             record!("four", b"-"),
         ],
-        model.qmatrix.alphabet().clone(),
+        *model.qmatrix.alphabet(),
     );
     let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
     let info = PhyloInfo {
@@ -1101,7 +1101,7 @@ fn x_fully_likely_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f
             record!("C", b"X"),
             record!("D", b"X"),
         ],
-        model.alphabet().clone(),
+        *model.alphabet(),
     );
     let info = PhyloInfo {
         msa: Alignment::from_aligned(seqs, &tree).unwrap(),

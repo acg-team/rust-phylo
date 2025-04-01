@@ -6,7 +6,7 @@ use crate::likelihood::TreeSearchCost;
 use crate::optimisers::BranchOptimiser;
 use crate::phylo_info::PhyloInfoBuilder as PIB;
 use crate::pip_model::{PIPCostBuilder as PIPCB, PIPModel};
-use crate::substitution_models::{dna_models::*, SubstModel, SubstitutionCostBuilder as SCB};
+use crate::substitution_models::{dna_models::*, SubstModel, SubstitutionCostBuilder as SCB, WAG};
 use crate::tree;
 
 #[test]
@@ -94,4 +94,33 @@ fn branch_optimiser_against_phyml() {
     let c = SCB::new(model, o.cost.info.clone()).build().unwrap();
     assert_eq!(o.cost.cost(), o.final_cost);
     assert_eq!(c.cost(), o.final_cost);
+}
+
+#[test]
+fn repeated_optimisation_limit() {
+    // This used to create -Inf likelihoods due to too long branch lengths and the probability
+    // turning to 0.0.
+    // This is supposed to run and not crash, no other conditions.
+
+    let fldr = Path::new("./data/");
+    let seq_file = fldr.join("p105.msa.fa");
+    let info = PIB::new(seq_file).build().unwrap();
+
+    let model = PIPModel::<WAG>::new(&[], &[]);
+
+    let mut cost = PIPCB::new(model, info).build().unwrap();
+    let mut prev_cost = f64::NEG_INFINITY;
+    let mut final_cost = TreeSearchCost::cost(&cost);
+    let max_iterations = 100;
+    let epsilon = 1e-5;
+
+    let mut iterations = 0;
+    while final_cost - prev_cost > epsilon && iterations < max_iterations {
+        iterations += 1;
+        prev_cost = final_cost;
+        let branch_o = BranchOptimiser::new(cost.clone()).run().unwrap();
+        assert!(branch_o.final_cost > branch_o.initial_cost);
+        final_cost = branch_o.final_cost;
+        cost = branch_o.cost;
+    }
 }

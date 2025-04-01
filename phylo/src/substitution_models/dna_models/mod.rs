@@ -47,7 +47,7 @@ impl QMatrixMaker for JC69 {
         JC69 {
             freqs: frequencies!(&[1.0 / DNA_N as f64; DNA_N]),
             q,
-            alphabet: dna_alphabet().clone(),
+            alphabet: dna_alphabet(),
         }
     }
 }
@@ -110,7 +110,7 @@ impl QMatrixMaker for K80 {
             freqs: frequencies!(&[1.0 / DNA_N as f64; DNA_N]),
             q,
             kappa: vec![kappa],
-            alphabet: dna_alphabet().clone(),
+            alphabet: dna_alphabet(),
         }
     }
 }
@@ -203,7 +203,7 @@ impl QMatrixMaker for HKY {
             freqs,
             q,
             kappa: vec![kappa],
-            alphabet: dna_alphabet().clone(),
+            alphabet: dna_alphabet(),
         }
     }
 }
@@ -312,7 +312,7 @@ impl QMatrixMaker for TN93 {
             freqs,
             q,
             params,
-            alphabet: dna_alphabet().clone(),
+            alphabet: dna_alphabet(),
         }
     }
 }
@@ -424,7 +424,7 @@ impl QMatrixMaker for GTR {
             freqs,
             q,
             params,
-            alphabet: dna_alphabet().clone(),
+            alphabet: dna_alphabet(),
         }
     }
 }

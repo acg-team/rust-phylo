@@ -5,6 +5,7 @@ use anyhow::bail;
 use log::{info, warn};
 
 use crate::alignment::{Aligner, Alignment, Sequences};
+use crate::alphabets::Alphabet;
 use crate::io::{self, DataError};
 use crate::parsimony::ParsimonyAligner;
 use crate::phylo_info::PhyloInfo;
@@ -15,6 +16,7 @@ pub struct PhyloInfoBuilder {
     sequence_file: PathBuf,
     tree_file: Option<PathBuf>,
     alignment_builder: Option<Box<dyn Aligner>>,
+    alphabet: Option<Alphabet>,
 }
 
 impl PhyloInfoBuilder {
@@ -35,6 +37,7 @@ impl PhyloInfoBuilder {
             sequence_file,
             tree_file: None,
             alignment_builder: None,
+            alphabet: None,
         }
     }
 
@@ -57,6 +60,7 @@ impl PhyloInfoBuilder {
             sequence_file,
             tree_file: Some(tree_file),
             alignment_builder: None,
+            alphabet: None,
         }
     }
 
@@ -96,6 +100,25 @@ impl PhyloInfoBuilder {
         self
     }
 
+    /// Sets the tree file path for the PhyloInfoBuilder struct.
+    /// Returns the PhyloInfoBuilder struct with the tree file path set.
+    ///
+    /// # Arguments
+    /// * `path` - File path to the tree newick file.
+    ///
+    /// # Example
+    /// ```
+    /// use std::path::PathBuf;
+    /// use phylo::alphabets::protein_alphabet;
+    /// use phylo::phylo_info::PhyloInfoBuilder;
+    /// let info = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta")).alphabet(Some(protein_alphabet())).build().unwrap();
+    /// assert_eq!(info.msa.alphabet(), &protein_alphabet());
+    /// ```
+    pub fn alphabet(mut self, alphabet: Option<Alphabet>) -> PhyloInfoBuilder {
+        self.alphabet = alphabet;
+        self
+    }
+
     /// Builds the PhyloInfo struct from the sequence file and the tree file (if provided).
     /// If the provided tree file has more than one tree, only the first tree will be processed.
     /// If no tree file is provided, an NJ tree is built from the sequences.
@@ -119,7 +142,24 @@ impl PhyloInfoBuilder {
     /// assert_eq!(info.tree.len(), 7);
     /// ```
     pub fn build(self) -> Result<PhyloInfo> {
-        let sequences = self.read_sequences()?;
+        info!(
+            "Reading sequences from file {}",
+            self.sequence_file.display()
+        );
+        let sequences = if self.alphabet.is_none() {
+            info!("No alphabet provided, detecting alphabet from sequences");
+            Sequences::new(io::read_sequences(&self.sequence_file)?)
+        } else {
+            info!(
+                "Using provided {} alphabet",
+                self.alphabet.as_ref().unwrap()
+            );
+            Sequences::with_alphabet(
+                io::read_sequences(&self.sequence_file)?,
+                self.alphabet.unwrap(),
+            )
+        };
+        info!("{} sequence(s) read successfully", sequences.len());
 
         let tree = match &self.tree_file {
             Some(tree_file) => self.read_tree(&sequences, tree_file)?,
@@ -140,16 +180,6 @@ impl PhyloInfoBuilder {
         };
 
         Ok(PhyloInfo { tree, msa })
-    }
-
-    fn read_sequences(&self) -> Result<Sequences> {
-        info!(
-            "Reading sequences from file {}",
-            self.sequence_file.display()
-        );
-        let sequences = Sequences::new(io::read_sequences(&self.sequence_file)?);
-        info!("{} sequence(s) read successfully", sequences.len());
-        Ok(sequences)
     }
 
     fn read_tree(&self, sequences: &Sequences, tree_file: &PathBuf) -> Result<Tree> {

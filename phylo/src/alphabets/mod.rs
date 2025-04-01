@@ -17,7 +17,7 @@ pub static AMB_CHAR: u8 = b'X';
 pub static GAP: u8 = b'-';
 pub static POSSIBLE_GAPS: &[u8] = b"_*-";
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Alphabet {
     name: &'static str,
     symbols: &'static [u8],

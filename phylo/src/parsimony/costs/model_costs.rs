@@ -109,7 +109,7 @@ impl ModelCosts {
         );
         debug!("The scoring matrices are: {:?}", costs);
         Ok(ModelCosts {
-            alphabet: model.alphabet().clone(),
+            alphabet: *model.alphabet(),
             costs,
         })
     }
