@@ -1154,6 +1154,17 @@ fn protein_avg_rate() {
     avg_rate_template::<BLOSUM>(freqs, &[]);
 }
 
+#[test]
+fn p_matrix_limit() {
+    let model = SubstModel::<WAG>::new(&[], &[]);
+    let time = 1e10f64;
+    let p = model.p(time);
+    let p2 = model.p(1e3f64);
+    check_freq_convergence(p.clone(), model.freqs(), 1e-5);
+    check_freq_convergence(p2.clone(), model.freqs(), 1e-5);
+    assert_relative_eq!(p, p2, epsilon = 1e-5);
+}
+
 #[cfg(test)]
 fn parsimony_rounding_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) {
     let model = SubstModel::<Q>::new(freqs, params);

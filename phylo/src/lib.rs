@@ -17,3 +17,5 @@ pub mod tree;
 pub(crate) mod test_macros;
 
 type Result<T> = std::result::Result<T, Error>;
+
+pub(crate) const MAX_BLEN: f64 = 1e5f64;
