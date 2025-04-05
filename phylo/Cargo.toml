@@ -14,9 +14,11 @@ opt-level = 3
 
 [profile.release]
 opt-level = 3
+# lto = "fat"
+# codegen-units = 1
 
+# inherits from release
 [profile.bench]
-opt-level = 3
 debug = true
 
 
