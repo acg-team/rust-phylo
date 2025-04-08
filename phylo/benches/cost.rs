@@ -38,6 +38,7 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
         let data = black_box_setup::<Q>(path);
         bench(key, data);
     }
+    bench_group.finish();
 }
 
 fn pip_cost_dna_easy(criterion: &mut Criterion) {

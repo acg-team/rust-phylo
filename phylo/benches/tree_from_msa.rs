@@ -87,9 +87,9 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
     group_name: &'static str,
     criterion: &mut Criterion,
 ) {
-    let mut dna_easy = criterion.benchmark_group(group_name);
+    let mut bench_group = criterion.benchmark_group(group_name);
     let mut bench = |id: &str, data: (PIPConfig, PIPCost<Q>)| {
-        dna_easy.bench_function(id, |bench| {
+        bench_group.bench_function(id, |bench| {
             bench.iter_batched(
                 // clone because of interior mutability in PIPCost
                 || data.clone(),
@@ -102,6 +102,7 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
         let data = black_box_setup::<Q>(path);
         bench(key, data);
     }
+    bench_group.finish();
 }
 
 fn pip_inferrence_dna(criterion: &mut Criterion) {
