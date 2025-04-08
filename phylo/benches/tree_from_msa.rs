@@ -107,12 +107,12 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
 
 fn pip_inferrence_dna(criterion: &mut Criterion) {
     let paths = Paths::from([("5X1000", DNA_EASY_5X1000), ("8X1252", DNA_EASY_8X1252)]);
-    run_for_sizes::<JC69>(&paths, "DNA", criterion);
+    run_for_sizes::<JC69>(&paths, "Tree-from-MSA DNA", criterion);
 }
 
 fn pip_inferrence_aa(criterion: &mut Criterion) {
     let paths = Paths::from([("6X97", AA_EASY_6X97), ("12X73", AA_EASY_12X73)]);
-    run_for_sizes::<WAG>(&paths, "AA", criterion);
+    run_for_sizes::<WAG>(&paths, "Tree-from-MSA AA", criterion);
 }
 
 criterion_group! {

@@ -47,7 +47,7 @@ fn pip_cost_dna_easy(criterion: &mut Criterion) {
         ("17X2292", DNA_EASY_17X2292),
         ("33X4455", DNA_EASY_33X4455),
     ]);
-    run_for_sizes::<JC69>(&paths, "DNA", criterion);
+    run_for_sizes::<JC69>(&paths, "PIP Cost DNA", criterion);
 }
 
 fn pip_cost_aa_easy(criterion: &mut Criterion) {
@@ -57,7 +57,7 @@ fn pip_cost_aa_easy(criterion: &mut Criterion) {
         ("45X223", AA_EASY_45X223),
         ("79X106", AA_MEDIUM_79X106),
     ]);
-    run_for_sizes::<WAG>(&paths, "AA", criterion);
+    run_for_sizes::<WAG>(&paths, "PIP Cost AA", criterion);
 }
 
 criterion_group! {
