@@ -8,7 +8,7 @@ use anyhow::Result;
 use criterion::{criterion_group, criterion_main, Criterion};
 use log::info;
 
-use phylo::bench_helpers::{Paths, AA_EASY_6X97, DNA_EASY_5X1000, DNA_EASY_8X1252};
+use phylo::bench_helpers::{Paths, AA_EASY_12X73, AA_EASY_6X97, DNA_EASY_5X1000, DNA_EASY_8X1252};
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::{ModelSearchCost, TreeSearchCost};
 use phylo::optimisers::{ModelOptimiser, TopologyOptimiser};
@@ -110,7 +110,7 @@ fn pip_inferrence_dna(criterion: &mut Criterion) {
 }
 
 fn pip_inferrence_aa(criterion: &mut Criterion) {
-    let paths = Paths::from([("6X97", AA_EASY_6X97)]);
+    let paths = Paths::from([("6X97", AA_EASY_6X97), ("12X73", AA_EASY_12X73)]);
     run_for_sizes::<WAG>(&paths, "AA", criterion);
 }
 
