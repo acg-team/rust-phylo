@@ -14,6 +14,7 @@ pub mod pip_model;
 pub mod substitution_models;
 pub mod tree;
 
+pub mod bench_helpers;
 pub(crate) mod test_macros;
 
 type Result<T> = std::result::Result<T, Error>;

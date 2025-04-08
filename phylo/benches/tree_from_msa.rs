@@ -2,21 +2,22 @@ use std::fmt::Display;
 use std::hint::black_box;
 use std::path::PathBuf;
 use std::result::Result::Ok;
-use std::time::Duration;
 
 use anyhow::Result;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use log::info;
 
+use phylo::bench_helpers::{Paths, AA_EASY_6X97, DNA_EASY_5X1000, DNA_EASY_8X1252};
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::{ModelSearchCost, TreeSearchCost};
 use phylo::optimisers::{ModelOptimiser, TopologyOptimiser};
 use phylo::phylo_info::PhyloInfoBuilder;
 use phylo::pip_model::{PIPCost, PIPCostBuilder, PIPModel};
-use phylo::substitution_models::{QMatrix, QMatrixMaker, GTR, WAG};
+use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 use phylo::tree::Tree;
 
+#[derive(Clone)]
 struct PIPConfig {
     freqs: Vec<f64>,
     params: Vec<f64>,
@@ -55,25 +56,6 @@ fn black_box_setup<Model: QMatrix + QMatrixMaker>(
     (cfg, pip_cost)
 }
 
-fn bench_pip_protein_small(criterion: &mut criterion::Criterion) {
-    let (cfg, pip_cost) = black_box_setup::<WAG>("data/benches/single-gene/NagyA1/Cluster9992.aln");
-    criterion.bench_function("PIP Protein(WAG) small", |bench| {
-        bench.iter(|| {
-            run_optimisation(pip_cost.clone(), cfg.freq_opt, cfg.max_iters, cfg.epsilon)
-                .expect("failed to run pip optimisation")
-        });
-    });
-}
-fn bench_pip_dna_tiny(criterion: &mut criterion::Criterion) {
-    let (cfg, pip_cost) = black_box_setup::<GTR>("data/sim/GTR/gtr.fasta");
-    criterion.bench_function("PIP DNA(GTR) tiny but long", |bench| {
-        bench.iter(|| {
-            run_optimisation(pip_cost.clone(), cfg.freq_opt, cfg.max_iters, cfg.epsilon)
-                .expect("failed to run pip optimisation")
-        });
-    });
-}
-
 fn run_optimisation(
     cost: impl TreeSearchCost + ModelSearchCost + Display + Clone,
     freq_opt: FrequencyOptimisation,
@@ -100,14 +82,46 @@ fn run_optimisation(
     Ok((final_cost, cost.tree().clone()))
 }
 
+fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
+    paths: &Paths,
+    group_name: &'static str,
+    criterion: &mut Criterion,
+) {
+    let mut dna_easy = criterion.benchmark_group(group_name);
+    let mut bench = |id: &str, data: (PIPConfig, PIPCost<Q>)| {
+        dna_easy.bench_function(id, |bench| {
+            bench.iter_batched(
+                // clone because of interior mutability in PIPCost
+                || data.clone(),
+                |data| run_optimisation(data.1, data.0.freq_opt, data.0.max_iters, data.0.epsilon),
+                criterion::BatchSize::SmallInput,
+            );
+        });
+    };
+    for (key, path) in paths {
+        let data = black_box_setup::<Q>(path);
+        bench(key, data);
+    }
+}
+
+fn pip_inferrence_dna(criterion: &mut Criterion) {
+    let paths = Paths::from([("5X1000", DNA_EASY_5X1000), ("8X1252", DNA_EASY_8X1252)]);
+    run_for_sizes::<JC69>(&paths, "DNA", criterion);
+}
+
+fn pip_inferrence_aa(criterion: &mut Criterion) {
+    let paths = Paths::from([("6X97", AA_EASY_6X97)]);
+    run_for_sizes::<WAG>(&paths, "AA", criterion);
+}
+
 criterion_group! {
-name = pip_inferrence_tiny;
-config = Criterion::default().measurement_time(Duration::from_secs(30)).sample_size(10);
-targets = bench_pip_dna_tiny
+name = dna;
+config = Criterion::default().sample_size(10);
+targets = pip_inferrence_dna
 }
 criterion_group! {
-name = pip_inferrence_small;
-config = Criterion::default().measurement_time(Duration::from_secs(30)).sample_size(30);
-targets = bench_pip_protein_small
+name = aa;
+config = Criterion::default().sample_size(10);
+targets = pip_inferrence_aa,
 }
-criterion_main!(pip_inferrence_tiny, pip_inferrence_small);
+criterion_main!(aa, dna);
