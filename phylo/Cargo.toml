@@ -57,7 +57,9 @@ criterion = "0.5.1"
 [[bench]]
 name = "tree_from_msa"
 harness = false
-
 [[bench]]
 name = "cost"
+harness = false
+[[bench]]
+name = "topo"
 harness = false
