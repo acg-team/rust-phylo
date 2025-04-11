@@ -37,7 +37,7 @@ jobs:
       - name: Skip Duplicate Actions
         uses: fkirc/skip-duplicate-actions@v5.3.1
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.86.0
         with:
           components: rustfmt
       - uses: mbrobbel/rustfmt-check@0.16.0
@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.86.0
         with:
           components: clippy
       - uses: actions-rs/clippy-check@v1.0.7
