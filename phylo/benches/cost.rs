@@ -4,7 +4,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use phylo::{
     bench_helpers::{
         Paths, AA_EASY_14X165, AA_EASY_27X632, AA_EASY_45X223, AA_MEDIUM_79X106, DNA_EASY_17X2292,
-        DNA_EASY_33X4455, DNA_EASY_8X1252,
+        DNA_EASY_33X4455, DNA_EASY_46X16250, DNA_EASY_8X1252, DNA_MEDIUM_128X688,
     },
     likelihood::ModelSearchCost,
     phylo_info::PhyloInfoBuilder,
@@ -46,6 +46,8 @@ fn pip_cost_dna_easy(criterion: &mut Criterion) {
         ("8X1252", DNA_EASY_8X1252),
         ("17X2292", DNA_EASY_17X2292),
         ("33X4455", DNA_EASY_33X4455),
+        ("46X16250", DNA_EASY_46X16250),
+        ("128X688", DNA_MEDIUM_128X688),
     ]);
     run_for_sizes::<JC69>(&paths, "PIP Cost DNA", criterion);
 }

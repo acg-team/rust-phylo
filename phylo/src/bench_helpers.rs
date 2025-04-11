@@ -8,6 +8,11 @@ pub const DNA_EASY_8X1252: &str = "data/benchmark-datasets/dna/easy/wickd3b_7705
 pub const DNA_EASY_17X2292: &str = "data/benchmark-datasets/dna/easy/wickd3a_7771.processed.fasta";
 pub const DNA_EASY_33X4455: &str =
     "data/benchmark-datasets/dna/easy/tarvd7_ENSG00000126777.nuc.ord.processed.fasta";
+pub const DNA_EASY_46X16250: &str =
+    "data/benchmark-datasets/dna/easy/jarvd5a_intron_1521.processed.fasta";
+
+pub const DNA_MEDIUM_128X688: &str =
+    "data/benchmark-datasets/dna/medium/misod2b_EOG58W9HG.processed.fasta";
 
 pub const AA_EASY_6X97: &str = "data/benchmark-datasets/aa/easy/nagya1_Cluster9992.aln";
 pub const AA_EASY_12X73: &str = "data/benchmark-datasets/aa/easy/nagya1_Cluster6386.aln";
