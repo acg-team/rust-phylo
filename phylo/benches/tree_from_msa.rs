@@ -2,6 +2,7 @@ use std::fmt::Display;
 use std::hint::black_box;
 use std::path::Path;
 use std::result::Result::Ok;
+use std::time::Duration;
 
 use anyhow::Result;
 
@@ -112,12 +113,12 @@ fn pip_inferrence_aa(criterion: &mut Criterion) {
 
 criterion_group! {
 name = dna;
-config = Criterion::default().sample_size(10);
+config = Criterion::default().measurement_time(Duration::from_secs(120)).sample_size(10);
 targets = pip_inferrence_dna
 }
 criterion_group! {
 name = aa;
-config = Criterion::default().sample_size(10);
+config = Criterion::default().measurement_time(Duration::from_secs(120)).sample_size(10);
 targets = pip_inferrence_aa,
 }
 criterion_main!(aa, dna);
