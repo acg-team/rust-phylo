@@ -1,6 +1,6 @@
 use std::fmt::Display;
 use std::hint::black_box;
-use std::path::PathBuf;
+use std::path::Path;
 use std::result::Result::Ok;
 
 use anyhow::Result;
@@ -8,11 +8,13 @@ use anyhow::Result;
 use criterion::{criterion_group, criterion_main, Criterion};
 use log::info;
 
-use phylo::bench_helpers::{Paths, AA_EASY_12X73, AA_EASY_6X97, DNA_EASY_5X1000, DNA_EASY_8X1252};
+use phylo::bench_helpers::{
+    black_box_deterministic_phylo_info, SequencePaths, AA_EASY_12X73, AA_EASY_6X97,
+    DNA_EASY_5X1000, DNA_EASY_8X1252,
+};
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::{ModelSearchCost, TreeSearchCost};
 use phylo::optimisers::{ModelOptimiser, TopologyOptimiser};
-use phylo::phylo_info::PhyloInfoBuilder;
 use phylo::pip_model::{PIPCost, PIPCostBuilder, PIPModel};
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 use phylo::tree::Tree;
@@ -27,16 +29,9 @@ struct PIPConfig {
 }
 
 fn black_box_setup<Model: QMatrix + QMatrixMaker>(
-    path: impl Into<PathBuf>,
+    seq_path: impl AsRef<Path>,
 ) -> (PIPConfig, PIPCost<Model>) {
-    let seq_file = black_box(path.into());
-
-    let info = black_box(
-        PhyloInfoBuilder::new(seq_file)
-            .tree_file(None)
-            .build()
-            .expect("failed to build phylo info"),
-    );
+    let info = black_box_deterministic_phylo_info(seq_path);
 
     let cfg = black_box(PIPConfig {
         params: vec![],
@@ -83,7 +78,7 @@ fn run_optimisation(
 }
 
 fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
-    paths: &Paths,
+    paths: &SequencePaths,
     group_name: &'static str,
     criterion: &mut Criterion,
 ) {
@@ -106,12 +101,12 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
 }
 
 fn pip_inferrence_dna(criterion: &mut Criterion) {
-    let paths = Paths::from([("5X1000", DNA_EASY_5X1000), ("8X1252", DNA_EASY_8X1252)]);
+    let paths = SequencePaths::from([("5X1000", DNA_EASY_5X1000), ("8X1252", DNA_EASY_8X1252)]);
     run_for_sizes::<JC69>(&paths, "Tree-from-MSA DNA", criterion);
 }
 
 fn pip_inferrence_aa(criterion: &mut Criterion) {
-    let paths = Paths::from([("6X97", AA_EASY_6X97), ("12X73", AA_EASY_12X73)]);
+    let paths = SequencePaths::from([("6X97", AA_EASY_6X97), ("12X73", AA_EASY_12X73)]);
     run_for_sizes::<WAG>(&paths, "Tree-from-MSA AA", criterion);
 }
 

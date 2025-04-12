@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt;
 use std::fs::{self, File};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::bail;
 use bio::io::fasta::{Reader, Record, Writer};

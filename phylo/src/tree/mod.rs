@@ -541,7 +541,17 @@ fn build_nj_tree_from_matrix(mut nj_data: NJMat, sequences: &Sequences) -> Resul
     Ok(tree)
 }
 
-pub fn build_nj_tree(sequences: &Sequences) -> Result<Tree> {
+/// alternative of [build_nj_tree_random] that simply always picks the last possible
+/// element to guarantee determinism across runs
+pub fn build_nj_tree_deterministic(sequences: &Sequences) -> Result<Tree> {
+    let nj_data = compute_distance_matrix(sequences);
+    // NOTE: I avoided |len| 0, because I ASSUME it would 'stick' too much to the early
+    // argmin's. This way should allow some degree of distribution
+    build_nj_tree_from_matrix(nj_data, sequences, |len| len - 1)
+}
+/// # Warning
+/// this is not deterministic, see [build_nj_tree_deterministic]
+pub fn build_nj_tree_random(sequences: &Sequences) -> Result<Tree> {
     let nj_data = compute_distance_matrix(sequences);
     build_nj_tree_from_matrix(nj_data, sequences)
 }

@@ -1,28 +1,22 @@
 use std::hint::black_box;
-use std::path::PathBuf;
+use std::path::Path;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use phylo::bench_helpers::{Paths, AA_EASY_12X73, AA_EASY_6X97, DNA_EASY_5X1000, DNA_EASY_8X1252};
+use phylo::bench_helpers::{
+    black_box_deterministic_phylo_info, SequencePaths, AA_EASY_12X73, AA_EASY_6X97,
+    DNA_EASY_5X1000, DNA_EASY_8X1252,
+};
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::optimisers::{ModelOptimiser, TopologyOptimiser};
-use phylo::phylo_info::PhyloInfoBuilder;
 use phylo::pip_model::{PIPCost, PIPCostBuilder, PIPModel};
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 
 fn black_box_setup<Model: QMatrix + QMatrixMaker>(
-    path: impl Into<PathBuf>,
+    path: impl AsRef<Path>,
     freq_opt: FrequencyOptimisation,
 ) -> PIPCost<Model> {
-    let seq_file = black_box(path.into());
-
-    let info = black_box(
-        PhyloInfoBuilder::new(seq_file)
-            .tree_file(None)
-            .build()
-            .expect("failed to build phylo info"),
-    );
-
+    let info = black_box_deterministic_phylo_info(path);
     let pip_cost = black_box(PIPCostBuilder::new(
         black_box(black_box(PIPModel::<Model>::new(&[], &[]))),
         info,
@@ -40,7 +34,7 @@ fn black_box_setup<Model: QMatrix + QMatrixMaker>(
 }
 
 fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
-    paths: &Paths,
+    paths: &SequencePaths,
     group_name: &'static str,
     criterion: &mut Criterion,
 ) {
@@ -63,7 +57,7 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
 }
 
 fn topo_dna(criterion: &mut Criterion) {
-    let paths = Paths::from([
+    let paths = SequencePaths::from([
         ("5X1000", DNA_EASY_5X1000),
         ("8X1252", DNA_EASY_8X1252),
         // ("17X2292", DNA_EASY_17X2292),
@@ -73,7 +67,7 @@ fn topo_dna(criterion: &mut Criterion) {
 }
 
 fn topo_aa(criterion: &mut Criterion) {
-    let paths = Paths::from([
+    let paths = SequencePaths::from([
         ("6X97", AA_EASY_6X97),
         ("12X73", AA_EASY_12X73),
         // ("27X632", AA_EASY_27X632),
