@@ -204,19 +204,17 @@ impl AncestralAlignment {
 
 impl Display for AncestralAlignment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let internal = self
-            .seq_map
-            .iter()
-            .filter(|(x, _)| matches!(x, Int(_)))
-            .map(|(x, v)| {
-                format!(
-                    "{x}, {}\n",
-                    v.iter()
-                        .map(|opt| if opt.is_some() { 'X' } else { '-' })
-                        .collect::<String>()
-                )
-            })
-            .collect::<String>();
+        let mut internal = String::new();
+        for (x, v) in self.seq_map.iter() {
+            if !matches!(x, Int(_)) {
+                continue;
+            }
+            internal.push_str(&format!("{x}, "));
+            for opt in v {
+                internal.push(if opt.is_some() { 'X' } else { '-' });
+            }
+            internal.push('\n');
+        }
         write!(f, "{}{}", self.seqs, internal)
     }
 }
