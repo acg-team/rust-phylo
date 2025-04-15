@@ -5,7 +5,10 @@ use bio::io::fasta::Record;
 use log::warn;
 
 use crate::align;
-use crate::alignment::{Alignment, InternalMapping, Mapping, PairwiseAlignment, Sequences};
+use crate::alignment::{
+    Alignment, AncestralAlignment, InternalMapping, Mapping, PairwiseAlignment, SeqMapping,
+    Sequences,
+};
 use crate::alphabets::GAP;
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::Result;
@@ -121,5 +124,150 @@ impl<'a> AlignmentBuilder<'a> {
             }
         }
         PairwiseAlignment::new(upd_map_x, upd_map_y)
+    }
+}
+
+pub struct AncestralAlignmentBuilder<'a> {
+    tree: &'a Tree,
+    seqs: Sequences,
+}
+
+impl<'a> AncestralAlignmentBuilder<'a> {
+    pub fn new(tree: &'a Tree, seqs: Sequences) -> AncestralAlignmentBuilder<'a> {
+        AncestralAlignmentBuilder { tree, seqs }
+    }
+
+    fn build_from_only_aligned_leafs(self) -> std::result::Result<AncestralAlignment, String> {
+        if self.seqs.len() != self.tree.n {
+            return Err("To build an AncestralAlignment only given the leaf seqs, \
+            the number of seqs has to be the same as the number of leaves in the tree"
+                .to_string());
+        }
+
+        let leaf_maps: SeqMapping = self
+            .tree
+            .iter()
+            .filter(|node| matches!(node.idx, NodeIdx::Leaf(_)))
+            .map(|node| (node.idx, align!(self.seqs.record_by_id(&node.id).seq())))
+            .collect();
+
+        let alignment_len = self.seqs.s.get(0).map(|map| map.seq().len()).unwrap_or(0);
+        let n_nodes = self.tree.len();
+
+        // inferring ancestral sequences for every site independently:
+        // insertion location is latest common ancestors of all non-gap characters
+        // deletion location is node n such that every leaf in the subtree rooted in n
+        // is a gap and the parent of n is not a deletion location
+        let mut all_maps = leaf_maps;
+        // counter[node] keeps track of the sequence index during the procedurally generated mapping for the node
+        let mut counter = vec![0; n_nodes];
+        for site in 0..alignment_len {
+            // has_char[node] will be set to true if any leaf in the subtree rooted in node is not a gap
+            let mut has_char = vec![false; n_nodes];
+            // upward pass
+            for node in self.tree.postorder() {
+                match node {
+                    Leaf(id) => {
+                        // TODO: record_by_id is slow
+                        has_char[*id] =
+                            self.seqs.record_by_id(&self.tree.node(&node).id).seq()[site] != GAP;
+                    }
+                    Int(id) => {
+                        let children = &self.tree.node(&node).children;
+                        has_char[*id] = has_char[usize::from(children[0])]
+                            || has_char[usize::from(children[1])];
+                    }
+                }
+            }
+            // downward pass
+            for node in self.tree.preorder() {
+                match node {
+                    Int(_) => {
+                        let children = &self.tree.node(&node).children;
+                        let parent = &self.tree.node(node).parent;
+                        let both_have_chars = has_char[usize::from(children[0])]
+                            && has_char[usize::from(children[1])];
+                        let both_are_gap = !has_char[usize::from(children[0])]
+                            && !has_char[usize::from(children[1])];
+
+                        let char_was_chosen_for_parent = match parent {
+                            None => false,
+                            Some(parent) => all_maps[parent][site].is_some(),
+                        };
+                        let must_choose_char =
+                            (both_have_chars || char_was_chosen_for_parent) && !both_are_gap;
+                        // appending to the mapping of the node
+                        match all_maps.get_mut(node) {
+                            Some(mapping) => {
+                                if must_choose_char {
+                                    mapping.push(Some(counter[usize::from(node)]));
+                                    counter[usize::from(node)] += 1;
+                                } else {
+                                    mapping.push(None);
+                                }
+                            }
+                            None => {
+                                if must_choose_char {
+                                    all_maps.insert(node.clone(), vec![Some(0)]);
+                                    counter[usize::from(node)] = 1;
+                                } else {
+                                    all_maps.insert(node.clone(), vec![None]);
+                                }
+                            }
+                        };
+                    }
+                    _ => (),
+                }
+            }
+        }
+
+        // TODO: these do not contain the ancestral wildcard seqs, do I want them included?
+        let seqs = self.seqs.into_gapless();
+        let leaf_encoding = seqs.generate_leaf_encoding();
+        Ok(AncestralAlignment {
+            seqs,
+            seq_map: all_maps,
+            leaf_encoding,
+        })
+    }
+
+    fn build_from_aligned_seqs_with_ancestors(
+        self,
+    ) -> std::result::Result<AncestralAlignment, String> {
+        if self.seqs.len() != self.tree.len() {
+            return Err("To build an AncestralAlignment with given ancestors, \
+            the number of seqs has to be the same as the number of nodes in the tree"
+                .to_string());
+        }
+        let seq_map: SeqMapping = self
+            .tree
+            .iter()
+            .map(|node| (node.idx, align!(self.seqs.record_by_id(&node.id).seq())))
+            .collect();
+        let seqs = self.seqs.into_gapless();
+        let leaf_encoding = seqs.generate_leaf_encoding();
+        Ok(AncestralAlignment {
+            seqs,
+            seq_map,
+            leaf_encoding,
+        })
+    }
+
+    pub fn build(self) -> std::result::Result<AncestralAlignment, String> {
+        if self.seqs.aligned {
+            if self.tree.len() == self.seqs.len() {
+                self.build_from_aligned_seqs_with_ancestors()
+            } else if self.tree.n == self.seqs.len() {
+                self.build_from_only_aligned_leafs()
+            } else {
+                Err(
+                    "The number of sequences does not match the number of nodes nor the number of leafs \
+                    in the tree, which is required for an ancestral alignment."
+                        .to_string(),
+                )
+            }
+        } else {
+            Err("Unaligned sequences are not yet supported.".to_string())
+        }
     }
 }

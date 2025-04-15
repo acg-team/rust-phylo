@@ -17,6 +17,7 @@ pub type Position = Option<usize>;
 pub type Mapping = Vec<Option<usize>>;
 pub type InternalMapping = HashMap<NodeIdx, PairwiseAlignment>;
 pub type LeafMapping = HashMap<NodeIdx, Mapping>;
+pub type SeqMapping = HashMap<NodeIdx, Mapping>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PairwiseAlignment {
@@ -171,6 +172,50 @@ impl Alignment {
                 }
             })
             .collect::<Mapping>()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct AncestralAlignment {
+    pub(crate) seqs: Sequences,
+    seq_map: SeqMapping,
+    // TODO: implement  node_map: InternalMapping,
+    pub(crate) leaf_encoding: HashMap<String, DMatrix<f64>>,
+}
+
+impl AncestralAlignment {
+    pub fn len(&self) -> usize {
+        self.seq_map
+            .values()
+            .next()
+            .map(|map| map.len())
+            .unwrap_or(0)
+    }
+    pub fn seq_count(&self) -> usize {
+        self.seq_map.len()
+    }
+
+    pub fn update_nodes(&mut self, new_nodes: SeqMapping) {
+        self.seq_map.extend(new_nodes);
+    }
+}
+
+impl Display for AncestralAlignment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let internal = self
+            .seq_map
+            .iter()
+            .filter(|(x, _)| matches!(x, Int(_)))
+            .map(|(x, v)| {
+                format!(
+                    "{x}, {}\n",
+                    v.iter()
+                        .map(|opt| if opt.is_some() { 'X' } else { '-' })
+                        .collect::<String>()
+                )
+            })
+            .collect::<String>();
+        write!(f, "{}{}", self.seqs, internal)
     }
 }
 

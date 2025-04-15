@@ -5,7 +5,8 @@ use rand::seq::IteratorRandom;
 use rand::thread_rng;
 
 use crate::alignment::{
-    sequences::Sequences, AlignmentBuilder, InternalMapping, LeafMapping, PairwiseAlignment as PA,
+    sequences::Sequences, AlignmentBuilder, AncestralAlignmentBuilder, InternalMapping,
+    LeafMapping, PairwiseAlignment as PA,
 };
 use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, NUCLEOTIDES};
 use crate::io::read_sequences_from_file;
@@ -33,6 +34,42 @@ fn test_alignment(ids: &[&str]) -> Sequences {
 }
 
 #[cfg(test)]
+fn test_alignment_with_ancestors() -> Sequences {
+    test_alignment_with_ancestors_subset(&["A0", "B1", "C2", "D3", "E4", "I5", "I6", "I7", "I8"])
+}
+
+#[cfg(test)]
+fn test_alignment_with_ancestors_subset(ids: &[&str]) -> Sequences {
+    Sequences::new(
+        [
+            record!("A0", Some("A0 sequence w 5 nucls"), b"A--AAA"),
+            record!("B1", Some("B1 sequence w 1 nucl "), b"-A--AA"),
+            record!("C2", Some("C2 sequence w 2 nucls"), b"A-A-A-"),
+            record!("D3", Some("D3 sequence w 1 nucl "), b"-A-A--"),
+            record!("E4", Some("E4 sequence w 3 nucls"), b"--A---"),
+            record!("I5", Some("I5 sequence w 3 nucls"), b"XX-XXX"),
+            record!("I6", Some("I6 sequence w 3 nucls"), b"-XXX--"),
+            record!("I7", Some("I7 sequence w 3 nucls"), b"XXXXX-"),
+            record!("I8", Some("I8 sequence w 3 nucls"), b"XX-XX-"),
+        ]
+        .into_iter()
+        .filter(|rec| ids.contains(&rec.id()))
+        .collect(),
+    )
+}
+
+/// Returns this tree:
+/// ```text
+///         I8
+///        /  \
+///       /    \
+///     I5      I7
+///    /  \    /  \
+///  A0    B1 C2   I6
+///                / \
+///               D3  E4
+/// ```
+#[cfg(test)]
 fn test_tree() -> Tree {
     tree!("((A0:1.0, B1:1.0) I5:1.0,(C2:1.0,(D3:1.0, E4:1.0) I6:1.0) I7:1.0) I8:1.0;")
 }
@@ -55,6 +92,22 @@ fn maps() -> (InternalMapping, LeafMapping) {
             (L(8), align!(aligned_seqs.s[4].seq())),
         ]),
     )
+}
+
+#[cfg(test)]
+fn maps_with_ancestors() -> LeafMapping {
+    let aligned_seqs = test_alignment_with_ancestors();
+    LeafMapping::from([
+        (I(0), align!(aligned_seqs.s[8].seq())),
+        (I(1), align!(aligned_seqs.s[5].seq())),
+        (L(2), align!(aligned_seqs.s[0].seq())),
+        (L(3), align!(aligned_seqs.s[1].seq())),
+        (I(4), align!(aligned_seqs.s[7].seq())),
+        (L(5), align!(aligned_seqs.s[2].seq())),
+        (I(6), align!(aligned_seqs.s[6].seq())),
+        (L(7), align!(aligned_seqs.s[3].seq())),
+        (L(8), align!(aligned_seqs.s[4].seq())),
+    ])
 }
 
 #[test]
@@ -280,4 +333,109 @@ fn display_alignment() {
     true_lines.sort();
 
     assert_eq!(lines, true_lines);
+}
+
+#[test]
+fn build_ancestral_alignment_from_wrong_number_nodes() {
+    // arrange
+    let tree = test_tree();
+    let seqs = test_alignment_with_ancestors_subset(&["A0"]);
+
+    // act
+    let msa = AncestralAlignmentBuilder::new(&tree, seqs).build();
+
+    // assert
+    match msa {
+        Ok(_) => panic!("Expected Err, but got Ok"),
+        Err(msg) => {
+            assert!(msg.contains("The number of sequences does not match the number of nodes"))
+        }
+    }
+}
+
+#[test]
+fn build_ancestral_alignment_from_unaligned_fails() {
+    // arrange
+    let tree = test_tree();
+    let mut seqs = test_alignment_with_ancestors();
+    seqs.aligned = false;
+
+    // act
+    let msa = AncestralAlignmentBuilder::new(&tree, seqs).build();
+
+    // assert
+    match msa {
+        Ok(_) => panic!("Expected Err, but got Ok"),
+        Err(msg) => {
+            assert!(msg.contains("Unaligned sequences are not yet supported"))
+        }
+    }
+}
+
+#[test]
+fn build_ancestral_alignment_from_aligned_sequences() {
+    // arrange
+    let tree = test_tree();
+    let seqs = test_alignment_with_ancestors();
+
+    // act
+    let msa = AncestralAlignmentBuilder::new(&tree, seqs).build().unwrap();
+    let msa_len = msa.len();
+    let seq_count = msa.seq_count();
+
+    // assert
+    assert_eq!(msa.seq_map, maps_with_ancestors(),);
+    assert_eq!(msa.seqs.s, test_alignment_with_ancestors().into_gapless().s);
+    assert_eq!(msa_len, 6);
+    assert_eq!(seq_count, 9)
+}
+
+#[test]
+fn build_ancestral_alignment_from_only_aligned_leaf_seqs() {
+    // arrange
+    let tree = test_tree();
+    let seqs = test_alignment_with_ancestors_subset(&["A0", "B1", "C2", "D3", "E4"]);
+
+    // act
+    let msa = AncestralAlignmentBuilder::new(&tree, seqs).build().unwrap();
+    let msa_len = msa.len();
+    let seq_count = msa.seq_count();
+
+    // assert
+    assert_eq!(msa.seq_map, maps_with_ancestors(),);
+    // TODO: these do not contain the ancestral wildcard seqs
+    // assert_eq!(msa.seqs.s, test_alignment_with_ancestors().into_gapless().s);
+    assert_eq!(msa_len, 6);
+    assert_eq!(seq_count, 9)
+}
+
+#[test]
+fn test_display_ancestral_alignment() {
+    // arrange
+    let tree = test_tree();
+    let seqs = test_alignment_with_ancestors_subset(&["A0", "B1", "C2", "D3", "E4"]);
+    let msa = AncestralAlignmentBuilder::new(&tree, seqs).build().unwrap();
+
+    // act
+    let s = format!("{}", msa);
+
+    // assert
+    let mut s = s.split("\n").collect::<Vec<_>>();
+    s.sort();
+    assert_eq!(s.len(), 15);
+    assert_eq!(s[0].len(), 0); // since there is a newline at the end of every internal node line
+    assert_eq!(s[1], ">A0 A0 sequence w 5 nucls");
+    assert_eq!(s[2], ">B1 B1 sequence w 1 nucl ");
+    assert_eq!(s[3], ">C2 C2 sequence w 2 nucls");
+    assert_eq!(s[4], ">D3 D3 sequence w 1 nucl ");
+    assert_eq!(s[5], ">E4 E4 sequence w 3 nucls");
+    assert_eq!(s[6], "A");
+    assert_eq!(s[7], "AA");
+    assert_eq!(s[8], "AAA");
+    assert_eq!(s[9], "AAA");
+    assert_eq!(s[10], "AAAA");
+    assert_eq!(s[11], "internal node 0, XX-XX-");
+    assert_eq!(s[12], "internal node 1, XX-XXX");
+    assert_eq!(s[13], "internal node 4, XXXXX-");
+    assert_eq!(s[14], "internal node 6, -XXX--");
 }
