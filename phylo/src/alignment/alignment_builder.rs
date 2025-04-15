@@ -151,7 +151,7 @@ impl<'a> AncestralAlignmentBuilder<'a> {
             .map(|node| (node.idx, align!(self.seqs.record_by_id(&node.id).seq())))
             .collect();
 
-        let alignment_len = self.seqs.s.get(0).map(|map| map.seq().len()).unwrap_or(0);
+        let alignment_len = self.seqs.s.first().map(|map| map.seq().len()).unwrap_or(0);
         let n_nodes = self.tree.len();
 
         // inferring ancestral sequences for every site independently:
@@ -170,10 +170,10 @@ impl<'a> AncestralAlignmentBuilder<'a> {
                     Leaf(id) => {
                         // TODO: record_by_id is slow
                         has_char[*id] =
-                            self.seqs.record_by_id(&self.tree.node(&node).id).seq()[site] != GAP;
+                            self.seqs.record_by_id(&self.tree.node(node).id).seq()[site] != GAP;
                     }
                     Int(id) => {
-                        let children = &self.tree.node(&node).children;
+                        let children = &self.tree.node(node).children;
                         has_char[*id] = has_char[usize::from(children[0])]
                             || has_char[usize::from(children[1])];
                     }
@@ -181,42 +181,39 @@ impl<'a> AncestralAlignmentBuilder<'a> {
             }
             // downward pass
             for node in self.tree.preorder() {
-                match node {
-                    Int(_) => {
-                        let children = &self.tree.node(&node).children;
-                        let parent = &self.tree.node(node).parent;
-                        let both_have_chars = has_char[usize::from(children[0])]
-                            && has_char[usize::from(children[1])];
-                        let both_are_gap = !has_char[usize::from(children[0])]
-                            && !has_char[usize::from(children[1])];
+                if let Int(_) = node {
+                    let children = &self.tree.node(node).children;
+                    let parent = &self.tree.node(node).parent;
+                    let both_have_chars =
+                        has_char[usize::from(children[0])] && has_char[usize::from(children[1])];
+                    let both_are_gap =
+                        !has_char[usize::from(children[0])] && !has_char[usize::from(children[1])];
 
-                        let char_was_chosen_for_parent = match parent {
-                            None => false,
-                            Some(parent) => all_maps[parent][site].is_some(),
-                        };
-                        let must_choose_char =
-                            (both_have_chars || char_was_chosen_for_parent) && !both_are_gap;
-                        // appending to the mapping of the node
-                        match all_maps.get_mut(node) {
-                            Some(mapping) => {
-                                if must_choose_char {
-                                    mapping.push(Some(counter[usize::from(node)]));
-                                    counter[usize::from(node)] += 1;
-                                } else {
-                                    mapping.push(None);
-                                }
+                    let char_was_chosen_for_parent = match parent {
+                        None => false,
+                        Some(parent) => all_maps[parent][site].is_some(),
+                    };
+                    let must_choose_char =
+                        (both_have_chars || char_was_chosen_for_parent) && !both_are_gap;
+                    // appending to the mapping of the node
+                    match all_maps.get_mut(node) {
+                        Some(mapping) => {
+                            if must_choose_char {
+                                mapping.push(Some(counter[usize::from(node)]));
+                                counter[usize::from(node)] += 1;
+                            } else {
+                                mapping.push(None);
                             }
-                            None => {
-                                if must_choose_char {
-                                    all_maps.insert(node.clone(), vec![Some(0)]);
-                                    counter[usize::from(node)] = 1;
-                                } else {
-                                    all_maps.insert(node.clone(), vec![None]);
-                                }
+                        }
+                        None => {
+                            if must_choose_char {
+                                all_maps.insert(*node, vec![Some(0)]);
+                                counter[usize::from(node)] = 1;
+                            } else {
+                                all_maps.insert(*node, vec![None]);
                             }
-                        };
-                    }
-                    _ => (),
+                        }
+                    };
                 }
             }
         }

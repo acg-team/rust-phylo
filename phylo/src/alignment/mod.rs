@@ -180,10 +180,12 @@ pub struct AncestralAlignment {
     pub(crate) seqs: Sequences,
     seq_map: SeqMapping,
     // TODO: implement  node_map: InternalMapping,
+    #[allow(dead_code)]
     pub(crate) leaf_encoding: HashMap<String, DMatrix<f64>>,
 }
 
 impl AncestralAlignment {
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.seq_map
             .values()
