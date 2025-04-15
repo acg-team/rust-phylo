@@ -138,12 +138,6 @@ impl<'a> AncestralAlignmentBuilder<'a> {
     }
 
     fn build_from_only_aligned_leafs(self) -> std::result::Result<AncestralAlignment, String> {
-        if self.seqs.len() != self.tree.n {
-            return Err("To build an AncestralAlignment only given the leaf seqs, \
-            the number of seqs has to be the same as the number of leaves in the tree"
-                .to_string());
-        }
-
         let leaf_maps: SeqMapping = self
             .tree
             .iter()
@@ -231,11 +225,6 @@ impl<'a> AncestralAlignmentBuilder<'a> {
     fn build_from_aligned_seqs_with_ancestors(
         self,
     ) -> std::result::Result<AncestralAlignment, String> {
-        if self.seqs.len() != self.tree.len() {
-            return Err("To build an AncestralAlignment with given ancestors, \
-            the number of seqs has to be the same as the number of nodes in the tree"
-                .to_string());
-        }
         let seq_map: SeqMapping = self
             .tree
             .iter()

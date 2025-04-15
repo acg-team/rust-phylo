@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use bio::io::fasta::Record;
 use rand::seq::IteratorRandom;
 use rand::thread_rng;
+use std::collections::HashMap;
 
 use crate::alignment::{
     sequences::Sequences, AlignmentBuilder, AncestralAlignmentBuilder, InternalMapping,
@@ -438,4 +439,52 @@ fn test_display_ancestral_alignment() {
     assert_eq!(s[12], "internal node 1, XX-XXX");
     assert_eq!(s[13], "internal node 4, XXXXX-");
     assert_eq!(s[14], "internal node 6, -XXX--");
+}
+
+#[test]
+fn update_nodes_of_ancestral_alignment() {
+    // arrange
+    let tree = test_tree();
+    let seqs = test_alignment_with_ancestors();
+    let mut msa = AncestralAlignmentBuilder::new(&tree, seqs).build().unwrap();
+    let i1 = tree.by_id("C2").parent.unwrap();
+    let i1_mapping = vec![None, None, None, Some(0), None, None];
+    let i2 = tree.node(&i1).parent.unwrap();
+    let i2_mapping = vec![None, None, None, Some(0), None, Some(1)];
+    let mut new_nodes = HashMap::new();
+    new_nodes.insert(i1, i1_mapping);
+    new_nodes.insert(i2, i2_mapping);
+    let unchanged_maps = maps_with_ancestors();
+
+    // act
+    msa.update_nodes(new_nodes);
+
+    // assert
+    assert_eq!(msa.seq_map.len(), 9);
+    for (node, mapping) in &msa.seq_map {
+        if node == &i1 {
+            assert_eq!(mapping, &vec![None, None, None, Some(0), None, None]);
+        } else if node == &i2 {
+            assert_eq!(mapping, &vec![None, None, None, Some(0), None, Some(1)]);
+        } else {
+            assert!(unchanged_maps.contains_key(node));
+            assert_eq!(mapping, unchanged_maps.get(node).unwrap());
+        }
+    }
+}
+
+#[test]
+#[should_panic(expected = "The node that is to be updated")]
+fn update_nodes_of_ancestral_alignment_fails() {
+    // arrange
+    let tree = test_tree();
+    let seqs = test_alignment_with_ancestors();
+    let mut msa = AncestralAlignmentBuilder::new(&tree, seqs).build().unwrap();
+    let i1 = I(10);
+    let i1_mapping = vec![None, None, None, Some(0), None, None];
+    let mut new_nodes = HashMap::new();
+    new_nodes.insert(i1, i1_mapping);
+
+    // act & assert
+    msa.update_nodes(new_nodes);
 }

@@ -198,6 +198,13 @@ impl AncestralAlignment {
     }
 
     pub fn update_nodes(&mut self, new_nodes: SeqMapping) {
+        for (new_node, _) in &new_nodes {
+            assert!(
+                self.seq_map.contains_key(new_node),
+                "The node that is to be updated ({}) is not in the tree.",
+                new_node
+            )
+        }
         self.seq_map.extend(new_nodes);
     }
 }
