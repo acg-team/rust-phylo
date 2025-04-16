@@ -91,6 +91,7 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
                     self.c
                         .borrow_mut()
                         .update_tree(best_tree, &[*prune, regraft]);
+                    tree = self.c.borrow().tree().clone();
                     info!("    Regrafted to {:?}, new cost {}.", regraft, curr_cost);
                 } else {
                     info!("    No improvement, best cost {}.", best_move_cost);
