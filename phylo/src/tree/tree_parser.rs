@@ -95,7 +95,7 @@ impl Tree {
     }
 
     fn complete(&mut self) {
-        self.n = (self.nodes.len() + 1) / 2;
+        self.n = self.nodes.len().div_ceil(2);
         debug_assert_eq!(self.nodes.len(), self.n * 2 - 1);
         self.complete = true;
         self.compute_postorder();

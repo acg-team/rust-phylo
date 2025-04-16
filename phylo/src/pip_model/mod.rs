@@ -70,7 +70,7 @@ impl<Q: QMatrix + QMatrixMaker> PIPModel<Q> {
         if params.len() < 2 {
             warn!("Too few values provided for PIP, 2 values required, lambda and mu.");
             warn!("Falling back to default values.");
-            params.extend(iter::repeat(1.5).take(2 - params.len()));
+            params.extend(iter::repeat_n(1.5, 2 - params.len()));
         }
         let mu = params[1];
 

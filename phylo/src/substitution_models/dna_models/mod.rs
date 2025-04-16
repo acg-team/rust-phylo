@@ -296,7 +296,7 @@ impl QMatrixMaker for TN93 {
             Ordering::Less => {
                 warn!("Too few values provided for TN93, required 3 values.");
                 warn!("Falling back to default values.");
-                params.extend(iter::repeat(1.0).take(3 - params.len()));
+                params.extend(iter::repeat_n(1.0, 3 - params.len()));
             }
             Ordering::Greater => {
                 warn!("Too many values provided for TN93, required three values.");
@@ -410,7 +410,7 @@ impl QMatrixMaker for GTR {
         if params.len() < 5 {
             warn!("Too few values provided for GTR, required five values.");
             warn!("Falling back to default values.");
-            params.extend(iter::repeat(1.0).take(5 - params.len()));
+            params.extend(iter::repeat_n(1.0, 5 - params.len()));
         } else if params.len() > 6 {
             warn!("Too many values provided for GTR, required five values.");
             warn!("Will only use the first values provided.");
