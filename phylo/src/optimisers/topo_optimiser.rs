@@ -2,6 +2,8 @@ use std::cell::RefCell;
 use std::fmt::Display;
 
 use log::{debug, info};
+use rand::seq::IteratorRandom;
+use rand::thread_rng;
 
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult};
