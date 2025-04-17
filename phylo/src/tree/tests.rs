@@ -14,7 +14,7 @@ use crate::io::read_newick_from_file;
 use crate::tree::{
     argmin_wo_diagonal, build_nj_tree_from_matrix, compute_distance_matrix,
     nj_matrices::NJMat,
-    percentiles, percentiles_rounded, rng_len,
+    percentiles, percentiles_rounded,
     tree_parser::{from_newick, ParsingError, Rule},
     Node,
     NodeIdx::{self, Internal as I, Leaf as L},
@@ -142,7 +142,7 @@ fn nj_correct_web_example() {
         record!("C2", b""),
         record!("D3", b""),
     ]);
-    let nj_tree = build_nj_tree_from_matrix(nj_distances, &sequences, |_| 0).unwrap();
+    let nj_tree = build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
     let nodes = vec![
         Node::new_leaf(0, Some(I(4)), 1.0, "A0".to_string()),
         Node::new_leaf(1, Some(I(4)), 3.0, "B1".to_string()),
@@ -175,7 +175,7 @@ fn nj_correct() {
         record!("D3", b""),
         record!("E4", b""),
     ]);
-    let nj_tree = build_nj_tree_from_matrix(nj_distances, &sequences, |l| 3 % l).unwrap();
+    let nj_tree = build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
     let nodes = vec![
         Node::new_leaf(0, Some(I(5)), 2.0, "A0".to_string()),
         Node::new_leaf(1, Some(I(5)), 3.0, "B1".to_string()),
@@ -214,7 +214,7 @@ fn protein_nj_correct() {
         record!("C2", b""),
         record!("D3", b""),
     ]);
-    let tree = build_nj_tree_from_matrix(nj_distances, &sequences, rng_len).unwrap();
+    let tree = build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
     assert_eq!(tree.len(), 7);
     assert_eq!(tree.postorder.len(), 7);
     assert!(is_unique(&tree.postorder));
@@ -239,7 +239,7 @@ fn nj_correct_2() {
         record!("C", b""),
         record!("D", b""),
     ]);
-    let tree = build_nj_tree_from_matrix(nj_distances, &sequences, |_| 0).unwrap();
+    let tree = build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
     assert_eq!(tree.by_id("A").blen, 1.0);
     assert_eq!(tree.by_id("B").blen, 3.0);
     assert_eq!(tree.by_id("C").blen, 2.0);
@@ -272,7 +272,7 @@ fn nj_correct_wiki_example() {
         record!("d", b""),
         record!("e", b""),
     ]);
-    let tree = build_nj_tree_from_matrix(nj_distances, &sequences, |l| l - 1).unwrap();
+    let tree = build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
     assert_eq!(tree.by_id("a").blen, 2.0);
     assert_eq!(tree.by_id("b").blen, 3.0);
     assert_eq!(tree.by_id("c").blen, 4.0);
@@ -672,7 +672,7 @@ fn test_node_idx_debug() {
 #[test]
 #[should_panic]
 fn test_argmin_fail() {
-    argmin_wo_diagonal(DMatrix::<f64>::from_vec(1, 1, vec![0.0]), |_| 0);
+    argmin_wo_diagonal(DMatrix::<f64>::from_vec(1, 1, vec![0.0]));
 }
 
 #[test]

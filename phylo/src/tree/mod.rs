@@ -484,7 +484,7 @@ pub fn percentiles_rounded(lengths: &[f64], categories: u32, rounding: &Rounding
     values
 }
 
-fn argmin_wo_diagonal(q: Mat, rng: fn(usize) -> usize) -> (usize, usize) {
+fn argmin_wo_diagonal(q: Mat) -> (usize, usize) {
     debug_assert!(!q.is_empty(), "The input matrix must not be empty.");
     debug_assert!(
         q.ncols() > 1 && q.nrows() > 1,
@@ -503,24 +503,24 @@ fn argmin_wo_diagonal(q: Mat, rng: fn(usize) -> usize) -> (usize, usize) {
             }
         }
     }
-    arg_min[(rng)(arg_min.len())]
+    if cfg!(feature = "deterministic") {
+        arg_min[0]
+    } else {
+        arg_min[rng_len(arg_min.len())]
+    }
 }
 
 fn rng_len(l: usize) -> usize {
     random::<usize>() % l
 }
 
-fn build_nj_tree_from_matrix(
-    mut nj_data: NJMat,
-    sequences: &Sequences,
-    rng: fn(usize) -> usize,
-) -> Result<Tree> {
+fn build_nj_tree_from_matrix(mut nj_data: NJMat, sequences: &Sequences) -> Result<Tree> {
     let n = nj_data.distances.ncols();
     let mut tree = Tree::new(sequences)?;
     let root_idx = usize::from(&tree.root);
     for cur_idx in n..=root_idx {
         let q = nj_data.compute_nj_q();
-        let (i, j) = argmin_wo_diagonal(q, rng);
+        let (i, j) = argmin_wo_diagonal(q);
         let idx_new = cur_idx;
         let (blen_i, blen_j) = nj_data.branch_lengths(i, j, cur_idx == root_idx);
         tree.add_parent(idx_new, &nj_data.idx[i], &nj_data.idx[j], blen_i, blen_j);
@@ -539,7 +539,7 @@ fn build_nj_tree_from_matrix(
 
 pub fn build_nj_tree(sequences: &Sequences) -> Result<Tree> {
     let nj_data = compute_distance_matrix(sequences);
-    build_nj_tree_from_matrix(nj_data, sequences, rng_len)
+    build_nj_tree_from_matrix(nj_data, sequences)
 }
 
 fn compute_distance_matrix(sequences: &Sequences) -> nj_matrices::NJMat {
