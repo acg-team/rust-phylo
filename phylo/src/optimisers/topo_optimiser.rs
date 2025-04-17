@@ -2,6 +2,8 @@ use std::cell::RefCell;
 use std::fmt::Display;
 
 use log::{debug, info};
+use rand::seq::IteratorRandom;
+use rand::thread_rng;
 
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult};
@@ -36,7 +38,7 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
         let mut iterations = 0;
 
         // No pruning on the root branch
-        let prune_locations: Vec<NodeIdx> = tree
+        let possible_prunes: Vec<NodeIdx> = tree
             .preorder()
             .iter()
             .filter(|&n| n != &tree.root)
@@ -52,7 +54,15 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
             tree = self.c.borrow().tree().clone();
             prev_cost = curr_cost;
 
-            for prune in &prune_locations {
+            let current_prunes = if cfg!(feature = "deterministic") {
+                possible_prunes.iter().collect()
+            } else {
+                possible_prunes
+                    .iter()
+                    .choose_multiple(&mut thread_rng(), possible_prunes.len())
+            };
+
+            for prune in current_prunes {
                 if tree.children(&tree.root).contains(prune) {
                     // due to topology change the current node may have become the direct child of root
                     continue;
