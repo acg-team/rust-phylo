@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::hint::black_box;
 use std::path::Path;
 use std::time::Duration;
@@ -9,7 +10,8 @@ use phylo::bench_helpers::{
     DNA_EASY_5X1000, DNA_EASY_8X1252,
 };
 use phylo::evolutionary_models::FrequencyOptimisation;
-use phylo::optimisers::{ModelOptimiser, TopologyOptimiser};
+use phylo::likelihood::TreeSearchCost;
+use phylo::optimisers::{BranchOptimiser, ModelOptimiser, TopologyOptimiser};
 use phylo::pip_model::{PIPCost, PIPCostBuilder, PIPModel};
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 
@@ -34,6 +36,31 @@ fn black_box_setup<Model: QMatrix + QMatrixMaker>(
         .cost
 }
 
+fn fixed_iter_simulated_topo_optimiser<C: TreeSearchCost + Clone + Display>(
+    mut cost_fn: C,
+) -> anyhow::Result<f64> {
+    let init_tree = cost_fn.tree();
+
+    let possible_prunes: Vec<_> =
+        TopologyOptimiser::<C>::find_possible_prune_locations(init_tree).collect();
+    let current_prunes: Vec<_> = possible_prunes.iter().collect();
+    let mut curr_cost = cost_fn.cost();
+
+    for _i in 0..3 {
+        curr_cost =
+            TopologyOptimiser::fold_improving_spr_moves(&mut cost_fn, curr_cost, &current_prunes)?;
+
+        // Optimise branch lengths on current tree to match PhyML
+        let o = BranchOptimiser::new(cost_fn.clone()).run()?;
+        if o.final_cost > curr_cost {
+            curr_cost = o.final_cost;
+            cost_fn.update_tree(o.cost.tree().clone(), &[]);
+        }
+    }
+
+    Ok(curr_cost)
+}
+
 fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
     paths: &SequencePaths,
     group_name: &'static str,
@@ -45,7 +72,7 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
             bench.iter_batched(
                 // clone because of interior mutability in PIPCost
                 || data.clone(),
-                |cost_fn| TopologyOptimiser::new(cost_fn).run(),
+                fixed_iter_simulated_topo_optimiser,
                 criterion::BatchSize::SmallInput,
             );
         });
