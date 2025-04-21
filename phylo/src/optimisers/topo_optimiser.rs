@@ -2,8 +2,6 @@ use std::cell::RefCell;
 use std::fmt::Display;
 
 use log::{debug, info};
-use rand::seq::SliceRandom;
-use rand::thread_rng;
 
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult};
@@ -44,9 +42,14 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
             .filter(|&n| n != &tree.root)
             .copied()
             .collect();
-        let mut current_prunes: Vec<_> = possible_prunes.iter().collect();
-        // TODO: decide on an explicit and consistent RNG to use throughout the project
-        let rng = &mut thread_rng();
+        let current_prunes: Vec<_> = possible_prunes.iter().collect();
+        cfg_if::cfg_if! {
+        if #[cfg(not(feature = "deterministic"))] {
+            let mut current_prunes = current_prunes;
+            // TODO: decide on an explicit and consistent RNG to use throughout the project
+            let rng = &mut rand::thread_rng();
+        }
+        }
 
         // The best move on this iteration might still be worse than the current tree, in which case
         // the search stops.
@@ -59,6 +62,7 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
 
             #[cfg(not(feature = "deterministic"))]
             {
+                use rand::seq::SliceRandom;
                 current_prunes.shuffle(rng);
             }
 

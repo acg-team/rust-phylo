@@ -6,7 +6,6 @@ use approx::relative_eq;
 use bio::alignment::distance::levenshtein;
 use inc_stats::Percentiles;
 use nalgebra::{max, DMatrix};
-use rand::random;
 
 use crate::alignment::Sequences;
 use crate::tree::{
@@ -503,15 +502,19 @@ fn argmin_wo_diagonal(q: Mat) -> (usize, usize) {
             }
         }
     }
-    if cfg!(feature = "deterministic") {
+
+    cfg_if::cfg_if! {
+    if #[cfg(feature = "deterministic")]{
         arg_min[0]
     } else {
         arg_min[rng_len(arg_min.len())]
     }
+    }
 }
 
+#[cfg(not(feature = "deterministic"))]
 fn rng_len(l: usize) -> usize {
-    random::<usize>() % l
+    rand::random::<usize>() % l
 }
 
 fn build_nj_tree_from_matrix(mut nj_data: NJMat, sequences: &Sequences) -> Result<Tree> {
