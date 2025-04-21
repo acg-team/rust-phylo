@@ -34,13 +34,7 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
 
-        // No pruning on the root branch
-        let possible_prunes: Vec<NodeIdx> = init_tree
-            .preorder()
-            .iter()
-            .filter(|&n| n != &init_tree.root)
-            .copied()
-            .collect();
+        let possible_prunes: Vec<_> = Self::find_possible_prune_locations(init_tree).collect();
         let current_prunes: Vec<_> = possible_prunes.iter().collect();
         cfg_if::cfg_if! {
         if #[cfg(not(feature = "deterministic"))] {
@@ -64,28 +58,7 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
                 current_prunes.shuffle(rng);
             }
 
-            curr_cost = current_prunes.iter().copied().try_fold(
-                curr_cost,
-                |base_cost, prune| -> Result<_> {
-                    let Some((regraft, best_move_cost, best_tree)) =
-                        Self::find_max_cost_regraft_for_prune(prune, base_cost, &self.c)?
-                    else {
-                        return Ok(base_cost);
-                    };
-
-                    if best_move_cost > base_cost {
-                        self.c.update_tree(best_tree, &[*prune, regraft]);
-                        info!(
-                            "    Regrafted to {:?}, new cost {}.",
-                            regraft, best_move_cost
-                        );
-                        Ok(best_move_cost)
-                    } else {
-                        info!("    No improvement, best cost {}.", best_move_cost);
-                        Ok(base_cost)
-                    }
-                },
-            )?;
+            curr_cost = Self::fold_improving_spr_moves(&mut self.c, curr_cost, &current_prunes)?;
 
             // Optimise branch lengths on current tree to match PhyML
             let o = BranchOptimiser::new(self.c.clone()).run()?;
@@ -110,6 +83,12 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
         })
     }
 
+    /// No pruning on the root branch
+    pub fn find_possible_prune_locations(
+        tree: &Tree,
+    ) -> impl Iterator<Item = NodeIdx> + use<'_, C> {
+        tree.preorder().iter().filter(|&n| n != &tree.root).copied()
+    }
     fn find_regraft_options(prune_branch: &NodeIdx, tree: &Tree) -> Vec<NodeIdx> {
         let all_locations = tree.preorder();
         let prune_subtrees = tree.preorder_subroot(prune_branch);
@@ -122,6 +101,37 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
             })
             .cloned()
             .collect()
+    }
+
+    /// # Returns:
+    /// - the new cost (or `curr_cost` if no improvement was found)
+    pub fn fold_improving_spr_moves(
+        cost_fn: &mut C,
+        curr_cost: f64,
+        prune_locations: &[&NodeIdx],
+    ) -> Result<f64> {
+        prune_locations
+            .iter()
+            .copied()
+            .try_fold(curr_cost, |base_cost, prune| -> Result<_> {
+                let Some((regraft, best_move_cost, best_tree)) =
+                    Self::find_max_cost_regraft_for_prune(prune, base_cost, cost_fn)?
+                else {
+                    return Ok(base_cost);
+                };
+
+                if best_move_cost > base_cost {
+                    cost_fn.update_tree(best_tree, &[*prune, regraft]);
+                    info!(
+                        "    Regrafted to {:?}, new cost {}.",
+                        regraft, best_move_cost
+                    );
+                    Ok(best_move_cost)
+                } else {
+                    info!("    No improvement, best cost {}.", best_move_cost);
+                    Ok(base_cost)
+                }
+            })
     }
 
     pub fn find_max_cost_regraft_for_prune(
@@ -157,7 +167,7 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
         regraft: NodeIdx,
         base_cost: f64,
         mut cost_func: C,
-    ) -> Result<(NodeIdx, f64, Tree)> {
+    ) -> Result<(f64, Tree)> {
         let mut new_tree = cost_func.tree().rooted_spr(&prune_location, &regraft)?;
 
         cost_func.update_tree(new_tree.clone(), &[prune_location, regraft]);
@@ -173,7 +183,7 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
             }
         }
         debug!("    Regraft to {:?} w best cost {}.", regraft, move_cost);
-        Ok::<_, anyhow::Error>((regraft, move_cost, new_tree))
+        Ok::<_, anyhow::Error>((move_cost, new_tree))
     }
 
     pub fn regraft_costs(
@@ -186,6 +196,7 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
             .into_iter()
             .map(move |regraft| {
                 Self::calc_spr_cost(prune_location, regraft, base_cost, cost.clone())
+                    .map(|(cost, tree)| (regraft, cost, tree))
             })
             .collect()
     }
