@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::fmt::Display;
 
 use log::{debug, info};
-use rand::seq::IteratorRandom;
+use rand::seq::SliceRandom;
 use rand::thread_rng;
 
 use crate::likelihood::TreeSearchCost;
@@ -42,8 +42,11 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
             .preorder()
             .iter()
             .filter(|&n| n != &tree.root)
-            .cloned()
+            .copied()
             .collect();
+        let mut current_prunes: Vec<_> = possible_prunes.iter().collect();
+        // TODO: decide on an explicit and consistent RNG to use throughout the project
+        let rng = &mut thread_rng();
 
         // The best move on this iteration might still be worse than the current tree, in which case
         // the search stops.
@@ -54,15 +57,12 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
             tree = self.c.borrow().tree().clone();
             prev_cost = curr_cost;
 
-            let current_prunes = if cfg!(feature = "deterministic") {
-                possible_prunes.iter().collect()
-            } else {
-                possible_prunes
-                    .iter()
-                    .choose_multiple(&mut thread_rng(), possible_prunes.len())
-            };
+            #[cfg(not(feature = "deterministic"))]
+            {
+                current_prunes.shuffle(rng);
+            }
 
-            for prune in current_prunes {
+            for prune in current_prunes.iter().copied() {
                 if tree.children(&tree.root).contains(prune) {
                     // due to topology change the current node may have become the direct child of root
                     continue;
