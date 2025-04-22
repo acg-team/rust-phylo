@@ -149,6 +149,8 @@ impl ParsimonyCosts for ModelCosts {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod private_tests {
+    use std::fmt::Debug;
+
     use approx::assert_relative_eq;
 
     use crate::substitution_models::*;
@@ -181,6 +183,58 @@ mod private_tests {
         0.0, 6.0, 4.0, 7.0, 7.0, 7.0, 6.0, 7.0, 6.0, 6.0, 8.0, 3.0, 4.0, 6.0, 6.0, 6.0, 6.0, 6.0,
         5.0, 8.0, 7.0, 0.0,
     ];
+
+    #[cfg(test)]
+    fn builder_template<P: ParsimonyModel + Clone + PartialEq + Debug>(
+        model: P,
+        diagonal: Z,
+        rounding: R,
+    ) {
+        let gap = GapCost::new(6.5, 3.0);
+
+        let builder = ModelCostBuilder::new(model.clone())
+            .gap_cost(gap.clone())
+            .diagonal(diagonal.clone())
+            .rounding(rounding.clone())
+            .times(vec![0.1, 0.5, 10.0]);
+
+        assert_eq!(builder.model, model);
+        assert_eq!(builder.gap, gap);
+        assert_eq!(builder.diagonal, diagonal);
+        assert_eq!(builder.rounding, rounding);
+    }
+
+    #[test]
+    fn model_builder_setters() {
+        for d in [Z::zero(), Z::non_zero()] {
+            for r in [R::zero(), R::four(), R::none()] {
+                builder_template(SubstModel::<HIVB>::new(&[], &[]), d.clone(), r.clone());
+                builder_template(SubstModel::<WAG>::new(&[], &[]), d.clone(), r.clone());
+                builder_template(SubstModel::<BLOSUM>::new(&[], &[]), d.clone(), r.clone());
+
+                builder_template(SubstModel::<JC69>::new(&[], &[]), d.clone(), r.clone());
+                builder_template(SubstModel::<K80>::new(&[], &[]), d.clone(), r.clone());
+                builder_template(
+                    SubstModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5]),
+                    d.clone(),
+                    r.clone(),
+                );
+                builder_template(
+                    SubstModel::<TN93>::new(
+                        &[0.22, 0.26, 0.33, 0.19],
+                        &[0.5970915, 0.2940435, 0.00135],
+                    ),
+                    d.clone(),
+                    r.clone(),
+                );
+                builder_template(
+                    SubstModel::<GTR>::new(&[0.1, 0.3, 0.4, 0.2], &[5.0, 1.0, 1.0, 1.0, 1.0, 5.0]),
+                    d.clone(),
+                    r.clone(),
+                );
+            }
+        }
+    }
 
     #[test]
     fn protein_scorings() {
