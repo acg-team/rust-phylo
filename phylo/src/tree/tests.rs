@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 use std::fs;
-use std::iter::repeat;
 use std::path::Path;
 
 use approx::assert_relative_eq;
+use itertools::repeat_n;
 use nalgebra::{dmatrix, DMatrix};
 use pest::error::ErrorVariant;
 use rand::Rng;
@@ -561,10 +561,7 @@ fn check_getting_branch_lengths() {
     let tree = tree!("((A:1.0,B:1.0)E:1.0,(C:1.0,D:1.0)F:1.0)G:1.0;");
     lengths = tree.iter().map(|n| n.blen).collect();
     lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    assert_eq!(
-        lengths,
-        repeat(1.0).take(lengths.len()).collect::<Vec<f64>>()
-    );
+    assert_eq!(lengths, repeat_n(1.0, lengths.len()).collect::<Vec<f64>>());
 }
 
 #[test]
@@ -572,7 +569,7 @@ fn check_getting_branch_length_percentiles() {
     let perc_lengths =
         percentiles_rounded(&[3.5, 1.2, 3.7, 3.6, 1.1, 2.5, 2.4], 4, &Rounding::four());
     assert_eq!(perc_lengths, vec![1.44, 2.44, 3.1, 3.58]);
-    let perc_lengths = percentiles(&repeat(1.0).take(7).collect::<Vec<f64>>(), 2);
+    let perc_lengths = percentiles(&repeat_n(1.0, 7).collect::<Vec<f64>>(), 2);
     assert_eq!(perc_lengths, vec![1.0, 1.0]);
     let perc_lengths = percentiles(&[1.0, 3.0, 3.0, 4.0, 5.0, 6.0, 6.0, 7.0, 8.0, 8.0], 3);
     assert_eq!(perc_lengths, vec![3.25, 5.5, 6.75]);

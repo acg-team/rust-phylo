@@ -1,8 +1,8 @@
-use std::iter::repeat;
 use std::ops::Mul;
 use std::path::Path;
 
 use approx::assert_relative_eq;
+use itertools::repeat_n;
 use nalgebra::dvector;
 use rand::Rng;
 
@@ -195,12 +195,12 @@ fn dna_hky_correct() {
 #[test]
 fn dna_gtr_equal_rates_correct() {
     let gtr = SubstModel::<GTR>::new(
-        &repeat(0.25).take(4).collect::<Vec<f64>>(),
-        &repeat(1.0).take(5).collect::<Vec<f64>>(),
+        &repeat_n(0.25, 4).collect::<Vec<f64>>(),
+        &repeat_n(1.0, 5).collect::<Vec<f64>>(),
     );
     assert_eq!(gtr.freqs(), &frequencies!(&[0.25, 0.25, 0.25, 0.25]));
     assert_eq!(gtr.q()[(0, 0)], -1.0);
-    let gtr2 = SubstModel::<GTR>::new(&[], &repeat(1.0).take(5).collect::<Vec<f64>>());
+    let gtr2 = SubstModel::<GTR>::new(&[], &repeat_n(1.0, 5).collect::<Vec<f64>>());
     assert_relative_eq!(gtr.q(), gtr2.q());
     assert!(gtr.rate(b'T', b'T') < 0.0);
     assert!(gtr.rate(b'A', b'A') < 0.0);
