@@ -6,6 +6,21 @@ use itertools::join;
 use crate::alphabets::{dna_alphabet, protein_alphabet, ParsimonySet};
 
 #[test]
+fn parsimony_set_iters() {
+    let set = ParsimonySet::from_iter(b"ACGT".iter().copied());
+    let from_iter = set.iter().cloned().collect::<Vec<u8>>();
+    assert_eq!(from_iter.len(), 4);
+    let from_into_iter = set.into_iter().collect::<Vec<u8>>();
+    assert_eq!(from_into_iter.len(), 4);
+
+    let set = dna_alphabet().parsimony_set(&b'X');
+    let from_iter = set.iter().cloned().collect::<Vec<u8>>();
+    assert_eq!(from_iter.len(), 4);
+    let from_into_iter = set.into_iter().collect::<Vec<u8>>();
+    assert_eq!(from_into_iter.len(), 4);
+}
+
+#[test]
 fn dna_sets() {
     let record = Record::with_attrs("", None, b"AaCcTtGgXn-");
 
