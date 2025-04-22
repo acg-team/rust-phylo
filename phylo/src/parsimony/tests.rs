@@ -1,6 +1,6 @@
 use crate::alignment::Sequences;
 use crate::parsimony::costs::{GapCost, SimpleCosts};
-use crate::parsimony::SiteFlag::{GapOpen, NoGap};
+use crate::parsimony::SiteFlag::{GapExt, GapOpen, NoGap};
 use crate::parsimony::{ParsimonyAligner, ParsimonySite};
 use crate::{record_wo_desc as rec, site, test_align as align, tree};
 
@@ -177,4 +177,14 @@ fn align_four_on_tree() {
             alignment.node_map[idx].map_x.len() == 4 || alignment.node_map[idx].map_x.len() == 5
         );
     }
+}
+
+#[test]
+fn parsimony_site_debug() {
+    assert!(format!("{:?}", site!(b"T", GapOpen)).contains("GapOpen"));
+    assert!(format!("{:?}", site!(b"C", GapExt)).contains("GapExt"));
+    assert!(format!("{:?}", site!(b"A", NoGap)).contains("NoGap"));
+    assert!(format!("{:?}", site!(b"T", GapOpen)).contains("GapOpen"));
+    assert!(format!("{:?}", site!(b"G", NoGap)).contains("NoGap"));
+    assert!(format!("{:?}", site!(b"-", GapExt)).contains("GapExt"));
 }
