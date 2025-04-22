@@ -19,7 +19,7 @@ fn align_two_first_outcome() {
     ];
     let y_leaf = [site!(b"A", NoGap), site!(b"C", NoGap)];
 
-    let aligner = ParsimonyAligner::new(Box::new(scoring));
+    let aligner = ParsimonyAligner::new(scoring);
     let (_info, alignment, score) = aligner.pairwise_align(&x_leaf, 1.0, &y_leaf, 1.0, |l| l - 1);
 
     assert_eq!(score, 3.5);
@@ -44,7 +44,7 @@ fn align_two_second_outcome() {
     ];
     let y_leaf = [site!(b"A", NoGap), site!(b"C", NoGap)];
 
-    let aligner = ParsimonyAligner::new(Box::new(scoring));
+    let aligner = ParsimonyAligner::new(scoring);
     let (_info, alignment, score) = aligner.pairwise_align(&x_leaf, 1.0, &y_leaf, 1.0, |_| 0);
 
     assert_eq!(score, 3.5);
@@ -62,8 +62,8 @@ fn align_two_on_tree() {
     let tree = tree!("(A:1.0, B:1.0):0.0;");
     let scoring = SimpleCosts::new(mismatch, gap);
 
-    let aligner = ParsimonyAligner::new(Box::new(scoring));
-    let (alignment, score) = aligner.align(&seqs, &tree).unwrap();
+    let aligner = ParsimonyAligner::new(scoring);
+    let (alignment, score) = aligner.align_with_scores(&seqs, &tree).unwrap();
 
     assert_eq!(score[Into::<usize>::into(tree.root)], 3.5);
     let alignment = &alignment.node_map[&tree.root];
@@ -86,7 +86,7 @@ fn internal_alignment_first_outcome() {
 
     let y_leaf = [site!(b"G", GapOpen), site!(b"A", NoGap)];
 
-    let aligner = ParsimonyAligner::new(Box::new(scoring));
+    let aligner = ParsimonyAligner::new(scoring);
     let (_info, alignment, score) = aligner.pairwise_align(&x_leaf, 1.0, &y_leaf, 1.0, |l| l - 1);
 
     assert_eq!(score, 1.0);
@@ -109,7 +109,7 @@ fn internal_alignment_second_outcome() {
 
     let y_leaf = [site!(b"G", GapOpen), site!(b"A", NoGap)];
 
-    let aligner = ParsimonyAligner::new(Box::new(scoring));
+    let aligner = ParsimonyAligner::new(scoring);
     let (_info, alignment, score) = aligner.pairwise_align(&x_leaf, 1.0, &y_leaf, 1.0, |_| 0);
 
     assert_eq!(score, 2.0);
@@ -132,7 +132,7 @@ fn internal_alignment_third_outcome() {
 
     let y_leaf = [site!(b"G", GapOpen), site!(b"A", NoGap)];
 
-    let aligner = ParsimonyAligner::new(Box::new(scoring));
+    let aligner = ParsimonyAligner::new(scoring);
     let (_info, alignment, score) = aligner.pairwise_align(&x_leaf, 1.0, &y_leaf, 1.0, |l| l - 1);
 
     assert_eq!(score, 2.0);
@@ -155,8 +155,8 @@ fn align_four_on_tree() {
     let tree = tree!("((A:1.0, B:1.0):1.0, (C:1.0, D:1.0):1.0);");
     let scoring = SimpleCosts::new(mismatch, gap);
 
-    let aligner = ParsimonyAligner::new(Box::new(scoring));
-    let (alignment, score) = aligner.align(&seqs, &tree).unwrap();
+    let aligner = ParsimonyAligner::new(scoring);
+    let (alignment, score) = aligner.align_with_scores(&seqs, &tree).unwrap();
     // first cherry
     let idx = &tree.by_id("A").parent.unwrap();
     assert_eq!(score[usize::from(idx)], 3.5);

@@ -7,6 +7,7 @@ use crate::parsimony::{
 };
 use crate::Result;
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct ModelCostBuilder<P: ParsimonyModel> {
     model: P,
     gap: GapCost,

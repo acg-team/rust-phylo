@@ -1,5 +1,6 @@
 use crate::parsimony::{GapCost, ParsimonyCosts};
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct SimpleCosts {
     mismatch: f64,
     gap: GapCost,

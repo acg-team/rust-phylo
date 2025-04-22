@@ -23,36 +23,40 @@ pub trait ParsimonyModel: Display + EvoModel {
     fn scoring(&self, time: f64, diagonals: &DiagonalZeros, rounding: &Rounding) -> CostMatrix;
 }
 
-pub struct ParsimonyAligner {
-    pub scoring: Box<dyn ParsimonyCosts>,
+pub struct ParsimonyAligner<PC: ParsimonyCosts> {
+    pub scoring: PC,
 }
 
-impl Aligner for ParsimonyAligner {
+impl<PC: ParsimonyCosts + Clone> Aligner for ParsimonyAligner<PC> {
     fn align(&self, seqs: &Sequences, tree: &Tree) -> Result<Alignment> {
-        self.align(seqs, tree).map(|(a, _)| a)
+        self.align_with_scores(seqs, tree).map(|(a, _)| a)
     }
 }
 
-impl default::Default for ParsimonyAligner {
+impl default::Default for ParsimonyAligner<SimpleCosts> {
     fn default() -> Self {
         ParsimonyAligner {
-            scoring: Box::new(SimpleCosts::new(1.0, GapCost::new(2.5, 0.5))),
+            scoring: SimpleCosts::new(1.0, GapCost::new(2.5, 0.5)),
         }
     }
 }
 
-impl<'a> ParsimonyAligner {
-    pub fn with_attrs(mismatch: f64, gap: GapCost) -> ParsimonyAligner {
+impl<'a, PC: ParsimonyCosts + Clone> ParsimonyAligner<PC> {
+    pub fn with_attrs(mismatch: f64, gap: GapCost) -> ParsimonyAligner<SimpleCosts> {
         ParsimonyAligner {
-            scoring: Box::new(SimpleCosts::new(mismatch, gap)),
+            scoring: SimpleCosts::new(mismatch, gap),
         }
     }
 
-    pub fn new(scoring: Box<dyn ParsimonyCosts>) -> ParsimonyAligner {
+    pub fn new(scoring: PC) -> ParsimonyAligner<PC> {
         ParsimonyAligner { scoring }
     }
 
-    pub fn align(&self, seqs: &'a Sequences, tree: &'a Tree) -> Result<(Alignment, Vec<f64>)> {
+    pub fn align_with_scores(
+        &self,
+        seqs: &'a Sequences,
+        tree: &'a Tree,
+    ) -> Result<(Alignment, Vec<f64>)> {
         info!("Starting the IndelMAP alignment.");
 
         let order = tree.postorder();
@@ -117,14 +121,8 @@ impl<'a> ParsimonyAligner {
         y_blen: f64,
         rng: fn(usize) -> usize,
     ) -> (Vec<ParsimonySite>, PairwiseAlignment, f64) {
-        let mut pars_mats = ParsimonyAlignmentMatrices::new(
-            x_info,
-            x_blen,
-            y_info,
-            y_blen,
-            self.scoring.as_ref(),
-            rng,
-        );
+        let mut pars_mats =
+            ParsimonyAlignmentMatrices::new(x_info, x_blen, y_info, y_blen, &self.scoring, rng);
 
         pars_mats.fill_matrices();
         pars_mats.traceback()
@@ -132,4 +130,5 @@ impl<'a> ParsimonyAligner {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod tests;

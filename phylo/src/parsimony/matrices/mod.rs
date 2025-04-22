@@ -90,7 +90,7 @@ impl<'a> ParsimonyAlignmentMatrices<'a> {
         x_blen: f64,
         y_info: &'a [ParsimonySite],
         y_blen: f64,
-        scoring: &'a dyn ParsimonyCosts,
+        scoring: &'a impl ParsimonyCosts,
         rng: fn(usize) -> usize,
     ) -> ParsimonyAlignmentMatrices<'a> {
         let rows = x_info.len() + 1;
