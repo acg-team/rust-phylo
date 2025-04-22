@@ -1,11 +1,8 @@
 use approx::assert_relative_eq;
 
-use crate::parsimony::costs::{GapCost as GC, ModelCosts, SimpleCosts};
+use crate::parsimony::costs::{GapCost as GC, ModelCostBuilder as MCB, SimpleCosts};
 use crate::parsimony::matrices::Direction::{GapInX, GapInY, Matc};
-use crate::parsimony::{
-    DiagonalZeros as Z, ParsimonyAlignmentMatrices as PAM, ParsimonySite, Rounding as R,
-    SiteFlag::*,
-};
+use crate::parsimony::{ParsimonyAlignmentMatrices as PAM, ParsimonySite, SiteFlag::*};
 use crate::substitution_models::{SubstModel, K80};
 use crate::{site, test_align as align};
 
@@ -673,14 +670,11 @@ fn assert_float_relative_matrix_eq(actual: &[Vec<f64>], expected: &[Vec<f64>], e
 fn fill_matrix_diff_branch_models() {
     // Sequence file: sequences_diff_branch_lengths_1.fasta
     // Tree file: tree_diff_branch_lengths_1.newick
-    let scoring = ModelCosts::new(
-        &SubstModel::<K80>::new(&[], &[]),
-        GC::new(2.0, 0.5),
-        Z::non_zero(),
-        R::none(),
-        &[1.0, 2.0],
-    )
-    .unwrap();
+    let scoring = MCB::new(SubstModel::<K80>::new(&[], &[]))
+        .gap_cost(GC::new(2.0, 0.5))
+        .times(vec![1.0, 2.0])
+        .build()
+        .unwrap();
 
     let left_info = vec![
         site!(b"A", NoGap),
@@ -754,15 +748,12 @@ fn traceback_diff_branch_models() {
     // Last step of the alignment with gap adjustments
     // Sequence file: sequences_diff_branch_lengths_1.fasta
     // Tree file: tree_diff_branch_lengths_1.newick
-    let times = &[1.0, 2.0];
-    let scoring = ModelCosts::new(
-        &SubstModel::<K80>::new(&[], &[]),
-        GC::new(2.0, 0.5),
-        Z::non_zero(),
-        R::none(),
-        times,
-    )
-    .unwrap();
+
+    let scoring = MCB::new(SubstModel::<K80>::new(&[], &[]))
+        .gap_cost(GC::new(2.0, 0.5))
+        .times(vec![1.0, 2.0])
+        .build()
+        .unwrap();
 
     let left_info = vec![
         site!(b"A", NoGap),
@@ -792,15 +783,12 @@ fn traceback_diff_branch_models() {
 fn fill_matrix_diff_branch_models_2() {
     // Sequence file: sequences_diff_branch_lengths_2.fasta
     // Tree file: tree_diff_branch_lengths_2.newick
-    let times = &[3.5, 3.0];
-    let scoring = ModelCosts::new(
-        &SubstModel::<K80>::new(&[], &[]),
-        GC::new(1.5, 0.75),
-        Z::non_zero(),
-        R::none(),
-        times,
-    )
-    .unwrap();
+
+    let scoring = MCB::new(SubstModel::<K80>::new(&[], &[]))
+        .gap_cost(GC::new(1.5, 0.75))
+        .times(vec![3.5, 3.0])
+        .build()
+        .unwrap();
 
     let left_info = vec![
         site!(b"G", GapOpen),
@@ -886,15 +874,12 @@ fn traceback_diff_branch_models_2() {
     // Last step of the alignment with gap adjustments
     // Sequence file: sequences_diff_branch_lengths_2.fasta
     // Tree file: tree_diff_branch_lengths_2.newick
-    let times = &[3.5, 3.0];
-    let scoring = ModelCosts::new(
-        &SubstModel::<K80>::new(&[], &[]),
-        GC::new(1.5, 0.75),
-        Z::non_zero(),
-        R::none(),
-        times,
-    )
-    .unwrap();
+
+    let scoring = MCB::new(SubstModel::<K80>::new(&[], &[]))
+        .gap_cost(GC::new(1.5, 0.75))
+        .times(vec![3.5, 3.0])
+        .build()
+        .unwrap();
 
     let left_info = vec![
         site!(b"G", GapOpen),
@@ -932,15 +917,11 @@ fn traceback_diff_branch_models_2() {
 fn fill_matrix_diff_branch_models_3() {
     // Sequence file: sequences_diff_branch_lengths_3.fasta
     // Tree file: tree_diff_branch_lengths_3.newick
-    let times = &[0.52, 2.58];
-    let scoring = ModelCosts::new(
-        &SubstModel::<K80>::new(&[], &[]),
-        GC::new(1.0, 0.75),
-        Z::non_zero(),
-        R::none(),
-        times,
-    )
-    .unwrap();
+    let scoring = MCB::new(SubstModel::<K80>::new(&[], &[]))
+        .gap_cost(GC::new(1.0, 0.75))
+        .times(vec![0.52, 2.58])
+        .build()
+        .unwrap();
 
     let left_info = vec![
         site!(b"A", GapOpen),
@@ -1028,16 +1009,11 @@ fn fill_matrix_diff_branch_models_3() {
 fn traceback_diff_branch_models_3() {
     // Sequence file: sequences_diff_branch_lengths_3.fasta
     // Tree file: tree_diff_branch_lengths_3.newick
-
-    let times = &[0.52, 2.58];
-    let scoring = ModelCosts::new(
-        &SubstModel::<K80>::new(&[], &[]),
-        GC::new(1.5, 0.75),
-        Z::non_zero(),
-        R::none(),
-        times,
-    )
-    .unwrap();
+    let scoring = MCB::new(SubstModel::<K80>::new(&[], &[]))
+        .gap_cost(GC::new(1.5, 0.75))
+        .times(vec![0.52, 2.58])
+        .build()
+        .unwrap();
 
     let left_info = vec![
         site!(b"A", GapOpen),

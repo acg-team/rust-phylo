@@ -7,16 +7,16 @@ use crate::parsimony::{
 };
 use crate::Result;
 
-pub struct ModelCostBuilder {
-    model: Box<dyn ParsimonyModel>,
+pub struct ModelCostBuilder<P: ParsimonyModel> {
+    model: P,
     gap: GapCost,
     diagonal: DiagonalZeros,
     rounding: Rounding,
     times: Vec<f64>,
 }
 
-impl ModelCostBuilder {
-    pub fn new(model: Box<dyn ParsimonyModel>) -> Self {
+impl<P: ParsimonyModel> ModelCostBuilder<P> {
+    pub fn new(model: P) -> Self {
         ModelCostBuilder {
             model,
             gap: GapCost::new(2.5, 1.0),
@@ -31,7 +31,7 @@ impl ModelCostBuilder {
         self
     }
 
-    pub fn diagonal_zeros(mut self, diagonal: DiagonalZeros) -> Self {
+    pub fn diagonal(mut self, diagonal: DiagonalZeros) -> Self {
         self.diagonal = diagonal;
         self
     }
@@ -47,13 +47,46 @@ impl ModelCostBuilder {
     }
 
     pub fn build(self) -> Result<ModelCosts> {
-        ModelCosts::new(
-            &*self.model,
-            self.gap,
-            self.diagonal,
-            self.rounding,
-            &self.times,
-        )
+        info!(
+            "Setting up the parsimony scoring from the {} model.",
+            self.model
+        );
+
+        let mut times = self
+            .times
+            .iter()
+            .cloned()
+            .map(OrderedFloat::<f64>::from)
+            .collect::<Vec<_>>();
+        times.sort();
+
+        let costs: Vec<(OrderedFloat<f64>, TimeCosts)> = times
+            .iter()
+            .map(|time| {
+                let cost_matrix =
+                    self.model
+                        .scoring(f64::from(*time), &self.diagonal, &self.rounding);
+                let avg = cost_matrix.mean();
+                (
+                    *time,
+                    TimeCosts {
+                        avg,
+                        gap: self.gap.clone() * avg,
+                        c: cost_matrix,
+                    },
+                )
+            })
+            .collect();
+
+        info!(
+            "Created scoring matrices from the {} substitution model for {:?} branch lengths.",
+            self.model, times
+        );
+        debug!("The scoring matrices are: {:?}", costs);
+        Ok(ModelCosts {
+            alphabet: *self.model.alphabet(),
+            costs,
+        })
     }
 }
 
@@ -71,49 +104,6 @@ pub(crate) struct TimeCosts {
 }
 
 impl ModelCosts {
-    pub(crate) fn new(
-        model: &dyn ParsimonyModel,
-        gap: GapCost,
-        diagonal: DiagonalZeros,
-        rounding: Rounding,
-        times: &[f64],
-    ) -> Result<Self> {
-        info!("Setting up the parsimony scoring from the {} model.", model);
-
-        let mut times = times
-            .iter()
-            .cloned()
-            .map(OrderedFloat::<f64>::from)
-            .collect::<Vec<_>>();
-        times.sort();
-
-        let costs: Vec<(OrderedFloat<f64>, TimeCosts)> = times
-            .iter()
-            .map(|time| {
-                let cost_matrix = model.scoring(f64::from(*time), &diagonal, &rounding);
-                let avg = cost_matrix.mean();
-                (
-                    *time,
-                    TimeCosts {
-                        avg,
-                        gap: gap.clone() * avg,
-                        c: cost_matrix,
-                    },
-                )
-            })
-            .collect();
-
-        info!(
-            "Created scoring matrices from the {} substitution model for {:?} branch lengths.",
-            model, times
-        );
-        debug!("The scoring matrices are: {:?}", costs);
-        Ok(ModelCosts {
-            alphabet: *model.alphabet(),
-            costs,
-        })
-    }
-
     fn scoring(&self, target: OrderedFloat<f64>) -> &TimeCosts {
         let target = OrderedFloat(target);
         match self.costs.binary_search_by(|(time, _)| time.cmp(&target)) {
@@ -164,7 +154,7 @@ mod private_tests {
     use crate::substitution_models::*;
 
     use super::*;
-    use super::{DiagonalZeros as Z, Rounding as R};
+    use super::{DiagonalZeros as Z, ModelCostBuilder as MCB, Rounding as R};
 
     const TRUE_COST_MATRIX: [f64; 400] = [
         0.0, 6.0, 6.0, 5.0, 6.0, 6.0, 5.0, 4.0, 7.0, 7.0, 6.0, 5.0, 6.0, 7.0, 5.0, 4.0, 4.0, 9.0,
@@ -194,14 +184,13 @@ mod private_tests {
 
     #[test]
     fn protein_scorings() {
-        let s = ModelCosts::new(
-            &SubstModel::<WAG>::new(&[], &[]),
-            GapCost::new(2.5, 1.0),
-            Z::non_zero(),
-            R::zero(),
-            &[0.1, 0.3, 0.5, 0.7],
-        )
-        .unwrap();
+        let s = ModelCostBuilder::new(SubstModel::<WAG>::new(&[], &[]))
+            .gap_cost(GapCost::new(2.5, 1.0))
+            .diagonal(Z::non_zero())
+            .rounding(R::zero())
+            .times(vec![0.1, 0.3, 0.5, 0.7])
+            .build()
+            .unwrap();
 
         let mat_01 = s.scoring(OrderedFloat(0.1));
         let true_matrix_01 = CostMatrix::from_row_slice(20, 20, &TRUE_COST_MATRIX);
@@ -213,15 +202,28 @@ mod private_tests {
     }
 
     #[cfg(test)]
-    fn rounding_template<P: ParsimonyModel>(model: P) {
+    fn rounding_template<P: ParsimonyModel + Clone>(model: P) {
         let g = GapCost::new(2.5, 1.0);
-        let t = OrderedFloat(0.1);
-        let s_rounded =
-            ModelCosts::new(&model, g.clone(), Z::zero(), R::zero(), &[0.1, 0.4, 0.2]).unwrap();
-        let s = ModelCosts::new(&model, g.clone(), Z::zero(), R::none(), &[0.3, 0.1, 0.6]).unwrap();
+        let s_rounded = MCB::new(model.clone())
+            .gap_cost(g.clone())
+            .diagonal(Z::zero())
+            .rounding(R::zero())
+            .times(vec![0.1])
+            .build()
+            .unwrap();
+        let s = MCB::new(model)
+            .gap_cost(g)
+            .diagonal(Z::zero())
+            .times(vec![0.1])
+            .build()
+            .unwrap();
+
         assert_ne!(s_rounded.avg(0.1), s.avg(0.1));
-        assert_ne!(s_rounded.scoring(t), s.scoring(t));
-        for (&e1, &e2) in s_rounded.scoring(t).c.iter().zip(s.scoring(t).c.iter()) {
+        let rounded_costs = s_rounded.scoring(OrderedFloat(0.1));
+        let costs = s.scoring(OrderedFloat(0.1));
+
+        assert_ne!(rounded_costs.c, costs.c);
+        for (&e1, &e2) in rounded_costs.c.iter().zip(costs.c.iter()) {
             assert_relative_eq!(e1, e1.round());
             assert_relative_eq!(e1, e2.round());
         }
@@ -247,24 +249,34 @@ mod private_tests {
     }
 
     #[cfg(test)]
-    fn matrix_zero_diagonals_template<P: ParsimonyModel>(model: P) {
+    fn matrix_zero_diagonals_template<P: ParsimonyModel + Clone>(model: P) {
         let g = GapCost::new(2.5, 1.0);
-        let t = OrderedFloat(0.1);
-        let s_zero_diags =
-            ModelCosts::new(&model, g.clone(), Z::zero(), R::none(), &[0.1, 0.4, 0.2]).unwrap();
-        let s = ModelCosts::new(&model, g.clone(), Z::non_zero(), R::none(), &[0.3, 0.1]).unwrap();
+
+        let s_zero_diags = MCB::new(model.clone())
+            .gap_cost(g.clone())
+            .diagonal(Z::zero())
+            .times(vec![0.1])
+            .build()
+            .unwrap();
+
+        let s = MCB::new(model)
+            .gap_cost(g)
+            .times(vec![0.1])
+            .build()
+            .unwrap();
+
         assert_ne!(s_zero_diags.avg(0.1), s.avg(0.1));
         assert!(s_zero_diags.avg(0.1) < s.avg(0.1));
-        assert_ne!(
-            s_zero_diags.scoring(OrderedFloat(0.1)),
-            s.scoring(OrderedFloat(0.1))
-        );
-        for (&e1, &e2) in s_zero_diags
-            .scoring(t)
+
+        let zero_diag_costs = s_zero_diags.scoring(OrderedFloat(0.1));
+        let costs = s.scoring(OrderedFloat(0.1));
+        assert_ne!(zero_diag_costs, costs);
+
+        for (&e1, &e2) in zero_diag_costs
             .c
             .diagonal()
             .iter()
-            .zip(s.scoring(t).c.diagonal().iter())
+            .zip(costs.c.diagonal().iter())
         {
             assert_eq!(e1, 0.0);
             assert_ne!(e1, e2);

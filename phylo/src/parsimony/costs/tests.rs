@@ -1,5 +1,5 @@
 use crate::alphabets::{AMINOACIDS, NUCLEOTIDES};
-use crate::parsimony::costs::ModelCosts;
+use crate::parsimony::costs::ModelCostBuilder as MCB;
 use crate::parsimony::{DiagonalZeros as Z, GapCost, ParsimonyCosts, Rounding as R, SimpleCosts};
 use crate::substitution_models::{SubstModel, JC69, WAG};
 
@@ -66,12 +66,19 @@ fn protein_branch_scoring() {
         open: 2.5,
         ext: 0.5,
     };
-    let avg_01 = 5.7675;
-    let avg_07 = 4.0075;
-    let times = [0.1, 0.7];
+
+    let times = vec![0.1, 0.7];
 
     let model = SubstModel::<WAG>::new(&[], &[]);
-    let cost = ModelCosts::new(&model, gap.clone(), Z::non_zero(), R::zero(), &times).unwrap();
+    let cost = MCB::new(model.clone())
+        .gap_cost(gap.clone())
+        .rounding(R::zero())
+        .times(times.clone())
+        .build()
+        .unwrap();
+
+    let avg_01 = 5.7675;
+    let avg_07 = 4.0075;
 
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.gap_ext(0.1), avg_01 * gap.ext);
@@ -79,8 +86,13 @@ fn protein_branch_scoring() {
 
     assert_eq!(cost.avg(0.7), avg_07);
 
-    let model = SubstModel::<WAG>::new(&[], &[]);
-    let cost = ModelCosts::new(&model, gap.clone(), Z::zero(), R::zero(), &times).unwrap();
+    let cost = MCB::new(model)
+        .gap_cost(gap)
+        .diagonal(Z::zero())
+        .rounding(R::zero())
+        .times(times)
+        .build()
+        .unwrap();
 
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.r#match(0.1, &b'A', &b'A'), 0.0);
@@ -96,13 +108,19 @@ fn protein_scoring() {
         ext: 0.1,
     };
 
+    let times = vec![0.1, 0.3, 0.5, 0.7];
+    let model = SubstModel::<WAG>::new(&[], &[]);
+    let cost = MCB::new(model)
+        .gap_cost(gap.clone())
+        .rounding(R::zero())
+        .times(times)
+        .build()
+        .unwrap();
+
     let avg_01 = 5.7675;
     let avg_03 = 4.7475;
     let avg_05 = 4.2825;
     let avg_07 = 4.0075;
-    let times = [0.1, 0.3, 0.5, 0.7];
-    let model = SubstModel::<WAG>::new(&[], &[]);
-    let cost = ModelCosts::new(&model, gap.clone(), Z::non_zero(), R::zero(), &times).unwrap();
 
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.gap_ext(0.1), avg_01 * gap.ext);
@@ -118,11 +136,18 @@ fn protein_branch_scoring_nearest() {
         open: 2.0,
         ext: 0.1,
     };
+    let times = vec![0.1, 0.5];
+    let model = SubstModel::<WAG>::new(&[], &[]);
+
+    let cost = MCB::new(model)
+        .gap_cost(gap.clone())
+        .times(times)
+        .rounding(R::zero())
+        .build()
+        .unwrap();
+
     let avg_01 = 5.7675;
     let avg_05 = 4.2825;
-    let times = [0.1, 0.5];
-    let model = SubstModel::<WAG>::new(&[], &[]);
-    let cost = ModelCosts::new(&model, gap.clone(), Z::non_zero(), R::zero(), &times).unwrap();
 
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.gap_ext(0.1), avg_01 * gap.ext);
@@ -145,19 +170,33 @@ fn dna_branch_scoring() {
         open: 2.5,
         ext: 0.5,
     };
-    let avg_01 = 2.25;
-    let avg_07 = 1.75;
-    let times = [0.1, 0.7];
+    let times = vec![0.1, 0.7];
 
     let model = SubstModel::<JC69>::new(&[], &[]);
-    let cost = ModelCosts::new(&model, gap.clone(), Z::non_zero(), R::zero(), &times).unwrap();
+    let cost = MCB::new(model.clone())
+        .gap_cost(gap.clone())
+        .times(times.clone())
+        .rounding(R::zero())
+        .build()
+        .unwrap();
+
+    let avg_01 = 2.25;
+    let avg_07 = 1.75;
+
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.gap_ext(0.1), avg_01 * gap.ext);
     assert_eq!(cost.gap_open(0.1), avg_01 * gap.open);
 
     assert_eq!(cost.avg(0.7), avg_07);
 
-    let cost = ModelCosts::new(&model, gap, Z::zero(), R::zero(), &times).unwrap();
+    let cost = MCB::new(model.clone())
+        .gap_cost(gap.clone())
+        .times(times)
+        .diagonal(Z::zero())
+        .rounding(R::zero())
+        .build()
+        .unwrap();
+
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.r#match(0.1, &b'N', &b'N'), 0.0);
 
@@ -171,12 +210,18 @@ fn dna_branch_scoring_nearest() {
         open: 3.0,
         ext: 0.75,
     };
-    let avg_01 = 2.25;
-    let avg_07 = 1.75;
-    let times = [0.1, 0.7];
+    let times = vec![0.1, 0.7];
 
     let model = SubstModel::<JC69>::new(&[], &[]);
-    let cost = ModelCosts::new(&model, gap.clone(), Z::non_zero(), R::zero(), &times).unwrap();
+    let cost = MCB::new(model)
+        .gap_cost(gap.clone())
+        .times(times)
+        .rounding(R::zero())
+        .build()
+        .unwrap();
+
+    let avg_01 = 2.25;
+    let avg_07 = 1.75;
 
     assert_eq!(cost.avg(0.1), avg_01);
     assert_eq!(cost.gap_ext(0.1), avg_01 * gap.ext);
