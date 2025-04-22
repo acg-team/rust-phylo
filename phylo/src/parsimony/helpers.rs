@@ -47,7 +47,7 @@ impl DiagonalZeros {
     pub fn non_zero() -> Self {
         DiagonalZeros { is_zero: false }
     }
-    pub fn yes(&self) -> bool {
+    pub fn is_zero(&self) -> bool {
         self.is_zero
     }
 }

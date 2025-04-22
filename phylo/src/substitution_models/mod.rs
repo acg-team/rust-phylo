@@ -348,7 +348,7 @@ impl<Q: QMatrix> ParsimonyModel for SubstModel<Q> {
                     / 10.0_f64.powf(rounding.digits as f64)
             });
         }
-        if diagonal_zeros.yes() {
+        if diagonal_zeros.is_zero() {
             scores.fill_diagonal(0.0);
         }
         scores
