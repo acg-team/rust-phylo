@@ -292,3 +292,37 @@ fn display_alignment() {
 
     assert_eq!(lines, true_lines);
 }
+
+#[test]
+fn removing_gap_cols() {
+    let mut seqs = Sequences::new(vec![
+        record!("A0", Some("A0 sequence"), b"AAAAAA"),
+        record!("B1", Some("B1 sequence"), b"---A-A"),
+        record!("C2", Some("C2 sequence"), b"AA---A"),
+        record!("D3", Some("D3 sequence"), b"---A-A"),
+        record!("E4", Some("E4 sequence"), b"-A-AAA"),
+    ]);
+    seqs.remove_gap_cols();
+    assert_eq!(seqs.len(), 5);
+    for seq in seqs.iter() {
+        assert_eq!(seq.seq().len(), 6);
+    }
+
+    let mut seqs2 = Sequences::new(vec![
+        record!("A0", Some("A0 sequence"), b"-AAA-AA-A"),
+        record!("B1", Some("B1 sequence"), b"-----A--A"),
+        record!("C2", Some("C2 sequence"), b"-AA-----A"),
+        record!("D3", Some("D3 sequence"), b"-----A--A"),
+        record!("E4", Some("E4 sequence"), b"--A--AA-A"),
+    ]);
+    for seq in seqs2.iter() {
+        assert_eq!(seq.seq().len(), 9);
+    }
+
+    seqs2.remove_gap_cols();
+    assert_eq!(seqs2.len(), 5);
+    for seq in seqs2.iter() {
+        assert_eq!(seq.seq().len(), 6);
+    }
+    assert_eq!(seqs, seqs2)
+}
