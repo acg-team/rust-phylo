@@ -30,12 +30,6 @@ impl PairwiseAlignment {
         debug_assert!((map_x.len() == map_y.len()) | map_y.is_empty());
         PairwiseAlignment { map_x, map_y }
     }
-    pub fn empty() -> PairwiseAlignment {
-        PairwiseAlignment {
-            map_x: Vec::new(),
-            map_y: Vec::new(),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
