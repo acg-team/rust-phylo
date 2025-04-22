@@ -326,3 +326,16 @@ fn removing_gap_cols() {
     }
     assert_eq!(seqs, seqs2)
 }
+
+#[test]
+#[should_panic]
+fn removing_gap_cols_on_unaligned() {
+    let mut seqs = Sequences::new(vec![
+        record!("A0", None, b"AAAAAA"),
+        record!("B1", None, b"AA"),
+        record!("C2", None, b"AAA"),
+        record!("D3", None, b"AA"),
+        record!("E4", None, b"AAAA"),
+    ]);
+    seqs.remove_gap_cols();
+}
