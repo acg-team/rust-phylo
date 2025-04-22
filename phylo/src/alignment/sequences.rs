@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use anyhow::bail;
 use bio::io::fasta::Record;
+use bitvec::vec::BitVec;
 use hashbrown::HashMap;
 use nalgebra::DMatrix;
 
@@ -133,18 +134,23 @@ impl Sequences {
 
     /// Removes all columns that only contain gaps from the sequences.
     pub fn remove_gap_cols(&mut self) {
-        let mut gap_cols = Vec::new();
-        for col in 0..self.s[0].seq().len() {
-            if self.s.iter().all(|rec| rec.seq()[col] == GAP) {
-                gap_cols.push(col);
-            }
+        assert!(
+            self.aligned,
+            "Cannot remove gap columns from unaligned sequences"
+        );
+
+        let mut gap_cols: BitVec = BitVec::repeat(true, self.s[0].seq().len());
+        for rec in &self.s {
+            let seq_gaps = rec.seq().iter().map(|&c| c == GAP).collect::<BitVec>();
+            gap_cols &= seq_gaps;
         }
+
         let new_seqs = self.s.iter().map(|rec| {
             let seq: Vec<u8> = rec
                 .seq()
                 .iter()
                 .enumerate()
-                .filter(|(i, _)| !gap_cols.contains(i))
+                .filter(|(i, _)| !gap_cols[*i])
                 .map(|(_, c)| *c)
                 .collect();
             Record::with_attrs(rec.id(), rec.desc(), &seq)
