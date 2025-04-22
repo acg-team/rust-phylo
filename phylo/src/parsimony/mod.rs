@@ -42,12 +42,6 @@ impl default::Default for ParsimonyAligner<SimpleCosts> {
 }
 
 impl<'a, PC: ParsimonyCosts + Clone> ParsimonyAligner<PC> {
-    pub fn with_attrs(mismatch: f64, gap: GapCost) -> ParsimonyAligner<SimpleCosts> {
-        ParsimonyAligner {
-            scoring: SimpleCosts::new(mismatch, gap),
-        }
-    }
-
     pub fn new(scoring: PC) -> ParsimonyAligner<PC> {
         ParsimonyAligner { scoring }
     }
