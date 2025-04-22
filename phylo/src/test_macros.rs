@@ -49,7 +49,8 @@ macro_rules! test_align {
 
 #[macro_export]
 macro_rules! site {
-    ($s:literal, $f:expr) => {
-        ParsimonySite::new($s.iter().copied(), $f) // Ensure conversion from &[u8] to u8 iterator
-    };
+    ($s:literal, $f:expr) => {{
+        use $crate::alphabets::ParsimonySet;
+        ParsimonySite::new(ParsimonySet::from_slice($s), $f)
+    }};
 }

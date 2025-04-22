@@ -1,13 +1,12 @@
 use rstest::*;
 
 use bio::io::fasta::Record;
-use itertools::join;
 
 use crate::alphabets::{dna_alphabet, protein_alphabet, ParsimonySet};
 
 #[test]
 fn parsimony_set_iters() {
-    let set = ParsimonySet::from_iter(b"ACGT".iter().copied());
+    let set = ParsimonySet::from_slice(b"ACGT");
     let from_iter = set.iter().cloned().collect::<Vec<u8>>();
     assert_eq!(from_iter.len(), 4);
     let from_into_iter = set.into_iter().collect::<Vec<u8>>();
@@ -113,15 +112,12 @@ fn protein_characters() {
 }
 
 #[rstest]
-#[case(vec![b'A', b'C', b'G', b'T'], "ACGT")]
-#[case(vec![b'T', b'G', b'A', b'C'], "ACGT")]
-#[case(vec![b'V', b'G'], "GV")]
-#[case(vec![b'Q', b'I', b'F', b'G', b'W', b'P', b'M', b'N', b'K', b'S', b'E', b'Y', b'T', b'V', b'C', b'R', b'A', b'H', b'L', b'D'], "ACDEFGHIKLMNPQRSTVWY")]
+#[case(b"ACGT", "ACGT")]
+#[case(b"TGAC", "ACGT")]
+#[case(b"VG", "GV")]
+#[case(b"QIFGWMNKSEYTVCPRAHLD", "ACDEFGHIKLMNPQRSTVWY")]
 
-fn test_parsimony_set_printing(#[case] input: Vec<u8>, #[case] output: &str) {
-    let set = ParsimonySet::from_iter(input);
-    assert_eq!(
-        format!("{}", set),
-        format!("[{}]", join(output.chars(), " ").as_str())
-    );
+fn test_parsimony_set_printing(#[case] input: &[u8], #[case] output: &str) {
+    let set = ParsimonySet::from_slice(input);
+    assert_eq!(format!("{}", set), format!("[{}]", output));
 }

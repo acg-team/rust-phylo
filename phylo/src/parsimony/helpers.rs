@@ -75,24 +75,18 @@ pub(crate) struct ParsimonySite {
 
 impl Debug for ParsimonySite {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{:?}: {:?}",
-            self.set.iter().map(|&a| a as char).collect::<Vec<char>>(),
-            self.flag
-        )?;
-        Ok(())
+        write!(f, "{}: {:?}", self.set, self.flag)
     }
 }
 
 impl ParsimonySite {
-    pub(crate) fn new(set: impl IntoIterator<Item = u8>, gap_flag: SiteFlag) -> ParsimonySite {
+    pub(crate) fn new(set: ParsimonySet, gap_flag: SiteFlag) -> ParsimonySite {
         ParsimonySite {
-            set: ParsimonySet::from_iter(set),
+            set,
             flag: gap_flag,
         }
     }
-    pub(crate) fn leaf(set: impl IntoIterator<Item = u8>) -> ParsimonySite {
+    pub(crate) fn leaf(set: ParsimonySet) -> ParsimonySite {
         ParsimonySite::new(set, SiteFlag::NoGap)
     }
 

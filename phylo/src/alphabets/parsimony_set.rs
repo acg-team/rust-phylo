@@ -18,14 +18,14 @@ impl ParsimonySet {
     }
 
     pub fn gap() -> Self {
-        ParsimonySet::from_iter([GAP])
+        Self {
+            s: HashSet::from_iter([GAP]),
+        }
     }
-}
 
-impl std::iter::FromIterator<u8> for ParsimonySet {
-    fn from_iter<I: IntoIterator<Item = u8>>(iter: I) -> Self {
-        ParsimonySet {
-            s: HashSet::from_iter(iter),
+    pub(crate) fn from_slice(slice: &[u8]) -> Self {
+        Self {
+            s: HashSet::from_iter(slice.iter().copied()),
         }
     }
 }
@@ -42,7 +42,7 @@ impl Display for ParsimonySet {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut chars: Vec<char> = self.s.iter().map(|&a| a as char).collect();
         chars.sort();
-        write!(f, "[{}]", join(chars.iter(), " "))
+        write!(f, "[{}]", join(chars.iter(), ""))
     }
 }
 

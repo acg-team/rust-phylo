@@ -153,21 +153,21 @@ fn nucl_cond_probs(char: u8) -> FreqVector {
 fn nucl_parsimony_set(char: &u8) -> ParsimonySet {
     let char = char.to_ascii_uppercase();
     if NUCLEOTIDES.contains(&char) {
-        return ParsimonySet::from_iter([char]);
+        return ParsimonySet::from_slice(&[char]);
     }
     match char {
-        b'-' => ParsimonySet::from_iter([GAP]),
-        b'M' => ParsimonySet::from_iter([b'C', b'A']),
-        b'R' => ParsimonySet::from_iter([b'A', b'G']),
-        b'W' => ParsimonySet::from_iter([b'T', b'A']),
-        b'S' => ParsimonySet::from_iter([b'C', b'G']),
-        b'Y' => ParsimonySet::from_iter([b'T', b'C']),
-        b'K' => ParsimonySet::from_iter([b'T', b'G']),
-        b'V' => ParsimonySet::from_iter([b'C', b'A', b'G']),
-        b'D' => ParsimonySet::from_iter([b'T', b'A', b'G']),
-        b'B' => ParsimonySet::from_iter([b'T', b'C', b'G']),
-        b'H' => ParsimonySet::from_iter([b'T', b'C', b'A']),
-        _ => ParsimonySet::from_iter(NUCLEOTIDES.iter().cloned()),
+        b'-' => ParsimonySet::from_slice(&[GAP]),
+        b'M' => ParsimonySet::from_slice(b"CA"),
+        b'R' => ParsimonySet::from_slice(b"AG"),
+        b'W' => ParsimonySet::from_slice(b"TA"),
+        b'S' => ParsimonySet::from_slice(b"CG"),
+        b'Y' => ParsimonySet::from_slice(b"TC"),
+        b'K' => ParsimonySet::from_slice(b"TG"),
+        b'V' => ParsimonySet::from_slice(b"CAG"),
+        b'D' => ParsimonySet::from_slice(b"TAG"),
+        b'B' => ParsimonySet::from_slice(b"TCG"),
+        b'H' => ParsimonySet::from_slice(b"TCA"),
+        _ => ParsimonySet::from_slice(NUCLEOTIDES),
     }
 }
 
@@ -242,14 +242,14 @@ fn aa_cond_probs(char: u8) -> FreqVector {
 fn aa_parsimony_set(char: &u8) -> ParsimonySet {
     let char = char.to_ascii_uppercase();
     if AMINOACIDS.contains(&char) {
-        return ParsimonySet::from_iter([char]);
+        return ParsimonySet::from_slice(&[char]);
     }
     match char {
-        b'-' => ParsimonySet::from_iter([GAP]),
-        b'B' => ParsimonySet::from_iter([b'D', b'N']),
-        b'Z' => ParsimonySet::from_iter([b'E', b'Q']),
-        b'J' => ParsimonySet::from_iter([b'I', b'L']),
-        _ => ParsimonySet::from_iter(AMINOACIDS.iter().cloned()),
+        b'-' => ParsimonySet::from_slice(&[GAP]),
+        b'B' => ParsimonySet::from_slice(b"DN"),
+        b'Z' => ParsimonySet::from_slice(b"EQ"),
+        b'J' => ParsimonySet::from_slice(b"IL"),
+        _ => ParsimonySet::from_slice(AMINOACIDS),
     }
 }
 
