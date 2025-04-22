@@ -36,4 +36,5 @@ pub trait ParsimonyCosts {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod tests;

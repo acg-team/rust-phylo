@@ -237,7 +237,8 @@ impl PhyloInfoBuilder {
 }
 
 #[cfg(test)]
-pub mod builder_tests {
+#[cfg_attr(coverage, coverage(off))]
+pub mod private_tests {
     use std::path::PathBuf;
 
     use super::PhyloInfoBuilder as PIB;
