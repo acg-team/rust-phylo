@@ -113,9 +113,7 @@ impl ModelCosts {
             costs,
         })
     }
-}
 
-impl ModelCosts {
     fn scoring(&self, target: OrderedFloat<f64>) -> &TimeCosts {
         let target = OrderedFloat(target);
         match self.costs.binary_search_by(|(time, _)| time.cmp(&target)) {
