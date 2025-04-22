@@ -80,8 +80,7 @@ impl Debug for ParsimonySite {
             "{:?}: {:?}",
             self.set.iter().map(|&a| a as char).collect::<Vec<char>>(),
             self.flag
-        )
-        .unwrap();
+        )?;
         Ok(())
     }
 }
