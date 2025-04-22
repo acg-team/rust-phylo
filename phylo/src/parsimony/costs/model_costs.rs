@@ -236,6 +236,38 @@ mod private_tests {
         }
     }
 
+    #[cfg(test)]
+    fn builder_default_template<P: ParsimonyModel + Clone + PartialEq + Debug>(model: P) {
+        use crate::parsimony::costs::GapCost;
+
+        let builder = ModelCostBuilder::new(model.clone());
+
+        assert_eq!(builder.model, model);
+        assert_eq!(builder.gap, GapCost::new(2.5, 1.0));
+        assert_eq!(builder.diagonal, Z::non_zero());
+        assert_eq!(builder.rounding, R::none());
+        assert_eq!(builder.times, Vec::<f64>::new());
+    }
+
+    #[test]
+    fn model_builder_defaults() {
+        builder_default_template(SubstModel::<HIVB>::new(&[], &[]));
+        builder_default_template(SubstModel::<WAG>::new(&[], &[]));
+        builder_default_template(SubstModel::<BLOSUM>::new(&[], &[]));
+
+        builder_default_template(SubstModel::<JC69>::new(&[], &[]));
+        builder_default_template(SubstModel::<K80>::new(&[], &[]));
+        builder_default_template(SubstModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5]));
+        builder_default_template(SubstModel::<TN93>::new(
+            &[0.22, 0.26, 0.33, 0.19],
+            &[0.5970915, 0.2940435, 0.00135],
+        ));
+        builder_default_template(SubstModel::<GTR>::new(
+            &[0.1, 0.3, 0.4, 0.2],
+            &[5.0, 1.0, 1.0, 1.0, 1.0, 5.0],
+        ));
+    }
+
     #[test]
     fn protein_scorings() {
         let s = ModelCostBuilder::new(SubstModel::<WAG>::new(&[], &[]))
