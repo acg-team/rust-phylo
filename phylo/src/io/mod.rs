@@ -35,16 +35,16 @@ impl Error for DataError {}
 ///
 /// # Example
 /// ```
-/// use phylo::io::read_sequences_from_file;
+/// use phylo::io::read_sequences;
 /// use std::path::PathBuf;
-/// let records = read_sequences_from_file(&PathBuf::from("./data/sequences_DNA_small.fasta")).unwrap();
+/// let records = read_sequences(&PathBuf::from("./data/sequences_DNA_small.fasta")).unwrap();
 /// # assert_eq!(records.len(), 4);
 /// # for rec in records {
 /// #    assert_eq!(rec.seq().len(), 8);
 /// #    assert_eq!(rec.seq(), rec.seq().to_ascii_uppercase());
 /// # }
 /// ```
-pub fn read_sequences_from_file(path: &PathBuf) -> Result<Vec<Record>> {
+pub fn read_sequences(path: &PathBuf) -> Result<Vec<Record>> {
     info!("Reading sequences from file {}.", path.display());
     let reader = Reader::from_file(path)?;
     let mut sequences = Vec::new();
@@ -74,6 +74,12 @@ pub fn read_sequences_from_file(path: &PathBuf) -> Result<Vec<Record>> {
 
         sequences.push(Record::with_attrs(rec.id(), rec.desc(), &seq));
     }
+    if sequences.is_empty() {
+        bail!(DataError {
+            message: String::from("No sequences found in file")
+        });
+    }
+
     info!("Read sequences successfully.");
     Ok(sequences)
 }

@@ -10,6 +10,7 @@ use nalgebra::{DMatrix, DVector};
 use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
+use crate::parsimony::{CostMatrix, DiagonalZeros, ParsimonyModel, Rounding};
 use crate::phylo_info::PhyloInfo;
 use crate::tree::{
     NodeIdx::{self, Internal, Leaf},
@@ -21,9 +22,6 @@ pub mod dna_models;
 pub use dna_models::*;
 pub mod protein_models;
 pub use protein_models::*;
-
-pub mod parsimony;
-pub use parsimony::*;
 
 pub type SubstMatrix = DMatrix<f64>;
 pub type FreqVector = DVector<f64>;
@@ -332,6 +330,28 @@ impl<Q: QMatrix> SubstModelInfo<Q> {
             node_models_valid: vec![false; node_count],
             leaf_sequence_info,
         })
+    }
+}
+
+impl<Q: QMatrix> ParsimonyModel for SubstModel<Q> {
+    fn scoring(
+        &self,
+        time: f64,
+        diagonal_zeros: &DiagonalZeros,
+        rounding: &Rounding,
+    ) -> CostMatrix {
+        let mut scores = self.p(time);
+        scores.iter_mut().for_each(|x| *x = -(*x).ln());
+        if rounding.yes() {
+            scores.iter_mut().for_each(|x| {
+                *x = (*x * 10.0_f64.powf(rounding.digits as f64)).round()
+                    / 10.0_f64.powf(rounding.digits as f64)
+            });
+        }
+        if diagonal_zeros.is_zero() {
+            scores.fill_diagonal(0.0);
+        }
+        scores
     }
 }
 

@@ -1,11 +1,12 @@
-use std::collections::HashMap;
 use std::fmt::Display;
 
 use anyhow::bail;
 use bio::io::fasta::Record;
+use bitvec::vec::BitVec;
+use hashbrown::HashMap;
 use nalgebra::DMatrix;
 
-use crate::alphabets::{detect_alphabet, Alphabet, GAP};
+use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet, GAP};
 use crate::Result;
 
 #[derive(Debug, Clone)]
@@ -40,10 +41,20 @@ impl Display for Sequences {
 }
 
 impl Sequences {
+    fn detect_alphabet(sequences: &[Record]) -> Alphabet {
+        let dna_alphabet = dna_alphabet();
+        for record in sequences.iter() {
+            if !dna_alphabet.is_word(record.seq()) {
+                return protein_alphabet();
+            }
+        }
+        dna_alphabet
+    }
+
     /// Creates a new Sequences object from a vector of bio::io::fasta::Record.
     /// The Sequences object is considered aligned if all sequences have the same length.
     pub fn new(s: Vec<Record>) -> Sequences {
-        let alphabet = detect_alphabet(&s);
+        let alphabet = Self::detect_alphabet(&s);
         Self::with_alphabet(s, alphabet)
     }
 
@@ -121,6 +132,32 @@ impl Sequences {
         }
     }
 
+    /// Removes all columns that only contain gaps from the sequences.
+    pub fn remove_gap_cols(&mut self) {
+        assert!(
+            self.aligned,
+            "Cannot remove gap columns from unaligned sequences"
+        );
+
+        let mut gap_cols: BitVec = BitVec::repeat(true, self.s[0].seq().len());
+        for rec in &self.s {
+            let seq_gaps = rec.seq().iter().map(|&c| c == GAP).collect::<BitVec>();
+            gap_cols &= seq_gaps;
+        }
+
+        let new_seqs = self.s.iter().map(|rec| {
+            let seq: Vec<u8> = rec
+                .seq()
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| !gap_cols[*i])
+                .map(|(_, c)| *c)
+                .collect();
+            Record::with_attrs(rec.id(), rec.desc(), &seq)
+        });
+        self.s = new_seqs.collect();
+    }
+
     /// Creates a the character encoding for each given ungapped sequence.
     /// Used for the likelihood calculation to avoid having to get the character encoding
     /// from scratch every time the likelihood is optimised.
@@ -144,5 +181,37 @@ impl Sequences {
             );
         }
         leaf_encoding
+    }
+}
+
+#[cfg(test)]
+mod private_tests {
+    use rstest::rstest;
+
+    use std::path::PathBuf;
+
+    use crate::io::read_sequences;
+
+    use super::*;
+
+    #[rstest]
+    #[case::aligned("./data/sequences_DNA1.fasta")]
+    #[case::unaligned("./data/sequences_DNA2_unaligned.fasta")]
+    #[case::long("./data/sequences_long.fasta")]
+    fn dna_type_test(#[case] input: &str) {
+        let seqs = read_sequences(&PathBuf::from(input)).unwrap();
+        let alphabet = Sequences::detect_alphabet(&seqs);
+        assert_eq!(alphabet, dna_alphabet());
+        assert!(format!("{}", alphabet).contains("DNA"));
+    }
+
+    #[rstest]
+    #[case("./data/sequences_protein1.fasta")]
+    #[case("./data/sequences_protein2.fasta")]
+    fn protein_type_test(#[case] input: &str) {
+        let seqs = read_sequences(&PathBuf::from(input)).unwrap();
+        let alphabet = Sequences::detect_alphabet(&seqs);
+        assert_eq!(alphabet, protein_alphabet());
+        assert!(format!("{}", alphabet).contains("protein"));
     }
 }

@@ -4,9 +4,10 @@ use std::path::PathBuf;
 use anyhow::bail;
 use log::{info, warn};
 
-use crate::alignment::{AlignmentBuilder, Sequences};
+use crate::alignment::{Aligner, Alignment, Sequences};
 use crate::alphabets::Alphabet;
 use crate::io::{self, DataError};
+use crate::parsimony::ParsimonyAligner;
 use crate::phylo_info::PhyloInfo;
 use crate::tree::{build_nj_tree, Tree};
 use crate::Result;
@@ -14,6 +15,7 @@ use crate::Result;
 pub struct PhyloInfoBuilder {
     sequence_file: PathBuf,
     tree_file: Option<PathBuf>,
+    alignment_builder: Option<Box<dyn Aligner>>,
     alphabet: Option<Alphabet>,
 }
 
@@ -34,6 +36,7 @@ impl PhyloInfoBuilder {
         PhyloInfoBuilder {
             sequence_file,
             tree_file: None,
+            alignment_builder: None,
             alphabet: None,
         }
     }
@@ -56,6 +59,7 @@ impl PhyloInfoBuilder {
         PhyloInfoBuilder {
             sequence_file,
             tree_file: Some(tree_file),
+            alignment_builder: None,
             alphabet: None,
         }
     }
@@ -144,56 +148,52 @@ impl PhyloInfoBuilder {
         );
         let sequences = if self.alphabet.is_none() {
             info!("No alphabet provided, detecting alphabet from sequences");
-            Sequences::new(io::read_sequences_from_file(&self.sequence_file)?)
+            Sequences::new(io::read_sequences(&self.sequence_file)?)
         } else {
             info!(
                 "Using provided {} alphabet",
                 self.alphabet.as_ref().unwrap()
             );
             Sequences::with_alphabet(
-                io::read_sequences_from_file(&self.sequence_file)?,
+                io::read_sequences(&self.sequence_file)?,
                 self.alphabet.unwrap(),
             )
         };
         info!("{} sequence(s) read successfully", sequences.len());
 
         let tree = match &self.tree_file {
-            Some(tree_file) => {
-                info!("Reading trees from file {}", tree_file.display());
-                let mut trees = io::read_newick_from_file(tree_file)?;
-                info!("{} tree(s) read successfully", trees.len());
-                Self::check_tree_number(&trees)?;
-                trees.remove(0)
-            }
+            Some(tree_file) => self.read_tree(&sequences, tree_file)?,
             None => {
                 info!("Building NJ tree from sequences");
                 build_nj_tree(&sequences)?
             }
         };
-        Self::build_from_objects(sequences, tree)
+
+        let msa = if sequences.aligned {
+            info!("Sequences are aligned.");
+            Alignment::from_aligned(sequences, &tree)?
+        } else {
+            info!("Sequences are not aligned, aligning.");
+            self.alignment_builder
+                .unwrap_or(Box::new(ParsimonyAligner::default()))
+                .align(&sequences, &tree)?
+        };
+
+        Ok(PhyloInfo { tree, msa })
     }
 
-    /// Builds the PhyloInfo struct from the provided sequences and tree.
-    /// Bails if no sequences are provided.
-    /// Bails if the IDs of the tree leaves and the sequences do not match.
-    /// Bails if the sequences are not aligned.
-    /// Returns the PhyloInfo struct with the model type, tree, msa and leaf encoding set.
-    pub(crate) fn build_from_objects(sequences: Sequences, tree: Tree) -> Result<PhyloInfo> {
-        if sequences.is_empty() {
-            bail!(DataError {
-                message: String::from("No sequences provided, aborting.")
-            });
-        }
-        Self::validate_tree_sequence_ids(&tree, &sequences)?;
-        let msa = AlignmentBuilder::new(&tree, sequences).build()?;
-        Ok(PhyloInfo {
-            tree: tree.clone(),
-            msa,
-        })
+    fn read_tree(&self, sequences: &Sequences, tree_file: &PathBuf) -> Result<Tree> {
+        info!("Reading trees from file {}", tree_file.display());
+        let mut trees = io::read_newick_from_file(tree_file)?;
+        info!("{} tree(s) read successfully", trees.len());
+        self.check_tree_number(&trees)?;
+        let tree = trees.remove(0);
+        self.validate_taxa_ids(&tree, sequences)?;
+        Ok(tree)
     }
 
     /// Checks that the ids of the tree leaves and the sequences match, bails with an error otherwise.
-    fn validate_tree_sequence_ids(tree: &Tree, sequences: &Sequences) -> Result<()> {
+    fn validate_taxa_ids(&self, tree: &Tree, sequences: &Sequences) -> Result<()> {
         let tip_ids: HashSet<String> = HashSet::from_iter(tree.leaf_ids());
         let sequence_ids: HashSet<String> =
             HashSet::from_iter(sequences.iter().map(|rec| rec.id().to_string()));
@@ -223,7 +223,7 @@ impl PhyloInfoBuilder {
 
     /// Checks that there is at least one tree in the vector, bails with an error otherwise.
     /// Prints a warning if there is more than one tree because only the first tree will be processed.
-    fn check_tree_number(trees: &[Tree]) -> Result<()> {
+    fn check_tree_number(&self, trees: &[Tree]) -> Result<()> {
         if trees.is_empty() {
             bail!(DataError {
                 message: String::from("No trees in the tree file, aborting.")
@@ -237,7 +237,8 @@ impl PhyloInfoBuilder {
 }
 
 #[cfg(test)]
-pub mod builder_tests {
+#[cfg_attr(coverage, coverage(off))]
+pub mod private_tests {
     use std::path::PathBuf;
 
     use super::PhyloInfoBuilder as PIB;
