@@ -771,9 +771,12 @@ fn protein_example_logl_template<Q: QMatrix + QMatrixMaker>(
     epsilon: f64,
 ) {
     let fldr = Path::new("./data/phyml_protein_example");
-    let info = PIB::with_attrs(fldr.join("nogap_seqs.fasta"), fldr.join("true_tree.newick"))
-        .build()
-        .unwrap();
+    let info = PIB::with_attrs(
+        fldr.join("nogap_seqs.fasta"),
+        fldr.join("example_tree.newick"),
+    )
+    .build()
+    .unwrap();
     let model = SubstModel::<Q>::new(&[], params);
     let c = SCB::new(model, info).build().unwrap();
     assert_relative_eq!(c.cost(), expected_llik, epsilon = epsilon);

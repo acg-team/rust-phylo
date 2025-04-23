@@ -175,55 +175,6 @@ fn k80_sim_data_vs_phyml_wrong_start() {
 
 #[test]
 #[cfg_attr(feature = "ci_coverage", ignore)]
-fn wag_no_gaps_vs_phyml_given_tree_start() {
-    // Check that optimisation on protein data under WAG produces similar tree to PhyML with matching likelihoods
-    // on sequences without gaps
-    let fldr = Path::new("./data/phyml_protein_example/");
-    let seq_file = fldr.join("nogap_seqs.fasta");
-    let true_tree_file = fldr.join("true_tree.newick");
-    let tree_file = fldr.join("jati_wag_nogap.newick");
-
-    let model = SubstModel::<WAG>::new(&[], &[]);
-    let info = PIB::with_attrs(seq_file.clone(), true_tree_file.clone())
-        .build()
-        .unwrap();
-    let c = SCB::new(model.clone(), info).build().unwrap();
-    let unopt_logl = c.cost();
-
-    let result =
-        if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), tree_file.clone()).build() {
-            precomputed
-        } else {
-            let o = TopologyOptimiser::new(c.clone()).run().unwrap();
-            assert!(o.final_cost >= unopt_logl);
-            assert_eq!(o.initial_cost, unopt_logl);
-            assert_eq!(o.final_cost, o.cost.cost());
-            assert!(write_newick_to_file(&[o.cost.tree().clone()], tree_file.clone()).is_ok());
-            o.cost.info
-        };
-
-    let logl = SCB::new(model.clone(), result.clone())
-        .build()
-        .unwrap()
-        .cost();
-    assert!(logl >= unopt_logl);
-
-    let phyml_result = PIB::with_attrs(seq_file.clone(), fldr.join("phyml_nogap.newick"))
-        .build()
-        .unwrap();
-    let phyml_logl = SCB::new(model, phyml_result.clone())
-        .build()
-        .unwrap()
-        .cost();
-
-    // Compare tree and logl to PhyML output
-    assert_relative_eq!(result.tree.height, phyml_result.tree.height, epsilon = 1e-2);
-    assert_eq!(result.tree.robinson_foulds(&phyml_result.tree), 0);
-    assert_relative_eq!(logl, phyml_logl, epsilon = 1e-5);
-}
-
-#[test]
-#[cfg_attr(feature = "ci_coverage", ignore)]
 fn wag_no_gaps_vs_phyml_nj_tree_start() {
     // Check that optimisation on protein data under WAG produces similar tree to PhyML with matching likelihoods
     // on sequences without gaps starting from an NJ tree

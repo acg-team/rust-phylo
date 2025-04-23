@@ -54,7 +54,7 @@ jobs:
           cargo install cargo2junit
     - name: tests with cargo2junit
       run: |
-        cargo test --manifest-path ./phylo/Cargo.toml -- -Z unstable-options --format json --report-time | cargo2junit > results.xml 
+        cargo test --manifest-path ./phylo/Cargo.toml --features deterministic -- -Z unstable-options --format json --report-time | cargo2junit > results.xml
     - name: Publish test results
       uses: EnricoMi/publish-unit-test-result-action@v2
       if: always()

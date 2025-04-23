@@ -611,7 +611,7 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
 fn pip_likelihood_protein_example() {
     let info = PIB::with_attrs(
         PathBuf::from("./data/phyml_protein_example/seqs.fasta"),
-        PathBuf::from("./data/phyml_protein_example/true_tree.newick"),
+        PathBuf::from("./data/phyml_protein_example/example_tree.newick"),
     )
     .build()
     .unwrap();

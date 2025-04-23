@@ -36,12 +36,20 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
         let mut iterations = 0;
 
         // No pruning on the root branch
-        let prune_locations: Vec<NodeIdx> = tree
+        let possible_prunes: Vec<NodeIdx> = tree
             .preorder()
             .iter()
             .filter(|&n| n != &tree.root)
-            .cloned()
+            .copied()
             .collect();
+        let current_prunes: Vec<_> = possible_prunes.iter().collect();
+        cfg_if::cfg_if! {
+        if #[cfg(not(feature = "deterministic"))] {
+            let mut current_prunes = current_prunes;
+            // TODO: decide on an explicit and consistent RNG to use throughout the project
+            let rng = &mut rand::thread_rng();
+        }
+        }
 
         // The best move on this iteration might still be worse than the current tree, in which case
         // the search stops.
@@ -52,7 +60,13 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
             tree = self.c.borrow().tree().clone();
             prev_cost = curr_cost;
 
-            for prune in &prune_locations {
+            #[cfg(not(feature = "deterministic"))]
+            {
+                use rand::seq::SliceRandom;
+                current_prunes.shuffle(rng);
+            }
+
+            for prune in current_prunes.iter().copied() {
                 if tree.children(&tree.root).contains(prune) {
                     // due to topology change the current node may have become the direct child of root
                     continue;
@@ -91,6 +105,7 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
                     self.c
                         .borrow_mut()
                         .update_tree(best_tree, &[*prune, regraft]);
+                    tree = self.c.borrow().tree().clone();
                     info!("    Regrafted to {:?}, new cost {}.", regraft, curr_cost);
                 } else {
                     info!("    No improvement, best cost {}.", best_move_cost);

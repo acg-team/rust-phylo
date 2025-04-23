@@ -481,7 +481,7 @@ fn pip_gtr_vs_gtr_params() {
 #[test]
 fn pip_protein_example() {
     let fldr = Path::new("./data/phyml_protein_example/");
-    let info = PIB::with_attrs(fldr.join("seqs.fasta"), fldr.join("true_tree.newick"))
+    let info = PIB::with_attrs(fldr.join("seqs.fasta"), fldr.join("example_tree.newick"))
         .build()
         .unwrap();
     let pip = PIPModel::<WAG>::new(&[], &[2.0, 0.1]);
