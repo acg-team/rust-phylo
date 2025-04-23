@@ -1,19 +1,17 @@
-use bio::io::fasta::Record;
+use rstest::*;
+
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-use rstest::*;
 use tempfile::tempdir;
 
-use crate::io::{read_sequences_from_file, write_newick_to_file, write_sequences_to_file};
-use crate::tree::tree_parser::from_newick;
+use crate::io::{read_sequences, write_newick_to_file, write_sequences_to_file};
 use crate::{record_wo_desc as record, tree};
 
 #[test]
 fn reading_correct_fasta() {
-    let sequences =
-        read_sequences_from_file(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap();
+    let sequences = read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap();
     assert_eq!(sequences.len(), 4);
     for seq in sequences {
         assert_eq!(seq.seq().len(), 5);
@@ -21,7 +19,7 @@ fn reading_correct_fasta() {
 
     let corr_lengths = [1, 2, 2, 4];
     let sequences =
-        read_sequences_from_file(&PathBuf::from("./data/sequences_DNA2_unaligned.fasta")).unwrap();
+        read_sequences(&PathBuf::from("./data/sequences_DNA2_unaligned.fasta")).unwrap();
     assert_eq!(sequences.len(), 4);
     for (i, seq) in sequences.into_iter().enumerate() {
         assert_eq!(seq.seq().len(), corr_lengths[i]);
@@ -39,16 +37,14 @@ fn reading_correct_fasta() {
     "Invalid genetic sequence"
 )]
 fn reading_incorrect_fasta(#[case] input: &str, #[case] exp_error: &str) {
-    let res = read_sequences_from_file(&PathBuf::from(input));
+    let res = read_sequences(&PathBuf::from(input));
     assert!(res.is_err());
     assert!(res.unwrap_err().to_string().contains(exp_error));
 }
 
 #[test]
 fn reading_nonexistent_fasta() {
-    assert!(
-        read_sequences_from_file(&PathBuf::from("./data/sequences_nonexistent.fasta")).is_err()
-    );
+    assert!(read_sequences(&PathBuf::from("./data/sequences_nonexistent.fasta")).is_err());
 }
 
 #[test]
@@ -150,11 +146,10 @@ fn test_write_newick_to_existing_file() {
 #[test]
 fn read_sequences_weird_gap_chars() {
     let sequences_underscore =
-        read_sequences_from_file(&PathBuf::from("./data/sequences_gap_underscore.fasta")).unwrap();
+        read_sequences(&PathBuf::from("./data/sequences_gap_underscore.fasta")).unwrap();
     let sequences_asterisk =
-        read_sequences_from_file(&PathBuf::from("./data/sequences_gap_asterisk.fasta")).unwrap();
-    let sequences =
-        read_sequences_from_file(&PathBuf::from("./data/sequences_gap_normal.fasta")).unwrap();
+        read_sequences(&PathBuf::from("./data/sequences_gap_asterisk.fasta")).unwrap();
+    let sequences = read_sequences(&PathBuf::from("./data/sequences_gap_normal.fasta")).unwrap();
 
     assert_eq!(sequences.len(), 4);
     assert_eq!(sequences_underscore.len(), sequences.len());

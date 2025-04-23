@@ -1,16 +1,16 @@
 use std::collections::HashSet;
 use std::fs;
-use std::iter::repeat;
 use std::path::Path;
 
 use approx::assert_relative_eq;
-use bio::io::fasta::Record;
+use itertools::repeat_n;
 use nalgebra::{dmatrix, DMatrix};
 use pest::error::ErrorVariant;
 use rand::Rng;
 
 use crate::alignment::Sequences;
 use crate::io::read_newick_from_file;
+use crate::parsimony::Rounding;
 use crate::tree::{
     argmin_wo_diagonal, build_nj_tree_from_matrix, compute_distance_matrix,
     nj_matrices::NJMat,
@@ -20,7 +20,7 @@ use crate::tree::{
     NodeIdx::{self, Internal as I, Leaf as L},
     Tree,
 };
-use crate::{cmp_f64, record_wo_desc as record, tree, Rounding};
+use crate::{record_wo_desc as record, tree};
 
 #[cfg(test)]
 fn setup_test_tree() -> Tree {
@@ -547,12 +547,12 @@ fn parse_scientific_floats() {
 fn check_getting_branch_lengths() {
     let tree = tree!("((((A:1.0,B:1.0)F:1.0,C:2.0)G:1.0,D:3.0)H:1.0,E:4.0)I:1.0;");
     let mut lengths = tree.iter().map(|n| n.blen).collect::<Vec<f64>>();
-    lengths.sort_by(cmp_f64());
+    lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
     assert_eq!(lengths, vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 3.0, 4.0]);
 
     let tree = tree!("((((A:0.11,B:0.22)F:0.33,C:0.44)G:0.55,D:0.66)H:0.77,E:0.88)I:0.99;");
     lengths = tree.iter().map(|n| n.blen).collect();
-    lengths.sort_by(cmp_f64());
+    lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
     assert_eq!(
         lengths,
         vec![0.11, 0.22, 0.33, 0.44, 0.55, 0.66, 0.77, 0.88, 0.99]
@@ -560,11 +560,8 @@ fn check_getting_branch_lengths() {
 
     let tree = tree!("((A:1.0,B:1.0)E:1.0,(C:1.0,D:1.0)F:1.0)G:1.0;");
     lengths = tree.iter().map(|n| n.blen).collect();
-    lengths.sort_by(cmp_f64());
-    assert_eq!(
-        lengths,
-        repeat(1.0).take(lengths.len()).collect::<Vec<f64>>()
-    );
+    lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    assert_eq!(lengths, repeat_n(1.0, lengths.len()).collect::<Vec<f64>>());
 }
 
 #[test]
@@ -572,7 +569,7 @@ fn check_getting_branch_length_percentiles() {
     let perc_lengths =
         percentiles_rounded(&[3.5, 1.2, 3.7, 3.6, 1.1, 2.5, 2.4], 4, &Rounding::four());
     assert_eq!(perc_lengths, vec![1.44, 2.44, 3.1, 3.58]);
-    let perc_lengths = percentiles(&repeat(1.0).take(7).collect::<Vec<f64>>(), 2);
+    let perc_lengths = percentiles(&repeat_n(1.0, 7).collect::<Vec<f64>>(), 2);
     assert_eq!(perc_lengths, vec![1.0, 1.0]);
     let perc_lengths = percentiles(&[1.0, 3.0, 3.0, 4.0, 5.0, 6.0, 6.0, 7.0, 8.0, 8.0], 3);
     assert_eq!(perc_lengths, vec![3.25, 5.5, 6.75]);

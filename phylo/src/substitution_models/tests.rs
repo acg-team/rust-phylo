@@ -1,24 +1,22 @@
-use std::iter::repeat;
 use std::ops::Mul;
 use std::path::Path;
 
 use approx::assert_relative_eq;
-use bio::io::fasta::Record;
+use itertools::repeat_n;
 use nalgebra::dvector;
 use rand::Rng;
 
-use crate::alignment::Sequences;
+use crate::alignment::{Alignment, Sequences};
 use crate::alphabets::{Alphabet, AMINOACIDS, GAP};
 use crate::evolutionary_models::EvoModel;
-use crate::io::read_sequences_from_file;
+use crate::io::read_sequences;
 use crate::likelihood::ModelSearchCost;
+use crate::parsimony::{DiagonalZeros as Z, ParsimonyModel, Rounding as R};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::substitution_models::{
-    dna_models::*, protein_models::*, FreqVector, ParsimonyModel, QMatrix, QMatrixMaker,
-    SubstMatrix, SubstModel, SubstitutionCostBuilder as SCB,
+    dna_models::*, protein_models::*, FreqVector, QMatrix, QMatrixMaker, SubstMatrix, SubstModel,
+    SubstitutionCostBuilder as SCB,
 };
-use crate::tree::{tree_parser::from_newick, Tree};
-use crate::Rounding as R;
 use crate::{frequencies, record_wo_desc as record, tree};
 
 #[cfg(test)]
@@ -197,12 +195,12 @@ fn dna_hky_correct() {
 #[test]
 fn dna_gtr_equal_rates_correct() {
     let gtr = SubstModel::<GTR>::new(
-        &repeat(0.25).take(4).collect::<Vec<f64>>(),
-        &repeat(1.0).take(5).collect::<Vec<f64>>(),
+        &repeat_n(0.25, 4).collect::<Vec<f64>>(),
+        &repeat_n(1.0, 5).collect::<Vec<f64>>(),
     );
     assert_eq!(gtr.freqs(), &frequencies!(&[0.25, 0.25, 0.25, 0.25]));
     assert_eq!(gtr.q()[(0, 0)], -1.0);
-    let gtr2 = SubstModel::<GTR>::new(&[], &repeat(1.0).take(5).collect::<Vec<f64>>());
+    let gtr2 = SubstModel::<GTR>::new(&[], &repeat_n(1.0, 5).collect::<Vec<f64>>());
     assert_relative_eq!(gtr.q(), gtr2.q());
     assert!(gtr.rate(b'T', b'T') < 0.0);
     assert!(gtr.rate(b'A', b'A') < 0.0);
@@ -407,140 +405,6 @@ fn dna_normalised() {
     normalised_template::<GTR>();
 }
 
-#[cfg(test)]
-fn dna_scoring_matrices_template<Q: QMatrix + QMatrixMaker>(
-    freqs: &[f64],
-    params: &[f64],
-    times: &[f64],
-    rounding: &R,
-) {
-    let model = SubstModel::<Q>::new(freqs, params);
-    let scorings = ParsimonyModel::generate_scorings(&model, times, false, rounding);
-    for &time in times {
-        let (_, avg_0) = ParsimonyModel::scoring_matrix(&model, time, rounding);
-        let (_, avg_1) = scorings.get(&ordered_float::OrderedFloat(time)).unwrap();
-        assert_relative_eq!(avg_0, avg_1);
-    }
-}
-
-#[test]
-fn dna_scoring_matrices() {
-    dna_scoring_matrices_template::<JC69>(&[], &[], &[0.1, 0.3, 0.5, 0.7], &R::four());
-    dna_scoring_matrices_template::<K80>(&[], &[], &[0.01], &R::zero());
-    dna_scoring_matrices_template::<HKY>(
-        &[0.22, 0.26, 0.33, 0.19],
-        &[0.5],
-        &[0.1, 0.2, 0.3],
-        &R::none(),
-    );
-    dna_scoring_matrices_template::<TN93>(
-        &[0.22, 0.26, 0.33, 0.19],
-        &[0.5970915, 0.2940435, 0.00135],
-        &[0.1, 0.3, 0.5, 0.7],
-        &R::zero(),
-    );
-    dna_scoring_matrices_template::<GTR>(
-        &[0.1, 0.3, 0.4, 0.2],
-        &[5.0, 1.0, 1.0, 1.0, 1.0],
-        &[0.2, 0.8],
-        &R::four(),
-    );
-}
-
-const TRUE_MATRIX: [f64; 400] = [
-    0.0, 6.0, 6.0, 5.0, 6.0, 6.0, 5.0, 4.0, 7.0, 7.0, 6.0, 5.0, 6.0, 7.0, 5.0, 4.0, 4.0, 9.0, 7.0,
-    4.0, 5.0, 0.0, 6.0, 7.0, 7.0, 5.0, 6.0, 5.0, 5.0, 7.0, 5.0, 3.0, 7.0, 8.0, 6.0, 5.0, 6.0, 6.0,
-    7.0, 6.0, 5.0, 6.0, 0.0, 4.0, 8.0, 5.0, 5.0, 5.0, 5.0, 6.0, 7.0, 4.0, 8.0, 8.0, 7.0, 4.0, 4.0,
-    9.0, 6.0, 6.0, 5.0, 7.0, 4.0, 0.0, 9.0, 6.0, 3.0, 5.0, 6.0, 8.0, 7.0, 6.0, 8.0, 8.0, 6.0, 5.0,
-    6.0, 9.0, 7.0, 7.0, 5.0, 6.0, 7.0, 8.0, 0.0, 8.0, 8.0, 6.0, 7.0, 7.0, 6.0, 7.0, 7.0, 6.0, 7.0,
-    5.0, 6.0, 7.0, 6.0, 5.0, 5.0, 4.0, 5.0, 6.0, 8.0, 0.0, 4.0, 6.0, 5.0, 7.0, 5.0, 4.0, 6.0, 8.0,
-    5.0, 5.0, 5.0, 8.0, 7.0, 6.0, 4.0, 6.0, 6.0, 3.0, 9.0, 4.0, 0.0, 5.0, 6.0, 7.0, 7.0, 4.0, 7.0,
-    8.0, 6.0, 5.0, 5.0, 8.0, 7.0, 5.0, 4.0, 6.0, 5.0, 5.0, 7.0, 7.0, 6.0, 0.0, 7.0, 8.0, 7.0, 6.0,
-    8.0, 8.0, 7.0, 5.0, 6.0, 8.0, 8.0, 7.0, 6.0, 5.0, 4.0, 5.0, 8.0, 4.0, 6.0, 6.0, 0.0, 7.0, 5.0,
-    5.0, 7.0, 6.0, 6.0, 5.0, 6.0, 8.0, 4.0, 7.0, 6.0, 7.0, 6.0, 8.0, 8.0, 8.0, 7.0, 8.0, 8.0, 0.0,
-    4.0, 6.0, 5.0, 5.0, 8.0, 6.0, 5.0, 8.0, 6.0, 3.0, 6.0, 6.0, 7.0, 8.0, 7.0, 6.0, 7.0, 7.0, 7.0,
-    4.0, 0.0, 6.0, 5.0, 5.0, 6.0, 6.0, 6.0, 7.0, 6.0, 4.0, 5.0, 4.0, 4.0, 6.0, 9.0, 4.0, 4.0, 6.0,
-    6.0, 6.0, 6.0, 0.0, 6.0, 8.0, 6.0, 5.0, 5.0, 8.0, 8.0, 6.0, 5.0, 6.0, 7.0, 7.0, 7.0, 5.0, 6.0,
-    6.0, 7.0, 4.0, 3.0, 5.0, 0.0, 5.0, 7.0, 6.0, 5.0, 7.0, 6.0, 4.0, 6.0, 8.0, 8.0, 8.0, 7.0, 8.0,
-    8.0, 8.0, 6.0, 5.0, 4.0, 7.0, 6.0, 0.0, 7.0, 6.0, 7.0, 6.0, 4.0, 5.0, 4.0, 6.0, 7.0, 6.0, 8.0,
-    6.0, 6.0, 6.0, 6.0, 7.0, 6.0, 6.0, 8.0, 7.0, 0.0, 5.0, 5.0, 8.0, 7.0, 6.0, 4.0, 5.0, 4.0, 5.0,
-    6.0, 6.0, 5.0, 5.0, 6.0, 6.0, 6.0, 5.0, 7.0, 6.0, 5.0, 0.0, 4.0, 7.0, 6.0, 6.0, 4.0, 6.0, 5.0,
-    6.0, 7.0, 6.0, 5.0, 6.0, 7.0, 5.0, 6.0, 5.0, 6.0, 7.0, 6.0, 4.0, 0.0, 9.0, 7.0, 5.0, 7.0, 5.0,
-    8.0, 7.0, 7.0, 7.0, 7.0, 6.0, 7.0, 7.0, 5.0, 7.0, 7.0, 5.0, 7.0, 6.0, 7.0, 0.0, 5.0, 6.0, 6.0,
-    6.0, 5.0, 6.0, 7.0, 7.0, 7.0, 7.0, 5.0, 6.0, 6.0, 7.0, 7.0, 4.0, 7.0, 5.0, 6.0, 6.0, 0.0, 6.0,
-    4.0, 7.0, 7.0, 7.0, 6.0, 7.0, 6.0, 6.0, 8.0, 3.0, 4.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 8.0, 7.0,
-    0.0,
-];
-
-#[test]
-fn protein_scoring_matrices() {
-    let model = SubstModel::<WAG>::new(&[], &[]);
-    let true_matrix_01 = SubstMatrix::from_row_slice(20, 20, &TRUE_MATRIX);
-    let (mat, avg) = ParsimonyModel::scoring_matrix(&model, 0.1, &R::zero());
-
-    assert_relative_eq!(mat, true_matrix_01);
-
-    assert_relative_eq!(avg, 5.7675);
-    let (_, avg) = ParsimonyModel::scoring_matrix(&model, 0.3, &R::zero());
-    assert_relative_eq!(avg, 4.7475);
-    let (_, avg) = ParsimonyModel::scoring_matrix(&model, 0.5, &R::zero());
-    assert_relative_eq!(avg, 4.2825);
-    let (_, avg) = ParsimonyModel::scoring_matrix(&model, 0.7, &R::zero());
-    assert_relative_eq!(avg, 4.0075);
-}
-
-#[test]
-fn generate_protein_scorings() {
-    let model = SubstModel::<WAG>::new(&[], &[]);
-    let scorings =
-        ParsimonyModel::generate_scorings(&model, &[0.1, 0.3, 0.5, 0.7], false, &R::zero());
-    let true_matrix_01 = SubstMatrix::from_row_slice(20, 20, &TRUE_MATRIX);
-    let (mat_01, avg_01) = scorings.get(&ordered_float::OrderedFloat(0.1)).unwrap();
-
-    assert_relative_eq!(*mat_01, true_matrix_01);
-
-    assert_relative_eq!(*avg_01, 5.7675);
-    let (_, avg_03) = scorings.get(&ordered_float::OrderedFloat(0.3)).unwrap();
-    assert_relative_eq!(*avg_03, 4.7475);
-    let (_, avg_05) = scorings.get(&ordered_float::OrderedFloat(0.5)).unwrap();
-    assert_relative_eq!(*avg_05, 4.2825);
-    let (_, avg_07) = scorings.get(&ordered_float::OrderedFloat(0.7)).unwrap();
-    assert_relative_eq!(*avg_07, 4.0075);
-}
-
-#[test]
-fn matrix_entry_rounding() {
-    let model = SubstModel::<K80>::new(&[], &[1.0, 2.0]);
-    let (mat_round, avg_round) = model.scoring_matrix_corrected(0.1, true, &R::zero());
-    let (mat, avg) = model.scoring_matrix_corrected(0.1, true, &R::none());
-    assert_ne!(avg_round, avg);
-    assert_ne!(mat_round, mat);
-    for &element in mat_round.as_slice() {
-        assert_eq!(element.round(), element);
-    }
-    let model = SubstModel::<HIVB>::new(&[], &[]);
-    let (mat_round, avg_round) = model.scoring_matrix_corrected(0.1, true, &R::zero());
-    let (mat, avg) = model.scoring_matrix_corrected(0.1, true, &R::none());
-    assert_ne!(avg_round, avg);
-    assert_ne!(mat_round, mat);
-    for &element in mat_round.as_slice() {
-        assert_eq!(element.round(), element);
-    }
-}
-
-#[test]
-fn matrix_zero_diagonals() {
-    let model = SubstModel::<HIVB>::new(&[], &[]);
-    let (mat_zeros, avg_zeros) = model.scoring_matrix_corrected(0.5, true, &R::zero());
-    let (mat, avg) = model.scoring_matrix_corrected(0.5, false, &R::zero());
-    assert_ne!(avg_zeros, avg);
-    assert!(avg_zeros < avg);
-    assert_ne!(mat_zeros, mat);
-    for &element in mat_zeros.diagonal().iter() {
-        assert_eq!(element, 0.0);
-    }
-}
-
 #[test]
 fn designation() {
     let jc69_model_desc = format!("{}", SubstModel::<JC69>::new(&[], &[2.0]));
@@ -589,9 +453,13 @@ fn designation() {
 
 #[cfg(test)]
 fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
-    let sequences = Sequences::new(vec![record!("A0", b"A"), record!("B1", b"A")]);
     let tree = tree!(format!("((A0:{},B1:{}):1.0);", blen_i, blen_j).as_str());
-    PIB::build_from_objects(sequences, tree).unwrap()
+    let msa = Alignment::from_aligned(
+        Sequences::new(vec![record!("A0", b"A"), record!("B1", b"A")]),
+        &tree,
+    )
+    .unwrap();
+    PhyloInfo { msa, tree }
 }
 
 #[test]
@@ -609,14 +477,18 @@ fn dna_simple_likelihood() {
 
 #[cfg(test)]
 fn setup_cb_example_phylo_info() -> PhyloInfo {
-    let sequences = Sequences::new(vec![
-        record!("one", b"C"),
-        record!("two", b"A"),
-        record!("three", b"T"),
-        record!("four", b"G"),
-    ]);
-    let newick = "((one:2,two:2):1,(three:1,four:1):2);".to_string();
-    PIB::build_from_objects(sequences, tree!(&newick)).unwrap()
+    let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
+    let msa = Alignment::from_aligned(
+        Sequences::new(vec![
+            record!("one", b"C"),
+            record!("two", b"A"),
+            record!("three", b"T"),
+            record!("four", b"G"),
+        ]),
+        &tree,
+    )
+    .unwrap();
+    PhyloInfo { msa, tree }
 }
 
 #[cfg(test)]
@@ -694,20 +566,31 @@ fn same_likelihood_on_param_change() {
 #[cfg(test)]
 fn dna_gaps_as_ambigs_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) {
     let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
-    let sequences = Sequences::new(vec![
-        record!("one", b"CCCCCCXX"),
-        record!("two", b"XXAAAAAA"),
-        record!("three", b"TTTNNTTT"),
-        record!("four", b"GNGGGGNG"),
-    ]);
-    let info_ambig = PIB::build_from_objects(sequences, tree.clone()).unwrap();
-    let sequences = Sequences::new(vec![
-        record!("one", b"CCCCCC--"),
-        record!("two", b"--AAAAAA"),
-        record!("three", b"TTT--TTT"),
-        record!("four", b"G-GGGG-G"),
-    ]);
-    let info_gaps = PIB::build_from_objects(sequences, tree.clone()).unwrap();
+    let msa = Alignment::from_aligned(
+        Sequences::new(vec![
+            record!("one", b"CCCCCCXX"),
+            record!("two", b"XXAAAAAA"),
+            record!("three", b"TTTNNTTT"),
+            record!("four", b"GNGGGGNG"),
+        ]),
+        &tree,
+    )
+    .unwrap();
+    let info_ambig = PhyloInfo {
+        msa,
+        tree: tree.clone(),
+    };
+    let msa = Alignment::from_aligned(
+        Sequences::new(vec![
+            record!("one", b"CCCCCC--"),
+            record!("two", b"--AAAAAA"),
+            record!("three", b"TTT--TTT"),
+            record!("four", b"G-GGGG-G"),
+        ]),
+        &tree,
+    )
+    .unwrap();
+    let info_gaps = PhyloInfo { msa, tree };
 
     let model = SubstModel::<Q>::new(freqs, params);
     let c_ambig = SCB::new(model.clone(), info_ambig).build().unwrap();
@@ -729,9 +612,10 @@ fn dna_gaps_as_ambigs() {
 
 #[cfg(test)]
 fn setup_phylo_info_single_leaf() -> PhyloInfo {
-    let sequences = Sequences::new(vec![record!("A0", b"AAAAAA")]);
-    let tree = Tree::new(&sequences).unwrap();
-    PIB::build_from_objects(sequences, tree).unwrap()
+    let tree = tree!("(A0:1.0);");
+    let msa =
+        Alignment::from_aligned(Sequences::new(vec![record!("A0", b"AAAAAA")]), &tree).unwrap();
+    PhyloInfo { msa, tree }
 }
 
 #[cfg(test)]
@@ -787,15 +671,19 @@ fn dna_cb_example_likelihood() {
 
 #[cfg(test)]
 fn setup_mol_evo_example_phylo_info() -> PhyloInfo {
-    let sequences = Sequences::new(vec![
-        record!("one", b"T"),
-        record!("two", b"C"),
-        record!("three", b"A"),
-        record!("four", b"C"),
-        record!("five", b"C"),
-    ]);
-    let newick = "(((one:0.2,two:0.2):0.1,three:0.2):0.1,(four:0.2,five:0.2):0.1);".to_string();
-    PIB::build_from_objects(sequences, tree!(&newick)).unwrap()
+    let tree = tree!("(((one:0.2,two:0.2):0.1,three:0.2):0.1,(four:0.2,five:0.2):0.1);");
+    let msa = Alignment::from_aligned(
+        Sequences::new(vec![
+            record!("one", b"T"),
+            record!("two", b"C"),
+            record!("three", b"A"),
+            record!("four", b"C"),
+            record!("five", b"C"),
+        ]),
+        &tree,
+    )
+    .unwrap();
+    PhyloInfo { msa, tree }
 }
 
 #[test]
@@ -903,7 +791,8 @@ fn protein_example_likelihood() {
 
 #[cfg(test)]
 fn simple_reroot_info(alphabet: &Alphabet) -> (PhyloInfo, PhyloInfo) {
-    let sequences = Sequences::with_alphabet(
+    let tree = tree!("((A:2.0,B:2.0):1.0,C:2.0):0.0;");
+    let seqs = Sequences::with_alphabet(
         vec![
             record!("A", b"CTATATATACIJL"),
             record!("B", b"ATATATATAAIHL"),
@@ -911,10 +800,17 @@ fn simple_reroot_info(alphabet: &Alphabet) -> (PhyloInfo, PhyloInfo) {
         ],
         *alphabet,
     );
-    let info = PIB::build_from_objects(sequences.clone(), tree!("((A:2.0,B:2.0):1.0,C:2.0):0.0;"))
-        .unwrap();
-    let info_rerooted =
-        PIB::build_from_objects(sequences, tree!("(A:1.0,(B:2.0,C:3.0):1.0):0.0;")).unwrap();
+
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        tree,
+    };
+    let tree_rerooted = tree!("(A:1.0,(B:2.0,C:3.0):1.0):0.0;");
+    let info_rerooted = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree_rerooted).unwrap(),
+        tree: tree_rerooted,
+    };
+
     (info, info_rerooted)
 }
 
@@ -992,14 +888,21 @@ fn huelsenbeck_reversibility() {
 fn logl_correct_w_diff_info<Q: QMatrix + QMatrixMaker>(llik1: f64, llik2: f64) {
     let tree1 = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let tree2 = tree!("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);");
-    let sequences = Sequences::new(vec![
+    let seqs = Sequences::new(vec![
         record!("A", b"P"),
         record!("B", b"P"),
         record!("C", b"P"),
         record!("D", b"P"),
     ]);
-    let info1 = PIB::build_from_objects(sequences.clone(), tree1).unwrap();
-    let info2 = PIB::build_from_objects(sequences, tree2).unwrap();
+
+    let info1 = PhyloInfo {
+        msa: Alignment::from_aligned(seqs.clone(), &tree1).unwrap(),
+        tree: tree1,
+    };
+    let info2 = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree2).unwrap(),
+        tree: tree2,
+    };
 
     let model = SubstModel::<Q>::new(&[], &[]);
     let c1 = SCB::new(model.clone(), info1).build().unwrap();
@@ -1029,7 +932,11 @@ fn one_site_one_char_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: 
         *model.qmatrix.alphabet(),
     );
     let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
-    let info = PIB::build_from_objects(sequences, tree).unwrap();
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(sequences, &tree).unwrap(),
+        tree,
+    };
+
     let c = SCB::new(model, info).build().unwrap();
 
     assert_ne!(c.cost(), f64::NEG_INFINITY);
@@ -1067,12 +974,14 @@ fn hiv_subset_valid_subst_likelihood() {
 
 #[test]
 fn dna_gaps_against_phyml() {
-    let newick =
-        "(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001)0.000000:0.08716381);".to_string();
-    let sequences = Sequences::new(
-        read_sequences_from_file(&Path::new("./data/").join("sequences_DNA1.fasta")).unwrap(),
-    );
-    let info = PIB::build_from_objects(sequences, tree!(&newick)).unwrap();
+    let tree =
+        tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001)0.000000:0.08716381);");
+    let seqs =
+        Sequences::new(read_sequences(&Path::new("./data/").join("sequences_DNA1.fasta")).unwrap());
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree,
+    };
     let jc69 = SubstModel::<JC69>::new(&[], &[]);
     let c = SCB::new(jc69, info).build().unwrap();
 
@@ -1086,54 +995,69 @@ fn dna_single_char_gaps_against_phyml() {
     let tree =
         tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001)0.000000:0.08716381);");
 
-    let sequences = Sequences::new(vec![
+    let seqs = Sequences::new(vec![
         record!("A", b"A"),
         record!("B", b"A"),
         record!("C", b"A"),
         record!("D", b"T"),
     ]);
-    let info = PIB::build_from_objects(sequences, tree.clone()).unwrap();
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree: tree.clone(),
+    };
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     assert_relative_eq!(c.cost(), -2.920437792326963); // Compare against PhyML
 
-    let sequences = Sequences::new(vec![
+    let seqs = Sequences::new(vec![
         record!("A", b"X"),
         record!("B", b"X"),
         record!("C", b"X"),
         record!("D", b"X"),
     ]);
-    let info = PIB::build_from_objects(sequences, tree.clone()).unwrap();
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree: tree.clone(),
+    };
 
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     assert_relative_eq!(c.cost(), 0.0, epsilon = 1e-10); // Compare against PhyML
 
-    let sequences = Sequences::new(vec![
+    let seqs = Sequences::new(vec![
         record!("A", b"X"),
         record!("B", b"X"),
         record!("C", b"X"),
         record!("D", b"T"),
     ]);
-    let info = PIB::build_from_objects(sequences, tree.clone()).unwrap();
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree: tree.clone(),
+    };
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     assert_relative_eq!(c.cost(), -1.38629, epsilon = 1e-5); // Compare against PhyML
 
-    let sequences = Sequences::new(vec![
+    let seqs = Sequences::new(vec![
         record!("A", b"-"),
         record!("B", b"-"),
         record!("C", b"A"),
         record!("D", b"T"),
     ]);
-    let info = PIB::build_from_objects(sequences, tree.clone()).unwrap();
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree: tree.clone(),
+    };
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     assert_relative_eq!(c.cost(), -2.77259, epsilon = 1e-5); // Compare against PhyML
 
-    let sequences = Sequences::new(vec![
+    let seqs = Sequences::new(vec![
         record!("A", b"-"),
         record!("B", b"A"),
         record!("C", b"A"),
         record!("D", b"T"),
     ]);
-    let info = PIB::build_from_objects(sequences, tree).unwrap();
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree,
+    };
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     assert_relative_eq!(c.cost(), -2.92044, epsilon = 1e-5); // Compare against PhyML
 }
@@ -1142,13 +1066,16 @@ fn dna_single_char_gaps_against_phyml() {
 fn dna_ambig_chars_against_phyml() {
     let jc69 = SubstModel::<JC69>::new(&[], &[]);
     let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001)0.0:0.08716381);");
-    let sequences = Sequences::new(vec![
+    let seqs = Sequences::new(vec![
         record!("A", b"B"),
         record!("B", b"A"),
         record!("C", b"A"),
         record!("D", b"T"),
     ]);
-    let info = PIB::build_from_objects(sequences, tree).unwrap();
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree,
+    };
     let c = SCB::new(jc69, info).build().unwrap();
     assert_relative_eq!(c.cost(), -21.28936836, epsilon = 1e-7);
 }
@@ -1157,8 +1084,11 @@ fn dna_ambig_chars_against_phyml() {
 fn dna_x_simple_fully_likely() {
     let jc69 = SubstModel::<JC69>::new(&[], &[]);
     let tree = tree!("(A:0.05,B:0.0005):0.0;");
-    let sequences = Sequences::new(vec![record!("A", b"X"), record!("B", b"X")]);
-    let info = PIB::build_from_objects(sequences, tree).unwrap();
+    let seqs = Sequences::new(vec![record!("A", b"X"), record!("B", b"X")]);
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree,
+    };
     let c = SCB::new(jc69.clone(), info.clone()).build().unwrap();
     assert_relative_eq!(c.cost(), 0.0, epsilon = 1e-15);
 }
@@ -1167,16 +1097,19 @@ fn dna_x_simple_fully_likely() {
 fn x_fully_likely_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) {
     let model = SubstModel::<Q>::new(freqs, params);
     let tree = tree!("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);");
-    let sequences = Sequences::with_alphabet(
+    let seqs = Sequences::with_alphabet(
         vec![
             record!("A", b"X"),
             record!("B", b"X"),
             record!("C", b"X"),
             record!("D", b"X"),
         ],
-        *model.qmatrix.alphabet(),
+        *model.alphabet(),
     );
-    let info = PIB::build_from_objects(sequences, tree).unwrap();
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+        tree,
+    };
     let c = SCB::new(model, info).build().unwrap();
     assert_relative_eq!(c.cost(), 0.0, epsilon = 1e-5);
 }
@@ -1233,4 +1166,69 @@ fn p_matrix_limit() {
     check_freq_convergence(p.clone(), model.freqs(), 1e-5);
     check_freq_convergence(p2.clone(), model.freqs(), 1e-5);
     assert_relative_eq!(p, p2, epsilon = 1e-5);
+}
+
+#[cfg(test)]
+fn parsimony_rounding_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) {
+    let model = SubstModel::<Q>::new(freqs, params);
+    let mat_round = model.scoring(0.1, &Z::zero(), &R::zero());
+    let mat = model.scoring(0.1, &Z::zero(), &R::none());
+    assert_ne!(mat_round.mean(), mat.mean());
+    assert_ne!(mat_round, mat);
+    for (&e1, &e2) in mat_round.as_slice().iter().zip(mat.as_slice().iter()) {
+        assert_relative_eq!(e1, e1.round());
+        assert_relative_eq!(e1, e2.round());
+    }
+}
+
+#[test]
+fn protein_rounding_scores() {
+    parsimony_rounding_template::<HIVB>(&[], &[]);
+    parsimony_rounding_template::<WAG>(&[], &[]);
+    parsimony_rounding_template::<BLOSUM>(&[], &[]);
+}
+
+#[test]
+fn dna_rounding_scores() {
+    parsimony_rounding_template::<JC69>(&[], &[]);
+    parsimony_rounding_template::<K80>(&[], &[]);
+    parsimony_rounding_template::<HKY>(&[0.22, 0.26, 0.33, 0.19], &[0.5]);
+    parsimony_rounding_template::<TN93>(
+        &[0.22, 0.26, 0.33, 0.19],
+        &[0.5970915, 0.2940435, 0.00135],
+    );
+    parsimony_rounding_template::<GTR>(&[0.1, 0.3, 0.4, 0.2], &[5.0, 1.0, 1.0, 1.0, 1.0]);
+}
+
+#[cfg(test)]
+fn parsimony_zero_diag_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) {
+    let model = SubstModel::<Q>::new(freqs, params);
+    let mat_zeros = model.scoring(0.1, &Z::zero(), &R::none());
+    let mat = model.scoring(0.1, &Z::non_zero(), &R::none());
+    assert_ne!(mat_zeros.mean(), mat.mean());
+    assert_ne!(mat_zeros, mat);
+    for (&e1, &e2) in mat_zeros.diagonal().iter().zip(mat.diagonal().iter()) {
+        assert_relative_eq!(e1, 0.0);
+        assert_ne!(e1, e2);
+        assert_ne!(e2, 0.0);
+    }
+}
+
+#[test]
+fn protein_zero_diag_scores() {
+    parsimony_zero_diag_template::<HIVB>(&[], &[]);
+    parsimony_zero_diag_template::<WAG>(&[], &[]);
+    parsimony_zero_diag_template::<BLOSUM>(&[], &[]);
+}
+
+#[test]
+fn dna_zero_diag_scores() {
+    parsimony_zero_diag_template::<JC69>(&[], &[]);
+    parsimony_zero_diag_template::<K80>(&[], &[]);
+    parsimony_zero_diag_template::<HKY>(&[0.22, 0.26, 0.33, 0.19], &[0.5]);
+    parsimony_zero_diag_template::<TN93>(
+        &[0.22, 0.26, 0.33, 0.19],
+        &[0.5970915, 0.2940435, 0.00135],
+    );
+    parsimony_zero_diag_template::<GTR>(&[0.1, 0.3, 0.4, 0.2], &[5.0, 1.0, 1.0, 1.0, 1.0]);
 }
