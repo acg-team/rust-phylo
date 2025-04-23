@@ -1,7 +1,7 @@
 use std::ops::{BitAnd, BitOr};
 use std::{fmt::Display, ops::Deref};
 
-use hashbrown::{hash_set::IntoIter, hash_set::Iter, HashSet};
+use hashbrown::{hash_set::IntoIter, HashSet};
 use itertools::join;
 
 use crate::alphabets::GAP;
@@ -43,15 +43,6 @@ impl Display for ParsimonySet {
         let mut chars: Vec<char> = self.s.iter().map(|&a| a as char).collect();
         chars.sort();
         write!(f, "[{}]", join(chars.iter(), ""))
-    }
-}
-
-impl<'a> IntoIterator for &'a ParsimonySet {
-    type Item = &'a u8;
-    type IntoIter = Iter<'a, u8>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.s.iter()
     }
 }
 
