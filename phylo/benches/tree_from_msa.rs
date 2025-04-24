@@ -1,6 +1,6 @@
 use std::fmt::Display;
 use std::hint::black_box;
-use std::path::Path;
+use std::path::PathBuf;
 use std::result::Result::Ok;
 use std::time::Duration;
 
@@ -30,7 +30,7 @@ struct PIPConfig {
 }
 
 fn black_box_setup<Model: QMatrix + QMatrixMaker>(
-    seq_path: impl AsRef<Path>,
+    seq_path: impl Into<PathBuf>,
 ) -> (PIPConfig, PIPCost<Model>) {
     let info = black_box_deterministic_phylo_info(seq_path);
 

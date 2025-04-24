@@ -44,7 +44,7 @@ impl Error for DataError {}
 /// #    assert_eq!(rec.seq(), rec.seq().to_ascii_uppercase());
 /// # }
 /// ```
-pub fn read_sequences(path: &PathBuf) -> Result<Vec<Record>> {
+pub fn read_sequences(path: &Path) -> Result<Vec<Record>> {
     info!("Reading sequences from file {}.", path.display());
     let reader = Reader::from_file(path)?;
     let mut sequences = Vec::new();

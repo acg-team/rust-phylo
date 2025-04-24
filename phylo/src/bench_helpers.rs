@@ -1,11 +1,6 @@
-use std::{collections::HashMap, hint::black_box, path::Path};
+use std::{collections::HashMap, hint::black_box, path::PathBuf};
 
-use crate::{
-    alignment::Sequences,
-    io,
-    phylo_info::{PhyloInfo, PhyloInfoBuilder},
-    tree::build_nj_tree,
-};
+use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder};
 
 pub type BenchPath = &'static str;
 pub type SequencePaths = HashMap<&'static str, BenchPath>;
@@ -31,16 +26,14 @@ pub const AA_EASY_27X632: &str = "data/benchmark-datasets/aa/easy/boroa6_OG126_g
 pub const AA_MEDIUM_79X106: &str = "data/benchmark-datasets/aa/medium/strua5_gene1339_23221.aln";
 pub const AA_MEDIUM_30X86: &str = "data/benchmark-datasets/aa/medium/nagya1_Cluster3439.aln";
 
-pub fn black_box_deterministic_phylo_info(seq_file: impl AsRef<Path>) -> PhyloInfo {
+pub fn black_box_deterministic_phylo_info(seq_file: impl Into<PathBuf>) -> PhyloInfo {
     assert!(
         cfg!(feature = "deterministic"),
         "only run benches with '-F deterministic'"
     );
-    let sequences = Sequences::new(
-        io::read_sequences_from_file(seq_file.as_ref()).expect("sequence file should be valid"),
-    );
-    let tree = build_nj_tree(&sequences).expect("failed to build tree from sequences");
     black_box(
-        PhyloInfoBuilder::build_from_objects(sequences, tree).expect("failed to build phylo info"),
+        PhyloInfoBuilder::new(seq_file.into())
+            .build()
+            .expect("sequence file should be able to build phylo info"),
     )
 }

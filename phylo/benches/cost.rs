@@ -1,4 +1,4 @@
-use std::{hint::black_box, path::Path, time::Duration};
+use std::{hint::black_box, path::PathBuf, time::Duration};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use phylo::{
@@ -12,7 +12,7 @@ use phylo::{
     substitution_models::{QMatrix, QMatrixMaker, JC69, WAG},
 };
 
-fn black_box_setup<Q: QMatrix + QMatrixMaker>(seq_path: impl AsRef<Path>) -> PIPCost<Q> {
+fn black_box_setup<Q: QMatrix + QMatrixMaker>(seq_path: impl Into<PathBuf>) -> PIPCost<Q> {
     let info = black_box_deterministic_phylo_info(seq_path);
     let pip_model = black_box(PIPModel::<Q>::new(&[], &[]));
     black_box(PIPCostBuilder::new(pip_model, info).build().unwrap())

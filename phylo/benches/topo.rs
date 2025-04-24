@@ -1,6 +1,6 @@
 use std::fmt::Display;
 use std::hint::black_box;
-use std::path::Path;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use criterion::{criterion_group, criterion_main, Criterion};
@@ -16,7 +16,7 @@ use phylo::pip_model::{PIPCost, PIPCostBuilder, PIPModel};
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 
 fn black_box_setup<Model: QMatrix + QMatrixMaker>(
-    path: impl AsRef<Path>,
+    path: impl Into<PathBuf>,
     freq_opt: FrequencyOptimisation,
 ) -> PIPCost<Model> {
     let info = black_box_deterministic_phylo_info(path);
