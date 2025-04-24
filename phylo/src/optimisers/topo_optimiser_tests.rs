@@ -4,6 +4,7 @@ use approx::assert_relative_eq;
 
 use crate::alignment::{Alignment, Sequences};
 use crate::evolutionary_models::FrequencyOptimisation::Empirical;
+#[cfg(feature = "use-precomputed")]
 use crate::io::write_newick_to_file;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{BranchOptimiser, ModelOptimiser, TopologyOptimiser};
@@ -180,43 +181,40 @@ fn wag_no_gaps_vs_phyml_nj_tree_start() {
     // on sequences without gaps starting from an NJ tree
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
-    let tree_file = fldr.join("jati_wag_nogap_nj_start.newick");
 
-    let model = SubstModel::<WAG>::new(&[], &[]);
-    let info = PIB::new(seq_file.clone()).build().unwrap();
-    let c = SCB::new(model.clone(), info).build().unwrap();
-    let unopt_logl = c.cost();
+    let wag = SubstModel::<WAG>::new(&[], &[]);
+    let start_info = PIB::new(seq_file.clone()).build().unwrap();
+    let wag_cost = SCB::new(wag.clone(), start_info).build().unwrap();
 
-    let result =
-        if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), tree_file.clone()).build() {
-            precomputed
+    let unopt_logl = wag_cost.cost();
+    cfg_if::cfg_if! {
+    if #[cfg(feature = "use-precomputed")]{
+        let wag_tree_file = fldr.join("jati_wag_nogap_nj_start.newick");
+        let (wag_res, final_wag_logl) =
+        if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), wag_tree_file.clone()).build() {
+            let precomputed_cost = SCB::new(wag.clone(), precomputed.clone()).build().unwrap().cost();
+            (precomputed, precomputed_cost)
         } else {
-            let o = TopologyOptimiser::new(c).run().unwrap();
-            assert!(o.final_cost >= unopt_logl);
-            assert_eq!(o.initial_cost, unopt_logl);
-            assert_eq!(o.final_cost, o.cost.cost());
-            assert!(write_newick_to_file(&[o.cost.tree().clone()], tree_file.clone()).is_ok());
-            o.cost.info
+            let o = TopologyOptimiser::new(wag_cost.clone()).run().unwrap();
+            assert!(write_newick_to_file(&[o.cost.info.tree.clone()], wag_tree_file).is_ok());
+            (o.cost.info, o.final_cost)
         };
+    } else {
+        let o = TopologyOptimiser::new(wag_cost.clone()).run().unwrap();
+        let (wag_res, final_wag_logl) = (o.cost.info, o.final_cost);
+    }
+    }
+    assert!(final_wag_logl >= unopt_logl);
 
-    let logl = SCB::new(model.clone(), result.clone())
-        .build()
-        .unwrap()
-        .cost();
-    assert!(logl >= unopt_logl);
-
-    let phyml_result = PIB::with_attrs(seq_file.clone(), fldr.join("phyml_nogap.newick"))
+    let phyml_res = PIB::with_attrs(seq_file.clone(), fldr.join("phyml_nogap.newick"))
         .build()
         .unwrap();
-    let phyml_logl = SCB::new(model.clone(), phyml_result.clone())
-        .build()
-        .unwrap()
-        .cost();
+    let phyml_logl = SCB::new(wag, phyml_res.clone()).build().unwrap().cost();
 
     // Compare tree height and logl to the output of PhyML
-    assert_relative_eq!(result.tree.height, phyml_result.tree.height, epsilon = 1e-3);
-    assert_eq!(result.tree.robinson_foulds(&phyml_result.tree), 0);
-    assert_relative_eq!(logl, phyml_logl, epsilon = 1e-3);
+    assert_relative_eq!(wag_res.tree.height, phyml_res.tree.height, epsilon = 1e-4);
+    assert_eq!(wag_res.tree.robinson_foulds(&phyml_res.tree), 0);
+    assert_relative_eq!(final_wag_logl, phyml_logl, epsilon = 1e-5);
 }
 
 #[test]
@@ -248,7 +246,7 @@ fn pip_vs_subst_dna_tree() {
     assert_relative_eq!(
         k80_res.final_cost,
         k80_pip_tree_res.final_cost,
-        epsilon = 1e-3
+        epsilon = 1e-6
     );
 
     // Check that likelihoods under PIP are similar for both trees
@@ -267,182 +265,208 @@ fn pip_vs_subst_dna_tree() {
 #[test]
 #[cfg_attr(feature = "ci_coverage", ignore)]
 fn wag_nogaps_pip_vs_subst_tree_nj_start() {
-    // ~330s
     // Check that optimisation on protein data under WAG produces similar trees for PIP and substitution model
     // on sequences without gaps
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
-    let pip_tree_file = fldr.join("jati_pip_nogap_pip_vs_wag.newick");
-    let wag_tree_file = fldr.join("jati_wag_nogap_pip_vs_wag.newick");
+    let start_info = PIB::new(seq_file.clone()).build().unwrap();
 
-    let info = PIB::new(seq_file.clone()).build().unwrap();
     let pip = PIPModel::<WAG>::new(&[], &[50.0, 0.1]);
     let wag = SubstModel::<WAG>::new(&[], &[]);
-    let c_pip = PIPCB::new(pip.clone(), info.clone()).build().unwrap();
-    let c_wag = SCB::new(wag.clone(), info.clone()).build().unwrap();
+    let pip_cost = PIPCB::new(pip.clone(), start_info.clone()).build().unwrap();
+    let wag_cost = SCB::new(wag.clone(), start_info.clone()).build().unwrap();
 
-    let unopt_pip_logl = c_pip.cost();
-    let result_pip =
+    let unopt_pip_logl = pip_cost.cost();
+    cfg_if::cfg_if! {
+    if #[cfg(feature = "use-precomputed")]{
+        let pip_tree_file = fldr.join("jati_pip_nogap_pip_vs_wag.newick");
+        let (pip_res, final_pip_logl) =
         if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), pip_tree_file.clone()).build() {
-            precomputed
+            let precomputed_cost = PIPCB::new(pip.clone(), precomputed.clone()).build().unwrap().cost();
+            (precomputed, precomputed_cost)
         } else {
-            let o = TopologyOptimiser::new(c_pip).run().unwrap();
-            assert!(o.final_cost >= unopt_pip_logl);
-            assert!(write_newick_to_file(&[o.cost.tree().clone()], pip_tree_file.clone()).is_ok());
-            o.cost.info
+            let o = TopologyOptimiser::new(pip_cost.clone()).run().unwrap();
+            assert!(write_newick_to_file(&[o.cost.info.tree.clone()], pip_tree_file).is_ok());
+            (o.cost.info, o.final_cost)
         };
+    } else {
+        let o = TopologyOptimiser::new(pip_cost.clone()).run().unwrap();
+        let (pip_res, final_pip_logl) = (o.cost.info, o.final_cost);
+    }
+    }
+    assert!(final_pip_logl >= unopt_pip_logl);
 
-    let unopt_wag_logl = c_wag.cost();
-    let result_wag =
+    let unopt_wag_logl = wag_cost.cost();
+    cfg_if::cfg_if! {
+    if #[cfg(feature = "use-precomputed")]{
+        let wag_tree_file = fldr.join("jati_wag_nogap_pip_vs_wag.newick");
+        let (wag_res, final_wag_logl) =
         if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), wag_tree_file.clone()).build() {
-            precomputed
+            let precomputed_cost = SCB::new(wag.clone(), precomputed.clone()).build().unwrap().cost();
+            (precomputed, precomputed_cost)
         } else {
-            let o = TopologyOptimiser::new(c_wag).run().unwrap();
-            assert!(o.final_cost >= unopt_wag_logl);
-            assert!(write_newick_to_file(&[o.cost.tree().clone()], wag_tree_file.clone()).is_ok());
-            o.cost.info
+            let o = TopologyOptimiser::new(wag_cost.clone()).run().unwrap();
+            assert!(write_newick_to_file(&[o.cost.info.tree.clone()], wag_tree_file).is_ok());
+            (o.cost.info, o.final_cost)
         };
+    } else {
+        let o = TopologyOptimiser::new(wag_cost.clone()).run().unwrap();
+        let (wag_res, final_wag_logl) = (o.cost.info, o.final_cost);
+    }
+    }
+    assert!(final_wag_logl >= unopt_wag_logl);
 
     // Compare tree created with a substitution model to the one with PIP
-    assert_eq!(result_pip.tree.robinson_foulds(&result_wag.tree), 0);
+    assert_eq!(pip_res.tree.robinson_foulds(&wag_res.tree), 0);
 
     // Check that likelihoods under same model are similar for both trees
-    let wag_pip_tree_res =
-        BranchOptimiser::new(SCB::new(wag.clone(), result_pip.clone()).build().unwrap())
+    let pip_tree_reopt_wag_logl =
+        BranchOptimiser::new(SCB::new(wag.clone(), pip_res.clone()).build().unwrap())
             .run()
-            .unwrap();
-    assert_relative_eq!(
-        SCB::new(wag, result_wag.clone()).build().unwrap().cost(),
-        wag_pip_tree_res.final_cost,
-        epsilon = 1e-3
-    );
+            .unwrap()
+            .final_cost;
+    assert_relative_eq!(final_wag_logl, pip_tree_reopt_wag_logl, epsilon = 1e-5);
 
     // Check that the likelihoods under the same model are similar for both trees
-    let pip_wag_tree_res =
-        BranchOptimiser::new(PIPCB::new(pip.clone(), result_wag.clone()).build().unwrap())
+    let wag_tree_reopt_pip_logl =
+        BranchOptimiser::new(PIPCB::new(pip.clone(), wag_res.clone()).build().unwrap())
             .run()
-            .unwrap();
-    assert_relative_eq!(
-        PIPCB::new(pip.clone(), result_pip.clone())
-            .build()
             .unwrap()
-            .cost(),
-        pip_wag_tree_res.final_cost,
-        epsilon = 1e-3
+            .final_cost;
+    assert_relative_eq!(final_pip_logl, wag_tree_reopt_pip_logl, epsilon = 1e-5);
+
+    // Just a random check that reestimating branch lengths makes no difference
+    let new_pip_cost = PIPCB::new(pip, pip_res.clone()).build().unwrap();
+    let reopt_res = BranchOptimiser::new(new_pip_cost.clone()).run().unwrap();
+    assert_relative_eq!(new_pip_cost.cost(), reopt_res.final_cost, epsilon = 1e-5);
+    assert_relative_eq!(
+        pip_res.tree.height,
+        reopt_res.cost.info.tree.height,
+        epsilon = 1e-5
     );
-
-    let new_pip_c = PIPCB::new(pip, result_pip).build().unwrap();
-    let o2_subst = BranchOptimiser::new(new_pip_c.clone()).run().unwrap();
-
-    assert_relative_eq!(new_pip_c.cost(), o2_subst.final_cost, epsilon = 1e-4);
 }
 
 #[test]
 #[cfg_attr(feature = "ci_coverage", ignore)]
-fn protein_pip_optimise_model_tree() {
-    // ~430s
+fn pip_wag_optimise_model_tree() {
     // Check that tree optimisation under PIP has a better likelihood when the model is also optimised
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
+    let start_info = PIB::new(seq_file.clone()).build().unwrap();
 
     let pip = PIPModel::<WAG>::new(&[], &[1.4, 0.5]);
+    let pip_cost = PIPCB::new(pip.clone(), start_info).build().unwrap();
+    let unopt_logl = pip_cost.cost();
 
-    let tree_file = fldr.join("jati_pip_nj_start.newick");
-    let result =
+    cfg_if::cfg_if! {
+    if #[cfg(feature = "use-precomputed")]{
+        let tree_file = fldr.join("jati_pip_nj_start.newick");
+        let (res, model_unopt_logl) =
         if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), tree_file.clone()).build() {
-            precomputed
+            let precomputed_cost = PIPCB::new(pip.clone(), precomputed.clone()).build().unwrap().cost();
+            (precomputed, precomputed_cost)
         } else {
-            let info = PIB::new(seq_file.clone()).build().unwrap();
-            let pip_c = PIPCB::new(pip.clone(), info).build().unwrap();
-            let unopt_logl = pip_c.cost();
-            let o = TopologyOptimiser::new(pip_c).run().unwrap();
-            assert!(o.final_cost >= unopt_logl);
-            assert!(write_newick_to_file(&[o.cost.tree().clone()], tree_file.clone()).is_ok());
-            o.cost.info
+            let o = TopologyOptimiser::new(pip_cost.clone()).run().unwrap();
+            assert!(write_newick_to_file(&[o.cost.info.tree.clone()], tree_file).is_ok());
+            (o.cost.info, o.final_cost)
         };
+    } else {
+        let o = TopologyOptimiser::new(pip_cost.clone()).run().unwrap();
+        let (res, model_unopt_logl) = (o.cost.info, o.final_cost);
+    }
+    }
+    assert!(model_unopt_logl >= unopt_logl);
 
-    let tree_file = fldr.join("jati_pip_nj_start_model_opt.newick");
-    let result_model_opt =
+    // Optimise model parameters
+    let o = ModelOptimiser::new(pip_cost, Empirical).run().unwrap();
+    let model_opt_logl = o.final_cost;
+    let pip_opt = o.cost.model;
+    let pip_opt_cost = PIPCB::new(pip_opt.clone(), o.cost.info).build().unwrap();
+
+    assert!(model_opt_logl >= unopt_logl);
+    assert!(model_opt_logl >= model_unopt_logl);
+
+    cfg_if::cfg_if! {
+    if #[cfg(feature = "use-precomputed")]{
+        let tree_file = fldr.join("jati_pip_nj_start_model_opt.newick");
+        let (model_opt_res, final_model_opt_logl) =
         if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), tree_file.clone()).build() {
-            precomputed
+            let precomputed_cost = PIPCB::new(pip_opt.clone(), precomputed.clone()).build().unwrap().cost();
+            (precomputed, precomputed_cost)
         } else {
-            let info = PIB::new(seq_file.clone()).build().unwrap();
-            let pip_c = PIPCB::new(pip.clone(), info).build().unwrap();
-            let unopt_logl = pip_c.cost();
-            let o = ModelOptimiser::new(pip_c, Empirical).run().unwrap();
-            let model_opt_logl = o.final_cost;
-            assert!(model_opt_logl >= unopt_logl);
-            let o = TopologyOptimiser::new(o.cost).run().unwrap();
-            assert!(o.final_cost >= unopt_logl);
-            assert!(write_newick_to_file(&[o.cost.tree().clone()], tree_file.clone()).is_ok());
-            o.cost.info
+            let o = TopologyOptimiser::new(pip_opt_cost).run().unwrap();
+            assert!(write_newick_to_file(&[o.cost.info.tree.clone()], tree_file).is_ok());
+            (o.cost.info, o.final_cost)
         };
+    } else {
+        let o = TopologyOptimiser::new(pip_opt_cost).run().unwrap();
+        let (model_opt_res, final_model_opt_logl) = (o.cost.info, o.final_cost);
+    }
+    }
+    assert!(final_model_opt_logl >= model_opt_logl);
+    assert!(final_model_opt_logl >= unopt_logl);
 
-    let pip_opt = PIPModel::<WAG>::new(&[], &[49.56941, 0.09352]);
-    assert_eq!(result_model_opt.tree.robinson_foulds(&result.tree), 0);
+    assert_eq!(model_opt_res.tree.robinson_foulds(&res.tree), 0);
 
-    let pip_opt_new_res_logl = PIPCB::new(pip_opt.clone(), result_model_opt.clone())
-        .build()
-        .unwrap()
-        .cost();
-    let pip_opt_old_res_logl = PIPCB::new(pip_opt, result.clone()).build().unwrap().cost();
-    let pip_old_res_logl = PIPCB::new(pip.clone(), result).build().unwrap().cost();
-    let pip_new_res_logl = PIPCB::new(pip, result_model_opt.clone())
-        .build()
-        .unwrap()
-        .cost();
-
-    assert!(pip_opt_new_res_logl > pip_old_res_logl);
-    assert!(pip_opt_new_res_logl > pip_opt_old_res_logl);
-    assert!(pip_opt_new_res_logl > pip_new_res_logl);
+    assert!(final_model_opt_logl > model_unopt_logl);
+    assert!(final_model_opt_logl > PIPCB::new(pip_opt, res.clone()).build().unwrap().cost());
+    assert!(
+        final_model_opt_logl
+            > PIPCB::new(pip, model_opt_res.clone())
+                .build()
+                .unwrap()
+                .cost()
+    );
 }
 
 #[test]
 #[cfg_attr(feature = "ci_coverage", ignore)]
-fn protein_wag_vs_phyml_empirical_freqs() {
-    // ~110s
+fn wag_vs_phyml_empirical_freqs() {
     // Check that optimisation on protein data under WAG produces similar tree to PhyML with matching likelihoods
     // when using empirical frequencies
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
-    let tree_file = fldr.join("jati_wag_empirical.newick");
+    let start_info = PIB::new(seq_file.clone()).build().unwrap();
 
-    let info = PIB::new(seq_file.clone()).build().unwrap();
     let wag = SubstModel::<WAG>::new(&[], &[]);
-    let c_wag = SCB::new(wag.clone(), info.clone()).build().unwrap();
+    let wag_cost = SCB::new(wag.clone(), start_info).build().unwrap();
+    let unopt_logl = wag_cost.cost();
 
-    let unopt_logl = c_wag.cost();
-
-    let o = ModelOptimiser::new(c_wag, Empirical).run().unwrap();
+    let o = ModelOptimiser::new(wag_cost, Empirical).run().unwrap();
     let model_opt_logl = o.final_cost;
     assert!(model_opt_logl >= unopt_logl);
     let wag_opt = o.cost.model;
+    let wag_opt_cost = SCB::new(wag_opt.clone(), o.cost.info).build().unwrap();
 
-    let result =
+    cfg_if::cfg_if! {
+    if #[cfg(feature = "use-precomputed")]{
+        let tree_file = fldr.join("jati_wag_empirical.newick");
+        let (res, final_logl) =
         if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), tree_file.clone()).build() {
-            precomputed
+            let precomputed_cost = SCB::new(wag_opt.clone(), precomputed.clone()).build().unwrap().cost();
+            (precomputed, precomputed_cost)
         } else {
-            let info = PIB::new(seq_file.clone()).build().unwrap();
-            let c_wag_opt = SCB::new(wag_opt.clone(), info).build().unwrap();
-            let unopt_logl = c_wag_opt.cost();
-            let o = TopologyOptimiser::new(c_wag_opt).run().unwrap();
-            assert!(o.final_cost >= unopt_logl);
-            let result = o.cost.info;
-            assert!(write_newick_to_file(&[result.tree.clone()], tree_file.clone()).is_ok());
-            result
+            let o = TopologyOptimiser::new(wag_opt_cost).run().unwrap();
+            assert!(write_newick_to_file(&[o.cost.info.tree.clone()], tree_file).is_ok());
+            (o.cost.info, o.final_cost)
         };
+    } else {
+        let o = TopologyOptimiser::new(wag_opt_cost).run().unwrap();
+        let (res, final_logl) = (o.cost.info, o.final_cost);
+    }
+    }
+    assert!(final_logl >= unopt_logl);
 
-    let phyml_result = PIB::with_attrs(seq_file.clone(), fldr.join("phyml_wag_empirical.newick"))
+    let phyml_res = PIB::with_attrs(seq_file.clone(), fldr.join("phyml_wag_empirical.newick"))
         .build()
         .unwrap();
 
-    assert_relative_eq!(result.tree.height, phyml_result.tree.height, epsilon = 1e-4);
-    assert_eq!(result.tree.robinson_foulds(&phyml_result.tree), 0);
+    assert_relative_eq!(res.tree.height, phyml_res.tree.height, epsilon = 1e-4);
+    assert_eq!(res.tree.robinson_foulds(&phyml_res.tree), 0);
 
-    let wag_opt_logl = SCB::new(wag_opt.clone(), result).build().unwrap().cost();
-    let wag_opt_phyml_logl = SCB::new(wag_opt, phyml_result).build().unwrap().cost();
-    assert_relative_eq!(wag_opt_logl, wag_opt_phyml_logl, epsilon = 1e-5);
-    assert_relative_eq!(wag_opt_logl, -5258.79254297163, epsilon = 1e-5);
+    let wag_opt_phyml_logl = SCB::new(wag_opt, phyml_res).build().unwrap().cost();
+    assert_relative_eq!(final_logl, wag_opt_phyml_logl, epsilon = 1e-5);
+    assert_relative_eq!(final_logl, -5258.79254297163, epsilon = 1e-5);
 }
 
 #[test]
@@ -466,9 +490,9 @@ fn pip_wag_vs_phyml_empirical_freqs() {
     let pip_opt_cost = PIPCB::new(pip_opt.clone(), start_info).build().unwrap();
 
     cfg_if::cfg_if! {
-    if #[cfg(feature = "use_precomputed")]{
+    if #[cfg(feature = "use-precomputed")]{
         let tree_file = fldr.join("jati_pip_wag_empirical.newick");
-        let (jati_res, final_logl) =
+        let (res, final_logl) =
         if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), tree_file.clone()).build() {
             let precomputed_cost = PIPCB::new(pip_opt.clone(), precomputed.clone()).build().unwrap().cost();
             (precomputed, precomputed_cost)
@@ -479,7 +503,7 @@ fn pip_wag_vs_phyml_empirical_freqs() {
         };
     } else {
         let o = TopologyOptimiser::new(pip_opt_cost).run().unwrap();
-        let (jati_res, final_logl) = (o.cost.info, o.final_cost);
+        let (res, final_logl) = (o.cost.info, o.final_cost);
     }
     }
 
@@ -497,7 +521,7 @@ fn pip_wag_vs_phyml_empirical_freqs() {
     // Check that our tree is better than phyml
     assert!(final_logl > phyml_brlen_opt.final_cost);
     assert_relative_eq!(
-        jati_res.tree.height,
+        res.tree.height,
         phyml_brlen_opt.cost.info.tree.height,
         epsilon = 1e-2
     );
@@ -517,9 +541,9 @@ fn wag_vs_phyml_fixed_freqs() {
     let unopt_logl = wag_cost.cost();
 
     cfg_if::cfg_if! {
-    if #[cfg(feature = "use_precomputed")]{
+    if #[cfg(feature = "use-precomputed")]{
         let tree_file = fldr.join("jati_wag_fixed.newick");
-        let (jati_res, final_logl) =
+        let (res, final_logl) =
         if let Ok(precomputed) = PIB::with_attrs(seq_file.clone(), tree_file.clone()).build() {
             let precomputed_cost = SCB::new(wag.clone(), precomputed.clone()).build().unwrap().cost();
             (precomputed, precomputed_cost)
@@ -530,7 +554,7 @@ fn wag_vs_phyml_fixed_freqs() {
         };
     } else {
         let o = TopologyOptimiser::new(wag_cost).run().unwrap();
-        let (jati_res, final_logl) = (o.cost.info, o.final_cost);
+        let (res, final_logl) = (o.cost.info, o.final_cost);
     }
     }
     assert!(final_logl >= unopt_logl);
@@ -539,12 +563,13 @@ fn wag_vs_phyml_fixed_freqs() {
         .build()
         .unwrap();
 
-    assert_relative_eq!(jati_res.tree.height, phyml_res.tree.height, epsilon = 1e-4);
-    assert_eq!(jati_res.tree.robinson_foulds(&phyml_res.tree), 0);
+    assert_relative_eq!(res.tree.height, phyml_res.tree.height, epsilon = 1e-4);
+    assert_eq!(res.tree.robinson_foulds(&phyml_res.tree), 0);
     assert_relative_eq!(
         final_logl,
         SCB::new(wag, phyml_res).build().unwrap().cost(),
         epsilon = 1e-5
     );
-    assert_relative_eq!(final_logl, -5295.084233408107, epsilon = 1e-2);
+
+    assert_relative_eq!(final_logl, -5295.08423, epsilon = 1e-3);
 }
