@@ -8,6 +8,7 @@ edition = "2021"
 [features]
 ci_coverage = []
 deterministic = []
+use_precomputed = []
 
 [profile.release]
 opt-level = 3
