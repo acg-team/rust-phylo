@@ -3,7 +3,7 @@ use ordered_float::OrderedFloat;
 
 use crate::alphabets::Alphabet;
 use crate::parsimony::{
-    CostMatrix, DiagonalZeros, GapCost, ParsimonyCosts, ParsimonyModel, Rounding,
+    CostMatrix, DiagonalZeros, GapCost, ParsimonyModel, ParsimonyScoring, Rounding,
 };
 use crate::Result;
 
@@ -129,7 +129,7 @@ impl ModelCosts {
     }
 }
 
-impl ParsimonyCosts for ModelCosts {
+impl ParsimonyScoring for ModelCosts {
     fn r#match(&self, blen: f64, i: &u8, j: &u8) -> f64 {
         self.scoring(OrderedFloat(blen)).c[(self.alphabet.index(i), self.alphabet.index(j))]
     }
@@ -239,7 +239,7 @@ mod private_tests {
 
     #[cfg(test)]
     fn builder_default_template<P: ParsimonyModel + Clone + PartialEq + Debug>(model: P) {
-        use crate::parsimony::costs::GapCost;
+        use crate::parsimony::scoring::GapCost;
 
         let builder = ModelCostBuilder::new(model.clone());
 

@@ -1,21 +1,21 @@
-use crate::parsimony::{GapCost, ParsimonyCosts};
+use crate::parsimony::{GapCost, ParsimonyScoring};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SimpleCosts {
+pub struct SimpleScoring {
     mismatch: f64,
     gap: GapCost,
 }
 
-impl SimpleCosts {
-    pub fn new(mismatch: f64, gap: GapCost) -> SimpleCosts {
-        SimpleCosts {
+impl SimpleScoring {
+    pub fn new(mismatch: f64, gap: GapCost) -> SimpleScoring {
+        SimpleScoring {
             mismatch,
             gap: gap * mismatch,
         }
     }
 }
 
-impl ParsimonyCosts for SimpleCosts {
+impl ParsimonyScoring for SimpleScoring {
     fn r#match(&self, _: f64, char_i: &u8, char_j: &u8) -> f64 {
         if char_i == char_j {
             0.0

@@ -1,14 +1,16 @@
 use crate::alignment::Sequences;
-use crate::parsimony::costs::{GapCost, SimpleCosts};
-use crate::parsimony::SiteFlag::{GapExt, GapOpen, NoGap};
-use crate::parsimony::{ParsimonyAligner, ParsimonySite};
+
+use crate::parsimony::{
+    GapCost, ParsimonyAligner, ParsimonySite, SimpleScoring,
+    SiteFlag::{GapExt, GapOpen, NoGap},
+};
 use crate::{record_wo_desc as rec, site, test_align as align, tree};
 
 #[test]
 fn align_two_first_outcome() {
     let mismatch = 1.0;
     let gap = GapCost::new(2.0, 0.5);
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
 
     // Leaf sequence representation
     let x_leaf = [
@@ -34,7 +36,7 @@ fn align_two_second_outcome() {
     let mismatch = 1.0;
     let gap = GapCost::new(2.0, 0.5);
 
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
 
     let x_leaf = [
         site!(b"A", NoGap),
@@ -60,7 +62,7 @@ fn align_two_on_tree() {
     let gap = GapCost::new(2.0, 0.5);
     let seqs = Sequences::new(vec![rec!("A", b"AACT"), rec!("B", b"AC")]);
     let tree = tree!("(A:1.0, B:1.0):0.0;");
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
 
     let aligner = ParsimonyAligner::new(scoring);
     let (alignment, score) = aligner.align_with_scores(&seqs, &tree).unwrap();
@@ -75,7 +77,7 @@ fn align_two_on_tree() {
 fn internal_alignment_first_outcome() {
     let mismatch = 1.0;
     let gap = GapCost::new(2.0, 0.5);
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
 
     let x_leaf = [
         site!(b"A", NoGap),
@@ -98,7 +100,7 @@ fn internal_alignment_first_outcome() {
 fn internal_alignment_second_outcome() {
     let mismatch = 1.0;
     let gap = GapCost::new(2.0, 0.5);
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
 
     let x_leaf = [
         site!(b"A", NoGap),
@@ -121,7 +123,7 @@ fn internal_alignment_second_outcome() {
 fn internal_alignment_third_outcome() {
     let mismatch = 1.0;
     let gap = GapCost::new(2.0, 0.5);
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
 
     let x_leaf = [
         site!(b"A", NoGap),
@@ -153,7 +155,7 @@ fn align_four_on_tree() {
     ]);
 
     let tree = tree!("((A:1.0, B:1.0):1.0, (C:1.0, D:1.0):1.0);");
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
 
     let aligner = ParsimonyAligner::new(scoring);
     let (alignment, score) = aligner.align_with_scores(&seqs, &tree).unwrap();

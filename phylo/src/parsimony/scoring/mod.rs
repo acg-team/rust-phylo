@@ -1,9 +1,9 @@
 use std::ops::Mul;
 
-pub mod model_costs;
-pub use model_costs::*;
-pub mod simple_costs;
-pub use simple_costs::*;
+pub mod model_scoring;
+pub use model_scoring::*;
+pub mod simple_scoring;
+pub use simple_scoring::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct GapCost {
@@ -28,7 +28,7 @@ impl GapCost {
     }
 }
 
-pub trait ParsimonyCosts {
+pub trait ParsimonyScoring {
     fn r#match(&self, blen: f64, i: &u8, j: &u8) -> f64;
     fn gap_open(&self, blen: f64) -> f64;
     fn gap_ext(&self, blen: f64) -> f64;

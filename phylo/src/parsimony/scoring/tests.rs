@@ -1,6 +1,8 @@
 use crate::alphabets::{AMINOACIDS, NUCLEOTIDES};
-use crate::parsimony::costs::ModelCostBuilder as MCB;
-use crate::parsimony::{DiagonalZeros as Z, GapCost, ParsimonyCosts, Rounding as R, SimpleCosts};
+use crate::parsimony::{
+    DiagonalZeros as Z, GapCost, ModelCostBuilder as MCB, ParsimonyScoring, Rounding as R,
+    SimpleScoring,
+};
 use crate::substitution_models::{SubstModel, JC69, WAG};
 
 #[test]
@@ -11,7 +13,7 @@ fn default_costs() {
         ext: 0.5,
     };
 
-    let c = SimpleCosts::new(mismatch, gap.clone());
+    let c = SimpleScoring::new(mismatch, gap.clone());
     assert_eq!(c.r#match(1.0, &b'A', &b'B'), mismatch);
     assert_eq!(c.r#match(1.0, &b'B', &b'A'), mismatch);
     assert_eq!(c.r#match(1.0, &b'N', &b'K'), mismatch);
@@ -29,7 +31,7 @@ fn simple_costs() {
         ext: 10.5,
     };
 
-    let c = SimpleCosts::new(mismatch, gap.clone());
+    let c = SimpleScoring::new(mismatch, gap.clone());
     for char in AMINOACIDS.iter() {
         for char2 in AMINOACIDS.iter() {
             if char == char2 {
@@ -45,7 +47,7 @@ fn simple_costs() {
 
     let mismatch = 1.0;
 
-    let c = SimpleCosts::new(mismatch, gap.clone());
+    let c = SimpleScoring::new(mismatch, gap.clone());
     for char in NUCLEOTIDES.iter() {
         for char2 in NUCLEOTIDES.iter() {
             if char == char2 {
