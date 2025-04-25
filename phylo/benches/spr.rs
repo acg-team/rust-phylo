@@ -102,16 +102,16 @@ fn run_find_best_regraft_for_single_spr_move<Q: QMatrix + QMatrixMaker>(
     };
     for (key, path) in paths {
         let cost_fn = black_box_setup::<Q>(path, FrequencyOptimisation::Empirical);
-        let prune_location =
-            TopologyOptimiser::<PIPCost<Q>>::find_possible_prune_locations(cost_fn.tree())
-                .find(|prune| {
-                    !cost_fn
-                        .tree()
-                        .node(&cost_fn.tree().root)
-                        .children
-                        .contains(prune)
-                })
-                .expect("tree should have at least one node not a direct child of root");
+        let tree = cost_fn.tree();
+        // NOTE: regrafting an early preorder node would mean that a long branch stays in tact
+        // and less has to be re-calculated overall. We try to benchmark a likely worst case
+        // since all parents have to be re-calculated
+        let prune_location = *tree
+            .postorder()
+            .iter()
+            .filter(|&n| n != &tree.root)
+            .find(|prune| !cost_fn.tree().node(&tree.root).children.contains(prune))
+            .expect("tree should have at least one node not a direct child of root");
         bench(key, (cost_fn, &prune_location));
     }
     bench_group.finish();
@@ -124,8 +124,8 @@ fn spr_dna(criterion: &mut Criterion) {
         // ("17X2292", DNA_EASY_17X2292),
         // ("33X4455", DNA_EASY_33X4455),
     ]);
-    run_single_spr_cycle_for_sizes::<JC69>(&paths, "topology optimiser DNA", criterion);
-    run_find_best_regraft_for_single_spr_move::<JC69>(&paths, "topology optimiser DNA", criterion);
+    run_single_spr_cycle_for_sizes::<JC69>(&paths, "spr DNA", criterion);
+    run_find_best_regraft_for_single_spr_move::<JC69>(&paths, "spr DNA", criterion);
 }
 
 fn spr_aa(criterion: &mut Criterion) {
@@ -136,8 +136,8 @@ fn spr_aa(criterion: &mut Criterion) {
         // ("45X223", AA_EASY_45X223),
         // ("79X106", AA_MEDIUM_79X106),
     ]);
-    run_single_spr_cycle_for_sizes::<WAG>(&paths, "topology optimiser AA", criterion);
-    run_find_best_regraft_for_single_spr_move::<WAG>(&paths, "topology optimiser AA", criterion);
+    run_single_spr_cycle_for_sizes::<WAG>(&paths, "spr AA", criterion);
+    run_find_best_regraft_for_single_spr_move::<WAG>(&paths, "spr AA", criterion);
 }
 
 criterion_group! {
