@@ -9,6 +9,9 @@ edition = "2021"
 ci_coverage = []
 deterministic = []
 
+[lib]
+bench = false
+
 [profile.dev]
 opt-level = 3
 
@@ -62,4 +65,7 @@ name = "cost"
 harness = false
 [[bench]]
 name = "topo"
+harness = false
+[[bench]]
+name = "spr"
 harness = false

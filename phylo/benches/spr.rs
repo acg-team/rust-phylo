@@ -1,0 +1,153 @@
+use std::fmt::Display;
+use std::hint::black_box;
+use std::path::PathBuf;
+use std::time::Duration;
+
+use criterion::{criterion_group, criterion_main, Criterion};
+
+use itertools::Itertools;
+use phylo::bench_helpers::{
+    black_box_deterministic_phylo_info, SequencePaths, AA_EASY_12X73, AA_EASY_6X97,
+    DNA_EASY_5X1000, DNA_EASY_8X1252,
+};
+use phylo::evolutionary_models::FrequencyOptimisation;
+use phylo::likelihood::TreeSearchCost;
+use phylo::optimisers::{ModelOptimiser, TopologyOptimiser};
+use phylo::pip_model::{PIPCost, PIPCostBuilder, PIPModel};
+use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
+use phylo::tree::NodeIdx;
+
+fn black_box_setup<Model: QMatrix + QMatrixMaker>(
+    path: impl Into<PathBuf>,
+    freq_opt: FrequencyOptimisation,
+) -> PIPCost<Model> {
+    let info = black_box_deterministic_phylo_info(path);
+    let pip_cost = PIPCostBuilder::new(PIPModel::<Model>::new(&[], &[]), info)
+        .build()
+        .expect("failed to build pip cost optimiser");
+
+    // TODO: don't know if this is necessary but since the JATI repo calls this before running the
+    // TopoOptimiser I think its more accurate to also do it here
+    let model_optimiser = ModelOptimiser::new(pip_cost, freq_opt);
+    black_box(
+        model_optimiser
+            .run()
+            .expect("model optimiser should pass")
+            .cost,
+    )
+}
+
+fn single_spr_cycle<C: TreeSearchCost + Clone + Display>(
+    mut cost_fn: C,
+    prune_locations: &[&NodeIdx],
+) -> anyhow::Result<f64> {
+    TopologyOptimiser::fold_improving_spr_moves(&mut cost_fn, f64::MIN, prune_locations)
+}
+
+fn find_best_regraft_for_single_spr_move<C: TreeSearchCost + Clone + Display>(
+    cost_fn: C,
+    prune_location: &NodeIdx,
+) -> anyhow::Result<f64> {
+    let best_regraft =
+        TopologyOptimiser::find_max_cost_regraft_for_prune(prune_location, f64::MIN, &cost_fn)?
+            .expect("invalid prune location for benchmarking");
+    Ok(best_regraft.1)
+}
+
+fn run_single_spr_cycle_for_sizes<Q: QMatrix + QMatrixMaker>(
+    paths: &SequencePaths,
+    group_name: &'static str,
+    criterion: &mut Criterion,
+) {
+    let mut bench_group = criterion.benchmark_group(format!("SINGLE-SPR-CYCLE {group_name}"));
+    let mut bench = |id: &str, data: (PIPCost<Q>, &[&NodeIdx])| {
+        bench_group.bench_function(id, |bench| {
+            bench.iter_batched(
+                // clone because of interior mutability in PIPCost
+                || data.clone(),
+                |(cost_fn, prune_locations)| single_spr_cycle(cost_fn, prune_locations),
+                criterion::BatchSize::SmallInput,
+            );
+        });
+    };
+    for (key, path) in paths {
+        let cost_fn = black_box_setup::<Q>(path, FrequencyOptimisation::Empirical);
+        let prune_locations =
+            TopologyOptimiser::<PIPCost<Q>>::find_possible_prune_locations(cost_fn.tree())
+                .collect_vec();
+        let prune_locations_ref = prune_locations.iter().collect_vec();
+        bench(key, (cost_fn, &prune_locations_ref));
+    }
+    bench_group.finish();
+}
+
+fn run_find_best_regraft_for_single_spr_move<Q: QMatrix + QMatrixMaker>(
+    paths: &SequencePaths,
+    group_name: &'static str,
+    criterion: &mut Criterion,
+) {
+    let mut bench_group =
+        criterion.benchmark_group(format!("SINGLE-SPR-MOVE-FIND-BEST-REGRAFT {group_name}"));
+    let mut bench = |id: &str, data: (PIPCost<Q>, &NodeIdx)| {
+        bench_group.bench_function(id, |bench| {
+            bench.iter_batched(
+                // clone because of interior mutability in PIPCost
+                || data.clone(),
+                |(cost_fn, prune_locations)| {
+                    find_best_regraft_for_single_spr_move(cost_fn, prune_locations)
+                },
+                criterion::BatchSize::SmallInput,
+            );
+        });
+    };
+    for (key, path) in paths {
+        let cost_fn = black_box_setup::<Q>(path, FrequencyOptimisation::Empirical);
+        let prune_location =
+            TopologyOptimiser::<PIPCost<Q>>::find_possible_prune_locations(cost_fn.tree())
+                .find(|prune| {
+                    !cost_fn
+                        .tree()
+                        .node(&cost_fn.tree().root)
+                        .children
+                        .contains(prune)
+                })
+                .expect("tree should have at least one node not a direct child of root");
+        bench(key, (cost_fn, &prune_location));
+    }
+    bench_group.finish();
+}
+
+fn spr_dna(criterion: &mut Criterion) {
+    let paths = SequencePaths::from([
+        ("5X1000", DNA_EASY_5X1000),
+        ("8X1252", DNA_EASY_8X1252),
+        // ("17X2292", DNA_EASY_17X2292),
+        // ("33X4455", DNA_EASY_33X4455),
+    ]);
+    run_single_spr_cycle_for_sizes::<JC69>(&paths, "topology optimiser DNA", criterion);
+    run_find_best_regraft_for_single_spr_move::<JC69>(&paths, "topology optimiser DNA", criterion);
+}
+
+fn spr_aa(criterion: &mut Criterion) {
+    let paths = SequencePaths::from([
+        ("6X97", AA_EASY_6X97),
+        ("12X73", AA_EASY_12X73),
+        // ("27X632", AA_EASY_27X632),
+        // ("45X223", AA_EASY_45X223),
+        // ("79X106", AA_MEDIUM_79X106),
+    ]);
+    run_single_spr_cycle_for_sizes::<WAG>(&paths, "topology optimiser AA", criterion);
+    run_find_best_regraft_for_single_spr_move::<WAG>(&paths, "topology optimiser AA", criterion);
+}
+
+criterion_group! {
+name = dna;
+config = Criterion::default().measurement_time(Duration::from_secs(60));
+targets = spr_dna
+}
+criterion_group! {
+name = aa;
+config = Criterion::default().measurement_time(Duration::from_secs(60));
+targets = spr_aa,
+}
+criterion_main!(aa, dna);

@@ -20,22 +20,22 @@ fn black_box_setup<Model: QMatrix + QMatrixMaker>(
     freq_opt: FrequencyOptimisation,
 ) -> PIPCost<Model> {
     let info = black_box_deterministic_phylo_info(path);
-    let pip_cost = black_box(PIPCostBuilder::new(
-        black_box(black_box(PIPModel::<Model>::new(&[], &[]))),
-        info,
-    ))
-    .build()
-    .expect("failed to build pip cost optimiser");
+    let pip_cost = PIPCostBuilder::new(PIPModel::<Model>::new(&[], &[]), info)
+        .build()
+        .expect("failed to build pip cost optimiser");
 
     // TODO: don't know if this is necessary but since the JATI repo calls this before running the
     // TopoOptimiser I think its more accurate to also do it here
     let model_optimiser = ModelOptimiser::new(pip_cost, freq_opt);
-    model_optimiser
-        .run()
-        .expect("model optimiser should pass")
-        .cost
+    black_box(
+        model_optimiser
+            .run()
+            .expect("model optimiser should pass")
+            .cost,
+    )
 }
 
+/// copied from [`TopologyOptimiser::run`]
 fn fixed_iter_simulated_topo_optimiser<C: TreeSearchCost + Clone + Display>(
     mut cost_fn: C,
 ) -> anyhow::Result<f64> {
@@ -61,12 +61,13 @@ fn fixed_iter_simulated_topo_optimiser<C: TreeSearchCost + Clone + Display>(
     Ok(curr_cost)
 }
 
-fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
+fn run_simulated_topo_for_sizes<Q: QMatrix + QMatrixMaker>(
     paths: &SequencePaths,
     group_name: &'static str,
     criterion: &mut Criterion,
 ) {
-    let mut bench_group = criterion.benchmark_group(group_name);
+    let mut bench_group =
+        criterion.benchmark_group(format!("SIMULATED-TOPO-OPTIMISER {group_name}"));
     let mut bench = |id: &str, data: PIPCost<Q>| {
         bench_group.bench_function(id, |bench| {
             bench.iter_batched(
@@ -91,7 +92,7 @@ fn topo_dna(criterion: &mut Criterion) {
         // ("17X2292", DNA_EASY_17X2292),
         // ("33X4455", DNA_EASY_33X4455),
     ]);
-    run_for_sizes::<JC69>(&paths, "topology optimiser DNA", criterion);
+    run_simulated_topo_for_sizes::<JC69>(&paths, "topology optimiser DNA", criterion);
 }
 
 fn topo_aa(criterion: &mut Criterion) {
@@ -102,7 +103,7 @@ fn topo_aa(criterion: &mut Criterion) {
         // ("45X223", AA_EASY_45X223),
         // ("79X106", AA_MEDIUM_79X106),
     ]);
-    run_for_sizes::<WAG>(&paths, "topology optimiser AA", criterion);
+    run_simulated_topo_for_sizes::<WAG>(&paths, "topology optimiser AA", criterion);
 }
 
 criterion_group! {
