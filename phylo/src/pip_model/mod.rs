@@ -452,7 +452,7 @@ impl<Q: QMatrix> PIPCost<Q> {
     /// - tmp.ftilde for both children
     ///
     /// Modifies:
-    /// - tmp.ftile for this node
+    /// - tmp.ftilde for this node
     /// - tmp.f for this node
     fn set_ftilde(&self, tree: &Tree, node_idx: &NodeIdx) {
         let children = tree.children(node_idx);
