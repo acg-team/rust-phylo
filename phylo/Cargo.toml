@@ -70,3 +70,6 @@ harness = false
 [[bench]]
 name = "spr"
 harness = false
+[[bench]]
+name = "helpers"
+harness = false
