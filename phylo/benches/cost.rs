@@ -1,4 +1,4 @@
-use std::{hint::black_box, path::PathBuf, time::Duration};
+use std::{hint::black_box, path::PathBuf};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use phylo::{
@@ -68,12 +68,12 @@ fn pip_cost_aa_easy(criterion: &mut Criterion) {
 
 criterion_group! {
 name = pip_cost_dna;
-config = Criterion::default().measurement_time(Duration::from_secs(60));
+config = helpers::setup_suite();
 targets = pip_cost_dna_easy,
 }
 criterion_group! {
 name = pip_cost_aa;
-config = Criterion::default().measurement_time(Duration::from_secs(60));
+config = helpers::setup_suite();
 targets = pip_cost_aa_easy,
 }
 criterion_main!(pip_cost_dna, pip_cost_aa);

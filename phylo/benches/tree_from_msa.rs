@@ -114,12 +114,12 @@ fn pip_inferrence_aa(criterion: &mut Criterion) {
 
 criterion_group! {
 name = dna;
-config = Criterion::default().measurement_time(Duration::from_secs(120)).sample_size(10);
+config = helpers::setup_suite().measurement_time(Duration::from_secs(120)).sample_size(10);
 targets = pip_inferrence_dna
 }
 criterion_group! {
 name = aa;
-config = Criterion::default().measurement_time(Duration::from_secs(120)).sample_size(10);
+config = helpers::setup_suite().measurement_time(Duration::from_secs(120)).sample_size(10);
 targets = pip_inferrence_aa,
 }
 criterion_main!(aa, dna);

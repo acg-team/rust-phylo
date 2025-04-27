@@ -1,7 +1,6 @@
 use std::fmt::Display;
 use std::hint::black_box;
 use std::path::PathBuf;
-use std::time::Duration;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
@@ -109,12 +108,12 @@ fn topo_aa(criterion: &mut Criterion) {
 
 criterion_group! {
 name = dna;
-config = Criterion::default().measurement_time(Duration::from_secs(60)).sample_size(15);
+config = helpers::setup_suite().sample_size(15);
 targets = topo_dna
 }
 criterion_group! {
 name = aa;
-config = Criterion::default().measurement_time(Duration::from_secs(60)).sample_size(15);
+config = helpers::setup_suite().sample_size(15);
 targets = topo_aa,
 }
 criterion_main!(aa, dna);
