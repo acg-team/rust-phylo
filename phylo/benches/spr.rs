@@ -51,7 +51,7 @@ fn find_best_regraft_for_single_spr_move<C: TreeSearchCost + Clone + Display>(
     let best_regraft =
         TopologyOptimiser::find_max_cost_regraft_for_prune(prune_location, f64::MIN, &cost_fn)?
             .expect("invalid prune location for benchmarking");
-    Ok(best_regraft.1)
+    Ok(best_regraft.cost)
 }
 
 fn run_single_spr_cycle_for_sizes<Q: QMatrix + QMatrixMaker>(
