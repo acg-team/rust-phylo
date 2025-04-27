@@ -2,14 +2,15 @@ use std::{hint::black_box, path::PathBuf, time::Duration};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use phylo::{
-    bench_helpers::{
-        black_box_deterministic_phylo_info, SequencePaths, AA_EASY_14X165, AA_EASY_27X632,
-        AA_EASY_45X223, AA_MEDIUM_79X106, DNA_EASY_17X2292, DNA_EASY_33X4455, DNA_EASY_46X16250,
-        DNA_EASY_8X1252, DNA_MEDIUM_128X688,
-    },
     likelihood::ModelSearchCost,
     pip_model::{PIPCost, PIPCostBuilder, PIPModel},
     substitution_models::{QMatrix, QMatrixMaker, JC69, WAG},
+};
+mod helpers;
+use helpers::{
+    black_box_deterministic_phylo_info, SequencePaths, AA_EASY_12X73, AA_EASY_14X165,
+    AA_EASY_27X632, AA_EASY_45X223, AA_EASY_6X97, AA_MEDIUM_79X106, DNA_EASY_17X2292,
+    DNA_EASY_33X4455, DNA_EASY_46X16250, DNA_EASY_5X1000, DNA_EASY_8X1252, DNA_MEDIUM_128X688,
 };
 
 fn black_box_setup<Q: QMatrix + QMatrixMaker>(seq_path: impl Into<PathBuf>) -> PIPCost<Q> {
@@ -43,6 +44,7 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
 
 fn pip_cost_dna_easy(criterion: &mut Criterion) {
     let paths = SequencePaths::from([
+        ("5X1000", DNA_EASY_5X1000),
         ("8X1252", DNA_EASY_8X1252),
         ("17X2292", DNA_EASY_17X2292),
         ("33X4455", DNA_EASY_33X4455),
@@ -54,6 +56,8 @@ fn pip_cost_dna_easy(criterion: &mut Criterion) {
 
 fn pip_cost_aa_easy(criterion: &mut Criterion) {
     let paths = SequencePaths::from([
+        ("6X97", AA_EASY_6X97),
+        ("12X73", AA_EASY_12X73),
         ("14X165", AA_EASY_14X165),
         ("27X632", AA_EASY_27X632),
         ("45X223", AA_EASY_45X223),

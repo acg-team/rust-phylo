@@ -5,15 +5,16 @@ use std::time::Duration;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use phylo::bench_helpers::{
-    black_box_deterministic_phylo_info, SequencePaths, AA_EASY_12X73, AA_EASY_6X97,
-    DNA_EASY_5X1000, DNA_EASY_8X1252,
-};
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::TreeSearchCost;
 use phylo::optimisers::{BranchOptimiser, ModelOptimiser, TopologyOptimiser};
 use phylo::pip_model::{PIPCost, PIPCostBuilder, PIPModel};
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
+mod helpers;
+use helpers::{
+    black_box_deterministic_phylo_info, SequencePaths, AA_EASY_12X73, AA_EASY_6X97,
+    DNA_EASY_5X1000, DNA_EASY_8X1252,
+};
 
 fn black_box_setup<Model: QMatrix + QMatrixMaker>(
     path: impl Into<PathBuf>,

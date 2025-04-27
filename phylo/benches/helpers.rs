@@ -1,6 +1,9 @@
-use std::{collections::HashMap, hint::black_box, path::PathBuf};
+#![allow(dead_code)]
+use std::{collections::HashMap, hint::black_box, path::PathBuf, time::Duration};
 
-use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder};
+use criterion::Criterion;
+
+use phylo::phylo_info::{PhyloInfo, PhyloInfoBuilder};
 
 pub type BenchPath = &'static str;
 pub type SequencePaths = HashMap<&'static str, BenchPath>;
@@ -36,4 +39,13 @@ pub fn black_box_deterministic_phylo_info(seq_file: impl Into<PathBuf>) -> Phylo
             .build()
             .expect("sequence file should be able to build phylo info"),
     )
+}
+
+pub fn setup_suite() -> Criterion {
+    Criterion::default()
+        .measurement_time(Duration::from_secs(60))
+        .with_profiler(pprof::criterion::PProfProfiler::new(
+            100,
+            pprof::criterion::Output::Flamegraph(None),
+        ))
 }

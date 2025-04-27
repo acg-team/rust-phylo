@@ -55,6 +55,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 
 [dev-dependencies]
 criterion = "0.5.1"
+pprof = { version = "0.14.0", features = ["criterion", "flamegraph"] }
 
 
 [[bench]]
