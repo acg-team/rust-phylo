@@ -115,7 +115,7 @@ impl<Q: QMatrix> EvoModel for SubstModel<Q> {
 }
 
 pub struct SubstitutionCostBuilder<Q: QMatrix> {
-    pub(crate) model: SubstModel<Q>,
+    model: SubstModel<Q>,
     info: PhyloInfo,
 }
 

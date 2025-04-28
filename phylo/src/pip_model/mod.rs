@@ -215,7 +215,7 @@ impl<Q: QMatrix> PIPModelInfo<Q> {
 }
 
 pub struct PIPCostBuilder<Q: QMatrix> {
-    pub(crate) model: PIPModel<Q>,
+    model: PIPModel<Q>,
     info: PhyloInfo,
 }
 
