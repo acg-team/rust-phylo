@@ -99,11 +99,9 @@ impl<'a, PS: ParsimonyScoring + Clone> ParsimonyAligner<PS> {
             seqs: seqs.into_gapless(),
             leaf_map: HashMap::new(),
             node_map: alignments,
-            leaf_encoding: HashMap::new(),
         };
         let leaf_map = alignment.compile_leaf_map(&tree.root, tree).unwrap();
         alignment.leaf_map = leaf_map;
-        alignment.leaf_encoding = alignment.seqs.generate_leaf_encoding();
         Ok((alignment, scores))
     }
 
