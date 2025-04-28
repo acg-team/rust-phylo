@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 use std::iter;
 use std::marker::PhantomData;
@@ -7,6 +6,7 @@ use std::ops::Mul;
 use std::vec;
 
 use anyhow::bail;
+use hashbrown::HashMap;
 use lazy_static::lazy_static;
 use log::warn;
 use nalgebra::{DMatrix, DVector};
@@ -173,7 +173,7 @@ pub struct PIPModelInfo<Q: QMatrix> {
     valid: Vec<bool>,
     models: Vec<SubstMatrix>,
     models_valid: Vec<bool>,
-    leaf_sequence_info: HashMap<String, DMatrix<f64>>,
+    leaf_seq_info: HashMap<NodeIdx, DMatrix<f64>>,
 }
 
 impl<Q: QMatrix> PIPModelInfo<Q> {
@@ -181,7 +181,7 @@ impl<Q: QMatrix> PIPModelInfo<Q> {
         let n = model.q().nrows();
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
-        let mut leaf_seq_info: HashMap<String, DMatrix<f64>> = HashMap::new();
+        let mut leaf_seq_info = HashMap::with_capacity(info.tree.leaves().len());
         for node in info.tree.leaves() {
             let seq = info.msa.seqs.record_by_id(&node.id).seq().to_vec();
 
@@ -203,7 +203,7 @@ impl<Q: QMatrix> PIPModelInfo<Q> {
                 }
                 site_info.scale_mut((1.0) / site_info.sum());
             }
-            leaf_seq_info.insert(node.id.clone(), leaf_seq_w_gaps);
+            leaf_seq_info.insert(node.idx, leaf_seq_w_gaps);
         }
         Ok(PIPModelInfo {
             phantom: PhantomData,
@@ -217,7 +217,7 @@ impl<Q: QMatrix> PIPModelInfo<Q> {
             valid: vec![false; node_count],
             models: vec![SubstMatrix::zeros(n, n); node_count],
             models_valid: vec![false; node_count],
-            leaf_sequence_info: leaf_seq_info,
+            leaf_seq_info,
         })
     }
 }
@@ -407,11 +407,7 @@ impl<Q: QMatrix> PIPCost<Q> {
                 }
             }
 
-            tmp.ftilde[idx] = tmp
-                .leaf_sequence_info
-                .get(tree.node_id(node_idx))
-                .unwrap()
-                .clone();
+            tmp.ftilde[idx] = tmp.leaf_seq_info.get(node_idx).unwrap().clone();
 
             tmp.f[idx] = tmp.ftilde[idx]
                 .tr_mul(self.model.freqs())
