@@ -310,12 +310,12 @@ impl<Q: QMatrix> SubstModelInfo<Q> {
 
         let mut leaf_sequence_info: HashMap<String, DMatrix<f64>> = HashMap::new();
         for node in info.tree.leaves() {
+            let seq = info.msa.seqs.record_by_id(&node.id).seq().to_vec();
             let alignment_map = info.msa.leaf_map(&node.idx);
-            let leaf_encoding = info.msa.leaf_encoding.get(&node.id).unwrap();
             let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(n, msa_length);
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
-                    site_info.copy_from(&leaf_encoding.column(c));
+                    site_info.copy_from(info.msa.alphabet().char_encoding(seq[c]));
                 } else {
                     site_info.copy_from(info.msa.alphabet().gap_encoding());
                 }

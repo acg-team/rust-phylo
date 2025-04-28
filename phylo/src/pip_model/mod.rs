@@ -183,12 +183,20 @@ impl<Q: QMatrix> PIPModelInfo<Q> {
         let msa_length = info.msa.len();
         let mut leaf_seq_info: HashMap<String, DMatrix<f64>> = HashMap::new();
         for node in info.tree.leaves() {
+            let seq = info.msa.seqs.record_by_id(&node.id).seq().to_vec();
+
             let alignment_map = info.msa.leaf_map(&node.idx);
-            let leaf_encoding = info.msa.leaf_encoding.get(&node.id).unwrap();
             let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(n, msa_length);
+
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
-                    let encoding = leaf_encoding.column(c).insert_row(n - 1, 0.0);
+                    let encoding = info
+                        .msa
+                        .alphabet()
+                        .char_encoding(seq[c])
+                        .clone()
+                        .insert_row(n - 1, 0.0);
+
                     site_info.copy_from(&encoding);
                 } else {
                     site_info.fill_row(n - 1, 1.0);

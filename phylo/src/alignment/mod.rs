@@ -3,7 +3,6 @@ use std::fmt::Display;
 use anyhow::bail;
 use bio::io::fasta::Record;
 use hashbrown::HashMap;
-use nalgebra::DMatrix;
 
 use crate::alphabets::{Alphabet, GAP};
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
@@ -37,8 +36,6 @@ pub struct Alignment {
     pub(crate) seqs: Sequences,
     pub(crate) leaf_map: LeafMapping,
     pub(crate) node_map: InternalMapping,
-    /// Leaf sequence encodings.
-    pub(crate) leaf_encoding: HashMap<String, DMatrix<f64>>,
 }
 
 impl Display for Alignment {
@@ -168,12 +165,10 @@ impl Alignment {
             .collect();
 
         let seqs = seqs.into_gapless();
-        let leaf_encoding = seqs.generate_leaf_encoding();
         Ok(Alignment {
             seqs,
             leaf_map: leaf_maps,
             node_map: msa,
-            leaf_encoding,
         })
     }
 

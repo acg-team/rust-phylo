@@ -3,8 +3,6 @@ use std::fmt::Display;
 use anyhow::bail;
 use bio::io::fasta::Record;
 use bitvec::vec::BitVec;
-use hashbrown::HashMap;
-use nalgebra::DMatrix;
 
 use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet, GAP};
 use crate::Result;
@@ -156,31 +154,6 @@ impl Sequences {
             Record::with_attrs(rec.id(), rec.desc(), &seq)
         });
         self.s = new_seqs.collect();
-    }
-
-    /// Creates a the character encoding for each given ungapped sequence.
-    /// Used for the likelihood calculation to avoid having to get the character encoding
-    /// from scratch every time the likelihood is optimised.
-    pub(crate) fn generate_leaf_encoding(&self) -> HashMap<String, DMatrix<f64>> {
-        let alphabet = self.alphabet();
-        let mut leaf_encoding = HashMap::with_capacity(self.len());
-        for seq in self.iter() {
-            if seq.seq().is_empty() {
-                leaf_encoding.insert(seq.id().to_string(), DMatrix::zeros(0, 0));
-                continue;
-            }
-            leaf_encoding.insert(
-                seq.id().to_string(),
-                DMatrix::from_columns(
-                    seq.seq()
-                        .iter()
-                        .map(|&c| alphabet.char_encoding(c))
-                        .collect::<Vec<_>>()
-                        .as_slice(),
-                ),
-            );
-        }
-        leaf_encoding
     }
 }
 
