@@ -26,6 +26,7 @@ pub struct Alphabet {
     valid_symbols: &'static HashSet<u8>,
     conditional_probs: &'static [FreqVector],
     parsimony_sets: &'static [ParsimonySet],
+    full_set: &'static ParsimonySet,
 }
 
 impl Display for Alphabet {
@@ -68,6 +69,9 @@ impl Alphabet {
     pub fn parsimony_set(&self, char: &u8) -> &ParsimonySet {
         &self.parsimony_sets[*char as usize]
     }
+
+    pub fn full_set(&self) -> &ParsimonySet {
+        self.full_set
     }
 }
 
@@ -80,6 +84,7 @@ pub fn dna_alphabet() -> Alphabet {
         valid_symbols: &VALID_NUCLEOTIDES,
         conditional_probs: &NUCL_COND_PROBS,
         parsimony_sets: &NUCL_PARSIMONY_SETS,
+        full_set: &NUCL_FULL_SET,
     }
 }
 
@@ -92,6 +97,7 @@ pub fn protein_alphabet() -> Alphabet {
         valid_symbols: &VALID_AMINOACIDS,
         conditional_probs: &AA_COND_PROBS,
         parsimony_sets: &AA_PARSIMONY_SETS,
+        full_set: &AA_FULL_SET,
     }
 }
 
@@ -128,6 +134,7 @@ lazy_static! {
         }
         map
     };
+    pub static ref NUCL_FULL_SET: ParsimonySet = ParsimonySet::from_slice(NUCLEOTIDES);
 }
 
 fn nucl_cond_probs(char: u8) -> FreqVector {
@@ -205,6 +212,7 @@ lazy_static! {
         }
         map
     };
+    pub static ref AA_FULL_SET: ParsimonySet = ParsimonySet::from_slice(AMINOACIDS);
 }
 
 fn aa_cond_probs(char: u8) -> FreqVector {
