@@ -28,6 +28,20 @@ impl ParsimonySet {
             s: HashSet::from_iter(slice.iter().copied()),
         }
     }
+
+    pub fn from_intersection(set1: &ParsimonySet, set2: &ParsimonySet) -> Self {
+        let intersection = set1
+            .s
+            .intersection(&set2.s)
+            .cloned()
+            .collect::<HashSet<u8>>();
+        Self { s: intersection }
+    }
+
+    pub fn from_union(set1: &ParsimonySet, set2: &ParsimonySet) -> Self {
+        let union = set1.s.union(&set2.s).cloned().collect::<HashSet<u8>>();
+        Self { s: union }
+    }
 }
 
 impl Deref for ParsimonySet {
