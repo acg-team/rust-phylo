@@ -6,6 +6,7 @@ use log::info;
 use nalgebra::DMatrix;
 
 use crate::alignment::{Aligner, Alignment, InternalMapping, PairwiseAlignment, Sequences};
+use crate::alphabets::ParsimonySet;
 use crate::evolutionary_models::EvoModel;
 use crate::tree::{NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::Result;
@@ -88,7 +89,10 @@ impl<'a, PS: ParsimonyScoring + Clone> ParsimonyAligner<PS> {
                         .iter()
                         .map(|c| seqs.alphabet().parsimony_set(c))
                         .collect::<Vec<_>>();
-                    node_info[idx] = pars_sets.into_iter().map(ParsimonySite::leaf).collect();
+                    node_info[idx] = pars_sets
+                        .into_iter()
+                        .map(|set: &ParsimonySet| ParsimonySite::leaf(set.clone()))
+                        .collect();
                     info!("Processed leaf node.\n");
                 }
             }
