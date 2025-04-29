@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::fmt::Display;
 
 use anyhow::Ok;
 
@@ -15,6 +16,12 @@ use crate::Result;
 pub struct BasicParsimonyCost {
     info: PhyloInfo,
     tmp: RefCell<BasicParsimonyInfo>,
+}
+
+impl Display for BasicParsimonyCost {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Basic parsimony cost, match = 0.0, mismatch = 1.0.")
+    }
 }
 
 impl BasicParsimonyCost {
