@@ -1,5 +1,4 @@
 use std::default;
-use std::fmt::Display;
 
 use hashbrown::HashMap;
 use log::info;
@@ -22,7 +21,7 @@ pub(crate) use helpers::*;
 
 pub(crate) type CostMatrix = DMatrix<f64>;
 
-pub trait ParsimonyModel: Display + EvoModel {
+pub trait ParsimonyModel: EvoModel {
     fn scoring(&self, time: f64, diagonals: &DiagonalZeros, rounding: &Rounding) -> CostMatrix;
 }
 
