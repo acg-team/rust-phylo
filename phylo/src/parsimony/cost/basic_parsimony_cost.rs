@@ -34,6 +34,8 @@ impl BasicParsimonyCost {
         for node_idx in self.info.tree.postorder() {
             if matches!(node_idx, Internal(_)) {
                 self.set_internal(node_idx);
+            } else {
+                self.set_leaf(node_idx);
             }
         }
         self.tmp.borrow().cost[usize::from(self.info.tree.root)]
@@ -45,7 +47,6 @@ impl BasicParsimonyCost {
         let childy_info = self.tmp.borrow().node_info[usize::from(&node.children[1])].clone();
 
         let idx = usize::from(node_idx);
-
         if self.tmp.borrow().node_info_valid[idx] {
             return;
         }
@@ -75,6 +76,17 @@ impl BasicParsimonyCost {
         tmp_values.node_info[idx] = node_info;
         tmp_values.node_info_valid[idx] = true;
         drop(tmp_values);
+    }
+
+    fn set_leaf(&self, node_idx: &NodeIdx) {
+        let node = self.info.tree.node(node_idx);
+        let idx = usize::from(node_idx);
+        if !self.tmp.borrow().node_info_valid[idx] {
+            if let Some(parent_idx) = node.parent {
+                self.tmp.borrow_mut().node_info_valid[usize::from(parent_idx)] = false;
+            }
+        }
+        self.tmp.borrow_mut().node_info_valid[idx] = true;
     }
 }
 
