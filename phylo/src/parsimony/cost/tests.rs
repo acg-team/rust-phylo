@@ -19,7 +19,7 @@ fn basic_parsimony_cost() {
         tree,
     };
     let cost = BasicParsimonyCost::new(info).unwrap();
-    assert_eq!(cost.cost(), 4.0);
+    assert_eq!(cost.cost(), -4.0);
 
     let tree2 = tree!("((A:1.0,C:1.0):1.0,(B:1.0,D:1.0):1.0):0.0;");
     let info = PhyloInfo {
@@ -27,7 +27,7 @@ fn basic_parsimony_cost() {
         tree: tree2,
     };
     let cost = BasicParsimonyCost::new(info).unwrap();
-    assert_eq!(cost.cost(), 5.0);
+    assert_eq!(cost.cost(), -5.0);
 
     let tree3 = tree!("((A:1.0,D:1.0):1.0,(C:1.0,B:1.0):1.0):0.0;");
     let info = PhyloInfo {
@@ -53,6 +53,6 @@ fn basic_parsimony_cost_gaps() {
         tree,
     };
     let cost = BasicParsimonyCost::new(info).unwrap();
-    assert_eq!(cost.cost(), 1.0);
-    assert_eq!(cost.cost(), 1.0);
+    assert_eq!(cost.cost(), -1.0);
+    assert_eq!(cost.cost(), -1.0);
 }

@@ -73,7 +73,7 @@ impl BasicParsimonyCost {
 
 impl TreeSearchCost for BasicParsimonyCost {
     fn cost(&self) -> f64 {
-        self.cost()
+        -self.cost()
     }
 
     fn update_tree(&mut self, tree: Tree, dirty_nodes: &[NodeIdx]) {
