@@ -11,6 +11,8 @@ use crate::evolutionary_models::EvoModel;
 use crate::tree::{NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::Result;
 
+pub mod cost;
+pub use cost::*;
 pub mod scoring;
 use scoring::*;
 pub mod matrices;
