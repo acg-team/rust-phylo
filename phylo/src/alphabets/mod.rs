@@ -65,8 +65,9 @@ impl Alphabet {
         &self.conditional_probs[AMB_CHAR as usize]
     }
 
-    pub fn parsimony_set(&self, char: &u8) -> ParsimonySet {
-        self.parsimony_sets[*char as usize].clone()
+    pub fn parsimony_set(&self, char: &u8) -> &ParsimonySet {
+        &self.parsimony_sets[*char as usize]
+    }
     }
 }
 
