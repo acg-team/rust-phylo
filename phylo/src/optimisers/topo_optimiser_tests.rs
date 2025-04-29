@@ -8,6 +8,7 @@ use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{
     BranchOptimiser, ModelOptimiser, PhyloOptimisationResult, TopologyOptimiser,
 };
+use crate::parsimony::BasicParsimonyCost;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::pip_model::PIPCost;
 use crate::pip_model::{PIPCostBuilder as PIPCB, PIPModel};
@@ -524,4 +525,25 @@ fn wag_vs_phyml_fixed_freqs() {
     );
 
     assert_relative_eq!(res.final_cost, -5295.08423, epsilon = 1e-3);
+}
+
+#[test]
+fn basic_parsimony_tree_search() {
+    let seqs = Sequences::new(vec![
+        record!("A", b"GGA"),
+        record!("B", b"GGG"),
+        record!("C", b"ACA"),
+        record!("D", b"ACG"),
+    ]);
+    let tree = tree!("((A:1.0,D:1.0):1.0,(C:1.0,B:1.0):1.0):0.0;");
+
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        tree,
+    };
+    let cost = BasicParsimonyCost::new(info).unwrap();
+    assert_eq!(cost.cost(), -6.0);
+
+    let res = TopologyOptimiser::new(cost).run().unwrap();
+    assert_eq!(res.final_cost, -4.0);
 }
