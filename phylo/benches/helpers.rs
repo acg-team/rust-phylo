@@ -46,7 +46,7 @@ pub fn setup_suite() -> Criterion {
     Criterion::default()
         .measurement_time(Duration::from_secs(60))
         .with_profiler(pprof::criterion::PProfProfiler::new(
-            100,
+            997, // taken from the flamegraph repo's default
             pprof::criterion::Output::Flamegraph(None),
         ))
 }
