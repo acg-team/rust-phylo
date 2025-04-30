@@ -40,7 +40,7 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
 
-        let possible_prunes: Vec<_> = Self::find_possible_prune_locations(init_tree).collect();
+        let possible_prunes: Vec<_> = init_tree.find_possible_prune_locations().copied().collect();
         let current_prunes: Vec<_> = possible_prunes.iter().collect();
         cfg_if::cfg_if! {
         if #[cfg(not(feature = "deterministic"))] {
@@ -89,12 +89,6 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
         })
     }
 
-    /// No pruning on the root branch
-    pub fn find_possible_prune_locations(
-        tree: &Tree,
-    ) -> impl Iterator<Item = NodeIdx> + use<'_, C> {
-        tree.preorder().iter().filter(|&n| n != &tree.root).copied()
-    }
     fn find_regraft_options(prune_branch: &NodeIdx, tree: &Tree) -> Vec<NodeIdx> {
         let all_locations = tree.preorder();
         let prune_subtrees = tree.preorder_subroot(prune_branch);

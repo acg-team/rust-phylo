@@ -41,8 +41,7 @@ fn fixed_iter_simulated_topo_optimiser<C: TreeSearchCost + Clone + Display>(
 ) -> anyhow::Result<f64> {
     let init_tree = cost_fn.tree();
 
-    let possible_prunes: Vec<_> =
-        TopologyOptimiser::<C>::find_possible_prune_locations(init_tree).collect();
+    let possible_prunes: Vec<_> = init_tree.find_possible_prune_locations().copied().collect();
     let current_prunes: Vec<_> = possible_prunes.iter().collect();
     let mut curr_cost = cost_fn.cost();
 

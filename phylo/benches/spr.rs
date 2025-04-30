@@ -72,9 +72,11 @@ fn run_single_spr_cycle_for_sizes<Q: QMatrix + QMatrixMaker>(
     };
     for (key, path) in paths {
         let cost_fn = black_box_setup::<Q>(path, FrequencyOptimisation::Empirical);
-        let prune_locations =
-            TopologyOptimiser::<PIPCost<Q>>::find_possible_prune_locations(cost_fn.tree())
-                .collect_vec();
+        let prune_locations = cost_fn
+            .tree()
+            .find_possible_prune_locations()
+            .copied()
+            .collect_vec();
         let prune_locations_ref = prune_locations.iter().collect_vec();
         bench(key, (cost_fn, &prune_locations_ref));
     }
