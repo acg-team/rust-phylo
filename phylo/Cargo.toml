@@ -17,8 +17,6 @@ opt-level = 3
 
 [profile.release]
 opt-level = 3
-# lto = "fat"
-# codegen-units = 1
 
 # inherits from release
 [profile.bench]
@@ -40,7 +38,8 @@ hashbrown = "0.15.2"
 itertools = "0.14.0"
 lazy_static = "1.4.0"
 log = "0.4.19"
-matrixmultiply = { version = "0.3.9" } # , features = ["threading"]
+# NOTE: mutli threaded kernels for matrix multiplication are available
+# through the matrixmultiply peer-dep
 nalgebra = "0.32.3"
 ordered-float = "3.7.0"
 pest = "2.7.2"
