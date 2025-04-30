@@ -13,8 +13,8 @@ use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 use phylo::tree::NodeIdx;
 mod helpers;
 use helpers::{
-    black_box_deterministic_phylo_info, SequencePaths, AA_EASY_12X73, AA_EASY_6X97,
-    DNA_EASY_5X1000, DNA_EASY_8X1252,
+    black_box_deterministic_phylo_info, SequencePaths, AA_EASY_12X73, AA_EASY_27X632, AA_EASY_6X97,
+    DNA_EASY_17X2292, DNA_EASY_5X1000, DNA_EASY_8X1252,
 };
 
 fn black_box_setup<Model: QMatrix + QMatrixMaker>(
@@ -118,26 +118,19 @@ fn run_find_best_regraft_for_single_spr_move<Q: QMatrix + QMatrixMaker>(
 }
 
 fn spr_dna(criterion: &mut Criterion) {
-    let paths = SequencePaths::from([
-        ("5X1000", DNA_EASY_5X1000),
-        ("8X1252", DNA_EASY_8X1252),
-        // ("17X2292", DNA_EASY_17X2292),
-        // ("33X4455", DNA_EASY_33X4455),
-    ]);
+    let paths = SequencePaths::from([("5X1000", DNA_EASY_5X1000), ("8X1252", DNA_EASY_8X1252)]);
+    let long_running_paths = SequencePaths::from([("17X2292", DNA_EASY_17X2292)]);
     run_single_spr_cycle_for_sizes::<JC69>(&paths, "spr DNA", criterion);
     run_find_best_regraft_for_single_spr_move::<JC69>(&paths, "spr DNA", criterion);
+    run_find_best_regraft_for_single_spr_move::<JC69>(&long_running_paths, "spr AA", criterion);
 }
 
 fn spr_aa(criterion: &mut Criterion) {
-    let paths = SequencePaths::from([
-        ("6X97", AA_EASY_6X97),
-        ("12X73", AA_EASY_12X73),
-        // ("27X632", AA_EASY_27X632),
-        // ("45X223", AA_EASY_45X223),
-        // ("79X106", AA_MEDIUM_79X106),
-    ]);
+    let paths = SequencePaths::from([("6X97", AA_EASY_6X97), ("12X73", AA_EASY_12X73)]);
+    let long_running_paths = SequencePaths::from([("27X632", AA_EASY_27X632)]);
     run_single_spr_cycle_for_sizes::<WAG>(&paths, "spr AA", criterion);
     run_find_best_regraft_for_single_spr_move::<WAG>(&paths, "spr AA", criterion);
+    run_find_best_regraft_for_single_spr_move::<WAG>(&long_running_paths, "spr AA", criterion);
 }
 
 criterion_group! {

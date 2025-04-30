@@ -86,23 +86,12 @@ fn run_simulated_topo_for_sizes<Q: QMatrix + QMatrixMaker>(
 }
 
 fn topo_dna(criterion: &mut Criterion) {
-    let paths = SequencePaths::from([
-        ("5X1000", DNA_EASY_5X1000),
-        ("8X1252", DNA_EASY_8X1252),
-        // ("17X2292", DNA_EASY_17X2292),
-        // ("33X4455", DNA_EASY_33X4455),
-    ]);
+    let paths = SequencePaths::from([("5X1000", DNA_EASY_5X1000), ("8X1252", DNA_EASY_8X1252)]);
     run_simulated_topo_for_sizes::<JC69>(&paths, "topology optimiser DNA", criterion);
 }
 
 fn topo_aa(criterion: &mut Criterion) {
-    let paths = SequencePaths::from([
-        ("6X97", AA_EASY_6X97),
-        ("12X73", AA_EASY_12X73),
-        // ("27X632", AA_EASY_27X632),
-        // ("45X223", AA_EASY_45X223),
-        // ("79X106", AA_MEDIUM_79X106),
-    ]);
+    let paths = SequencePaths::from([("6X97", AA_EASY_6X97), ("12X73", AA_EASY_12X73)]);
     run_simulated_topo_for_sizes::<WAG>(&paths, "topology optimiser AA", criterion);
 }
 
