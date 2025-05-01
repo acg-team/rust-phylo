@@ -1,10 +1,11 @@
 use std::fmt::Display;
+use std::num::NonZero;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::TreeSearchCost;
-use phylo::optimisers::{spr, BranchOptimiser};
+use phylo::optimisers::{TopologyOptimiser, TopologyOptimiserPredicate};
 use phylo::pip_model::PIPCost;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 mod helpers;
@@ -13,28 +14,12 @@ use helpers::{
     DNA_EASY_8X1252,
 };
 
-/// copied from [`TopologyOptimiser::run`]
-fn fixed_iter_simulated_topo_optimiser<C: TreeSearchCost + Clone + Display>(
-    mut cost_fn: C,
-) -> anyhow::Result<f64> {
-    let init_tree = cost_fn.tree();
-
-    let possible_prunes: Vec<_> = init_tree.find_possible_prune_locations().copied().collect();
-    let current_prunes: Vec<_> = possible_prunes.iter().collect();
-    let mut curr_cost = cost_fn.cost();
-
-    for _i in 0..3 {
-        curr_cost = spr::fold_improving_moves(&mut cost_fn, f64::MIN, &current_prunes)?;
-
-        // Optimise branch lengths on current tree to match PhyML
-        let o = BranchOptimiser::new(cost_fn.clone()).run()?;
-        if o.final_cost > curr_cost {
-            curr_cost = o.final_cost;
-            cost_fn.update_tree(o.cost.tree().clone(), &[]);
-        }
-    }
-
-    Ok(curr_cost)
+fn run_fixed_iter_topo<C: TreeSearchCost + Clone + Display>(cost: C) -> anyhow::Result<f64> {
+    let topo_opt = TopologyOptimiser::new_with_pred(
+        cost,
+        TopologyOptimiserPredicate::fixed_iter(NonZero::new(3).unwrap()),
+    );
+    Ok(topo_opt.run()?.final_cost)
 }
 
 fn run_simulated_topo_for_sizes<Q: QMatrix + QMatrixMaker>(
@@ -49,14 +34,14 @@ fn run_simulated_topo_for_sizes<Q: QMatrix + QMatrixMaker>(
             bench.iter_batched(
                 // clone because of interior mutability in PIPCost
                 || data.clone(),
-                fixed_iter_simulated_topo_optimiser,
+                run_fixed_iter_topo,
                 criterion::BatchSize::SmallInput,
             );
         });
     };
     for (key, path) in paths {
-        let data = black_box_pip_cost::<Q>(path, FrequencyOptimisation::Empirical);
-        bench(key, data);
+        let cost = black_box_pip_cost::<Q>(path, FrequencyOptimisation::Empirical);
+        bench(key, cost);
     }
     bench_group.finish();
 }

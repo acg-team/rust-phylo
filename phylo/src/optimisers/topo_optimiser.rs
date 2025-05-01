@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::num::NonZeroUsize;
 
 use log::{debug, info};
 
@@ -6,8 +7,38 @@ use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult};
 use crate::Result;
 
+#[derive(Debug, Clone, Copy)]
+pub enum TopologyOptimiserPredicate {
+    GtEpsilon(f64),
+    FixedIter(NonZeroUsize),
+    // NOTE: use of `fn(..) -> ..` disallows closures that capture any
+    // surrounding variables, for that we would need to allow Boxed Fn
+    // trait objects (or introduce a generic parameter which might get tedious)
+    Custom(fn(usize, f64) -> bool),
+}
+
+impl TopologyOptimiserPredicate {
+    fn test(&self, iteration: usize, delta: f64) -> bool {
+        use TopologyOptimiserPredicate::*;
+        match *self {
+            GtEpsilon(min_delta) => delta > min_delta,
+            FixedIter(max) => max.get() > iteration,
+            Custom(pred) => pred(iteration, delta),
+        }
+    }
+    pub fn gt_epsilon(epsilon: f64) -> Self {
+        Self::GtEpsilon(epsilon)
+    }
+    pub fn fixed_iter(num: NonZeroUsize) -> Self {
+        Self::FixedIter(num)
+    }
+    pub fn custom(pred: fn(usize, f64) -> bool) -> Self {
+        Self::Custom(pred)
+    }
+}
+
 pub struct TopologyOptimiser<C: TreeSearchCost + Display + Clone> {
-    pub(crate) epsilon: f64,
+    pub(crate) predicate: TopologyOptimiserPredicate,
     pub(crate) c: C,
 }
 
@@ -15,9 +46,12 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
     // TODO: make tree search work under parsimony
     pub fn new(cost: C) -> Self {
         Self {
-            epsilon: 1e-3,
+            predicate: TopologyOptimiserPredicate::GtEpsilon(1e-3),
             c: cost,
         }
+    }
+    pub fn new_with_pred(cost: C, predicate: TopologyOptimiserPredicate) -> Self {
+        Self { predicate, c: cost }
     }
 
     pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
@@ -46,7 +80,7 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
         // The best move on this iteration might still be worse than the current tree, in which case
         // the search stops.
         // This means that curr_cost is always hugher than or equel to prev_cost.
-        while (curr_cost - prev_cost) > self.epsilon {
+        while self.predicate.test(iterations, curr_cost - prev_cost) {
             iterations += 1;
             info!("Iteration: {}, current cost: {}.", iterations, curr_cost);
             prev_cost = curr_cost;
