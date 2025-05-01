@@ -7,7 +7,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use itertools::Itertools;
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::TreeSearchCost;
-use phylo::optimisers::{ModelOptimiser, TopologyOptimiser};
+use phylo::optimisers::{spr, ModelOptimiser, RegraftOptimiser};
 use phylo::pip_model::{PIPCost, PIPCostBuilder, PIPModel};
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 use phylo::tree::NodeIdx;
@@ -41,17 +41,18 @@ fn single_spr_cycle<C: TreeSearchCost + Clone + Display>(
     mut cost_fn: C,
     prune_locations: &[&NodeIdx],
 ) -> anyhow::Result<f64> {
-    TopologyOptimiser::fold_improving_spr_moves(&mut cost_fn, f64::MIN, prune_locations)
+    spr::fold_improving_moves(&mut cost_fn, f64::MIN, prune_locations)
 }
 
 fn find_best_regraft_for_single_spr_move<C: TreeSearchCost + Clone + Display>(
     cost_fn: C,
     prune_location: &NodeIdx,
 ) -> anyhow::Result<f64> {
-    let best_regraft =
-        TopologyOptimiser::find_max_cost_regraft_for_prune(prune_location, f64::MIN, &cost_fn)?
-            .expect("invalid prune location for benchmarking");
-    Ok(best_regraft.cost)
+    let regraft_optimiser = RegraftOptimiser::new(&cost_fn, prune_location);
+    let best_regraft = regraft_optimiser
+        .find_max_cost_regraft_for_prune(f64::MIN)?
+        .expect("invalid prune location for benchmarking");
+    Ok(best_regraft.cost())
 }
 
 fn run_single_spr_cycle_for_sizes<Q: QMatrix + QMatrixMaker>(

@@ -6,7 +6,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::TreeSearchCost;
-use phylo::optimisers::{BranchOptimiser, ModelOptimiser, TopologyOptimiser};
+use phylo::optimisers::{spr, BranchOptimiser, ModelOptimiser};
 use phylo::pip_model::{PIPCost, PIPCostBuilder, PIPModel};
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 mod helpers;
@@ -46,8 +46,7 @@ fn fixed_iter_simulated_topo_optimiser<C: TreeSearchCost + Clone + Display>(
     let mut curr_cost = cost_fn.cost();
 
     for _i in 0..3 {
-        curr_cost =
-            TopologyOptimiser::fold_improving_spr_moves(&mut cost_fn, curr_cost, &current_prunes)?;
+        curr_cost = spr::fold_improving_moves(&mut cost_fn, f64::MIN, &current_prunes)?;
 
         // Optimise branch lengths on current tree to match PhyML
         let o = BranchOptimiser::new(cost_fn.clone()).run()?;
