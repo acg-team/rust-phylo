@@ -1,6 +1,4 @@
 use std::fmt::Display;
-use std::hint::black_box;
-use std::path::PathBuf;
 use std::result::Result::Ok;
 use std::time::Duration;
 
@@ -12,46 +10,14 @@ use log::info;
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::{ModelSearchCost, TreeSearchCost};
 use phylo::optimisers::{ModelOptimiser, TopologyOptimiser};
-use phylo::pip_model::{PIPCost, PIPCostBuilder, PIPModel};
+use phylo::pip_model::PIPCost;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 use phylo::tree::Tree;
 mod helpers;
 use helpers::{
-    black_box_deterministic_phylo_info, SequencePaths, AA_EASY_12X73, AA_EASY_6X97,
+    black_box_raw_pip_cost_with_config, PIPConfig, SequencePaths, AA_EASY_12X73, AA_EASY_6X97,
     DNA_EASY_5X1000, DNA_EASY_8X1252,
 };
-
-#[derive(Clone)]
-struct PIPConfig {
-    freqs: Vec<f64>,
-    params: Vec<f64>,
-    freq_opt: FrequencyOptimisation,
-    max_iters: usize,
-    epsilon: f64,
-}
-
-fn black_box_setup<Model: QMatrix + QMatrixMaker>(
-    seq_path: impl Into<PathBuf>,
-) -> (PIPConfig, PIPCost<Model>) {
-    let info = black_box_deterministic_phylo_info(seq_path);
-
-    let cfg = black_box(PIPConfig {
-        params: vec![],
-        freqs: vec![],
-        freq_opt: FrequencyOptimisation::Empirical,
-        epsilon: 1e-2,
-        max_iters: 5,
-    });
-
-    let pip_cost = black_box(PIPCostBuilder::new(
-        black_box(black_box(PIPModel::<Model>::new(&cfg.freqs, &cfg.params))),
-        info,
-    ))
-    .build()
-    .expect("failed to build pip cost optimiser");
-
-    (cfg, pip_cost)
-}
 
 fn run_optimisation(
     cost: impl TreeSearchCost + ModelSearchCost + Display + Clone,
@@ -96,7 +62,7 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
         });
     };
     for (key, path) in paths {
-        let data = black_box_setup::<Q>(path);
+        let data = black_box_raw_pip_cost_with_config::<Q>(path);
         bench(key, data);
     }
     bench_group.finish();

@@ -1,41 +1,19 @@
 use std::fmt::Display;
-use std::hint::black_box;
-use std::path::PathBuf;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use itertools::Itertools;
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::TreeSearchCost;
-use phylo::optimisers::{spr, ModelOptimiser, RegraftOptimiser};
-use phylo::pip_model::{PIPCost, PIPCostBuilder, PIPModel};
+use phylo::optimisers::{spr, RegraftOptimiser};
+use phylo::pip_model::PIPCost;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 use phylo::tree::NodeIdx;
 mod helpers;
 use helpers::{
-    black_box_deterministic_phylo_info, SequencePaths, AA_EASY_12X73, AA_EASY_27X632, AA_EASY_6X97,
+    black_box_pip_cost, SequencePaths, AA_EASY_12X73, AA_EASY_27X632, AA_EASY_6X97,
     DNA_EASY_17X2292, DNA_EASY_5X1000, DNA_EASY_8X1252,
 };
-
-fn black_box_setup<Model: QMatrix + QMatrixMaker>(
-    path: impl Into<PathBuf>,
-    freq_opt: FrequencyOptimisation,
-) -> PIPCost<Model> {
-    let info = black_box_deterministic_phylo_info(path);
-    let pip_cost = PIPCostBuilder::new(PIPModel::<Model>::new(&[], &[]), info)
-        .build()
-        .expect("failed to build pip cost optimiser");
-
-    // TODO: don't know if this is necessary but since the JATI repo calls this before running the
-    // TopoOptimiser I think its more accurate to also do it here
-    let model_optimiser = ModelOptimiser::new(pip_cost, freq_opt);
-    black_box(
-        model_optimiser
-            .run()
-            .expect("model optimiser should pass")
-            .cost,
-    )
-}
 
 fn single_spr_cycle<C: TreeSearchCost + Clone + Display>(
     mut cost_fn: C,
@@ -72,7 +50,7 @@ fn run_single_spr_cycle_for_sizes<Q: QMatrix + QMatrixMaker>(
         });
     };
     for (key, path) in paths {
-        let cost_fn = black_box_setup::<Q>(path, FrequencyOptimisation::Empirical);
+        let cost_fn = black_box_pip_cost::<Q>(path, FrequencyOptimisation::Empirical);
         let prune_locations = cost_fn
             .tree()
             .find_possible_prune_locations()
@@ -104,7 +82,7 @@ fn run_find_best_regraft_for_single_spr_move<Q: QMatrix + QMatrixMaker>(
         });
     };
     for (key, path) in paths {
-        let cost_fn = black_box_setup::<Q>(path, FrequencyOptimisation::Empirical);
+        let cost_fn = black_box_pip_cost::<Q>(path, FrequencyOptimisation::Empirical);
         let tree = cost_fn.tree();
         // NOTE: regrafting an early preorder node would mean that a long path along the tree stays in tact
         // and less has to be re-calculated overall. We try to benchmark a likely worst case

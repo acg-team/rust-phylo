@@ -4,7 +4,13 @@
 use std::{collections::HashMap, hint::black_box, path::PathBuf, time::Duration};
 
 use criterion::Criterion;
-use phylo::phylo_info::{PhyloInfo, PhyloInfoBuilder};
+use phylo::{
+    evolutionary_models::FrequencyOptimisation,
+    optimisers::ModelOptimiser,
+    phylo_info::{PhyloInfo, PhyloInfoBuilder},
+    pip_model::{PIPCost, PIPCostBuilder, PIPModel},
+    substitution_models::{QMatrix, QMatrixMaker},
+};
 
 pub type BenchPath = &'static str;
 pub type SequencePaths = HashMap<&'static str, BenchPath>;
@@ -42,6 +48,56 @@ pub fn black_box_deterministic_phylo_info(seq_file: impl Into<PathBuf>) -> Phylo
     )
 }
 
+pub fn black_box_pip_cost<Model: QMatrix + QMatrixMaker>(
+    path: impl Into<PathBuf>,
+    freq_opt: FrequencyOptimisation,
+) -> PIPCost<Model> {
+    let info = black_box_deterministic_phylo_info(path);
+    let pip_cost = PIPCostBuilder::new(PIPModel::<Model>::new(&[], &[]), info)
+        .build()
+        .expect("failed to build pip cost optimiser");
+
+    // done for a more 'realistic' setup
+    let model_optimiser = ModelOptimiser::new(pip_cost, freq_opt);
+    black_box(
+        model_optimiser
+            .run()
+            .expect("model optimiser should pass")
+            .cost,
+    )
+}
+
+#[derive(Clone)]
+pub struct PIPConfig {
+    pub freqs: Vec<f64>,
+    pub params: Vec<f64>,
+    pub freq_opt: FrequencyOptimisation,
+    pub max_iters: usize,
+    pub epsilon: f64,
+}
+pub fn black_box_raw_pip_cost_with_config<Model: QMatrix + QMatrixMaker>(
+    seq_path: impl Into<PathBuf>,
+) -> (PIPConfig, PIPCost<Model>) {
+    let info = black_box_deterministic_phylo_info(seq_path);
+
+    let cfg = black_box(PIPConfig {
+        params: vec![],
+        freqs: vec![],
+        freq_opt: FrequencyOptimisation::Empirical,
+        epsilon: 1e-2,
+        max_iters: 5,
+    });
+
+    let pip_cost = black_box(PIPCostBuilder::new(
+        PIPModel::<Model>::new(&cfg.freqs, &cfg.params),
+        info,
+    ))
+    .build()
+    .expect("failed to build pip cost optimiser");
+
+    (cfg, pip_cost)
+}
+
 pub fn setup_suite() -> Criterion {
     Criterion::default()
         .measurement_time(Duration::from_secs(60))
@@ -51,4 +107,6 @@ pub fn setup_suite() -> Criterion {
         ))
 }
 
+/// empty on purpose, there are no benches here but the crate still needs
+/// to be runnable otherwise criterion crashes
 fn main() {}

@@ -1,23 +1,16 @@
-use std::{hint::black_box, path::PathBuf};
-
 use criterion::{criterion_group, criterion_main, Criterion};
 use phylo::{
+    evolutionary_models::FrequencyOptimisation,
     likelihood::ModelSearchCost,
-    pip_model::{PIPCost, PIPCostBuilder, PIPModel},
+    pip_model::PIPCost,
     substitution_models::{QMatrix, QMatrixMaker, JC69, WAG},
 };
 mod helpers;
 use helpers::{
-    black_box_deterministic_phylo_info, SequencePaths, AA_EASY_12X73, AA_EASY_14X165,
-    AA_EASY_27X632, AA_EASY_45X223, AA_EASY_6X97, AA_MEDIUM_79X106, DNA_EASY_17X2292,
-    DNA_EASY_33X4455, DNA_EASY_46X16250, DNA_EASY_5X1000, DNA_EASY_8X1252, DNA_MEDIUM_128X688,
+    black_box_pip_cost, SequencePaths, AA_EASY_12X73, AA_EASY_14X165, AA_EASY_27X632,
+    AA_EASY_45X223, AA_EASY_6X97, AA_MEDIUM_79X106, DNA_EASY_17X2292, DNA_EASY_33X4455,
+    DNA_EASY_46X16250, DNA_EASY_5X1000, DNA_EASY_8X1252, DNA_MEDIUM_128X688,
 };
-
-fn black_box_setup<Q: QMatrix + QMatrixMaker>(seq_path: impl Into<PathBuf>) -> PIPCost<Q> {
-    let info = black_box_deterministic_phylo_info(seq_path);
-    let pip_model = black_box(PIPModel::<Q>::new(&[], &[]));
-    black_box(PIPCostBuilder::new(pip_model, info).build().unwrap())
-}
 
 fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
     paths: &SequencePaths,
@@ -36,7 +29,7 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
         });
     };
     for (key, path) in paths {
-        let data = black_box_setup::<Q>(path);
+        let data = black_box_pip_cost::<Q>(path, FrequencyOptimisation::Empirical);
         bench(key, data);
     }
     bench_group.finish();

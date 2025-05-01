@@ -1,39 +1,17 @@
 use std::fmt::Display;
-use std::hint::black_box;
-use std::path::PathBuf;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::TreeSearchCost;
-use phylo::optimisers::{spr, BranchOptimiser, ModelOptimiser};
-use phylo::pip_model::{PIPCost, PIPCostBuilder, PIPModel};
+use phylo::optimisers::{spr, BranchOptimiser};
+use phylo::pip_model::PIPCost;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 mod helpers;
 use helpers::{
-    black_box_deterministic_phylo_info, SequencePaths, AA_EASY_12X73, AA_EASY_6X97,
-    DNA_EASY_5X1000, DNA_EASY_8X1252,
+    black_box_pip_cost, SequencePaths, AA_EASY_12X73, AA_EASY_6X97, DNA_EASY_5X1000,
+    DNA_EASY_8X1252,
 };
-
-fn black_box_setup<Model: QMatrix + QMatrixMaker>(
-    path: impl Into<PathBuf>,
-    freq_opt: FrequencyOptimisation,
-) -> PIPCost<Model> {
-    let info = black_box_deterministic_phylo_info(path);
-    let pip_cost = PIPCostBuilder::new(PIPModel::<Model>::new(&[], &[]), info)
-        .build()
-        .expect("failed to build pip cost optimiser");
-
-    // TODO: don't know if this is necessary but since the JATI repo calls this before running the
-    // TopoOptimiser I think its more accurate to also do it here
-    let model_optimiser = ModelOptimiser::new(pip_cost, freq_opt);
-    black_box(
-        model_optimiser
-            .run()
-            .expect("model optimiser should pass")
-            .cost,
-    )
-}
 
 /// copied from [`TopologyOptimiser::run`]
 fn fixed_iter_simulated_topo_optimiser<C: TreeSearchCost + Clone + Display>(
@@ -77,7 +55,7 @@ fn run_simulated_topo_for_sizes<Q: QMatrix + QMatrixMaker>(
         });
     };
     for (key, path) in paths {
-        let data = black_box_setup::<Q>(path, FrequencyOptimisation::Empirical);
+        let data = black_box_pip_cost::<Q>(path, FrequencyOptimisation::Empirical);
         bench(key, data);
     }
     bench_group.finish();
