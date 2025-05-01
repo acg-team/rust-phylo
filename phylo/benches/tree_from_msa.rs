@@ -68,12 +68,12 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
     bench_group.finish();
 }
 
-fn pip_inferrence_dna(criterion: &mut Criterion) {
+fn pip_inference_dna(criterion: &mut Criterion) {
     let paths = SequencePaths::from([("5X1000", DNA_EASY_5X1000), ("8X1252", DNA_EASY_8X1252)]);
     run_for_sizes::<JC69>(&paths, "Tree-from-MSA DNA", criterion);
 }
 
-fn pip_inferrence_aa(criterion: &mut Criterion) {
+fn pip_inference_aa(criterion: &mut Criterion) {
     let paths = SequencePaths::from([("6X97", AA_EASY_6X97), ("12X73", AA_EASY_12X73)]);
     run_for_sizes::<WAG>(&paths, "Tree-from-MSA AA", criterion);
 }
@@ -81,11 +81,11 @@ fn pip_inferrence_aa(criterion: &mut Criterion) {
 criterion_group! {
 name = dna;
 config = helpers::setup_suite().measurement_time(Duration::from_secs(120)).sample_size(10);
-targets = pip_inferrence_dna
+targets = pip_inference_dna
 }
 criterion_group! {
 name = aa;
 config = helpers::setup_suite().measurement_time(Duration::from_secs(120)).sample_size(10);
-targets = pip_inferrence_aa,
+targets = pip_inference_aa,
 }
 criterion_main!(aa, dna);
