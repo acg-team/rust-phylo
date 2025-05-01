@@ -106,7 +106,7 @@ fn run_find_best_regraft_for_single_spr_move<Q: QMatrix + QMatrixMaker>(
     for (key, path) in paths {
         let cost_fn = black_box_setup::<Q>(path, FrequencyOptimisation::Empirical);
         let tree = cost_fn.tree();
-        // NOTE: regrafting an early preorder node would mean that a long branch stays in tact
+        // NOTE: regrafting an early preorder node would mean that a long path along the tree stays in tact
         // and less has to be re-calculated overall. We try to benchmark a likely worst case
         // since all parents have to be re-calculated
         let prune_location = *tree
