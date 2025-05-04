@@ -1,4 +1,4 @@
-use crate::alignment::Sequences;
+use crate::alignment::{AlignmentTrait, Sequences};
 use crate::parsimony::costs::{GapCost, SimpleCosts};
 use crate::parsimony::SiteFlag::{GapExt, GapOpen, NoGap};
 use crate::parsimony::{ParsimonyAligner, ParsimonySite};
@@ -66,7 +66,7 @@ fn align_two_on_tree() {
     let (alignment, score) = aligner.align_with_scores(&seqs, &tree).unwrap();
 
     assert_eq!(score[Into::<usize>::into(tree.root)], 3.5);
-    let alignment = &alignment.node_map[&tree.root];
+    let alignment = &alignment.int_align_map()[&tree.root];
     assert_eq!(alignment.map_x.len(), 4);
     assert_eq!(alignment.map_y.len(), 4);
 }
@@ -160,21 +160,22 @@ fn align_four_on_tree() {
     // first cherry
     let idx = &tree.by_id("A").parent.unwrap();
     assert_eq!(score[usize::from(idx)], 3.5);
-    assert_eq!(alignment.node_map[idx].map_x.len(), 4);
+    assert_eq!(alignment.int_align_map()[idx].map_x.len(), 4);
 
     // second cherry
     let idx = &tree.by_id("C").parent.unwrap();
     assert_eq!(score[usize::from(idx)], 2.0);
-    assert_eq!(alignment.node_map[idx].map_x.len(), 2);
+    assert_eq!(alignment.int_align_map()[idx].map_x.len(), 2);
 
     // root, three possible alignments
     let idx = &tree.root;
     assert!(score[usize::from(idx)] == 1.0 || score[usize::from(idx)] == 2.0);
     if score[2] == 1.0 {
-        assert_eq!(alignment.node_map[idx].map_x.len(), 4);
+        assert_eq!(alignment.int_align_map()[idx].map_x.len(), 4);
     } else {
         assert!(
-            alignment.node_map[idx].map_x.len() == 4 || alignment.node_map[idx].map_x.len() == 5
+            alignment.int_align_map()[idx].map_x.len() == 4
+                || alignment.int_align_map()[idx].map_x.len() == 5
         );
     }
 }

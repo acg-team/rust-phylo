@@ -5,7 +5,7 @@ use hashbrown::HashMap;
 use log::info;
 use nalgebra::DMatrix;
 
-use crate::alignment::{Aligner, Alignment, InternalMapping, PairwiseAlignment, Sequences};
+use crate::alignment::{Aligner, Alignment, InternalAlignments, PairwiseAlignment, Sequences};
 use crate::evolutionary_models::EvoModel;
 use crate::tree::{NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::Result;
@@ -56,7 +56,7 @@ impl<'a, PC: ParsimonyCosts + Clone> ParsimonyAligner<PC> {
         let order = tree.postorder();
 
         let mut node_info = vec![Vec::<ParsimonySite>::new(); tree.len()];
-        let mut alignments = InternalMapping::with_capacity(tree.internals().len());
+        let mut alignments = InternalAlignments::with_capacity(tree.internals().len());
         let mut scores = vec![0.0; tree.len()];
 
         for &node_idx in order {
@@ -98,7 +98,7 @@ impl<'a, PC: ParsimonyCosts + Clone> ParsimonyAligner<PC> {
         let mut alignment = Alignment {
             seqs: seqs.into_gapless(),
             leaf_map: HashMap::new(),
-            node_map: alignments,
+            int_align_map: alignments,
             leaf_encoding: HashMap::new(),
         };
         let leaf_map = alignment.compile_leaf_map(&tree.root, tree).unwrap();

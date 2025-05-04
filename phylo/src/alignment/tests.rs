@@ -3,10 +3,10 @@ use std::path::PathBuf;
 use rand::seq::IteratorRandom;
 use rand::thread_rng;
 
-use crate::alignment::Alignment;
 use crate::alignment::{
-    sequences::Sequences, InternalMapping, LeafMapping, PairwiseAlignment as PA,
+    sequences::Sequences, InternalAlignments, PairwiseAlignment as PA, SeqMaps,
 };
+use crate::alignment::{Alignment, AlignmentTrait, AncestralAlignment};
 use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, NUCLEOTIDES};
 use crate::io::read_sequences;
 use crate::tree::{
@@ -37,16 +37,16 @@ fn test_tree() -> Tree {
 }
 
 #[cfg(test)]
-fn maps() -> (InternalMapping, LeafMapping) {
+fn maps() -> (InternalAlignments, SeqMaps) {
     let aligned_seqs = test_alignment(&["A0", "B1", "C2", "D3", "E4"]);
     (
-        InternalMapping::from([
+        InternalAlignments::from([
             (I(0), PA::new(align!(b"01234"), align!(b"01-23"))),
             (I(1), PA::new(align!(b"01234"), align!(b"---0-"))),
             (I(4), PA::new(align!(b"01--"), align!(b"-012"))),
             (I(6), PA::new(align!(b"-0-"), align!(b"012"))),
         ]),
-        LeafMapping::from([
+        SeqMaps::from([
             (L(2), align!(aligned_seqs.s[0].seq())),
             (L(3), align!(aligned_seqs.s[1].seq())),
             (L(5), align!(aligned_seqs.s[2].seq())),
@@ -157,8 +157,11 @@ fn build_from_aligned_sequences() {
     let (node_map, leaf_map) = maps();
     let msa = Alignment::from_aligned(aligned_seqs.clone(), &tree).unwrap();
 
-    assert_eq!(msa.node_map, node_map);
-    assert_eq!(msa.leaf_map, leaf_map);
+    assert_eq!(*msa.int_align_map(), node_map);
+    // TODO: also check if they have the same size, or also add method that retrieves all leaf_maps at once to the trait
+    for (leaf, map) in &leaf_map {
+        assert_eq!(msa.leaf_map(leaf), map);
+    }
     assert_eq!(msa.seqs, unaligned_seqs);
     assert_eq!(msa.len(), 5);
     assert_eq!(msa.compile(&tree).unwrap(), aligned_seqs);
@@ -290,6 +293,25 @@ fn display_alignment() {
     let mut true_lines = s.lines().collect::<Vec<_>>();
     true_lines.sort();
 
+    assert_eq!(lines, true_lines);
+}
+
+#[test]
+fn display_ancestral_alignment() {
+    let tree = tree!("((C:0.1,D:0.2)I1:0.3,(A:0.4,B:0.5)I2:0.6)I3;");
+    let sequences = Sequences::new(
+        read_sequences(&PathBuf::from("./data/sequences_DNA1_with_ancestors.fasta")).unwrap(),
+    );
+    let msa = AncestralAlignment::from_aligned(sequences, &tree).unwrap();
+
+    let s = format!("{}", msa);
+    let mut lines = s.lines().collect::<Vec<_>>();
+    lines.sort();
+    assert_eq!(lines.len(), 14);
+
+    let s = std::fs::read_to_string("./data/sequences_DNA1_with_ancestors.fasta").unwrap();
+    let mut true_lines = s.lines().collect::<Vec<_>>();
+    true_lines.sort();
     assert_eq!(lines, true_lines);
 }
 

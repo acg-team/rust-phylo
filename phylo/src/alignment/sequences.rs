@@ -161,6 +161,11 @@ impl Sequences {
     /// Creates a the character encoding for each given ungapped sequence.
     /// Used for the likelihood calculation to avoid having to get the character encoding
     /// from scratch every time the likelihood is optimised.
+    ///
+    /// TODO: In the case where these seqs belong a an AncestralAlignment this method currently does not
+    ///       return the leaf_encoding but the encoding for every sequences (including the ancestors).
+    ///       Since for TKF i dont need the encodings for the ancestors I might add a filter such that
+    ///       this method only returns the encodings for the leaf nodes, in this case i also need to pass the tree as parameter.
     pub(crate) fn generate_leaf_encoding(&self) -> HashMap<String, DMatrix<f64>> {
         let alphabet = self.alphabet();
         let mut leaf_encoding = HashMap::with_capacity(self.len());

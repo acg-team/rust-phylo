@@ -7,6 +7,7 @@ use std::ops::Mul;
 use anyhow::bail;
 use nalgebra::{DMatrix, DVector};
 
+use crate::alignment::AlignmentTrait;
 use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
@@ -114,17 +115,17 @@ impl<Q: QMatrix> EvoModel for SubstModel<Q> {
     }
 }
 
-pub struct SubstitutionCostBuilder<Q: QMatrix> {
+pub struct SubstitutionCostBuilder<Q: QMatrix, M: AlignmentTrait> {
     pub(crate) model: SubstModel<Q>,
-    info: PhyloInfo,
+    info: PhyloInfo<M>,
 }
 
-impl<Q: QMatrix> SubstitutionCostBuilder<Q> {
-    pub fn new(model: SubstModel<Q>, info: PhyloInfo) -> Self {
+impl<Q: QMatrix, M: AlignmentTrait> SubstitutionCostBuilder<Q, M> {
+    pub fn new(model: SubstModel<Q>, info: PhyloInfo<M>) -> Self {
         SubstitutionCostBuilder { model, info }
     }
 
-    pub fn build(self) -> Result<SubstitutionCost<Q>> {
+    pub fn build(self) -> Result<SubstitutionCost<Q, M>> {
         if self.info.msa.alphabet() != self.model.alphabet() {
             bail!("Alphabet mismatch between model and alignment.");
         }
@@ -139,13 +140,13 @@ impl<Q: QMatrix> SubstitutionCostBuilder<Q> {
 }
 
 #[derive(Debug)]
-pub struct SubstitutionCost<Q: QMatrix> {
+pub struct SubstitutionCost<Q: QMatrix, M: AlignmentTrait> {
     pub(crate) model: SubstModel<Q>,
-    pub(crate) info: PhyloInfo,
+    pub(crate) info: PhyloInfo<M>,
     tmp: RefCell<SubstModelInfo<Q>>,
 }
 
-impl<Q: QMatrix> Clone for SubstitutionCost<Q> {
+impl<Q: QMatrix, M: AlignmentTrait> Clone for SubstitutionCost<Q, M> {
     fn clone(&self) -> Self {
         SubstitutionCost {
             model: self.model.clone(),
@@ -155,7 +156,7 @@ impl<Q: QMatrix> Clone for SubstitutionCost<Q> {
     }
 }
 
-impl<Q: QMatrix> TreeSearchCost for SubstitutionCost<Q> {
+impl<Q: QMatrix, M: AlignmentTrait> TreeSearchCost for SubstitutionCost<Q, M> {
     fn cost(&self) -> f64 {
         self.logl(&self.info)
     }
@@ -178,7 +179,7 @@ impl<Q: QMatrix> TreeSearchCost for SubstitutionCost<Q> {
     }
 }
 
-impl<Q: QMatrix> ModelSearchCost for SubstitutionCost<Q> {
+impl<Q: QMatrix, M: AlignmentTrait> ModelSearchCost for SubstitutionCost<Q, M> {
     fn cost(&self) -> f64 {
         self.logl(&self.info)
     }
@@ -206,14 +207,14 @@ impl<Q: QMatrix> ModelSearchCost for SubstitutionCost<Q> {
     }
 }
 
-impl<Q: QMatrix> Display for SubstitutionCost<Q> {
+impl<Q: QMatrix, M: AlignmentTrait> Display for SubstitutionCost<Q, M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.model)
     }
 }
 
-impl<Q: QMatrix> SubstitutionCost<Q> {
-    fn logl(&self, info: &PhyloInfo) -> f64 {
+impl<Q: QMatrix, M: AlignmentTrait> SubstitutionCost<Q, M> {
+    fn logl(&self, info: &PhyloInfo<M>) -> f64 {
         for node_idx in info.tree.postorder() {
             match node_idx {
                 Internal(_) => {
@@ -303,7 +304,7 @@ pub struct SubstModelInfo<Q: QMatrix> {
 }
 
 impl<Q: QMatrix> SubstModelInfo<Q> {
-    pub fn new(info: &PhyloInfo, model: &SubstModel<Q>) -> Result<Self> {
+    pub fn new<M: AlignmentTrait>(info: &PhyloInfo<M>, model: &SubstModel<Q>) -> Result<Self> {
         let n = model.q().nrows();
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
@@ -311,11 +312,12 @@ impl<Q: QMatrix> SubstModelInfo<Q> {
         let mut leaf_sequence_info: HashMap<String, DMatrix<f64>> = HashMap::new();
         for node in info.tree.leaves() {
             let alignment_map = info.msa.leaf_map(&node.idx);
-            let leaf_encoding = info.msa.leaf_encoding.get(&node.id).unwrap();
+            let leaf_encoding = info.msa.leaf_encoding();
+            let leaf_encoding_for_node = leaf_encoding.get(&node.id).unwrap();
             let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(n, msa_length);
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
-                    site_info.copy_from(&leaf_encoding.column(c));
+                    site_info.copy_from(&leaf_encoding_for_node.column(c));
                 } else {
                     site_info.copy_from(info.msa.alphabet().gap_encoding());
                 }

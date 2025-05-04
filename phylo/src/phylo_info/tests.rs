@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use approx::assert_relative_eq;
 use assert_matches::assert_matches;
 
-use crate::alignment::{Alignment, Sequences};
+use crate::alignment::{Alignment, AlignmentTrait, Sequences};
 use crate::alphabets::{dna_alphabet, protein_alphabet};
 use crate::io::{read_sequences, DataError};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
@@ -14,7 +14,7 @@ use crate::{frequencies, record_wo_desc as record, tree};
 
 #[cfg(test)]
 fn downcast_error<T: Display + Debug + Send + Sync + 'static>(
-    result: &Result<PhyloInfo, anyhow::Error>,
+    result: &Result<PhyloInfo<impl AlignmentTrait + Debug>, anyhow::Error>,
 ) -> &T {
     (result.as_ref().unwrap_err()).downcast_ref::<T>().unwrap()
 }
@@ -185,7 +185,7 @@ fn setup_aligned_msa() {
     .build()
     .unwrap();
     assert_eq!(info.msa.len(), 5);
-    info.msa.seqs.iter().for_each(|rec| {
+    info.msa.seqs().iter().for_each(|rec| {
         assert!(!rec.seq().is_empty());
         assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
     });
@@ -205,7 +205,7 @@ fn correct_setup_when_sequences_empty() {
     .build()
     .unwrap();
     assert_eq!(info.msa.len(), 1);
-    info.msa.seqs.iter().for_each(|rec| {
+    info.msa.seqs().iter().for_each(|rec| {
         assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
     });
     let sequences =

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use approx::assert_relative_eq;
 use nalgebra::{DMatrix, DVector};
 
-use crate::alignment::{Alignment, Sequences};
+use crate::alignment::{Alignment, AlignmentTrait, Sequences};
 use crate::alphabets::{protein_alphabet, AMINOACIDS as aas, GAP, NUCLEOTIDES as nucls};
 use crate::evolutionary_models::EvoModel;
 use crate::io::read_sequences;
@@ -274,7 +274,7 @@ fn pip_p_example_matrix() {
 }
 
 #[cfg(test)]
-fn setup_example_phylo_info() -> PhyloInfo {
+fn setup_example_phylo_info() -> PhyloInfo<impl AlignmentTrait> {
     let tree = tree!("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;");
     let msa = Alignment::from_aligned(
         Sequences::new(vec![
@@ -512,7 +512,7 @@ fn pip_hky_likelihood_example_final() {
 }
 
 #[cfg(test)]
-fn setup_example_phylo_info_2() -> PhyloInfo {
+fn setup_example_phylo_info_2() -> PhyloInfo<impl AlignmentTrait> {
     let tree = tree!("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;");
     let msa = Alignment::from_aligned(
         Sequences::new(vec![

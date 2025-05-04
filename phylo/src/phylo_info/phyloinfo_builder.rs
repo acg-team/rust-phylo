@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use anyhow::bail;
 use log::{info, warn};
 
-use crate::alignment::{Aligner, Alignment, Sequences};
+use crate::alignment::{Aligner, Alignment, AlignmentTrait, Sequences};
 use crate::alphabets::Alphabet;
 use crate::io::{self, DataError};
 use crate::parsimony::ParsimonyAligner;
@@ -141,7 +141,7 @@ impl PhyloInfoBuilder {
     /// assert_eq!(info.tree.leaves().len(), 4);
     /// assert_eq!(info.tree.len(), 7);
     /// ```
-    pub fn build(self) -> Result<PhyloInfo> {
+    pub fn build(self) -> Result<PhyloInfo<impl AlignmentTrait>> {
         info!(
             "Reading sequences from file {}",
             self.sequence_file.display()

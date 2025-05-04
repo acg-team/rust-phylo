@@ -6,7 +6,7 @@ use itertools::repeat_n;
 use nalgebra::dvector;
 use rand::Rng;
 
-use crate::alignment::{Alignment, Sequences};
+use crate::alignment::{Alignment, AlignmentTrait, Sequences};
 use crate::alphabets::{Alphabet, AMINOACIDS, GAP};
 use crate::evolutionary_models::EvoModel;
 use crate::io::read_sequences;
@@ -452,7 +452,7 @@ fn designation() {
 }
 
 #[cfg(test)]
-fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo {
+fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo<impl AlignmentTrait> {
     let tree = tree!(format!("((A0:{},B1:{}):1.0);", blen_i, blen_j).as_str());
     let msa = Alignment::from_aligned(
         Sequences::new(vec![record!("A0", b"A"), record!("B1", b"A")]),
@@ -476,7 +476,7 @@ fn dna_simple_likelihood() {
 }
 
 #[cfg(test)]
-fn setup_cb_example_phylo_info() -> PhyloInfo {
+fn setup_cb_example_phylo_info() -> PhyloInfo<impl AlignmentTrait> {
     let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
     let msa = Alignment::from_aligned(
         Sequences::new(vec![
@@ -611,7 +611,7 @@ fn dna_gaps_as_ambigs() {
 }
 
 #[cfg(test)]
-fn setup_phylo_info_single_leaf() -> PhyloInfo {
+fn setup_phylo_info_single_leaf() -> PhyloInfo<impl AlignmentTrait> {
     let tree = tree!("(A0:1.0);");
     let msa =
         Alignment::from_aligned(Sequences::new(vec![record!("A0", b"AAAAAA")]), &tree).unwrap();
@@ -670,7 +670,7 @@ fn dna_cb_example_likelihood() {
 }
 
 #[cfg(test)]
-fn setup_mol_evo_example_phylo_info() -> PhyloInfo {
+fn setup_mol_evo_example_phylo_info() -> PhyloInfo<impl AlignmentTrait> {
     let tree = tree!("(((one:0.2,two:0.2):0.1,three:0.2):0.1,(four:0.2,five:0.2):0.1);");
     let msa = Alignment::from_aligned(
         Sequences::new(vec![
@@ -790,7 +790,12 @@ fn protein_example_likelihood() {
 }
 
 #[cfg(test)]
-fn simple_reroot_info(alphabet: &Alphabet) -> (PhyloInfo, PhyloInfo) {
+fn simple_reroot_info(
+    alphabet: &Alphabet,
+) -> (
+    PhyloInfo<impl AlignmentTrait>,
+    PhyloInfo<impl AlignmentTrait>,
+) {
     let tree = tree!("((A:2.0,B:2.0):1.0,C:2.0):0.0;");
     let seqs = Sequences::with_alphabet(
         vec![

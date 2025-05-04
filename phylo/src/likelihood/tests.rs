@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use crate::alignment::{Alignment, Sequences};
+use crate::alignment::{Alignment, AlignmentTrait, Sequences};
 use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet};
 use crate::io::read_sequences;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
@@ -23,7 +23,7 @@ fn test_subst_model<Q: QMatrix + QMatrixMaker>(
     alpha: Alphabet,
     freqs: &[f64],
     params: &[f64],
-) -> SubstitutionCost<Q> {
+) -> SubstitutionCost<Q, Alignment> {
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
 
     let fldr = Path::new("./data");
@@ -70,11 +70,11 @@ fn protein_search_costs_equal() {
 }
 
 #[cfg(test)]
-fn test_pip_model<Q: QMatrix + QMatrixMaker>(
+fn test_pip_model<Q: QMatrix + QMatrixMaker, M: AlignmentTrait>(
     alpha: Alphabet,
     freqs: &[f64],
     params: &[f64],
-) -> PIPCost<Q> {
+) -> PIPCost<Q, Alignment> {
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
 
     let fldr = Path::new("./data");
@@ -91,19 +91,27 @@ fn test_pip_model<Q: QMatrix + QMatrixMaker>(
 
 #[test]
 fn dna_pip_search_costs_equal() {
-    search_costs_equal_template(test_pip_model::<JC69>(dna_alphabet(), &[], &[1.2, 0.5]));
-    search_costs_equal_template(test_pip_model::<K80>(dna_alphabet(), &[], &[1.2, 0.5, 2.0]));
-    search_costs_equal_template(test_pip_model::<HKY>(
+    search_costs_equal_template(test_pip_model::<JC69, Alignment>(
+        dna_alphabet(),
+        &[],
+        &[1.2, 0.5],
+    ));
+    search_costs_equal_template(test_pip_model::<K80, Alignment>(
+        dna_alphabet(),
+        &[],
+        &[1.2, 0.5, 2.0],
+    ));
+    search_costs_equal_template(test_pip_model::<HKY, Alignment>(
         dna_alphabet(),
         &[0.22, 0.26, 0.33, 0.19],
         &[1.2, 0.5, 0.5],
     ));
-    search_costs_equal_template(test_pip_model::<TN93>(
+    search_costs_equal_template(test_pip_model::<TN93, Alignment>(
         dna_alphabet(),
         &[0.22, 0.26, 0.33, 0.19],
         &[1.2, 0.5, 0.5970915, 0.2940435, 0.00135],
     ));
-    search_costs_equal_template(test_pip_model::<GTR>(
+    search_costs_equal_template(test_pip_model::<GTR, Alignment>(
         dna_alphabet(),
         &[0.1, 0.3, 0.4, 0.2],
         &[1.2, 0.5, 5.0, 1.0, 1.0, 1.0, 1.0, 5.0],
@@ -112,25 +120,33 @@ fn dna_pip_search_costs_equal() {
 
 #[test]
 fn protein_pip_search_costs_equal() {
-    search_costs_equal_template(test_pip_model::<WAG>(protein_alphabet(), &[], &[1.2, 0.5]));
-    search_costs_equal_template(test_pip_model::<HIVB>(protein_alphabet(), &[], &[1.2, 0.5]));
-    search_costs_equal_template(test_pip_model::<BLOSUM>(
+    search_costs_equal_template(test_pip_model::<WAG, Alignment>(
+        protein_alphabet(),
+        &[],
+        &[1.2, 0.5],
+    ));
+    search_costs_equal_template(test_pip_model::<HIVB, Alignment>(
+        protein_alphabet(),
+        &[],
+        &[1.2, 0.5],
+    ));
+    search_costs_equal_template(test_pip_model::<BLOSUM, Alignment>(
         protein_alphabet(),
         &[],
         &[1.2, 0.5],
     ));
     let freqs = &[1.0 / 20.0; 20];
-    search_costs_equal_template(test_pip_model::<WAG>(
+    search_costs_equal_template(test_pip_model::<WAG, Alignment>(
         protein_alphabet(),
         freqs,
         &[1.2, 0.5],
     ));
-    search_costs_equal_template(test_pip_model::<HIVB>(
+    search_costs_equal_template(test_pip_model::<HIVB, Alignment>(
         protein_alphabet(),
         freqs,
         &[1.2, 0.5],
     ));
-    search_costs_equal_template(test_pip_model::<BLOSUM>(
+    search_costs_equal_template(test_pip_model::<BLOSUM, Alignment>(
         protein_alphabet(),
         freqs,
         &[1.2, 0.5],

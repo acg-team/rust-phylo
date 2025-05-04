@@ -1,4 +1,4 @@
-use crate::alignment::{Alignment, Sequences};
+use crate::alignment::{AlignmentTrait, Sequences};
 use crate::substitution_models::FreqVector;
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
@@ -16,15 +16,15 @@ pub use phyloinfo_builder::*;
 /// * Enure encoding matches model.
 /// * Add support for unaligned sequences.
 #[derive(Debug, Clone)]
-pub struct PhyloInfo {
+pub struct PhyloInfo<M: AlignmentTrait> {
     /// Multiple sequence alignment
-    pub msa: Alignment,
+    pub msa: M,
     /// Phylogenetic tree
     pub tree: Tree,
 }
 
-impl PhyloInfo {
-    /// Compiles a represenataion of the alignment in a vector of fasta records.
+impl<M: AlignmentTrait> PhyloInfo<M> {
+    /// Compiles a representation of the alignment in a vector of fasta records.
     /// The alignment is compiled from the subtree rooted at `subroot`.
     /// If `subroot` is None, the whole alignment is compiled.
     /// Bails if the tree does not contain the subroot or does not match the alignment.
@@ -58,7 +58,7 @@ impl PhyloInfo {
         for &char in alphabet.symbols().iter().chain(alphabet.ambiguous()) {
             let count = self
                 .msa
-                .seqs
+                .seqs()
                 .iter()
                 .map(|rec| rec.seq().iter().filter(|&c| c == &char).count())
                 .sum::<usize>() as f64;
