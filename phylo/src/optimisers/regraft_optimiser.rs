@@ -29,11 +29,11 @@ impl RegraftCostInfo {
     }
 }
 
-pub struct RegraftOptimiser<'a, C: TreeSearchCost + Clone + Display> {
+pub struct RegraftOptimiser<'a, C: TreeSearchCost + Clone + Display + Send> {
     prune_location: &'a NodeIdx,
     cost_fn: &'a C,
 }
-impl<'a, C: TreeSearchCost + Clone + Display> RegraftOptimiser<'a, C> {
+impl<'a, C: TreeSearchCost + Clone + Display + Send> RegraftOptimiser<'a, C> {
     pub fn new(cost_fn: &'a C, prune_location: &'a NodeIdx) -> RegraftOptimiser<'a, C> {
         Self {
             prune_location,
@@ -75,8 +75,7 @@ impl<'a, C: TreeSearchCost + Clone + Display> RegraftOptimiser<'a, C> {
             *self.prune_location,
             regraft_locations,
             self.cost_fn,
-        )
-        .collect::<Result<Vec<_>>>()?;
+        )?;
 
         let best_regraft = moves
             .into_iter()
@@ -90,16 +89,65 @@ impl<'a, C: TreeSearchCost + Clone + Display> RegraftOptimiser<'a, C> {
     }
 }
 
-fn calc_regraft_costs<C: TreeSearchCost + Clone + Display>(
+cfg_if::cfg_if! {
+if #[cfg(feature="par-regraft")] {
+fn calc_regraft_costs<C: TreeSearchCost + Clone + Display + Send>(
     base_cost: f64,
     prune_location: NodeIdx,
     regraft_locations: Vec<NodeIdx>,
     cost: &C,
-) -> impl Iterator<Item = Result<RegraftCostInfo>> + use<'_, C> {
+) -> Result<Vec<RegraftCostInfo>> {
+    use rayon::prelude::*;
+    let cost_funcs = vec![cost.clone(); regraft_locations.len()];
+    regraft_locations
+        .into_par_iter()
+        .zip_eq(cost_funcs)
+        .map(move |(regraft, cost_fn)| {
+            calc_spr_cost_with_blen_opt(prune_location, regraft, base_cost, cost_fn.clone())
+        })
+        .collect()
+}
+} else if #[cfg(feature="par-regraft-chunk")] {
+/// NOTE: seems to be faster than full on parallel for few taxa
+fn calc_regraft_costs<C: TreeSearchCost + Clone + Display + Send>(
+    base_cost: f64,
+    prune_location: NodeIdx,
+    regraft_locations: Vec<NodeIdx>,
+    cost: &C,
+) -> Result<Vec<RegraftCostInfo>> {
+    use rayon::prelude::*;
+    // TODO: determine better factor (maybe dynamically)
+    const CHUNK_SIZE: usize = 2;
+    let cost_funcs = vec![cost.clone(); regraft_locations.len().div_ceil(CHUNK_SIZE)];
+    regraft_locations
+        .par_chunks(CHUNK_SIZE)
+        .zip_eq(cost_funcs)
+        .map(move |(regrafts, cost_func)| -> Result<_> {
+            let mut max: Option<RegraftCostInfo> = None;
+            for regraft_result in regrafts.iter().map(move |regraft| {
+                calc_spr_cost_with_blen_opt(prune_location, *regraft, base_cost, cost_func.clone())
+            }) {
+                let regraft = regraft_result?;
+                if max.as_ref().is_none_or(|max| max.cost > regraft.cost) {
+                    max = Some(regraft);
+                }
+            }
+            Ok(max.expect("at least one regraft location"))
+        })
+        .collect()
+}
+} else {
+fn calc_regraft_costs<C: TreeSearchCost + Clone + Display + Send>(
+    base_cost: f64,
+    prune_location: NodeIdx,
+    regraft_locations: Vec<NodeIdx>,
+    cost: &C,
+) -> Result<Vec<RegraftCostInfo>> {
     regraft_locations.into_iter().map(move |regraft| {
         calc_spr_cost_with_blen_opt(prune_location, regraft, base_cost, cost.clone())
-    })
+    }).collect()
 }
+}}
 
 /// if the move doesn't result in improvement over `base_cost`
 /// the blen of the regrafted branch is optimised to check if an

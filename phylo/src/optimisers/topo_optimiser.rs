@@ -37,12 +37,12 @@ impl TopologyOptimiserPredicate {
     }
 }
 
-pub struct TopologyOptimiser<C: TreeSearchCost + Display + Clone> {
+pub struct TopologyOptimiser<C: TreeSearchCost + Display + Clone + Send> {
     pub(crate) predicate: TopologyOptimiserPredicate,
     pub(crate) c: C,
 }
 
-impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
+impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
     // TODO: make tree search work under parsimony
     pub fn new(cost: C) -> Self {
         Self {
@@ -129,7 +129,7 @@ pub mod spr {
     /// SPR move for each pruneing location in place
     /// # Returns:
     /// - the new cost (or `base_cost` if no improvement was found)
-    pub fn fold_improving_moves<C: TreeSearchCost + Display + Clone>(
+    pub fn fold_improving_moves<C: TreeSearchCost + Display + Clone + Send>(
         cost_fn: &mut C,
         base_cost: f64,
         prune_locations: &[&NodeIdx],
