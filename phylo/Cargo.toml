@@ -11,11 +11,19 @@ deterministic = []
 # Feature that can speed up repeated test runs for when tree search is not affected and tests are ran locally.
 use-precomputed-test-results = []
 
-[profile.release]
-opt-level = 3
+[lib]
+bench = false
 
 [profile.dev]
 opt-level = 3
+
+[profile.release]
+opt-level = 3
+
+# inherits from release
+[profile.bench]
+debug = true
+
 
 [dependencies]
 anyhow = "1.0.72"
@@ -32,6 +40,8 @@ hashbrown = "0.15.2"
 itertools = "0.14.0"
 lazy_static = "1.4.0"
 log = "0.4.19"
+# NOTE: mutli threaded kernels for matrix multiplication are available
+# through the matrixmultiply peer-dep
 nalgebra = "0.32.3"
 ordered-float = "3.7.0"
 pest = "2.7.2"
@@ -43,3 +53,24 @@ tempfile = "3.8.0"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
+
+[dev-dependencies]
+criterion = "0.5.1"
+pprof = { version = "0.14.0", features = ["criterion", "flamegraph"] }
+
+
+[[bench]]
+name = "tree_from_msa"
+harness = false
+[[bench]]
+name = "cost"
+harness = false
+[[bench]]
+name = "topo"
+harness = false
+[[bench]]
+name = "spr"
+harness = false
+[[bench]]
+name = "helpers"
+harness = false
