@@ -188,6 +188,11 @@ impl Tree {
             .cloned()
     }
 
+    /// No pruning on the root branch
+    pub fn find_possible_prune_locations(&self) -> impl Iterator<Item = &NodeIdx> + use<'_> {
+        self.preorder().iter().filter(|&n| *n != self.root)
+    }
+
     // TODO: Bring this out of the tree
     pub fn rooted_spr(&self, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Result<Tree> {
         // Prune and regraft nodes must be different

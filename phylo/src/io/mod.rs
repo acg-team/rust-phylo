@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt;
 use std::fs::{self, File};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::bail;
 use bio::io::fasta::{Reader, Record, Writer};
@@ -44,7 +44,7 @@ impl Error for DataError {}
 /// #    assert_eq!(rec.seq(), rec.seq().to_ascii_uppercase());
 /// # }
 /// ```
-pub fn read_sequences(path: &PathBuf) -> Result<Vec<Record>> {
+pub fn read_sequences(path: &Path) -> Result<Vec<Record>> {
     info!("Reading sequences from file {}.", path.display());
     let reader = Reader::from_file(path)?;
     let mut sequences = Vec::new();

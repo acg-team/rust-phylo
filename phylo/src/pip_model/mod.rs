@@ -423,6 +423,14 @@ impl<Q: QMatrix> PIPCost<Q> {
         }
     }
 
+    /// Dependent:
+    /// - tmp.pnu of both children
+    /// - tmp.anc of this node
+    /// - tmp.f of this node
+    /// - tmp.surv_ins_weights of this node
+    ///
+    /// Modifies:
+    /// - tmp.pnu of this node
     fn set_pnu(&self, tree: &Tree, node_idx: &NodeIdx) {
         let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
         let idx = usize::from(node_idx);
@@ -436,12 +444,20 @@ impl<Q: QMatrix> PIPCost<Q> {
 
         let mut tmp = self.tmp.borrow_mut();
 
+        // TODO: why clone?
         tmp.pnu[idx] =
             tmp.f[idx].clone().component_mul(&ancestors.column(0)) * tmp.surv_ins_weights[idx];
         tmp.pnu[idx] +=
             ancestors.column(1).component_mul(&x_pnu) + ancestors.column(2).component_mul(&y_pnu);
     }
 
+    /// Dependent:
+    /// - tmp.models for both children
+    /// - tmp.ftilde for both children
+    ///
+    /// Modifies:
+    /// - tmp.ftilde for this node
+    /// - tmp.f for this node
     fn set_ftilde(&self, tree: &Tree, node_idx: &NodeIdx) {
         let children = tree.children(node_idx);
         let idx = usize::from(node_idx);
@@ -465,10 +481,16 @@ impl<Q: QMatrix> PIPCost<Q> {
         }
     }
 
+    /// Dependent:
+    /// - tmp.anc of both children
+    ///
+    /// Modifies:
+    /// - tmp.anc of this node
     fn set_ancestors(&self, tree: &Tree, node_idx: &NodeIdx) {
         let idx = usize::from(node_idx);
         let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
         let mut tmp = self.tmp.borrow_mut();
+        // TODO: unnecessary clone of whole matrix
         let x_anc = tmp.anc[children[0]].clone();
         let y_anc = tmp.anc[children[1]].clone();
         tmp.anc[idx].set_column(1, &x_anc.column(0));
@@ -483,6 +505,14 @@ impl<Q: QMatrix> PIPCost<Q> {
         }
     }
 
+    /// Dependent:
+    /// - blen of both children
+    /// - tmp.c0_f1 of both children
+    /// - tmp.c0_pnu of both children
+    ///
+    /// Modifies:
+    /// - tmp.c0_f1 of this node
+    /// - tmp.c0_pnu of this node
     fn set_c0(&self, tree: &Tree, node_idx: &NodeIdx) {
         let idx = usize::from(node_idx);
         let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
