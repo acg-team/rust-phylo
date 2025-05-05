@@ -12,6 +12,7 @@ deterministic = []
 use-precomputed-test-results = []
 par-regraft = ["dep:rayon"]
 par-regraft-chunk = ["dep:rayon"]
+par-regraft-manual = ["dep:rayon"]
 
 [lib]
 bench = false
