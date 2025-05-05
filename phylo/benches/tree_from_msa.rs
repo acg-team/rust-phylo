@@ -19,6 +19,10 @@ use helpers::{
     DNA_EASY_5X1000, DNA_EASY_8X1252,
 };
 
+/// NOTE: This is essentially a snapshot of the JATI binary at the time of creation
+/// ANY changes must be manually tracked to accurately measure real-world usage.
+///
+/// TODO: expose this as part of the rust-phylo library
 fn run_optimisation(
     cost: impl TreeSearchCost + ModelSearchCost + Display + Clone,
     freq_opt: FrequencyOptimisation,

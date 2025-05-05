@@ -125,7 +125,7 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
         }
     }
     debug!("    Regraft to {:?} w best cost {}.", regraft, move_cost);
-    Ok::<_, anyhow::Error>(RegraftCostInfo {
+    Ok(RegraftCostInfo {
         cost: move_cost,
         regraft,
         tree: new_tree,
