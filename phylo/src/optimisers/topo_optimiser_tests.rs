@@ -373,7 +373,7 @@ fn pip_optimise_model_tree() {
     let pip = PIPModel::<WAG>::new(&[], &[1.4, 0.5]);
     let res = optimise_tree_pip(
         &seq_file,
-        &fldr.join("jati_pip_nogap_pip_vs_wag.newick"),
+        &fldr.join("jati_pip_nj_start.newick"),
         pip.clone(),
     );
     assert!(res.final_cost >= res.initial_cost);
@@ -392,7 +392,7 @@ fn pip_optimise_model_tree() {
 
     let model_opt_res = optimise_tree_pip(
         &seq_file,
-        &fldr.join("jati_wag_nogap_pip_vs_wag.newick"),
+        &fldr.join("jati_pip_nj_start_model_opt.newick"),
         pip_opt.clone(),
     );
 
