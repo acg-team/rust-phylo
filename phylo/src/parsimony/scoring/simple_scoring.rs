@@ -1,4 +1,7 @@
-use crate::parsimony::{GapCost, ParsimonyScoring};
+use crate::{
+    alphabets::ParsimonySet,
+    parsimony::{GapCost, ParsimonyScoring},
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SimpleScoring {
@@ -23,6 +26,15 @@ impl ParsimonyScoring for SimpleScoring {
             self.mismatch
         }
     }
+
+    fn min_match(&self, _: f64, i: &ParsimonySet, j: &ParsimonySet) -> f64 {
+        if (i & j).is_empty() {
+            self.mismatch
+        } else {
+            0.0
+        }
+    }
+
     fn gap_ext(&self, _: f64) -> f64 {
         self.gap.ext
     }

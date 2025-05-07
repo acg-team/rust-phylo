@@ -1,7 +1,7 @@
 use log::{debug, info};
 use ordered_float::OrderedFloat;
 
-use crate::alphabets::Alphabet;
+use crate::alphabets::{Alphabet, ParsimonySet};
 use crate::parsimony::{
     CostMatrix, DiagonalZeros, GapCost, ParsimonyModel, ParsimonyScoring, Rounding,
 };
@@ -132,6 +132,14 @@ impl ModelCosts {
 impl ParsimonyScoring for ModelCosts {
     fn r#match(&self, blen: f64, i: &u8, j: &u8) -> f64 {
         self.scoring(OrderedFloat(blen)).c[(self.alphabet.index(i), self.alphabet.index(j))]
+    }
+
+    fn min_match(&self, blen: f64, i: &ParsimonySet, j: &ParsimonySet) -> f64 {
+        i.iter()
+            .zip(j.iter())
+            .map(|(a, b)| self.r#match(blen, a, b))
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap_or(0.0)
     }
 
     fn gap_open(&self, blen: f64) -> f64 {
