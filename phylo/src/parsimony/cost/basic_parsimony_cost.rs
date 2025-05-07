@@ -59,10 +59,10 @@ impl BasicParsimonyCost {
             let x_set = &childx_info[i];
             let y_set = &childy_info[i];
 
-            let set = ParsimonySet::from_intersection(x_set, y_set);
+            let set = x_set & y_set;
             if set.is_empty() {
                 tmp_cost += 1.0;
-                node_info.push(ParsimonySet::from_union(x_set, y_set));
+                node_info.push(x_set | y_set);
             } else {
                 node_info.push(set);
             }

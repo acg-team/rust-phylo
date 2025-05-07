@@ -1,4 +1,4 @@
-use std::ops::{BitAnd, BitOr};
+use std::ops::{BitAnd, BitOr, Sub};
 use std::{fmt::Display, ops::Deref};
 
 use hashbrown::{hash_set::IntoIter, HashSet};
@@ -27,20 +27,6 @@ impl ParsimonySet {
         Self {
             s: HashSet::from_iter(slice.iter().copied()),
         }
-    }
-
-    pub fn from_intersection(set1: &ParsimonySet, set2: &ParsimonySet) -> Self {
-        let intersection = set1
-            .s
-            .intersection(&set2.s)
-            .cloned()
-            .collect::<HashSet<u8>>();
-        Self { s: intersection }
-    }
-
-    pub fn from_union(set1: &ParsimonySet, set2: &ParsimonySet) -> Self {
-        let union = set1.s.union(&set2.s).cloned().collect::<HashSet<u8>>();
-        Self { s: union }
     }
 }
 
@@ -85,6 +71,16 @@ impl BitOr for &ParsimonySet {
     fn bitor(self, rhs: Self) -> Self::Output {
         ParsimonySet {
             s: self.s.union(&rhs.s).copied().collect(),
+        }
+    }
+}
+
+impl Sub for ParsimonySet {
+    type Output = ParsimonySet;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        ParsimonySet {
+            s: self.s.difference(&rhs.s).copied().collect(),
         }
     }
 }
