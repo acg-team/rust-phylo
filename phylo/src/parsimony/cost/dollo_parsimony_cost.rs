@@ -2,11 +2,14 @@ use std::cell::RefCell;
 use std::fmt::Display;
 
 use anyhow::Ok;
+
 use fixedbitset::FixedBitSet;
 use hashbrown::HashSet;
 
 use crate::alphabets::ParsimonySet;
 use crate::likelihood::TreeSearchCost;
+use crate::parsimony::scoring::{GapCost, SimpleScoring};
+use crate::parsimony::ParsimonyScoring;
 use crate::phylo_info::PhyloInfo;
 use crate::tree::{
     NodeIdx::{self, Internal, Leaf},
@@ -18,6 +21,7 @@ use crate::Result;
 pub struct DolloParsimonyCost {
     info: PhyloInfo,
     tmp: RefCell<DolloParsimonyInfo>,
+    scoring: Box<dyn ParsimonyScoring>,
 }
 
 impl Display for DolloParsimonyCost {
@@ -32,7 +36,23 @@ impl Display for DolloParsimonyCost {
 impl DolloParsimonyCost {
     pub fn new(info: PhyloInfo) -> Result<Self> {
         let tmp = RefCell::new(DolloParsimonyInfo::new(&info)?);
-        Ok(DolloParsimonyCost { info, tmp })
+        Ok(DolloParsimonyCost {
+            info,
+            tmp,
+            scoring: Box::new(SimpleScoring::new(1.0, GapCost::new(2.5, 0.5))),
+        })
+    }
+
+    pub fn with_scoring(
+        info: PhyloInfo,
+        scoring: impl ParsimonyScoring + Clone + 'static,
+    ) -> Result<Self> {
+        let tmp = RefCell::new(DolloParsimonyInfo::new(&info)?);
+        Ok(DolloParsimonyCost {
+            info,
+            tmp,
+            scoring: Box::new(scoring.clone()),
+        })
     }
 
     fn score(&self) -> f64 {
@@ -54,6 +74,8 @@ impl DolloParsimonyCost {
         let idx = usize::from(node_idx);
         let childx_idx = usize::from(&node.children[0]);
         let childy_idx = usize::from(&node.children[1]);
+
+        let blen = node.blen;
 
         if self.tmp.borrow().node_info_valid[idx] {
             return;
@@ -89,12 +111,18 @@ impl DolloParsimonyCost {
                 let intersection = x_set & y_set;
                 if intersection.is_empty() {
                     if !insertion[i] {
-                        cost += 1.0;
+                        let union = x_set | y_set;
+                        if (&union & gap).is_empty() {
+                            cost += self.scoring.min_match(blen, x_set, y_set);
+                        } else {
+                            cost += self.scoring.gap_open(blen);
+                        }
                         (x_set | y_set) - gap.clone()
                     } else {
                         gap.clone()
                     }
                 } else {
+                    cost += self.scoring.min_match(blen, &intersection, &intersection);
                     intersection
                 }
             })
