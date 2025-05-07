@@ -134,7 +134,7 @@ impl BasicParsimonyInfo {
                 if let Some(pos) = site {
                     leaf_seq_w_gaps.push(info.msa.alphabet().parsimony_set(&seq[pos]).clone());
                 } else {
-                    leaf_seq_w_gaps.push(info.msa.alphabet().full_set().clone());
+                    leaf_seq_w_gaps.push(info.msa.alphabet().gap_set().clone());
                 }
             }
             node_info[usize::from(node.idx)] = leaf_seq_w_gaps;
@@ -150,7 +150,6 @@ impl BasicParsimonyInfo {
 
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
-
 mod private_tests {
     use super::*;
 

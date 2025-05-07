@@ -13,7 +13,7 @@ pub struct ParsimonySet {
 }
 
 impl ParsimonySet {
-    pub fn new() -> Self {
+    pub fn empty() -> Self {
         Self { s: HashSet::new() }
     }
 

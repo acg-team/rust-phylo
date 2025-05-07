@@ -73,6 +73,10 @@ impl Alphabet {
     pub fn full_set(&self) -> &ParsimonySet {
         self.full_set
     }
+
+    pub fn gap_set(&self) -> &ParsimonySet {
+        &GAP_SET
+    }
 }
 
 pub fn dna_alphabet() -> Alphabet {
@@ -127,7 +131,7 @@ lazy_static! {
         map
     };
     pub static ref NUCL_PARSIMONY_SETS: Vec<ParsimonySet> = {
-        let mut map: Vec<ParsimonySet> = vec![ParsimonySet::new(); 255];
+        let mut map: Vec<ParsimonySet> = vec![ParsimonySet::empty(); 255];
         for (i, elem) in map.iter_mut().enumerate() {
             let char = i as u8;
             *elem = nucl_parsimony_set(&char);
@@ -135,6 +139,7 @@ lazy_static! {
         map
     };
     pub static ref NUCL_FULL_SET: ParsimonySet = ParsimonySet::from_slice(NUCLEOTIDES);
+    pub static ref GAP_SET: ParsimonySet = ParsimonySet::from_slice(&[GAP]);
 }
 
 fn nucl_cond_probs(char: u8) -> FreqVector {
@@ -205,7 +210,7 @@ lazy_static! {
         map
     };
     pub static ref AA_PARSIMONY_SETS: Vec<ParsimonySet> = {
-        let mut map: Vec<ParsimonySet> = vec![ParsimonySet::new(); 255];
+        let mut map: Vec<ParsimonySet> = vec![ParsimonySet::empty(); 255];
         for (i, elem) in map.iter_mut().enumerate() {
             let char = i as u8;
             *elem = aa_parsimony_set(&char);
