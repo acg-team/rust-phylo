@@ -30,7 +30,7 @@ impl BasicParsimonyCost {
         Ok(BasicParsimonyCost { info, tmp })
     }
 
-    fn cost(&self) -> f64 {
+    fn score(&self) -> f64 {
         for node_idx in self.info.tree.postorder() {
             if matches!(node_idx, Internal(_)) {
                 self.set_internal(node_idx);
@@ -92,7 +92,7 @@ impl BasicParsimonyCost {
 
 impl TreeSearchCost for BasicParsimonyCost {
     fn cost(&self) -> f64 {
-        -self.cost()
+        -self.score()
     }
 
     fn update_tree(&mut self, tree: Tree, dirty_nodes: &[NodeIdx]) {
@@ -158,24 +158,24 @@ mod private_tests {
     use crate::{record_wo_desc as record, tree};
 
     #[test]
-    fn repeat_basic_parsimony_cost() {
+    fn repeat_basic_parsimony_score() {
         let seqs = Sequences::new(vec![
-            record!("A", b"GGA"),
-            record!("B", b"GGG"),
-            record!("C", b"ACA"),
-            record!("D", b"ACG"),
+            record!("A", b"G-GA"),
+            record!("B", b"G-GG"),
+            record!("C", b"AGCA"),
+            record!("D", b"AGCG"),
         ]);
         let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
         let info = PhyloInfo {
-            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+            msa: Alignment::from_aligned(seqs, &tree).unwrap(),
             tree,
         };
         let cost = BasicParsimonyCost::new(info).unwrap();
-        assert_eq!(cost.cost(), 4.0);
-        assert_eq!(cost.cost(), 4.0);
+        assert_eq!(cost.score(), 5.0);
+        assert_eq!(cost.score(), 5.0);
 
         cost.tmp.borrow_mut().node_info_valid.fill(false);
-        assert_eq!(cost.cost(), 4.0);
+        assert_eq!(cost.score(), 5.0);
     }
 }
