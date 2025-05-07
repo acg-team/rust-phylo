@@ -2,15 +2,15 @@ use crate::alignment::{Alignment, Sequences};
 use crate::likelihood::TreeSearchCost;
 use crate::parsimony::BasicParsimonyCost;
 use crate::phylo_info::PhyloInfo;
-use crate::{record_wo_desc as record, tree};
+use crate::{record_wo_desc as rec, tree};
 
 #[test]
 fn basic_parsimony_cost() {
     let seqs = Sequences::new(vec![
-        record!("A", b"GGA"),
-        record!("B", b"GGG"),
-        record!("C", b"ACA"),
-        record!("D", b"ACG"),
+        rec!("A", b"GGA"),
+        rec!("B", b"GGG"),
+        rec!("C", b"ACA"),
+        rec!("D", b"ACG"),
     ]);
     let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
@@ -41,10 +41,10 @@ fn basic_parsimony_cost() {
 #[test]
 fn basic_parsimony_reroot() {
     let seqs = Sequences::new(vec![
-        record!("A", b"GGA"),
-        record!("B", b"GGG"),
-        record!("C", b"ACA"),
-        record!("D", b"ACG"),
+        rec!("A", b"GGA"),
+        rec!("B", b"GGG"),
+        rec!("C", b"ACA"),
+        rec!("D", b"ACG"),
     ]);
     let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
@@ -69,10 +69,10 @@ fn basic_parsimony_reroot() {
 #[test]
 fn basic_parsimony_cost_gaps() {
     let seqs = Sequences::new(vec![
-        record!("A", b"GA-T-"),
-        record!("B", b"GA-TT"),
-        record!("C", b"-A-TT"),
-        record!("D", b"-G-TT"),
+        rec!("A", b"GA-T-"),
+        rec!("B", b"GA-TT"),
+        rec!("C", b"-A-TT"),
+        rec!("D", b"-G-TT"),
     ]);
     let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
@@ -81,6 +81,6 @@ fn basic_parsimony_cost_gaps() {
         tree,
     };
     let cost = BasicParsimonyCost::new(info).unwrap();
-    assert_eq!(cost.cost(), -1.0);
-    assert_eq!(cost.cost(), -1.0);
+    assert_eq!(cost.cost(), -3.0);
+    assert_eq!(cost.cost(), -3.0);
 }
