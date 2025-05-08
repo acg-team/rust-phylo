@@ -13,7 +13,7 @@ fn default_costs() {
         ext: 0.5,
     };
 
-    let c = SimpleScoring::new(mismatch, gap.clone());
+    let c = SimpleScoring::new(mismatch, gap);
     assert_eq!(c.r#match(1.0, &b'A', &b'B'), mismatch);
     assert_eq!(c.r#match(1.0, &b'B', &b'A'), mismatch);
     assert_eq!(c.r#match(1.0, &b'N', &b'K'), mismatch);
@@ -31,7 +31,7 @@ fn simple_costs() {
         ext: 10.5,
     };
 
-    let c = SimpleScoring::new(mismatch, gap.clone());
+    let c = SimpleScoring::new(mismatch, gap);
     for char in AMINOACIDS.iter() {
         for char2 in AMINOACIDS.iter() {
             if char == char2 {
@@ -47,7 +47,7 @@ fn simple_costs() {
 
     let mismatch = 1.0;
 
-    let c = SimpleScoring::new(mismatch, gap.clone());
+    let c = SimpleScoring::new(mismatch, gap);
     for char in NUCLEOTIDES.iter() {
         for char2 in NUCLEOTIDES.iter() {
             if char == char2 {
@@ -73,7 +73,7 @@ fn protein_branch_scoring() {
 
     let model = SubstModel::<WAG>::new(&[], &[]);
     let cost = MCB::new(model.clone())
-        .gap_cost(gap.clone())
+        .gap_cost(gap)
         .rounding(R::zero())
         .times(times.clone())
         .build()
@@ -113,7 +113,7 @@ fn protein_scoring() {
     let times = vec![0.1, 0.3, 0.5, 0.7];
     let model = SubstModel::<WAG>::new(&[], &[]);
     let cost = MCB::new(model)
-        .gap_cost(gap.clone())
+        .gap_cost(gap)
         .rounding(R::zero())
         .times(times)
         .build()
@@ -142,7 +142,7 @@ fn protein_branch_scoring_nearest() {
     let model = SubstModel::<WAG>::new(&[], &[]);
 
     let cost = MCB::new(model)
-        .gap_cost(gap.clone())
+        .gap_cost(gap)
         .times(times)
         .rounding(R::zero())
         .build()
@@ -176,7 +176,7 @@ fn dna_branch_scoring() {
 
     let model = SubstModel::<JC69>::new(&[], &[]);
     let cost = MCB::new(model.clone())
-        .gap_cost(gap.clone())
+        .gap_cost(gap)
         .times(times.clone())
         .rounding(R::zero())
         .build()
@@ -192,7 +192,7 @@ fn dna_branch_scoring() {
     assert_eq!(cost.avg(0.7), avg_07);
 
     let cost = MCB::new(model.clone())
-        .gap_cost(gap.clone())
+        .gap_cost(gap)
         .times(times)
         .diagonal(Z::zero())
         .rounding(R::zero())
@@ -216,7 +216,7 @@ fn dna_branch_scoring_nearest() {
 
     let model = SubstModel::<JC69>::new(&[], &[]);
     let cost = MCB::new(model)
-        .gap_cost(gap.clone())
+        .gap_cost(gap)
         .times(times)
         .rounding(R::zero())
         .build()

@@ -10,7 +10,7 @@ pub use simple_scoring::*;
 
 use crate::alphabets::ParsimonySet;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GapCost {
     open: f64,
     ext: f64,

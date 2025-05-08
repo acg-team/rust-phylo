@@ -4,7 +4,7 @@ use rand::random;
 
 use crate::alphabets::ParsimonySet;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rounding {
     is_round: bool,
     pub digits: usize,
@@ -35,7 +35,7 @@ impl Rounding {
 }
 
 #[repr(transparent)]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DiagonalZeros {
     is_zero: bool,
 }
@@ -59,7 +59,7 @@ pub(crate) enum Direction {
     GapInX,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum SiteFlag {
     GapFixed,
     GapOpen,

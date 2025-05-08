@@ -72,7 +72,7 @@ impl<P: ParsimonyModel> ModelScoringBuilder<P> {
                     *time,
                     TimeCosts {
                         avg,
-                        gap: self.gap.clone() * avg,
+                        gap: self.gap * avg,
                         c: cost_matrix,
                     },
                 )
@@ -200,11 +200,10 @@ mod private_tests {
         rounding: R,
     ) {
         let gap = GapCost::new(6.5, 3.0);
-
         let builder = ModelScoringBuilder::new(model.clone())
-            .gap_cost(gap.clone())
-            .diagonal(diagonal.clone())
-            .rounding(rounding.clone())
+            .gap_cost(gap)
+            .diagonal(diagonal)
+            .rounding(rounding)
             .times(vec![0.1, 0.5, 10.0]);
 
         assert_eq!(builder.model, model);
@@ -217,29 +216,29 @@ mod private_tests {
     fn model_builder_setters() {
         for d in [Z::zero(), Z::non_zero()] {
             for r in [R::zero(), R::four(), R::none()] {
-                builder_template(SubstModel::<HIVB>::new(&[], &[]), d.clone(), r.clone());
-                builder_template(SubstModel::<WAG>::new(&[], &[]), d.clone(), r.clone());
-                builder_template(SubstModel::<BLOSUM>::new(&[], &[]), d.clone(), r.clone());
+                builder_template(SubstModel::<HIVB>::new(&[], &[]), d, r);
+                builder_template(SubstModel::<WAG>::new(&[], &[]), d, r);
+                builder_template(SubstModel::<BLOSUM>::new(&[], &[]), d, r);
 
-                builder_template(SubstModel::<JC69>::new(&[], &[]), d.clone(), r.clone());
-                builder_template(SubstModel::<K80>::new(&[], &[]), d.clone(), r.clone());
+                builder_template(SubstModel::<JC69>::new(&[], &[]), d, r);
+                builder_template(SubstModel::<K80>::new(&[], &[]), d, r);
                 builder_template(
                     SubstModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5]),
-                    d.clone(),
-                    r.clone(),
+                    d,
+                    r,
                 );
                 builder_template(
                     SubstModel::<TN93>::new(
                         &[0.22, 0.26, 0.33, 0.19],
                         &[0.5970915, 0.2940435, 0.00135],
                     ),
-                    d.clone(),
-                    r.clone(),
+                    d,
+                    r,
                 );
                 builder_template(
                     SubstModel::<GTR>::new(&[0.1, 0.3, 0.4, 0.2], &[5.0, 1.0, 1.0, 1.0, 1.0, 5.0]),
-                    d.clone(),
-                    r.clone(),
+                    d,
+                    r,
                 );
             }
         }
@@ -298,16 +297,16 @@ mod private_tests {
 
     #[cfg(test)]
     fn rounding_template<P: ParsimonyModel + Clone>(model: P) {
-        let g = GapCost::new(2.5, 1.0);
+        let gap = GapCost::new(2.5, 1.0);
         let s_rounded = MCB::new(model.clone())
-            .gap_cost(g.clone())
+            .gap_cost(gap)
             .diagonal(Z::zero())
             .rounding(R::zero())
             .times(vec![0.1])
             .build()
             .unwrap();
         let s = MCB::new(model)
-            .gap_cost(g)
+            .gap_cost(gap)
             .diagonal(Z::zero())
             .times(vec![0.1])
             .build()
@@ -345,17 +344,16 @@ mod private_tests {
 
     #[cfg(test)]
     fn matrix_zero_diagonals_template<P: ParsimonyModel + Clone>(model: P) {
-        let g = GapCost::new(2.5, 1.0);
-
+        let gap = GapCost::new(2.5, 1.0);
         let s_zero_diags = MCB::new(model.clone())
-            .gap_cost(g.clone())
+            .gap_cost(gap)
             .diagonal(Z::zero())
             .times(vec![0.1])
             .build()
             .unwrap();
 
         let s = MCB::new(model)
-            .gap_cost(g)
+            .gap_cost(gap)
             .times(vec![0.1])
             .build()
             .unwrap();
