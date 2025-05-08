@@ -1,8 +1,9 @@
 use crate::alignment::{Alignment, Sequences};
 use crate::likelihood::TreeSearchCost;
-use crate::parsimony::scoring::{GapCost, SimpleScoring};
+use crate::parsimony::scoring::{GapCost, ModelScoringBuilder, SimpleScoring};
 use crate::parsimony::{BasicParsimonyCost, DolloParsimonyCost};
 use crate::phylo_info::PhyloInfo;
+use crate::substitution_models::{SubstModel, WAG};
 use crate::{record_wo_desc as rec, tree};
 
 #[test]
@@ -208,4 +209,41 @@ fn dollo_parsimony_cost_low_insertion() {
     let scoring = SimpleScoring::new(1.0, GapCost::new(1.0, 1.0));
     let cost = DolloParsimonyCost::with_scoring(info, scoring).unwrap();
     assert_eq!(cost.cost(), -2.0);
+}
+
+#[test]
+fn dollo_parsimony_display() {
+    let seqs = Sequences::new(vec![
+        rec!("A", b"T-"),
+        rec!("B", b"TT"),
+        rec!("C", b"T-"),
+        rec!("D", b"TT"),
+    ]);
+    let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        tree,
+    };
+    let scoring = SimpleScoring::new(1.0, GapCost::new(2.4, 2.4));
+    let cost = DolloParsimonyCost::with_scoring(info.clone(), scoring).unwrap();
+    let display = format!("{cost}");
+    assert!(display.contains("Dollo parsimony"));
+    assert!(display.contains("Simple parsimony scoring"));
+    assert!(display.contains("open: 2.4"));
+    assert!(display.contains("ext: 2.4"));
+
+    let model = SubstModel::<WAG>::new(&[], &[]);
+    let scoring = ModelScoringBuilder::new(model)
+        .gap_cost(GapCost::new(1.0, 1.0))
+        .times(vec![1.0])
+        .build()
+        .unwrap();
+    let cost = DolloParsimonyCost::with_scoring(info, scoring).unwrap();
+
+    let display = format!("{cost}");
+    assert!(display.contains("Dollo parsimony"));
+    assert!(display.contains("Model-based parsimony"));
+    assert!(display.contains("WAG"));
+    assert!(display.contains("open: 1"));
+    assert!(display.contains("ext: 1"));
 }

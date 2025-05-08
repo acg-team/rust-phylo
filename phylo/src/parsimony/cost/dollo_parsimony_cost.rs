@@ -26,10 +26,7 @@ pub struct DolloParsimonyCost {
 
 impl Display for DolloParsimonyCost {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Dollo parsimony cost, match = 0.0, mismatch = 1.0, deletion = 1.0."
-        )
+        writeln!(f, "Dollo parsimony using: \n\t{}", self.scoring)
     }
 }
 
