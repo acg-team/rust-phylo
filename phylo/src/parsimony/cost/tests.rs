@@ -41,6 +41,26 @@ fn basic_parsimony_cost() {
 }
 
 #[test]
+fn basic_parsimony_cost_tree_update() {
+    let seqs = Sequences::new(vec![
+        rec!("A", b"GGA"),
+        rec!("B", b"GGG"),
+        rec!("C", b"ACA"),
+        rec!("D", b"ACG"),
+    ]);
+    let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
+
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        tree: tree.clone(),
+    };
+    let mut cost = BasicParsimonyCost::new(info).unwrap();
+    assert_eq!(cost.cost(), -4.0);
+    cost.update_tree(tree, &[]);
+    assert_eq!(cost.cost(), -4.0);
+}
+
+#[test]
 fn basic_parsimony_reroot() {
     let seqs = Sequences::new(vec![
         rec!("A", b"GGA"),
@@ -168,6 +188,26 @@ fn dollo_parsimony_cost_gaps() {
     let scoring = SimpleScoring::new(1.0, GapCost::new(1.0, 1.0));
     let cost = DolloParsimonyCost::with_scoring(info, scoring).unwrap();
     assert_eq!(cost.cost(), -1.0);
+    assert_eq!(cost.cost(), -1.0);
+}
+
+#[test]
+fn dollo_parsimony_cost_tree_update() {
+    let seqs = Sequences::new(vec![
+        rec!("A", b"GA-T-"),
+        rec!("B", b"GA-TT"),
+        rec!("C", b"-A-TT"),
+        rec!("D", b"-A-TT"),
+    ]);
+    let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
+    let info = PhyloInfo {
+        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        tree: tree.clone(),
+    };
+    let scoring = SimpleScoring::new(1.0, GapCost::new(1.0, 1.0));
+    let mut cost = DolloParsimonyCost::with_scoring(info, scoring).unwrap();
+    assert_eq!(cost.cost(), -1.0);
+    cost.update_tree(tree, &[]);
     assert_eq!(cost.cost(), -1.0);
 }
 
