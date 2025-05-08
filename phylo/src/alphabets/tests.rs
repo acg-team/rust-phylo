@@ -4,6 +4,8 @@ use bio::io::fasta::Record;
 
 use crate::alphabets::{dna_alphabet, protein_alphabet, ParsimonySet};
 
+use super::{AMB_AMINOACIDS, AMB_NUCLEOTIDES, AMINOACIDS, NUCLEOTIDES};
+
 #[test]
 fn parsimony_set_iters() {
     let set = ParsimonySet::from_slice(b"ACGT");
@@ -123,4 +125,25 @@ fn protein_characters() {
 fn test_parsimony_set_printing(#[case] input: &[u8], #[case] output: &str) {
     let set = ParsimonySet::from_slice(input);
     assert_eq!(format!("{}", set), format!("[{}]", output));
+}
+
+#[test]
+fn full_sets() {
+    let dna = dna_alphabet();
+    let full_set = dna.full_set();
+    for char in NUCLEOTIDES.iter() {
+        assert!(full_set.contains(char));
+    }
+    for char in AMB_NUCLEOTIDES.iter() {
+        assert!(!(full_set & dna.parsimony_set(char)).is_empty());
+    }
+
+    let prot = protein_alphabet();
+    let full_set = prot.full_set();
+    for char in AMINOACIDS.iter() {
+        assert!(full_set.contains(char));
+    }
+    for char in AMB_AMINOACIDS.iter() {
+        assert!(!(full_set & prot.parsimony_set(char)).is_empty());
+    }
 }
