@@ -1,6 +1,6 @@
 use crate::alphabets::{AMINOACIDS, NUCLEOTIDES};
 use crate::parsimony::{
-    DiagonalZeros as Z, GapCost, ModelCostBuilder as MCB, ParsimonyScoring, Rounding as R,
+    DiagonalZeros as Z, GapCost, ModelScoringBuilder as MCB, ParsimonyScoring, Rounding as R,
     SimpleScoring,
 };
 use crate::substitution_models::{SubstModel, JC69, WAG};

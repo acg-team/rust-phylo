@@ -8,7 +8,7 @@ use crate::parsimony::{
 use crate::Result;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ModelCostBuilder<P: ParsimonyModel> {
+pub struct ModelScoringBuilder<P: ParsimonyModel> {
     model: P,
     gap: GapCost,
     diagonal: DiagonalZeros,
@@ -16,9 +16,9 @@ pub struct ModelCostBuilder<P: ParsimonyModel> {
     times: Vec<f64>,
 }
 
-impl<P: ParsimonyModel> ModelCostBuilder<P> {
+impl<P: ParsimonyModel> ModelScoringBuilder<P> {
     pub fn new(model: P) -> Self {
-        ModelCostBuilder {
+        ModelScoringBuilder {
             model,
             gap: GapCost::new(2.5, 1.0),
             diagonal: DiagonalZeros::non_zero(),
@@ -47,7 +47,7 @@ impl<P: ParsimonyModel> ModelCostBuilder<P> {
         self
     }
 
-    pub fn build(self) -> Result<ModelCosts> {
+    pub fn build(self) -> Result<ModelScoring> {
         info!(
             "Setting up the parsimony scoring from the {} model.",
             self.model
@@ -84,7 +84,7 @@ impl<P: ParsimonyModel> ModelCostBuilder<P> {
             self.model, times
         );
         debug!("The scoring matrices are: {:?}", costs);
-        Ok(ModelCosts {
+        Ok(ModelScoring {
             alphabet: *self.model.alphabet(),
             costs,
         })
@@ -92,7 +92,7 @@ impl<P: ParsimonyModel> ModelCostBuilder<P> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ModelCosts {
+pub struct ModelScoring {
     alphabet: Alphabet,
     costs: Vec<(OrderedFloat<f64>, TimeCosts)>,
 }
@@ -104,7 +104,7 @@ pub(crate) struct TimeCosts {
     c: CostMatrix,
 }
 
-impl ModelCosts {
+impl ModelScoring {
     fn scoring(&self, target: OrderedFloat<f64>) -> &TimeCosts {
         let target = OrderedFloat(target);
         match self.costs.binary_search_by(|(time, _)| time.cmp(&target)) {
@@ -129,7 +129,7 @@ impl ModelCosts {
     }
 }
 
-impl ParsimonyScoring for ModelCosts {
+impl ParsimonyScoring for ModelScoring {
     fn r#match(&self, blen: f64, i: &u8, j: &u8) -> f64 {
         self.scoring(OrderedFloat(blen)).c[(self.alphabet.index(i), self.alphabet.index(j))]
     }
@@ -165,7 +165,7 @@ mod private_tests {
     use crate::substitution_models::*;
 
     use super::*;
-    use super::{DiagonalZeros as Z, ModelCostBuilder as MCB, Rounding as R};
+    use super::{DiagonalZeros as Z, ModelScoringBuilder as MCB, Rounding as R};
 
     const TRUE_COST_MATRIX: [f64; 400] = [
         0.0, 6.0, 6.0, 5.0, 6.0, 6.0, 5.0, 4.0, 7.0, 7.0, 6.0, 5.0, 6.0, 7.0, 5.0, 4.0, 4.0, 9.0,
@@ -201,7 +201,7 @@ mod private_tests {
     ) {
         let gap = GapCost::new(6.5, 3.0);
 
-        let builder = ModelCostBuilder::new(model.clone())
+        let builder = ModelScoringBuilder::new(model.clone())
             .gap_cost(gap.clone())
             .diagonal(diagonal.clone())
             .rounding(rounding.clone())
@@ -249,7 +249,7 @@ mod private_tests {
     fn builder_default_template<P: ParsimonyModel + Clone + PartialEq + Debug>(model: P) {
         use crate::parsimony::scoring::GapCost;
 
-        let builder = ModelCostBuilder::new(model.clone());
+        let builder = ModelScoringBuilder::new(model.clone());
 
         assert_eq!(builder.model, model);
         assert_eq!(builder.gap, GapCost::new(2.5, 1.0));
@@ -279,7 +279,7 @@ mod private_tests {
 
     #[test]
     fn protein_scorings() {
-        let s = ModelCostBuilder::new(SubstModel::<WAG>::new(&[], &[]))
+        let s = ModelScoringBuilder::new(SubstModel::<WAG>::new(&[], &[]))
             .gap_cost(GapCost::new(2.5, 1.0))
             .diagonal(Z::non_zero())
             .rounding(R::zero())

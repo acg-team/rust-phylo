@@ -1,7 +1,7 @@
 use approx::assert_relative_eq;
 
 use crate::parsimony::matrices::Direction::{GapInX, GapInY, Matc};
-use crate::parsimony::scoring::{GapCost as GC, ModelCostBuilder as MCB, SimpleScoring};
+use crate::parsimony::scoring::{GapCost as GC, ModelScoringBuilder as MCB, SimpleScoring};
 use crate::parsimony::{ParsimonyAlignmentMatrices as PAM, ParsimonySite, SiteFlag::*};
 use crate::substitution_models::{SubstModel, K80};
 use crate::{site, test_align as align};
