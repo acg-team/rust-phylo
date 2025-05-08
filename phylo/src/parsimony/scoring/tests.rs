@@ -3,7 +3,7 @@ use crate::parsimony::{
     DiagonalZeros as Z, GapCost, ModelScoringBuilder as MCB, ParsimonyScoring, Rounding as R,
     SimpleScoring,
 };
-use crate::substitution_models::{SubstModel, JC69, WAG};
+use crate::substitution_models::{SubstModel, GTR, JC69, WAG};
 
 #[test]
 fn default_costs() {
@@ -232,4 +232,50 @@ fn dna_branch_scoring_nearest() {
     assert_eq!(cost.avg(0.8), avg_07);
 
     assert_eq!(cost.avg(0.5), avg_07);
+}
+
+#[test]
+fn display_gap_costs() {
+    let gap = GapCost {
+        open: 1.6,
+        ext: 1.5,
+    };
+    let display = format!("{gap}");
+    assert!(display.contains("Gap multipliers"));
+    assert!(display.contains("open: 1.6"));
+    assert!(display.contains("ext: 1.3"));
+}
+
+#[test]
+fn display_simple_scorings() {
+    let mismatch = 3.2;
+    let gap = GapCost {
+        open: 4.6,
+        ext: 1.5,
+    };
+    let display = format!("{}", SimpleScoring::new(mismatch, gap));
+    assert!(display.contains("Simple parsimony scoring"));
+    assert!(display.contains("match cost 3.2"));
+    assert!(display.contains("open: 4.6"));
+    assert!(display.contains("ext: 1.5"));
+}
+
+#[test]
+fn display_model_scorings() {
+    let model = SubstModel::<GTR>::new(&[], &[]);
+    let gap = GapCost {
+        open: 2.4,
+        ext: 1.2,
+    };
+    let cost = MCB::new(model)
+        .gap_cost(gap)
+        .times(vec![1.0])
+        .build()
+        .unwrap();
+
+    let display = format!("{}", cost);
+    assert!(display.contains("Model-based parsimony scoring"));
+    assert!(display.contains("GTR"));
+    assert!(display.contains("open: 2.4"));
+    assert!(display.contains("ext: 1.2"));
 }

@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::ops::Mul;
 
 use dyn_clone::DynClone;
@@ -14,6 +14,16 @@ use crate::alphabets::ParsimonySet;
 pub struct GapCost {
     open: f64,
     ext: f64,
+}
+
+impl Display for GapCost {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Gap cost multipliers [open: {}, ext: {}]",
+            self.open, self.ext
+        )
+    }
 }
 
 impl Mul<f64> for GapCost {
@@ -33,7 +43,7 @@ impl GapCost {
     }
 }
 
-pub trait ParsimonyScoring: Debug + DynClone {
+pub trait ParsimonyScoring: Debug + Display + DynClone {
     fn r#match(&self, blen: f64, i: &u8, j: &u8) -> f64;
     fn min_match(&self, blen: f64, i: &ParsimonySet, j: &ParsimonySet) -> f64;
     fn gap_open(&self, blen: f64) -> f64;

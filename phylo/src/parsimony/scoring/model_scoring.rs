@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use log::{debug, info};
 use ordered_float::OrderedFloat;
 
@@ -47,7 +49,7 @@ impl<P: ParsimonyModel> ModelScoringBuilder<P> {
         self
     }
 
-    pub fn build(self) -> Result<ModelScoring> {
+    pub fn build(self) -> Result<ModelScoring<P>> {
         info!(
             "Setting up the parsimony scoring from the {} model.",
             self.model
@@ -86,14 +88,18 @@ impl<P: ParsimonyModel> ModelScoringBuilder<P> {
         debug!("The scoring matrices are: {:?}", costs);
         Ok(ModelScoring {
             alphabet: *self.model.alphabet(),
+            model: self.model,
+            gap: self.gap,
             costs,
         })
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ModelScoring {
+pub struct ModelScoring<P: ParsimonyModel> {
     alphabet: Alphabet,
+    model: P,
+    gap: GapCost,
     costs: Vec<(OrderedFloat<f64>, TimeCosts)>,
 }
 
@@ -104,7 +110,17 @@ pub(crate) struct TimeCosts {
     c: CostMatrix,
 }
 
-impl ModelScoring {
+impl<P: ParsimonyModel> Display for ModelScoring<P> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Model-based parsimony scoring with {}, {}",
+            self.model, self.gap
+        )
+    }
+}
+
+impl<P: ParsimonyModel> ModelScoring<P> {
     fn scoring(&self, target: OrderedFloat<f64>) -> &TimeCosts {
         let target = OrderedFloat(target);
         match self.costs.binary_search_by(|(time, _)| time.cmp(&target)) {
@@ -129,7 +145,7 @@ impl ModelScoring {
     }
 }
 
-impl ParsimonyScoring for ModelScoring {
+impl<P: ParsimonyModel> ParsimonyScoring for ModelScoring<P> {
     fn r#match(&self, blen: f64, i: &u8, j: &u8) -> f64 {
         self.scoring(OrderedFloat(blen)).c[(self.alphabet.index(i), self.alphabet.index(j))]
     }

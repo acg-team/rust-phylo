@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{
     alphabets::ParsimonySet,
     parsimony::{GapCost, ParsimonyScoring},
@@ -15,6 +17,17 @@ impl SimpleScoring {
             mismatch,
             gap: gap * mismatch,
         }
+    }
+}
+
+impl Display for SimpleScoring {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Simple parsimony scoring with mismatch: {}, {}",
+            self.mismatch,
+            self.gap * (1.0 / self.mismatch)
+        )
     }
 }
 
