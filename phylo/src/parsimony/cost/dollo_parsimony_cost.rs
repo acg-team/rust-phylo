@@ -117,7 +117,7 @@ impl DolloParsimonyCost {
                         } else {
                             cost += self.scoring.gap_open(blen);
                         }
-                        (x_set | y_set) - gap.clone()
+                        &(x_set | y_set) - gap
                     } else {
                         gap.clone()
                     }

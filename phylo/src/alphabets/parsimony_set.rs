@@ -75,7 +75,7 @@ impl BitOr for &ParsimonySet {
     }
 }
 
-impl Sub for ParsimonySet {
+impl Sub for &ParsimonySet {
     type Output = ParsimonySet;
 
     fn sub(self, rhs: Self) -> Self::Output {
