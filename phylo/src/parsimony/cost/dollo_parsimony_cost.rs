@@ -82,12 +82,13 @@ impl DolloParsimonyCost {
         }
 
         let mut tmp = self.tmp.borrow_mut();
-
-        let childx_set = tmp.node_leaf_sets[childx_idx].clone();
-        let childy_set = tmp.node_leaf_sets[childy_idx].clone();
-
-        for (site_idx, (x, y)) in childx_set.iter().zip(childy_set.iter()).enumerate() {
-            tmp.node_leaf_sets[idx][site_idx] = x.union(y).cloned().collect();
+        for (site_idx, (x, y)) in tmp.node_leaf_sets[childx_idx]
+            .clone()
+            .into_iter()
+            .zip(tmp.node_leaf_sets[childy_idx].clone())
+            .enumerate()
+        {
+            tmp.node_leaf_sets[idx][site_idx] = x.union(&y).cloned().collect();
             if tmp.node_leaf_sets[idx][site_idx] == tmp.leaf_sets[site_idx]
                 && !tmp.node_insertion[idx][site_idx]
             {
