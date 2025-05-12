@@ -7,7 +7,7 @@ use std::ops::Mul;
 use anyhow::bail;
 use nalgebra::{DMatrix, DVector};
 
-use crate::alignment::AlignmentTrait;
+use crate::alignment::{Alignment, AlignmentTrait};
 use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
@@ -115,17 +115,17 @@ impl<Q: QMatrix> EvoModel for SubstModel<Q> {
     }
 }
 
-pub struct SubstitutionCostBuilder<Q: QMatrix, M: AlignmentTrait> {
-    pub(crate) model: SubstModel<Q>,
-    info: PhyloInfo<M>,
+pub struct SubstitutionCostBuilder<Q: QMatrix> {
+    model: SubstModel<Q>,
+    info: PhyloInfo<Alignment>,
 }
 
-impl<Q: QMatrix, M: AlignmentTrait> SubstitutionCostBuilder<Q, M> {
-    pub fn new(model: SubstModel<Q>, info: PhyloInfo<M>) -> Self {
+impl<Q: QMatrix> SubstitutionCostBuilder<Q> {
+    pub fn new(model: SubstModel<Q>, info: PhyloInfo<Alignment>) -> Self {
         SubstitutionCostBuilder { model, info }
     }
 
-    pub fn build(self) -> Result<SubstitutionCost<Q, M>> {
+    pub fn build(self) -> Result<SubstitutionCost<Q, Alignment>> {
         if self.info.msa.alphabet() != self.model.alphabet() {
             bail!("Alphabet mismatch between model and alignment.");
         }

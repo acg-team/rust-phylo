@@ -11,7 +11,7 @@ use lazy_static::lazy_static;
 use log::warn;
 use nalgebra::{DMatrix, DVector};
 
-use crate::alignment::{AlignmentTrait, Mapping};
+use crate::alignment::{Alignment, AlignmentTrait, Mapping};
 use crate::alphabets::{Alphabet, GAP};
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
@@ -215,17 +215,17 @@ impl<Q: QMatrix> PIPModelInfo<Q> {
     }
 }
 
-pub struct PIPCostBuilder<Q: QMatrix, M: AlignmentTrait> {
-    pub(crate) model: PIPModel<Q>,
-    info: PhyloInfo<M>,
+pub struct PIPCostBuilder<Q: QMatrix> {
+    model: PIPModel<Q>,
+    info: PhyloInfo<Alignment>,
 }
 
-impl<Q: QMatrix, M: AlignmentTrait> PIPCostBuilder<Q, M> {
-    pub fn new(model: PIPModel<Q>, info: PhyloInfo<M>) -> Self {
+impl<Q: QMatrix> PIPCostBuilder<Q> {
+    pub fn new(model: PIPModel<Q>, info: PhyloInfo<Alignment>) -> Self {
         PIPCostBuilder { model, info }
     }
 
-    pub fn build(self) -> Result<PIPCost<Q, M>> {
+    pub fn build(self) -> Result<PIPCost<Q, Alignment>> {
         if self.info.msa.alphabet() != self.model.alphabet() {
             bail!("Alphabet mismatch between model and alignment.");
         }
@@ -327,7 +327,7 @@ impl<Q: QMatrix, M: AlignmentTrait> PIPCost<Q, M> {
         // individual column probabilities become too close to 0.0 (become subnormal)
         // and the log likelihood becomes -Inf. This is mathematically reasonable, but during branch
         // length optimisation BrentOpt cannot handle it and proposes NaN branch lengths.
-        // This is a workaround that sets the probability to the smallest posible positive float,
+        // This is a workaround that sets the probability to the smallest possible positive float,
         // which is equivalent to restricting the log likelihood to f64::MIN.
         tmp.pnu[root_idx]
             .map(|x| {
@@ -420,6 +420,14 @@ impl<Q: QMatrix, M: AlignmentTrait> PIPCost<Q, M> {
         }
     }
 
+    /// Dependent:
+    /// - tmp.pnu of both children
+    /// - tmp.anc of this node
+    /// - tmp.f of this node
+    /// - tmp.surv_ins_weights of this node
+    ///
+    /// Modifies:
+    /// - tmp.pnu of this node
     fn set_pnu(&self, tree: &Tree, node_idx: &NodeIdx) {
         let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
         let idx = usize::from(node_idx);
@@ -433,12 +441,20 @@ impl<Q: QMatrix, M: AlignmentTrait> PIPCost<Q, M> {
 
         let mut tmp = self.tmp.borrow_mut();
 
+        // TODO: why clone?
         tmp.pnu[idx] =
             tmp.f[idx].clone().component_mul(&ancestors.column(0)) * tmp.surv_ins_weights[idx];
         tmp.pnu[idx] +=
             ancestors.column(1).component_mul(&x_pnu) + ancestors.column(2).component_mul(&y_pnu);
     }
 
+    /// Dependent:
+    /// - tmp.models for both children
+    /// - tmp.ftilde for both children
+    ///
+    /// Modifies:
+    /// - tmp.ftilde for this node
+    /// - tmp.f for this node
     fn set_ftilde(&self, tree: &Tree, node_idx: &NodeIdx) {
         let children = tree.children(node_idx);
         let idx = usize::from(node_idx);
@@ -462,10 +478,16 @@ impl<Q: QMatrix, M: AlignmentTrait> PIPCost<Q, M> {
         }
     }
 
+    /// Dependent:
+    /// - tmp.anc of both children
+    ///
+    /// Modifies:
+    /// - tmp.anc of this node
     fn set_ancestors(&self, tree: &Tree, node_idx: &NodeIdx) {
         let idx = usize::from(node_idx);
         let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
         let mut tmp = self.tmp.borrow_mut();
+        // TODO: unnecessary clone of whole matrix
         let x_anc = tmp.anc[children[0]].clone();
         let y_anc = tmp.anc[children[1]].clone();
         tmp.anc[idx].set_column(1, &x_anc.column(0));
@@ -480,6 +502,14 @@ impl<Q: QMatrix, M: AlignmentTrait> PIPCost<Q, M> {
         }
     }
 
+    /// Dependent:
+    /// - blen of both children
+    /// - tmp.c0_f1 of both children
+    /// - tmp.c0_pnu of both children
+    ///
+    /// Modifies:
+    /// - tmp.c0_f1 of this node
+    /// - tmp.c0_pnu of this node
     fn set_c0(&self, tree: &Tree, node_idx: &NodeIdx) {
         let idx = usize::from(node_idx);
         let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
@@ -501,7 +531,7 @@ impl<Q: QMatrix, M: AlignmentTrait> PIPCost<Q, M> {
 
     fn survival_insertion_weight(lambda: f64, mu: f64, b: f64) -> f64 {
         // A function equal to old
-        // nu * insertion_probability(tree_length, b, mu) * survival_probablitily(mu, b)
+        // nu * insertion_probability(tree_length, b, mu) * survival_probability(mu, b)
         lambda / mu * (1.0 - (-b * mu).exp())
     }
 }
