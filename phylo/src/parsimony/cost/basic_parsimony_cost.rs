@@ -7,7 +7,7 @@ use crate::alphabets::ParsimonySet;
 use crate::likelihood::TreeSearchCost;
 use crate::phylo_info::PhyloInfo;
 use crate::tree::{
-    NodeIdx::{self, Internal},
+    NodeIdx::{self, Internal, Leaf},
     Tree,
 };
 use crate::Result;
@@ -32,10 +32,9 @@ impl BasicParsimonyCost {
 
     fn score(&self) -> f64 {
         for node_idx in self.info.tree.postorder() {
-            if matches!(node_idx, Internal(_)) {
-                self.set_internal(node_idx);
-            } else {
-                self.set_leaf(node_idx);
+            match node_idx {
+                Internal(_) => self.set_internal(node_idx),
+                Leaf(_) => self.set_leaf(node_idx),
             }
         }
         self.tmp.borrow().cost[usize::from(self.info.tree.root)]
