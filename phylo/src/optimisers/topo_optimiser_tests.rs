@@ -8,7 +8,8 @@ use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{
     BranchOptimiser, ModelOptimiser, PhyloOptimisationResult, TopologyOptimiser,
 };
-use crate::parsimony::BasicParsimonyCost;
+use crate::parsimony::scoring::ModelScoringBuilder;
+use crate::parsimony::{BasicParsimonyCost, DolloParsimonyCost};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::pip_model::PIPCost;
 use crate::pip_model::{PIPCostBuilder as PIPCB, PIPModel};
@@ -546,4 +547,70 @@ fn basic_parsimony_tree_search() {
 
     let res = TopologyOptimiser::new(cost).run().unwrap();
     assert_eq!(res.final_cost, -4.0);
+}
+
+#[test]
+fn dollo_tree_search() {
+    let tree = tree!("(((A:1.0,C:1.0)E:2.0,(C:1.0,B:1.0)F:2.0)G:3.0);");
+    let msa = Alignment::from_aligned(
+        Sequences::new(vec![
+            record!("A", b"TTTTTTTTTTTCTATATATA-"),
+            record!("B", b"TTTTTTTTTTTATATATAT-A"),
+            record!("C", b"GGGGGGGGGGGTTATATATA-"),
+            record!("D", b"GGGGGGGGGGGTTATATATA-"),
+        ]),
+        &tree,
+    )
+    .unwrap();
+    let info = PhyloInfo { msa, tree };
+    let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
+    let scoring = ModelScoringBuilder::new(k80)
+        .times(vec![1.0])
+        .build()
+        .unwrap();
+
+    let c = DolloParsimonyCost::with_scoring(info, scoring).unwrap();
+    let unopt_score = c.cost();
+    let o = TopologyOptimiser::new(c).run().unwrap();
+
+    assert!(o.final_cost >= unopt_score);
+    assert_eq!(o.initial_cost, unopt_score);
+    assert_eq!(o.final_cost, o.cost.cost());
+}
+
+#[test]
+fn dollo_tree_search_sim_data_simple() {
+    let fldr = Path::new("./data/sim/");
+    let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
+    let c = DolloParsimonyCost::new(info).unwrap();
+    let unopt_score = c.cost();
+
+    let o = TopologyOptimiser::new(c).run().unwrap();
+    assert!(o.final_cost >= unopt_score);
+    assert_eq!(o.initial_cost, unopt_score);
+    assert_eq!(o.final_cost, o.cost.cost());
+}
+
+#[test]
+fn dollo_tree_search_sim_data_model() {
+    let fldr = Path::new("./data/sim/");
+    let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
+
+    let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
+    let scoring = ModelScoringBuilder::new(k80)
+        .times(vec![1.0])
+        .build()
+        .unwrap();
+
+    let c = DolloParsimonyCost::with_scoring(info, scoring).unwrap();
+    let unopt_score = c.cost();
+    let o = TopologyOptimiser::new(c).run().unwrap();
+
+    assert!(o.final_cost >= unopt_score);
+    assert_eq!(o.initial_cost, unopt_score);
+    assert_eq!(o.final_cost, o.cost.cost());
 }
