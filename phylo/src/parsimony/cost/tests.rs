@@ -122,7 +122,7 @@ fn dollo_parsimony_cost_nogaps() {
         tree,
     };
     let scoring = SimpleScoring::new(1.0, GapCost::new(1.0, 1.0));
-    let cost = DolloParsimonyCost::with_scoring(info, scoring.clone()).unwrap();
+    let cost = DolloParsimonyCost::with_scoring(info, scoring.clone());
     assert_eq!(cost.cost(), -4.0);
 
     let tree2 = tree!("((A:1.0,C:1.0):1.0,(B:1.0,D:1.0):1.0):0.0;");
@@ -130,7 +130,7 @@ fn dollo_parsimony_cost_nogaps() {
         msa: Alignment::from_aligned(seqs.clone(), &tree2).unwrap(),
         tree: tree2,
     };
-    let cost = DolloParsimonyCost::with_scoring(info, scoring.clone()).unwrap();
+    let cost = DolloParsimonyCost::with_scoring(info, scoring.clone());
     assert_eq!(cost.cost(), -5.0);
 
     let tree3 = tree!("((A:1.0,D:1.0):1.0,(C:1.0,B:1.0):1.0):0.0;");
@@ -138,12 +138,12 @@ fn dollo_parsimony_cost_nogaps() {
         msa: Alignment::from_aligned(seqs.clone(), &tree3).unwrap(),
         tree: tree3,
     };
-    let cost = DolloParsimonyCost::with_scoring(info, scoring).unwrap();
+    let cost = DolloParsimonyCost::with_scoring(info, scoring);
     assert_eq!(cost.cost(), -6.0);
 }
 
 #[test]
-fn dollo_parsimony_reroot() {
+fn dollo_parsimony_reroot_simple() {
     let seqs = Sequences::new(vec![
         rec!("A", b"GGA-"),
         rec!("B", b"GGG-"),
@@ -157,7 +157,7 @@ fn dollo_parsimony_reroot() {
         tree,
     };
     let scoring = SimpleScoring::new(1.0, GapCost::new(1.0, 1.0));
-    let cost = DolloParsimonyCost::with_scoring(info, scoring.clone()).unwrap();
+    let cost = DolloParsimonyCost::with_scoring(info, scoring.clone());
     assert_eq!(cost.cost(), -4.0);
 
     let tree_reroot = tree!("(((D:1,(B:1,A:0.5):0.5):1,C:2):0);");
@@ -166,7 +166,7 @@ fn dollo_parsimony_reroot() {
         msa: Alignment::from_aligned(seqs.clone(), &tree_reroot).unwrap(),
         tree: tree_reroot,
     };
-    let cost_reroot = DolloParsimonyCost::with_scoring(info_reroot, scoring).unwrap();
+    let cost_reroot = DolloParsimonyCost::with_scoring(info_reroot, scoring);
     // This is a non-reversible cost function.
     assert_eq!(cost_reroot.cost(), -5.0);
     assert_ne!(cost_reroot.cost(), cost.cost());
@@ -186,7 +186,7 @@ fn dollo_parsimony_cost_gaps() {
         tree,
     };
     let scoring = SimpleScoring::new(1.0, GapCost::new(1.0, 1.0));
-    let cost = DolloParsimonyCost::with_scoring(info, scoring).unwrap();
+    let cost = DolloParsimonyCost::with_scoring(info, scoring);
     assert_eq!(cost.cost(), -1.0);
     assert_eq!(cost.cost(), -1.0);
 }
@@ -194,21 +194,21 @@ fn dollo_parsimony_cost_gaps() {
 #[test]
 fn dollo_parsimony_cost_tree_update() {
     let seqs = Sequences::new(vec![
-        rec!("A", b"GA-T-"),
-        rec!("B", b"GA-TT"),
-        rec!("C", b"-A-TT"),
-        rec!("D", b"-A-TT"),
+        rec!("A", b"G"),
+        rec!("B", b"G"),
+        rec!("C", b"-"),
+        rec!("D", b"-"),
     ]);
     let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
     let info = PhyloInfo {
         msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
         tree: tree.clone(),
     };
-    let scoring = SimpleScoring::new(1.0, GapCost::new(1.0, 1.0));
-    let mut cost = DolloParsimonyCost::with_scoring(info, scoring).unwrap();
-    assert_eq!(cost.cost(), -1.0);
+    let scoring = SimpleScoring::new(1.0, GapCost::new(2.0, 1.0));
+    let mut cost = DolloParsimonyCost::with_scoring(info, scoring);
+    assert_eq!(cost.cost(), -0.0);
     cost.update_tree(tree, &[]);
-    assert_eq!(cost.cost(), -1.0);
+    assert_eq!(cost.cost(), 0.0);
 }
 
 #[test]
@@ -225,9 +225,9 @@ fn dollo_parsimony_cost_deletions() {
         msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
         tree,
     };
-    let scoring = SimpleScoring::new(1.0, GapCost::new(1.0, 1.0));
-    let cost = DolloParsimonyCost::with_scoring(info, scoring).unwrap();
-    assert_eq!(cost.cost(), -2.0);
+    let scoring = SimpleScoring::new(1.0, GapCost::new(2.0, 1.0));
+    let cost = DolloParsimonyCost::with_scoring(info, scoring);
+    assert_eq!(cost.cost(), -4.0);
 }
 
 #[test]
@@ -247,7 +247,7 @@ fn dollo_parsimony_cost_low_insertion() {
         tree,
     };
     let scoring = SimpleScoring::new(1.0, GapCost::new(1.0, 1.0));
-    let cost = DolloParsimonyCost::with_scoring(info, scoring).unwrap();
+    let cost = DolloParsimonyCost::with_scoring(info, scoring);
     assert_eq!(cost.cost(), -2.0);
 }
 
@@ -265,7 +265,7 @@ fn dollo_parsimony_display() {
         tree,
     };
     let scoring = SimpleScoring::new(1.0, GapCost::new(2.4, 2.4));
-    let cost = DolloParsimonyCost::with_scoring(info.clone(), scoring).unwrap();
+    let cost = DolloParsimonyCost::with_scoring(info.clone(), scoring);
     let display = format!("{cost}");
     assert!(display.contains("Dollo parsimony"));
     assert!(display.contains("Simple parsimony scoring"));
@@ -278,7 +278,7 @@ fn dollo_parsimony_display() {
         .times(vec![1.0])
         .build()
         .unwrap();
-    let cost = DolloParsimonyCost::with_scoring(info, scoring).unwrap();
+    let cost = DolloParsimonyCost::with_scoring(info, scoring);
 
     let display = format!("{cost}");
     assert!(display.contains("Dollo parsimony"));
