@@ -151,9 +151,9 @@ impl<P: ParsimonyModel> ParsimonyScoring for ModelScoring<P> {
     }
 
     fn min_match(&self, blen: f64, i: &ParsimonySet, j: &ParsimonySet) -> f64 {
+        // Find minimal score among all pairs of chars in the sets (all to all)
         i.iter()
-            .zip(j.iter())
-            .map(|(a, b)| self.r#match(blen, a, b))
+            .flat_map(|&a| j.iter().map(move |&b| self.r#match(blen, &a, &b)))
             .min_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap_or(0.0)
     }

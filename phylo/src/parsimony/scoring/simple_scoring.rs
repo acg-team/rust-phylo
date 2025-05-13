@@ -41,10 +41,10 @@ impl ParsimonyScoring for SimpleScoring {
     }
 
     fn min_match(&self, _: f64, i: &ParsimonySet, j: &ParsimonySet) -> f64 {
-        if (i & j).is_empty() {
-            self.mismatch
-        } else {
+        if !((i & j).is_empty()) {
             0.0
+        } else {
+            self.mismatch
         }
     }
 
