@@ -78,15 +78,12 @@ impl<S: ParsimonyScoring> DolloParsimonyCost<S> {
             .enumerate()
         {
             tmp.node_leaf_sets[idx][site_idx] = x.union(&y).cloned().collect();
-            if tmp.node_leaf_sets[idx][site_idx] == tmp.leaf_sets[site_idx]
-                && !tmp.node_insertion[idx][site_idx]
+            if (tmp.mrca_reached[childx_idx][site_idx] | tmp.mrca_reached[childy_idx][site_idx])
+                || tmp.node_leaf_sets[idx][site_idx] == tmp.leaf_sets[site_idx]
             {
-                if let Some(parent_idx) = self.info.tree.node(node_idx).parent {
-                    tmp.node_insertion[usize::from(parent_idx)].set(site_idx, true);
-                }
+                tmp.mrca_reached[idx].set(site_idx, true);
             }
         }
-        let insertion = &tmp.node_insertion[idx].clone();
 
         let childx_sets = &tmp.node_info[childx_idx].clone();
         let childy_sets = &tmp.node_info[childy_idx].clone();
@@ -99,21 +96,20 @@ impl<S: ParsimonyScoring> DolloParsimonyCost<S> {
             .enumerate()
             .map(|(i, (x_set, y_set))| {
                 let intersection = x_set & y_set;
-                if intersection.is_empty() {
-                    if !insertion[i] {
-                        let union = x_set | y_set;
-                        if (&union & gap).is_empty() {
-                            cost += self.scoring.min_match(blen, x_set, y_set);
-                        } else {
-                            cost += self.scoring.gap_open(blen);
-                        }
-                        &(x_set | y_set) - gap
-                    } else {
-                        gap.clone()
+                if !intersection.is_empty() {
+                    if intersection != *gap {
+                        cost += self.scoring.min_match(blen, &intersection, &intersection);
                     }
-                } else {
-                    cost += self.scoring.min_match(blen, &intersection, &intersection);
                     intersection
+                } else if tmp.mrca_reached[childx_idx][i] | tmp.mrca_reached[childy_idx][i] {
+                    gap.clone()
+                } else {
+                    if x_set == gap || y_set == gap {
+                        cost += self.scoring.gap_open(blen);
+                    } else {
+                        cost += self.scoring.min_match(blen, x_set, y_set);
+                    }
+                    &(x_set | y_set) - gap
                 }
             })
             .collect();
@@ -130,13 +126,18 @@ impl<S: ParsimonyScoring> DolloParsimonyCost<S> {
     fn set_leaf(&self, node_idx: &NodeIdx) {
         let node = self.info.tree.node(node_idx);
         let idx = usize::from(node_idx);
+
+        if self.tmp.borrow().node_info_valid[idx] {
+            return;
+        }
+
         let mut tmp = self.tmp.borrow_mut();
 
-        if !tmp.node_info_valid[idx] {
-            if let Some(parent_idx) = node.parent {
-                tmp.node_info_valid[usize::from(parent_idx)] = false;
-            }
-        }
+        tmp.node_info_valid[usize::from(
+            node.parent
+                .expect("A leaf node should always have a parent"),
+        )] = false;
+
         tmp.node_info_valid[idx] = true;
         drop(tmp);
     }
@@ -171,7 +172,7 @@ impl<S: ParsimonyScoring> TreeSearchCost for DolloParsimonyCost<S> {
 pub struct DolloParsimonyInfo {
     node_info: Vec<Vec<ParsimonySet>>,
     node_info_valid: Vec<bool>,
-    node_insertion: Vec<FixedBitSet>,
+    mrca_reached: Vec<FixedBitSet>,
     leaf_sets: Vec<HashSet<usize>>,
     node_leaf_sets: Vec<Vec<HashSet<usize>>>,
     cost: Vec<f64>,
@@ -184,18 +185,18 @@ impl DolloParsimonyInfo {
         let msa_length = info.msa.len();
 
         let mut node_info = vec![vec![ParsimonySet::empty(); msa_length]; node_count];
-        let mut node_insertion = vec![FixedBitSet::with_capacity(msa_length); node_count];
+        let mut mrca_reached = vec![FixedBitSet::with_capacity(msa_length); node_count];
 
         let mut leaf_sets = vec![HashSet::with_capacity(leaf_count); msa_length];
         let mut node_leaf_sets =
             vec![vec![HashSet::with_capacity(leaf_count); msa_length]; node_count];
 
-        for node in info.tree.leaves() {
-            let seq = info.msa.seqs.record_by_id(&node.id).seq().to_vec();
-            let leaf_map = info.msa.leaf_map(&node.idx);
-            let node_idx = usize::from(node.idx);
+        for leaf in info.tree.leaves() {
+            let seq = info.msa.seqs.record_by_id(&leaf.id).seq().to_vec();
+            let leaf_map = info.msa.leaf_map(&leaf.idx);
+            let node_idx = usize::from(leaf.idx);
 
-            node_insertion[node_idx].set_range(.., false);
+            mrca_reached[node_idx].set_range(.., false);
 
             for (idx, &site) in leaf_map.iter().enumerate() {
                 if let Some(pos) = site {
@@ -208,10 +209,19 @@ impl DolloParsimonyInfo {
             }
         }
 
+        for leaf in info.tree.leaves() {
+            let leaf_idx = usize::from(leaf.idx);
+            for (site, leaf_set) in leaf_sets.iter().enumerate() {
+                if node_leaf_sets[leaf_idx][site] == *leaf_set {
+                    mrca_reached[leaf_idx].set(site, true);
+                }
+            }
+        }
+
         DolloParsimonyInfo {
             node_info,
             node_info_valid: vec![false; node_count],
-            node_insertion,
+            mrca_reached,
             leaf_sets,
             node_leaf_sets,
             cost: vec![0.0; node_count],
