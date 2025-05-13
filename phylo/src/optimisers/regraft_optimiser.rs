@@ -96,9 +96,23 @@ fn calc_regraft_costs<C: TreeSearchCost + Clone + Display>(
     regraft_locations: Vec<NodeIdx>,
     cost: &C,
 ) -> impl Iterator<Item = Result<RegraftCostInfo>> + use<'_, C> {
-    regraft_locations.into_iter().map(move |regraft| {
-        calc_spr_cost_with_blen_opt(prune_location, regraft, base_cost, cost.clone())
-    })
+    if cost.blen_optimisation() {
+        regraft_locations
+            .into_iter()
+            .map(move |regraft| {
+                calc_spr_cost_with_blen_opt(prune_location, regraft, base_cost, cost.clone())
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+    } else {
+        regraft_locations
+            .into_iter()
+            .map(move |regraft| {
+                calc_spr_cost_wo_blen_opt(prune_location, regraft, base_cost, cost.clone())
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+    }
 }
 
 /// if the move doesn't result in improvement over `base_cost`
@@ -125,6 +139,24 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
         }
     }
     debug!("    Regraft to {:?} w best cost {}.", regraft, move_cost);
+    Ok(RegraftCostInfo {
+        cost: move_cost,
+        regraft,
+        tree: new_tree,
+    })
+}
+
+fn calc_spr_cost_wo_blen_opt<C: TreeSearchCost + Clone + Display>(
+    prune_location: NodeIdx,
+    regraft: NodeIdx,
+    _: f64,
+    mut cost_func: C,
+) -> Result<RegraftCostInfo> {
+    let new_tree = cost_func.tree().rooted_spr(&prune_location, &regraft)?;
+    cost_func.update_tree(new_tree.clone(), &[prune_location, regraft]);
+    let move_cost = cost_func.cost();
+
+    debug!("    Regraft to {:?} w cost {}.", regraft, move_cost);
     Ok(RegraftCostInfo {
         cost: move_cost,
         regraft,

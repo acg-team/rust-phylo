@@ -93,10 +93,12 @@ impl<C: TreeSearchCost + Clone + Display> TopologyOptimiser<C> {
             curr_cost = spr::fold_improving_moves(&mut self.c, curr_cost, &current_prunes)?;
 
             // Optimise branch lengths on current tree to match PhyML
-            let o = BranchOptimiser::new(self.c.clone()).run()?;
-            if o.final_cost > curr_cost {
-                curr_cost = o.final_cost;
-                self.c.update_tree(o.cost.tree().clone(), &[]);
+            if self.c.blen_optimisation() {
+                let o = BranchOptimiser::new(self.c.clone()).run()?;
+                if o.final_cost > curr_cost {
+                    curr_cost = o.final_cost;
+                    self.c.update_tree(o.cost.tree().clone(), &[]);
+                }
             }
             debug!("Tree after iteration {}: \n{}", iterations, self.c.tree());
         }

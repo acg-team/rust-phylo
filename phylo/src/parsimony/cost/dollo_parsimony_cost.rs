@@ -169,6 +169,10 @@ impl TreeSearchCost for DolloParsimonyCost {
     fn tree(&self) -> &Tree {
         &self.info.tree
     }
+
+    fn blen_optimisation(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

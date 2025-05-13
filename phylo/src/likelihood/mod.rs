@@ -8,6 +8,9 @@ pub trait TreeSearchCost {
     // TODO: enforce this in the trait.
     fn update_tree(&mut self, tree: Tree, dirty_nodes: &[NodeIdx]);
     fn tree(&self) -> &Tree;
+    fn blen_optimisation(&self) -> bool {
+        true
+    }
 }
 
 pub trait ModelSearchCost {
