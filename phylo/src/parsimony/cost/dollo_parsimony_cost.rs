@@ -61,14 +61,14 @@ impl<S: ParsimonyScoring> DolloParsimonyCost<S> {
     fn set_internal(&self, node_idx: &NodeIdx) {
         let node = self.info.tree.node(node_idx);
         let idx = usize::from(node_idx);
-        let childx_idx = usize::from(&node.children[0]);
-        let childy_idx = usize::from(&node.children[1]);
-
-        let blen = node.blen;
 
         if self.tmp.borrow().node_info_valid[idx] {
             return;
         }
+
+        let childx_idx = usize::from(&node.children[0]);
+        let childy_idx = usize::from(&node.children[1]);
+        let blen = node.blen;
 
         let mut tmp = self.tmp.borrow_mut();
         for (site_idx, (x, y)) in tmp.node_leaf_sets[childx_idx]
