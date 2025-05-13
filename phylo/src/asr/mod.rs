@@ -1,11 +1,7 @@
-use crate::alignment::{AlignmentTrait, AncestralAlignmentTrait};
+use crate::alignment::{Alignment, AncestralAlignment};
 use crate::tree::Tree;
 use crate::Result;
 
-pub trait Asr {
-    fn asr<L: AlignmentTrait>(
-        &self,
-        leaf_alignment: &L,
-        tree: &Tree,
-    ) -> Result<impl AncestralAlignmentTrait>;
+pub trait AncestralSequenceReconstruction<A: Alignment, AA: AncestralAlignment> {
+    fn reconstruct_ancestral_seqs(&self, leaf_alignment: &A, tree: &Tree) -> Result<AA>;
 }

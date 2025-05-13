@@ -11,7 +11,7 @@ use lazy_static::lazy_static;
 use log::warn;
 use nalgebra::{DMatrix, DVector};
 
-use crate::alignment::{Alignment, AlignmentTrait, Mapping};
+use crate::alignment::{Alignment, Mapping};
 use crate::alphabets::{Alphabet, GAP};
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
@@ -177,19 +177,23 @@ pub struct PIPModelInfo<Q: QMatrix> {
 }
 
 impl<Q: QMatrix> PIPModelInfo<Q> {
-    pub fn new<M: AlignmentTrait>(info: &PhyloInfo<M>, model: &PIPModel<Q>) -> Result<Self> {
+    pub fn new<M: Alignment>(info: &PhyloInfo<M>, model: &PIPModel<Q>) -> Result<Self> {
         let n = model.q().nrows();
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
         let mut leaf_seq_info: HashMap<String, DMatrix<f64>> = HashMap::new();
         for node in info.tree.leaves() {
             let alignment_map = info.msa.leaf_map(&node.idx);
-            let leaf_encoding = info.msa.leaf_encoding();
-            let leaf_encoding = leaf_encoding.get(&node.id).unwrap();
+            let seq = info.msa.seqs().record_by_id(&node.id).seq().to_vec();
             let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(n, msa_length);
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
-                    let encoding = leaf_encoding.column(c).insert_row(n - 1, 0.0);
+                    let encoding = info
+                        .msa
+                        .alphabet()
+                        .char_encoding(seq[c])
+                        .clone()
+                        .insert_row(n - 1, 0.0);
                     site_info.copy_from(&encoding);
                 } else {
                     site_info.fill_row(n - 1, 1.0);
@@ -215,17 +219,17 @@ impl<Q: QMatrix> PIPModelInfo<Q> {
     }
 }
 
-pub struct PIPCostBuilder<Q: QMatrix> {
+pub struct PIPCostBuilder<Q: QMatrix, A: Alignment> {
     model: PIPModel<Q>,
-    info: PhyloInfo<Alignment>,
+    info: PhyloInfo<A>,
 }
 
-impl<Q: QMatrix> PIPCostBuilder<Q> {
-    pub fn new(model: PIPModel<Q>, info: PhyloInfo<Alignment>) -> Self {
+impl<Q: QMatrix, A: Alignment> PIPCostBuilder<Q, A> {
+    pub fn new(model: PIPModel<Q>, info: PhyloInfo<A>) -> Self {
         PIPCostBuilder { model, info }
     }
 
-    pub fn build(self) -> Result<PIPCost<Q, Alignment>> {
+    pub fn build(self) -> Result<PIPCost<Q, A>> {
         if self.info.msa.alphabet() != self.model.alphabet() {
             bail!("Alphabet mismatch between model and alignment.");
         }
@@ -240,13 +244,13 @@ impl<Q: QMatrix> PIPCostBuilder<Q> {
 }
 
 #[derive(Debug, Clone)]
-pub struct PIPCost<Q: QMatrix, M: AlignmentTrait> {
+pub struct PIPCost<Q: QMatrix, M: Alignment> {
     pub(crate) model: PIPModel<Q>,
     pub(crate) info: PhyloInfo<M>,
     tmp: RefCell<PIPModelInfo<Q>>,
 }
 
-impl<Q: QMatrix, M: AlignmentTrait> TreeSearchCost for PIPCost<Q, M> {
+impl<Q: QMatrix, M: Alignment> TreeSearchCost for PIPCost<Q, M> {
     fn cost(&self) -> f64 {
         self.logl()
     }
@@ -269,7 +273,7 @@ impl<Q: QMatrix, M: AlignmentTrait> TreeSearchCost for PIPCost<Q, M> {
     }
 }
 
-impl<Q: QMatrix, M: AlignmentTrait> ModelSearchCost for PIPCost<Q, M> {
+impl<Q: QMatrix, M: Alignment> ModelSearchCost for PIPCost<Q, M> {
     fn cost(&self) -> f64 {
         self.logl()
     }
@@ -296,13 +300,13 @@ impl<Q: QMatrix, M: AlignmentTrait> ModelSearchCost for PIPCost<Q, M> {
     }
 }
 
-impl<Q: QMatrix + Display, M: AlignmentTrait> Display for PIPCost<Q, M> {
+impl<Q: QMatrix + Display, M: Alignment> Display for PIPCost<Q, M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.model)
     }
 }
 
-impl<Q: QMatrix, M: AlignmentTrait> PIPCost<Q, M> {
+impl<Q: QMatrix, M: Alignment> PIPCost<Q, M> {
     fn logl(&self) -> f64 {
         for node_idx in self.info.tree.postorder() {
             match node_idx {

@@ -6,7 +6,7 @@ use rand::thread_rng;
 use crate::alignment::{
     sequences::Sequences, InternalAlignments, PairwiseAlignment as PA, SeqMaps,
 };
-use crate::alignment::{Alignment, AlignmentTrait, AncestralAlignment};
+use crate::alignment::{Alignment, MASA, MSA};
 use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, NUCLEOTIDES};
 use crate::io::read_sequences;
 use crate::tree::{
@@ -155,9 +155,9 @@ fn build_from_aligned_sequences() {
     let aligned_seqs = test_alignment(&["A0", "B1", "C2", "D3", "E4"]);
     let unaligned_seqs = aligned_seqs.into_gapless();
     let (node_map, leaf_map) = maps();
-    let msa = Alignment::from_aligned(aligned_seqs.clone(), &tree).unwrap();
+    let msa = MSA::from_aligned(aligned_seqs.clone(), &tree).unwrap();
 
-    assert_eq!(*msa.int_align_map(), node_map);
+    assert_eq!(*msa.internal_alignments(), node_map);
     // TODO: also check if they have the same size, or also add method that retrieves all leaf_maps at once to the trait
     for (leaf, map) in &leaf_map {
         assert_eq!(msa.leaf_map(leaf), map);
@@ -177,7 +177,7 @@ fn fail_from_unaligned_sequences() {
         record!("E4", Some("E4 sequence"), b"AAAA"),
     ]);
     let tree = test_tree();
-    let msa = Alignment::from_aligned(seqs, &tree);
+    let msa = MSA::from_aligned(seqs, &tree);
     assert!(msa.is_err());
 }
 
@@ -189,7 +189,7 @@ fn compile_msa_root() {
             .into_iter()
             .choose_multiple(&mut thread_rng(), 5),
     );
-    let msa = Alignment::from_aligned(aligned_seqs.clone(), &tree).unwrap();
+    let msa = MSA::from_aligned(aligned_seqs.clone(), &tree).unwrap();
     assert_eq!(msa.compile(&tree).unwrap(), aligned_seqs);
 }
 
@@ -197,7 +197,7 @@ fn compile_msa_root() {
 fn compile_msa_int1() {
     let tree = test_tree();
     let aligned_seqs = test_alignment(&["A0", "B1", "C2", "D3", "E4"]);
-    let msa = Alignment::from_aligned(aligned_seqs, &tree).unwrap();
+    let msa = MSA::from_aligned(aligned_seqs, &tree).unwrap();
     assert_eq!(
         msa.compile_subroot(Some(&tree.idx("I5")), &tree).unwrap(),
         test_alignment(&["A0", "B1"]),
@@ -208,7 +208,7 @@ fn compile_msa_int1() {
 fn compile_msa_int2() {
     let tree = test_tree();
     let aligned_seqs = test_alignment(&["A0", "B1", "C2", "D3", "E4"]);
-    let msa = Alignment::from_aligned(aligned_seqs, &tree).unwrap();
+    let msa = MSA::from_aligned(aligned_seqs, &tree).unwrap();
     let d3 = test_alignment(&["D3"]).s.pop().unwrap();
     let e4 = test_alignment(&["E4"]).s.pop().unwrap();
     let data = Sequences::new(vec![
@@ -226,7 +226,7 @@ fn compile_msa_leaf() {
     let tree = test_tree();
     let aligned_seqs = test_alignment(&["A0", "B1", "C2", "D3", "E4"]);
     let unaligned_seqs = aligned_seqs.clone().into_gapless();
-    let msa = Alignment::from_aligned(aligned_seqs.clone(), &tree).unwrap();
+    let msa = MSA::from_aligned(aligned_seqs.clone(), &tree).unwrap();
     for leaf_id in tree.leaf_ids() {
         assert_eq!(
             msa.compile_subroot(Some(&tree.idx(&leaf_id)), &tree)
@@ -241,7 +241,7 @@ fn input_msa_empty_col() {
     let tree = test_tree();
     let sequences =
         Sequences::new(read_sequences(&PathBuf::from("./data/sequences_empty_col.fasta")).unwrap());
-    let msa = Alignment::from_aligned(sequences, &tree).unwrap();
+    let msa = MSA::from_aligned(sequences, &tree).unwrap();
     assert_eq!(msa.len(), 40 - 1);
     assert_eq!(msa.seq_count(), 5);
 }
@@ -282,7 +282,7 @@ fn display_alignment() {
     let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
     let sequences =
         Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
-    let msa = Alignment::from_aligned(sequences, &tree).unwrap();
+    let msa = MSA::from_aligned(sequences, &tree).unwrap();
 
     let s = format!("{}", msa.compile(&tree).unwrap());
     let mut lines = s.lines().collect::<Vec<_>>();
@@ -302,7 +302,7 @@ fn display_ancestral_alignment() {
     let sequences = Sequences::new(
         read_sequences(&PathBuf::from("./data/sequences_DNA1_with_ancestors.fasta")).unwrap(),
     );
-    let msa = AncestralAlignment::from_aligned(sequences, &tree).unwrap();
+    let msa = MASA::from_aligned(sequences, &tree).unwrap();
 
     let s = format!("{}", msa);
     let mut lines = s.lines().collect::<Vec<_>>();

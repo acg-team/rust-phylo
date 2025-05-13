@@ -1,7 +1,6 @@
 use std::default;
 use std::fmt::Display;
 
-use hashbrown::HashMap;
 use log::info;
 use nalgebra::DMatrix;
 
@@ -27,8 +26,8 @@ pub struct ParsimonyAligner<PC: ParsimonyCosts> {
     pub scoring: PC,
 }
 
-impl<PC: ParsimonyCosts + Clone> Aligner for ParsimonyAligner<PC> {
-    fn align(&self, seqs: &Sequences, tree: &Tree) -> Result<Alignment> {
+impl<PC: ParsimonyCosts + Clone, A: Alignment> Aligner<A> for ParsimonyAligner<PC> {
+    fn align(&self, seqs: &Sequences, tree: &Tree) -> Result<A> {
         self.align_with_scores(seqs, tree).map(|(a, _)| a)
     }
 }
@@ -46,20 +45,18 @@ impl<'a, PC: ParsimonyCosts + Clone> ParsimonyAligner<PC> {
         ParsimonyAligner { scoring }
     }
 
-    pub fn align_with_scores(
+    pub fn align_with_scores<A: Alignment>(
         &self,
         seqs: &'a Sequences,
         tree: &'a Tree,
-    ) -> Result<(Alignment, Vec<f64>)> {
+    ) -> Result<(A, Vec<f64>)> {
         info!("Starting the IndelMAP alignment.");
-
-        let order = tree.postorder();
 
         let mut node_info = vec![Vec::<ParsimonySite>::new(); tree.len()];
         let mut alignments = InternalAlignments::with_capacity(tree.internals().len());
         let mut scores = vec![0.0; tree.len()];
 
-        for &node_idx in order {
+        for &node_idx in tree.postorder() {
             info!("Processing {}{}.", node_idx, tree.node(&node_idx).id);
             match node_idx {
                 Int(idx) => {
@@ -94,16 +91,8 @@ impl<'a, PC: ParsimonyCosts + Clone> ParsimonyAligner<PC> {
             }
         }
         info!("Finished IndelMAP alignment.");
+        let alignment = A::from_internal_alignments(seqs, alignments, tree);
 
-        let mut alignment = Alignment {
-            seqs: seqs.into_gapless(),
-            leaf_map: HashMap::new(),
-            int_align_map: alignments,
-            leaf_encoding: HashMap::new(),
-        };
-        let leaf_map = alignment.compile_leaf_map(&tree.root, tree).unwrap();
-        alignment.leaf_map = leaf_map;
-        alignment.leaf_encoding = alignment.seqs.generate_leaf_encoding();
         Ok((alignment, scores))
     }
 

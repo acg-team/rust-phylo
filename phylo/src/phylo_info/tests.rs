@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use approx::assert_relative_eq;
 use assert_matches::assert_matches;
 
-use crate::alignment::{Alignment, AlignmentTrait, Sequences};
+use crate::alignment::{Alignment, Sequences, MSA};
 use crate::alphabets::{dna_alphabet, protein_alphabet};
 use crate::io::{read_sequences, DataError};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
@@ -14,7 +14,7 @@ use crate::{frequencies, record_wo_desc as record, tree};
 
 #[cfg(test)]
 fn downcast_error<T: Display + Debug + Send + Sync + 'static>(
-    result: &Result<PhyloInfo<impl AlignmentTrait + Debug>, anyhow::Error>,
+    result: &Result<PhyloInfo<MSA>, anyhow::Error>,
 ) -> &T {
     (result.as_ref().unwrap_err()).downcast_ref::<T>().unwrap()
 }
@@ -22,7 +22,7 @@ fn downcast_error<T: Display + Debug + Send + Sync + 'static>(
 #[test]
 fn empirical_frequencies_easy() {
     let tree = tree!("(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"AAAAA"),
             record!("B", b"CCCCC"),
@@ -41,7 +41,7 @@ fn empirical_frequencies_easy() {
 #[test]
 fn empirical_frequencies() {
     let tree = tree!("(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"TT"),
             record!("B", b"CA"),
@@ -237,7 +237,7 @@ fn check_phyloinfo_creation_newick_mismatch_ids() {
 #[test]
 fn check_empirical_frequencies() {
     let tree = tree!("((((A:2,B:2):1,C:2):1,D:2):0);");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"AAAAC"),
             record!("B", b"TTTCC"),
@@ -256,7 +256,7 @@ fn check_empirical_frequencies() {
 #[test]
 fn empirical_frequencies_no_ambigs() {
     let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("one", b"CCCCCCCC"),
             record!("two", b"AAAAAAAA"),
@@ -273,7 +273,7 @@ fn empirical_frequencies_no_ambigs() {
 #[test]
 fn empirical_frequencies_ambig_x() {
     let tree = tree!("((on:2,tw:2):1,(th:1,fo:1):2);");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("on", b"XXXXXXXX"),
             record!("tw", b"XXXXXXXX"),
@@ -290,7 +290,7 @@ fn empirical_frequencies_ambig_x() {
 #[test]
 fn empirical_frequencies_ambig_n() {
     let tree = tree!("(((on:2,tw:2):1,th:1):4,fo:1);");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("on", b"AAAAAAAAAA"),
             record!("tw", b"XXXXXXXXXX"),
@@ -311,7 +311,7 @@ fn empirical_frequencies_ambig_n() {
 #[test]
 fn empirical_frequencies_ambig_other() {
     let tree = tree!("(A:2,B:2):1.0;");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"VVVVVVVVVV"),
             record!("B", b"TTTTVVVTVV"),
@@ -326,7 +326,7 @@ fn empirical_frequencies_ambig_other() {
     };
     assert_relative_eq!(info.freqs(), frequencies!(&[0.25; 4]), epsilon = 1e-6);
 
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"SSSSSSSSSSSSSSSSSSSS"),
             record!("B", b"WWWWWWWWWWWWWWWWWWWW"),
@@ -341,8 +341,7 @@ fn empirical_frequencies_ambig_other() {
 #[test]
 fn empirical_frequencies_no_aas() {
     let tree = tree!("A:1.0;");
-    let msa =
-        Alignment::from_aligned(Sequences::new(vec![record!("A", b"BBBBBBBBB")]), &tree).unwrap();
+    let msa = MSA::from_aligned(Sequences::new(vec![record!("A", b"BBBBBBBBB")]), &tree).unwrap();
 
     let info = PhyloInfo { tree, msa };
     assert_relative_eq!(

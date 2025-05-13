@@ -2,7 +2,7 @@ use std::path::Path;
 
 use approx::assert_relative_eq;
 
-use crate::alignment::{Alignment, Sequences};
+use crate::alignment::{Alignment, Sequences, MSA};
 use crate::evolutionary_models::FrequencyOptimisation::Empirical;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{
@@ -26,7 +26,7 @@ macro_rules! define_optimise_trees {
                 seq_file: &std::path::Path,
                 _: &std::path::Path,
                 model: $model<Q>,
-            ) -> PhyloOptimisationResult<$cost<Q>> {
+            ) -> PhyloOptimisationResult<$cost<Q,MSA>> {
                 let start_info = PIB::new(seq_file.to_path_buf()).build().unwrap();
                 let cost = $builder::new(model, start_info).build().unwrap();
                 TopologyOptimiser::new(cost).run().unwrap()
@@ -37,7 +37,7 @@ macro_rules! define_optimise_trees {
                 seq_file: &std::path::Path,
                 tree_file: &std::path::Path,
                 model: $model<Q>,
-            ) -> PhyloOptimisationResult<$cost<Q>> {
+            ) -> PhyloOptimisationResult<$cost<Q,MSA>> {
                 let start_info = PIB::new(seq_file.to_path_buf()).build().unwrap();
 
                 if let Ok(precomputed) =
@@ -76,7 +76,7 @@ define_optimise_trees!(
 fn k80_simple() {
     // Check that optimisation on k80 data improves k80 likelihood when starting from a given tree
     let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"CTATATATAC"),
             record!("B", b"ATATATATAA"),

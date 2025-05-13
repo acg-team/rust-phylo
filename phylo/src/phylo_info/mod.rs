@@ -1,4 +1,4 @@
-use crate::alignment::{AlignmentTrait, Sequences};
+use crate::alignment::{Alignment, Sequences};
 use crate::substitution_models::FreqVector;
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
@@ -16,14 +16,14 @@ pub use phyloinfo_builder::*;
 /// * Enure encoding matches model.
 /// * Add support for unaligned sequences.
 #[derive(Debug, Clone)]
-pub struct PhyloInfo<M: AlignmentTrait> {
+pub struct PhyloInfo<A: Alignment> {
     /// Multiple sequence alignment
-    pub msa: M,
+    pub msa: A,
     /// Phylogenetic tree
     pub tree: Tree,
 }
 
-impl<M: AlignmentTrait> PhyloInfo<M> {
+impl<A: Alignment> PhyloInfo<A> {
     /// Compiles a representation of the alignment in a vector of fasta records.
     /// The alignment is compiled from the subtree rooted at `subroot`.
     /// If `subroot` is None, the whole alignment is compiled.

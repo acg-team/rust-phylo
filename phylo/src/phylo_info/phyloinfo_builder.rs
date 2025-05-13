@@ -4,22 +4,26 @@ use std::path::PathBuf;
 use anyhow::bail;
 use log::{info, warn};
 
-use crate::alignment::{Aligner, Alignment, AlignmentTrait, Sequences};
+use crate::alignment::{Aligner, Alignment, AncestralAlignment, Sequences, MASA, MSA};
 use crate::alphabets::Alphabet;
+use crate::asr::AncestralSequenceReconstruction;
 use crate::io::{self, DataError};
 use crate::parsimony::ParsimonyAligner;
 use crate::phylo_info::PhyloInfo;
 use crate::tree::{build_nj_tree, Tree};
 use crate::Result;
 
-pub struct PhyloInfoBuilder {
+pub struct PhyloInfoBuilder<A: Alignment, AA: AncestralAlignment> {
     sequence_file: PathBuf,
     tree_file: Option<PathBuf>,
-    alignment_builder: Option<Box<dyn Aligner>>,
+    // since alignment and asr is only done once, we can use dynamic dispatch
+    // but since we access the alignment on a regular basis (or do we actually? since we instead use the encoding)
+    aligner: Option<Box<dyn Aligner<A>>>,
+    asr: Option<Box<dyn AncestralSequenceReconstruction<A, AA>>>,
     alphabet: Option<Alphabet>,
 }
 
-impl PhyloInfoBuilder {
+impl PhyloInfoBuilder<MSA, MASA> {
     /// Creates a new empty PhyloInfoBuilder struct with only the sequence file path set.
     /// The tree file path is set to None.
     ///
@@ -32,11 +36,12 @@ impl PhyloInfoBuilder {
     /// use phylo::phylo_info::PhyloInfoBuilder;
     /// let builder = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta"));
     /// ```
-    pub fn new(sequence_file: PathBuf) -> PhyloInfoBuilder {
+    pub fn new(sequence_file: PathBuf) -> PhyloInfoBuilder<MSA, MASA> {
         PhyloInfoBuilder {
             sequence_file,
             tree_file: None,
-            alignment_builder: None,
+            aligner: None,
+            asr: None,
             alphabet: None,
         }
     }
@@ -55,15 +60,18 @@ impl PhyloInfoBuilder {
     ///     PathBuf::from("./data/sequences_DNA_small.fasta"),
     ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"));
     /// ```
-    pub fn with_attrs(sequence_file: PathBuf, tree_file: PathBuf) -> PhyloInfoBuilder {
+    pub fn with_attrs(sequence_file: PathBuf, tree_file: PathBuf) -> PhyloInfoBuilder<MSA, MASA> {
         PhyloInfoBuilder {
             sequence_file,
             tree_file: Some(tree_file),
-            alignment_builder: None,
+            aligner: None,
+            asr: None,
             alphabet: None,
         }
     }
+}
 
+impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     /// Sets the sequence file path for the PhyloInfoBuilder struct.
     /// Returns the PhyloInfoBuilder struct with the sequence file path set.
     ///
@@ -77,7 +85,7 @@ impl PhyloInfoBuilder {
     /// let builder = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta"))
     ///    .sequence_file(PathBuf::from("./data/sequences_DNA_small.fasta"));
     /// ```
-    pub fn sequence_file(mut self, path: PathBuf) -> PhyloInfoBuilder {
+    pub fn sequence_file(mut self, path: PathBuf) -> PhyloInfoBuilder<A, AA> {
         self.sequence_file = path;
         self
     }
@@ -95,7 +103,7 @@ impl PhyloInfoBuilder {
     /// let builder = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta"))
     ///   .tree_file(Some(PathBuf::from("./data/tree_diff_branch_lengths_2.newick")));
     /// ```
-    pub fn tree_file(mut self, path: Option<PathBuf>) -> PhyloInfoBuilder {
+    pub fn tree_file(mut self, path: Option<PathBuf>) -> PhyloInfoBuilder<A, AA> {
         self.tree_file = path;
         self
     }
@@ -114,7 +122,7 @@ impl PhyloInfoBuilder {
     /// let info = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta")).alphabet(Some(protein_alphabet())).build().unwrap();
     /// assert_eq!(info.msa.alphabet(), &protein_alphabet());
     /// ```
-    pub fn alphabet(mut self, alphabet: Option<Alphabet>) -> PhyloInfoBuilder {
+    pub fn alphabet(mut self, alphabet: Option<Alphabet>) -> PhyloInfoBuilder<A, AA> {
         self.alphabet = alphabet;
         self
     }
@@ -141,7 +149,7 @@ impl PhyloInfoBuilder {
     /// assert_eq!(info.tree.leaves().len(), 4);
     /// assert_eq!(info.tree.len(), 7);
     /// ```
-    pub fn build(self) -> Result<PhyloInfo<impl AlignmentTrait>> {
+    pub fn build(self) -> Result<PhyloInfo<A>> {
         info!(
             "Reading sequences from file {}",
             self.sequence_file.display()
@@ -171,16 +179,18 @@ impl PhyloInfoBuilder {
 
         let msa = if sequences.aligned {
             info!("Sequences are aligned.");
-            Alignment::from_aligned(sequences, &tree)?
+            A::from_aligned(sequences, &tree)?
         } else {
             info!("Sequences are not aligned, aligning.");
-            self.alignment_builder
+            self.aligner
                 .unwrap_or(Box::new(ParsimonyAligner::default()))
                 .align(&sequences, &tree)?
         };
 
         Ok(PhyloInfo { tree, msa })
     }
+
+    // pub fn build_with_ancestors(self) -> Result<PhyloInfo<impl AncestralAlignment>> {}
 
     fn read_tree(&self, sequences: &Sequences, tree_file: &PathBuf) -> Result<Tree> {
         info!("Reading trees from file {}", tree_file.display());

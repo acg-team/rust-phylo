@@ -1,5 +1,5 @@
-use crate::alignment::{Alignment, AlignmentTrait, AncestralAlignmentTrait, Sequences};
-use crate::asr::Asr;
+use crate::alignment::{Alignment, AncestralAlignment, Sequences, MASA, MSA};
+use crate::asr::AncestralSequenceReconstruction;
 use crate::parsimony_indel_sites::ParsimonyIndelSites;
 use crate::tree::NodeIdx::{Internal, Leaf};
 use crate::tree::Tree;
@@ -41,11 +41,11 @@ fn asr() {
     let tree = test_tree();
     let aligned_s = aligned_seqs_with_ancestors_subset(&["A0", "B1", "C2", "D3", "E4"]);
     let all_seqs = aligned_seqs_with_ancestors();
-    let msa = Alignment::from_aligned(aligned_s.clone(), &tree).unwrap();
+    let msa = MSA::from_aligned(aligned_s.clone(), &tree).unwrap();
     let p_asr = ParsimonyIndelSites {};
 
     // act
-    let ancestral_msa = p_asr.asr(&msa, &tree).unwrap();
+    let ancestral_msa: MASA = p_asr.reconstruct_ancestral_seqs(&msa, &tree).unwrap();
     let ancestral_msa_len = msa.len();
 
     // assert
@@ -57,9 +57,14 @@ fn asr() {
         };
         assert_eq!(msa_map, true_map);
     }
-    let seqs = ancestral_msa.seqs();
-    let true_seqs = aligned_seqs_with_ancestors().into_gapless();
-    assert_eq!(seqs.s, true_seqs.s);
+    let leaf_seqs = ancestral_msa.seqs();
+    let true_leaf_seqs =
+        aligned_seqs_with_ancestors_subset(&["A0", "B1", "C2", "D3", "E4"]).into_gapless();
+    assert_eq!(leaf_seqs.s, true_leaf_seqs.s);
+    let ancestral_seqs = ancestral_msa.ancestral_seqs();
+    let true_ancestral_seqs =
+        aligned_seqs_with_ancestors_subset(&["I5", "I6", "I7", "I8"]).into_gapless();
+    assert_eq!(ancestral_seqs.s, true_ancestral_seqs.s);
     assert_eq!(ancestral_msa_len, 6);
-    assert_eq!(ancestral_msa.seq_count(), 9);
+    assert_eq!(ancestral_msa.seq_count(), 5);
 }

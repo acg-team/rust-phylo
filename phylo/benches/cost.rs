@@ -1,5 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use phylo::{
+    alignment::MSA,
     evolutionary_models::FrequencyOptimisation,
     likelihood::ModelSearchCost,
     pip_model::PIPCost,
@@ -18,7 +19,7 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
     criterion: &mut Criterion,
 ) {
     let mut bench_group = criterion.benchmark_group(group_name);
-    let mut bench = |id: &str, data: PIPCost<Q>| {
+    let mut bench = |id: &str, data: PIPCost<Q, MSA>| {
         bench_group.bench_function(id, |bench| {
             bench.iter_batched(
                 // clone because of interior mutability
