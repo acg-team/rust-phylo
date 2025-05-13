@@ -491,12 +491,13 @@ impl<Q: QMatrix> PIPCost<Q> {
         let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
         let mut tmp = self.tmp.borrow_mut();
 
-        let x_anc = tmp.anc[children[0]].column(0).clone_owned();
-        let y_anc = tmp.anc[children[1]].column(0).clone_owned();
+        // TODO: unnecessary clone of whole matrix
+        let x_anc = tmp.anc[children[0]].clone();
+        let y_anc = tmp.anc[children[1]].clone();
 
-        tmp.anc[idx].set_column(1, &x_anc);
-        tmp.anc[idx].set_column(2, &y_anc);
-        tmp.anc[idx].set_column(0, &(x_anc + y_anc));
+        tmp.anc[idx].set_column(1, &x_anc.column(0));
+        tmp.anc[idx].set_column(2, &y_anc.column(0));
+        tmp.anc[idx].set_column(0, &(x_anc.column(0) + y_anc.column(0)));
         for i in 0..tmp.anc[idx].nrows() {
             debug_assert!((0.0..=2.0).contains(&tmp.anc[idx][(i, 0)]));
             if tmp.anc[idx][(i, 0)] == 2.0 {
