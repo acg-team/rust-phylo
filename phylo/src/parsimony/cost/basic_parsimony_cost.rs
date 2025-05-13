@@ -66,26 +66,28 @@ impl BasicParsimonyCost {
                 node_info.push(set);
             }
         }
-        self.tmp.borrow_mut().cost[idx] = tmp_cost;
+
+        let mut tmp = self.tmp.borrow_mut();
+        tmp.cost[idx] = tmp_cost;
         if let Some(parent_idx) = node.parent {
-            self.tmp.borrow_mut().node_info_valid[usize::from(parent_idx)] = false;
+            tmp.node_info_valid[usize::from(parent_idx)] = false;
         }
 
-        let mut tmp_values = self.tmp.borrow_mut();
-        tmp_values.node_info[idx] = node_info;
-        tmp_values.node_info_valid[idx] = true;
-        drop(tmp_values);
+        tmp.node_info[idx] = node_info;
+        tmp.node_info_valid[idx] = true;
+        drop(tmp);
     }
 
     fn set_leaf(&self, node_idx: &NodeIdx) {
         let node = self.info.tree.node(node_idx);
         let idx = usize::from(node_idx);
         if !self.tmp.borrow().node_info_valid[idx] {
-            if let Some(parent_idx) = node.parent {
-                self.tmp.borrow_mut().node_info_valid[usize::from(parent_idx)] = false;
-            }
+            self.tmp.borrow_mut().node_info_valid[usize::from(
+                node.parent
+                    .expect("A leaf node should always have a parent"),
+            )] = false;
+            self.tmp.borrow_mut().node_info_valid[idx] = true;
         }
-        self.tmp.borrow_mut().node_info_valid[idx] = true;
     }
 }
 
