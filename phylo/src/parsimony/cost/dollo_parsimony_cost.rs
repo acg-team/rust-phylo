@@ -15,38 +15,33 @@ use crate::tree::{
 };
 
 #[derive(Debug, Clone)]
-pub struct DolloParsimonyCost {
-    info: PhyloInfo,
+pub struct DolloParsimonyCost<S: ParsimonyScoring> {
+    pub(crate) info: PhyloInfo,
     tmp: RefCell<DolloParsimonyInfo>,
-    scoring: Box<dyn ParsimonyScoring>,
+    scoring: S,
 }
 
-impl Display for DolloParsimonyCost {
+impl<S: ParsimonyScoring> Display for DolloParsimonyCost<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Dollo parsimony using: \n\t{}", self.scoring)
     }
 }
 
-impl DolloParsimonyCost {
+impl DolloParsimonyCost<SimpleScoring> {
     pub fn new(info: PhyloInfo) -> Self {
-        let tmp = RefCell::new(DolloParsimonyInfo::new(&info)?);
-        Ok(DolloParsimonyCost {
-            info,
-            tmp,
-            scoring: Box::new(SimpleScoring::new(1.0, GapCost::new(2.5, 0.5))),
-        })
-    }
-
-    pub fn with_scoring(
-        info: PhyloInfo,
-        scoring: impl ParsimonyScoring + Clone + 'static,
-    ) -> Self {
-        let tmp = RefCell::new(DolloParsimonyInfo::new(&info)?);
+        let tmp = RefCell::new(DolloParsimonyInfo::new(&info));
         DolloParsimonyCost {
             info,
             tmp,
-            scoring: Box::new(scoring.clone()),
+            scoring: SimpleScoring::new(1.0, GapCost::new(1.0, 1.0)),
         }
+    }
+}
+
+impl<S: ParsimonyScoring> DolloParsimonyCost<S> {
+    pub fn with_scoring(info: PhyloInfo, scoring: S) -> Self {
+        let tmp = RefCell::new(DolloParsimonyInfo::new(&info));
+        DolloParsimonyCost { info, tmp, scoring }
     }
 
     fn score(&self) -> f64 {
@@ -147,7 +142,7 @@ impl DolloParsimonyCost {
     }
 }
 
-impl TreeSearchCost for DolloParsimonyCost {
+impl<S: ParsimonyScoring> TreeSearchCost for DolloParsimonyCost<S> {
     fn cost(&self) -> f64 {
         -self.score()
     }
@@ -213,14 +208,14 @@ impl DolloParsimonyInfo {
             }
         }
 
-        Ok(DolloParsimonyInfo {
+        DolloParsimonyInfo {
             node_info,
             node_info_valid: vec![false; node_count],
             node_insertion,
             leaf_sets,
             node_leaf_sets,
             cost: vec![0.0; node_count],
-        })
+        }
     }
 }
 
@@ -248,7 +243,8 @@ mod private_tests {
             msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
             tree,
         };
-        let cost = DolloParsimonyCost::new(info).unwrap();
+        let cost = DolloParsimonyCost::new(info);
+
         assert_eq!(cost.score(), 4.0);
         assert_eq!(cost.score(), 4.0);
 
