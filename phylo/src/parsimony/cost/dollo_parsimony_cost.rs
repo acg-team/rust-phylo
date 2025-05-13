@@ -261,4 +261,99 @@ mod private_tests {
         cost.tmp.borrow_mut().node_info_valid.fill(false);
         assert_eq!(cost.score(), 4.0);
     }
+
+    #[test]
+    fn dollo_parsimony_simple_scoring() {
+        let seqs = Sequences::new(vec![
+            record!("A", b"G-GAA"),
+            record!("B", b"G-GG-"),
+            record!("C", b"AGCAA"),
+            record!("D", b"AGCGA"),
+        ]);
+
+        let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
+
+        let info = PhyloInfo {
+            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+            tree,
+        };
+        let scoring = SimpleScoring::new(1.0, GapCost::new(2.5, 1.0));
+        let cost = DolloParsimonyCost::with_scoring(info, scoring.clone());
+
+        assert_eq!(cost.score(), 2.5 + 4.0);
+    }
+
+    #[test]
+    fn dollo_parsimony_simple_scoring_default() {
+        let seqs = Sequences::new(vec![
+            record!("A", b"G-GAA"),
+            record!("B", b"G-GG-"),
+            record!("C", b"AGCAA"),
+            record!("D", b"AGCGA"),
+        ]);
+
+        let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
+
+        let info = PhyloInfo {
+            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+            tree,
+        };
+
+        let cost = DolloParsimonyCost::new(info.clone());
+        assert_eq!(cost.score(), 5.0);
+        let scoring = SimpleScoring::new(1.0, GapCost::new(1.0, 1.0));
+        let cost2 = DolloParsimonyCost::with_scoring(info, scoring);
+        assert_eq!(cost.score(), cost2.score());
+    }
+
+    #[test]
+    fn tree_upd_testing() {
+        let seqs = Sequences::new(vec![
+            record!("A", b"G--G"),
+            record!("B", b"---G"),
+            record!("C", b"-GG-"),
+            record!("D", b"--GG"),
+        ]);
+
+        let tree = tree!("((A:1.0,B:1.0)I1:1.0,(C:1.0,D:1.0)I4:1.0)I0:0.0;");
+
+        let info = PhyloInfo {
+            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+            tree: tree.clone(),
+        };
+        let mut cost = DolloParsimonyCost::new(info.clone());
+
+        assert_eq!(cost.score(), 1.0);
+
+        cost.update_tree(tree, &[]);
+        assert_eq!(cost.score(), 1.0);
+    }
+
+    #[test]
+    fn dollo_multiple_deletions() {
+        let seqs = Sequences::with_alphabet(
+            vec![
+                record!("A", b"G"),
+                record!("B", b"G"),
+                record!("C", b"-"),
+                record!("D", b"-"),
+            ],
+            crate::alphabets::dna_alphabet(),
+        );
+
+        let tree = tree!("(((D:1,(A:1,C:0.5)I1:0.5)I4:1,B:2)I0:0);");
+
+        let info = PhyloInfo {
+            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+            tree: tree.clone(),
+        };
+
+        let scoring = SimpleScoring::new(1.0, GapCost::new(2.0, 1.0));
+        let mut cost = DolloParsimonyCost::with_scoring(info, scoring);
+
+        assert_eq!(cost.score(), 4.0);
+
+        cost.update_tree(tree, &[]);
+        assert_eq!(cost.score(), 4.0);
+    }
 }
