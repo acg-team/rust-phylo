@@ -238,10 +238,10 @@ fn dna_branch_scoring_nearest() {
 fn display_gap_costs() {
     let gap = GapCost {
         open: 1.6,
-        ext: 1.5,
+        ext: 1.3,
     };
     let display = format!("{gap}");
-    assert!(display.contains("Gap multipliers"));
+    assert!(display.contains("Gap cost multipliers"));
     assert!(display.contains("open: 1.6"));
     assert!(display.contains("ext: 1.3"));
 }
@@ -255,7 +255,7 @@ fn display_simple_scorings() {
     };
     let display = format!("{}", SimpleScoring::new(mismatch, gap));
     assert!(display.contains("Simple parsimony scoring"));
-    assert!(display.contains("match cost 3.2"));
+    assert!(display.contains("mismatch: 3.2"));
     assert!(display.contains("open: 4.6"));
     assert!(display.contains("ext: 1.5"));
 }
