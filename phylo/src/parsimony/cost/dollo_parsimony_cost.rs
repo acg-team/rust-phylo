@@ -1,8 +1,6 @@
 use std::cell::RefCell;
 use std::fmt::Display;
 
-use anyhow::Ok;
-
 use fixedbitset::FixedBitSet;
 use hashbrown::HashSet;
 
@@ -15,7 +13,6 @@ use crate::tree::{
     NodeIdx::{self, Internal, Leaf},
     Tree,
 };
-use crate::Result;
 
 #[derive(Debug, Clone)]
 pub struct DolloParsimonyCost {
@@ -31,7 +28,7 @@ impl Display for DolloParsimonyCost {
 }
 
 impl DolloParsimonyCost {
-    pub fn new(info: PhyloInfo) -> Result<Self> {
+    pub fn new(info: PhyloInfo) -> Self {
         let tmp = RefCell::new(DolloParsimonyInfo::new(&info)?);
         Ok(DolloParsimonyCost {
             info,
@@ -43,13 +40,13 @@ impl DolloParsimonyCost {
     pub fn with_scoring(
         info: PhyloInfo,
         scoring: impl ParsimonyScoring + Clone + 'static,
-    ) -> Result<Self> {
+    ) -> Self {
         let tmp = RefCell::new(DolloParsimonyInfo::new(&info)?);
-        Ok(DolloParsimonyCost {
+        DolloParsimonyCost {
             info,
             tmp,
             scoring: Box::new(scoring.clone()),
-        })
+        }
     }
 
     fn score(&self) -> f64 {
@@ -186,7 +183,7 @@ pub struct DolloParsimonyInfo {
 }
 
 impl DolloParsimonyInfo {
-    pub fn new(info: &PhyloInfo) -> Result<Self> {
+    pub fn new(info: &PhyloInfo) -> Self {
         let node_count = info.tree.len();
         let leaf_count = info.tree.leaves().len();
         let msa_length = info.msa.len();

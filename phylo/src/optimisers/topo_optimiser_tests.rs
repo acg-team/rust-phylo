@@ -569,7 +569,7 @@ fn dollo_tree_search() {
         .build()
         .unwrap();
 
-    let c = DolloParsimonyCost::with_scoring(info, scoring).unwrap();
+    let c = DolloParsimonyCost::with_scoring(info, scoring);
     let unopt_score = c.cost();
     let o = TopologyOptimiser::new(c).run().unwrap();
 
@@ -584,7 +584,7 @@ fn dollo_tree_search_sim_data_simple() {
     let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("tree.newick"))
         .build()
         .unwrap();
-    let c = DolloParsimonyCost::new(info).unwrap();
+    let c = DolloParsimonyCost::new(info);
     let unopt_score = c.cost();
 
     let o = TopologyOptimiser::new(c).run().unwrap();
@@ -606,7 +606,7 @@ fn dollo_tree_search_sim_data_model() {
         .build()
         .unwrap();
 
-    let c = DolloParsimonyCost::with_scoring(info, scoring).unwrap();
+    let c = DolloParsimonyCost::with_scoring(info, scoring);
     let unopt_score = c.cost();
     let o = TopologyOptimiser::new(c).run().unwrap();
 

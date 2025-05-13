@@ -26,7 +26,7 @@ impl Display for BasicParsimonyCost {
 
 impl BasicParsimonyCost {
     pub fn new(info: PhyloInfo) -> Result<Self> {
-        let tmp = RefCell::new(BasicParsimonyInfo::new(&info)?);
+        let tmp = RefCell::new(BasicParsimonyInfo::new(&info));
         Ok(BasicParsimonyCost { info, tmp })
     }
 
@@ -119,7 +119,7 @@ pub struct BasicParsimonyInfo {
 }
 
 impl BasicParsimonyInfo {
-    pub fn new(info: &PhyloInfo) -> Result<Self> {
+    pub fn new(info: &PhyloInfo) -> Self {
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
 
@@ -140,11 +140,11 @@ impl BasicParsimonyInfo {
             node_info[usize::from(node.idx)] = leaf_seq_w_gaps;
         }
 
-        Ok(BasicParsimonyInfo {
+        BasicParsimonyInfo {
             node_info,
             node_info_valid: vec![false; node_count],
             cost: vec![0.0; node_count],
-        })
+        }
     }
 }
 
