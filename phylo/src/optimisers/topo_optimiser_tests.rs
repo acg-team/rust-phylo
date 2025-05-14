@@ -24,7 +24,7 @@ macro_rules! define_optimise_trees {
     ($($fn_name:ident: { model = $model:ident, cost = $cost:ident, builder = $builder:ident }),* $(,)?) => {
         $(
             #[cfg(not(feature = "use-precomputed-test-results"))]
-            fn $fn_name<Q: QMatrix>(
+            fn $fn_name<Q: QMatrix + Send>(
                 seq_file: &std::path::Path,
                 _: &std::path::Path,
                 model: $model<Q>,
@@ -35,7 +35,7 @@ macro_rules! define_optimise_trees {
             }
 
             #[cfg(feature = "use-precomputed-test-results")]
-            fn $fn_name<Q: QMatrix>(
+            fn $fn_name<Q: QMatrix + Send>(
                 seq_file: &std::path::Path,
                 tree_file: &std::path::Path,
                 model: $model<Q>,

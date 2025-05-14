@@ -29,11 +29,11 @@ impl RegraftCostInfo {
     }
 }
 
-pub struct RegraftOptimiser<'a, C: TreeSearchCost + Clone + Display> {
+pub struct RegraftOptimiser<'a, C: TreeSearchCost + Clone + Display + Send> {
     prune_location: &'a NodeIdx,
     cost_fn: &'a C,
 }
-impl<'a, C: TreeSearchCost + Clone + Display> RegraftOptimiser<'a, C> {
+impl<'a, C: TreeSearchCost + Clone + Display + Send> RegraftOptimiser<'a, C> {
     pub fn new(cost_fn: &'a C, prune_location: &'a NodeIdx) -> RegraftOptimiser<'a, C> {
         Self {
             prune_location,
@@ -67,54 +67,124 @@ impl<'a, C: TreeSearchCost + Clone + Display> RegraftOptimiser<'a, C> {
         let regraft_locations = self.available_regraft_locations().copied().collect_vec();
 
         info!("Node {:?}: trying to regraft", self.prune_location);
-        // NOTE: collecting the moves into a Vec before finding the max instead of iterating
-        // over lazy iterators proved to be minutely faster/equal to (both rayon::try_reduce and for
-        // loop over std Iterator)
-        let moves = calc_regraft_costs(
+        let best_regraft = calc_best_regraft_cost(
             base_cost,
             *self.prune_location,
             regraft_locations,
             self.cost_fn,
-        )
-        .collect::<Result<Vec<_>>>()?;
-
-        let best_regraft = moves
-            .into_iter()
-            .max_by(|left, right| {
-                left.cost
-                    .partial_cmp(&right.cost)
-                    .expect("tree cost should be a number")
-            })
-            .expect("at least one SPR move has to be evaluated");
+        )?;
         Ok(Some(best_regraft))
     }
 }
 
-fn calc_regraft_costs<C: TreeSearchCost + Clone + Display>(
+cfg_if::cfg_if! {
+if #[cfg(feature="par-regraft")] {
+fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
     base_cost: f64,
     prune_location: NodeIdx,
     regraft_locations: Vec<NodeIdx>,
     cost: &C,
-) -> impl Iterator<Item = Result<RegraftCostInfo>> + use<'_, C> {
-    if cost.blen_optimisation() {
-        regraft_locations
-            .into_iter()
-            .map(move |regraft| {
-                calc_spr_cost_with_blen_opt(prune_location, regraft, base_cost, cost.clone())
-            })
-            .collect::<Vec<_>>()
-            .into_iter()
-    } else {
-        regraft_locations
-            .into_iter()
-            .map(move |regraft| {
-                calc_spr_cost_wo_blen_opt(prune_location, regraft, base_cost, cost.clone())
-            })
-            .collect::<Vec<_>>()
-            .into_iter()
-    }
+) -> Result<RegraftCostInfo> {
+    use rayon::prelude::*;
+    let cost_funcs = vec![cost.clone(); regraft_locations.len()];
+    regraft_locations
+        .into_par_iter()
+        .zip_eq(cost_funcs)
+        .map(move |(regraft, cost_fn)| {
+            calc_spr_cost_with_blen_opt(prune_location, regraft, base_cost, cost_fn.clone())
+        })
+        .try_reduce_with(|left, right| Ok(if left.cost() > right.cost() {left} else {right})).expect("at least one regraft location")
 }
+} else if #[cfg(feature="par-regraft-chunk")] {
+/// NOTE: seems to be faster than full on parallel for few taxa
+fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
+    base_cost: f64,
+    prune_location: NodeIdx,
+    regraft_locations: Vec<NodeIdx>,
+    cost: &C,
+) -> Result<RegraftCostInfo> {
+    use rayon::prelude::*;
+    // TODO: determine better factor (maybe dynamically)
+    const CHUNK_SIZE: usize = 2;
+    let cost_funcs = vec![cost.clone(); regraft_locations.len().div_ceil(CHUNK_SIZE)];
 
+    regraft_locations
+        .par_chunks(CHUNK_SIZE)
+        .zip_eq(cost_funcs)
+        .map(move |(regrafts, cost_func)| -> Result<_> {
+            let mut max: Option<RegraftCostInfo> = None;
+            let mut max_cost = f64::MIN;
+            for regraft_result in regrafts.iter().map(move |regraft| {
+                calc_spr_cost_with_blen_opt(prune_location, *regraft, base_cost, cost_func.clone())
+            }) {
+                match result {
+                    Ok(regraft_info) if regraft_info.cost() > max_cost => {
+                        max_cost = regraft_info.cost();
+                        max = Some(regraft_info);
+                    },
+                    Ok(_) => {}
+                    Err(error) => return Err(error),
+                }
+            }
+            Ok(max.expect("at least one regraft location"))
+        })
+        .try_reduce_with(|left, right| Ok(if left.cost() > right.cost() {left} else {right})).expect("at least one regraft location")
+}
+} else if #[cfg(feature="par-regraft-manual")] {
+fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
+    base_cost: f64,
+    prune_location: NodeIdx,
+    regraft_locations: Vec<NodeIdx>,
+    cost: &C,
+) -> Result<RegraftCostInfo> {
+    #[derive(Clone)]
+    struct RecursiveForkJoinRegrafter<C: TreeSearchCost + Clone + Display + Send> {
+        cost_fn: C,
+        prune_location: NodeIdx,
+        base_cost: f64,
+    }
+    /// NOTE: by being recursive these tasks can be stored solely on the stack
+    /// using rayon::scope might look simpler but incurrs overhead by having to manage
+    /// tasks on the heap
+    fn regraft_recursive<C: TreeSearchCost + Clone + Display + Send>(state: RecursiveForkJoinRegrafter<C>, regraft_locations: &[NodeIdx]) -> Result<RegraftCostInfo> {
+        if regraft_locations.len() == 1 {
+            return calc_spr_cost_with_blen_opt(state.prune_location, regraft_locations[0], state.base_cost, state.cost_fn);
+        }
+        let (left_locations, right_locations) = regraft_locations.split_at(regraft_locations.len() / 2);
+        let r2 = state.clone();
+        match rayon::join(move || regraft_recursive(state, left_locations), move ||regraft_recursive(r2, right_locations)) {
+            (Ok(left), Ok(right)) => Ok(if left.cost() > right.cost() {left} else {right}) ,
+            (Err(error), _) | (_, Err(error))   => Err(error),
+        }
+    }
+    regraft_recursive(RecursiveForkJoinRegrafter { cost_fn: cost.clone(), prune_location, base_cost }, &regraft_locations)
+}
+} else {
+fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
+    base_cost: f64,
+    prune_location: NodeIdx,
+    regraft_locations: Vec<NodeIdx>,
+    cost: &C,
+) -> Result<RegraftCostInfo> {
+    let mut max = None;
+    let mut max_cost = f64::MIN;
+    for regraft in regraft_locations.into_iter().map(move |regraft| {
+        calc_spr_cost_with_blen_opt(prune_location, regraft, base_cost, cost.clone())
+    }) {
+        match regraft {
+            Ok(regraft_info) if regraft_info.cost() > max_cost => {
+                max_cost = regraft_info.cost();
+                max = Some(regraft_info);
+            },
+            Ok(_) => {}
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(max.expect("at least one regraft location"))
+}
+}}
+
+/// for evo models with branch length optimisation enabled (disabled for parsimony),
 /// if the move doesn't result in improvement over `base_cost`
 /// the blen of the regrafted branch is optimised to check if an
 /// improvement could still be reached
@@ -129,7 +199,7 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
     cost_func.update_tree(new_tree.clone(), &[prune_location, regraft]);
 
     let mut move_cost = cost_func.cost();
-    if move_cost <= base_cost {
+    if cost_func.blen_optimisation() && move_cost <= base_cost {
         // reoptimise branch length at the regraft location
         let mut o = BranchOptimiser::new(cost_func);
         let blen_opt = o.optimise_branch(&regraft)?;
@@ -139,24 +209,6 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
         }
     }
     debug!("    Regraft to {:?} w best cost {}.", regraft, move_cost);
-    Ok(RegraftCostInfo {
-        cost: move_cost,
-        regraft,
-        tree: new_tree,
-    })
-}
-
-fn calc_spr_cost_wo_blen_opt<C: TreeSearchCost + Clone + Display>(
-    prune_location: NodeIdx,
-    regraft: NodeIdx,
-    _: f64,
-    mut cost_func: C,
-) -> Result<RegraftCostInfo> {
-    let new_tree = cost_func.tree().rooted_spr(&prune_location, &regraft)?;
-    cost_func.update_tree(new_tree.clone(), &[prune_location, regraft]);
-    let move_cost = cost_func.cost();
-
-    debug!("    Regraft to {:?} w cost {}.", regraft, move_cost);
     Ok(RegraftCostInfo {
         cost: move_cost,
         regraft,

@@ -15,14 +15,14 @@ use helpers::{
     DNA_EASY_17X2292, DNA_EASY_5X1000, DNA_EASY_8X1252,
 };
 
-fn single_spr_cycle<C: TreeSearchCost + Clone + Display>(
+fn single_spr_cycle<C: TreeSearchCost + Clone + Display + Send>(
     mut cost_fn: C,
     prune_locations: &[&NodeIdx],
 ) -> anyhow::Result<f64> {
     spr::fold_improving_moves(&mut cost_fn, f64::MIN, prune_locations)
 }
 
-fn find_best_regraft_for_single_spr_move<C: TreeSearchCost + Clone + Display>(
+fn find_best_regraft_for_single_spr_move<C: TreeSearchCost + Clone + Display + Send>(
     cost_fn: C,
     prune_location: &NodeIdx,
 ) -> anyhow::Result<f64> {
@@ -33,7 +33,7 @@ fn find_best_regraft_for_single_spr_move<C: TreeSearchCost + Clone + Display>(
     Ok(best_regraft.cost())
 }
 
-fn run_single_spr_cycle_for_sizes<Q: QMatrix + QMatrixMaker>(
+fn run_single_spr_cycle_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
     paths: &SequencePaths,
     group_name: &'static str,
     criterion: &mut Criterion,
@@ -62,7 +62,7 @@ fn run_single_spr_cycle_for_sizes<Q: QMatrix + QMatrixMaker>(
     bench_group.finish();
 }
 
-fn run_find_best_regraft_for_single_spr_move<Q: QMatrix + QMatrixMaker>(
+fn run_find_best_regraft_for_single_spr_move<Q: QMatrix + QMatrixMaker + Send>(
     paths: &SequencePaths,
     group_name: &'static str,
     criterion: &mut Criterion,
