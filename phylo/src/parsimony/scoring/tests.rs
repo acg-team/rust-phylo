@@ -1,9 +1,15 @@
-use crate::alphabets::{AMINOACIDS, NUCLEOTIDES};
+use rstest::rstest;
+
+use approx::assert_relative_eq;
+
+use crate::alphabets::{ParsimonySet, AMINOACIDS, NUCLEOTIDES};
 use crate::parsimony::{
     DiagonalZeros as Z, GapCost, ModelScoringBuilder as MCB, ParsimonyScoring, Rounding as R,
     SimpleScoring,
 };
-use crate::substitution_models::{SubstModel, GTR, JC69, WAG};
+use crate::substitution_models::{
+    QMatrix, QMatrixMaker, SubstModel, BLOSUM, GTR, HIVB, HKY, JC69, K80, TN93, WAG,
+};
 
 #[test]
 fn default_costs() {
@@ -278,4 +284,84 @@ fn display_model_scorings() {
     assert!(display.contains("GTR"));
     assert!(display.contains("open: 2.4"));
     assert!(display.contains("ext: 1.2"));
+}
+
+#[cfg(test)]
+fn min_match_model_template<Q: QMatrix + QMatrixMaker>(set1: &ParsimonySet, set2: &ParsimonySet) {
+    let model = SubstModel::<Q>::new(&[], &[]);
+    let gap = GapCost {
+        open: 2.4,
+        ext: 1.2,
+    };
+
+    for &blen in &[0.1, 1.0, 3.5, 2.4, 50.0, 34.2] {
+        let cost = MCB::new(model.clone())
+            .gap_cost(gap)
+            .times(vec![blen])
+            .build()
+            .unwrap();
+
+        let score = set1
+            .iter()
+            .flat_map(|a| set2.iter().map(|b| cost.r#match(blen, a, b)))
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap();
+
+        assert_relative_eq!(score, cost.min_match(blen, set1, set2))
+    }
+}
+
+#[rstest]
+#[case(b"ACT", b"AT")]
+#[case(b"TC", b"AG")]
+#[case(b"AC", b"TG")]
+#[case(b"AGC", b"T")]
+fn min_match_model_dna(#[case] set1: &[u8], #[case] set2: &[u8]) {
+    let set1 = &ParsimonySet::from_slice(set1);
+    let set2 = &ParsimonySet::from_slice(set2);
+    min_match_model_template::<JC69>(set1, set2);
+    min_match_model_template::<K80>(set1, set2);
+    min_match_model_template::<HKY>(set1, set2);
+    min_match_model_template::<TN93>(set1, set2);
+    min_match_model_template::<GTR>(set1, set2);
+}
+
+#[rstest]
+#[case(b"ARNDCQEGHILKMFPSTWYV", b"A")]
+#[case(b"LKMFPSTWYV", b"ARNDCQEGHI")]
+#[case(b"L", b"FP")]
+#[case(b"AGC", b"T")]
+fn min_match_model_protein(#[case] set1: &[u8], #[case] set2: &[u8]) {
+    let set1 = &ParsimonySet::from_slice(set1);
+    let set2 = &ParsimonySet::from_slice(set2);
+    min_match_model_template::<WAG>(set1, set2);
+    min_match_model_template::<HIVB>(set1, set2);
+    min_match_model_template::<BLOSUM>(set1, set2);
+}
+
+#[rstest]
+#[case(b"ACT", b"AT")]
+#[case(b"TC", b"AG")]
+#[case(b"AC", b"TG")]
+#[case(b"AGC", b"T")]
+#[case(b"ARNDCQEGHILKMFPSTWYV", b"A")]
+#[case(b"LKMFPSTWYV", b"ARNDCQEGHI")]
+#[case(b"L", b"FP")]
+fn min_match_basic(#[case] set1: &[u8], #[case] set2: &[u8]) {
+    let mismatch = 3.5;
+    let gap = GapCost {
+        open: 2.5,
+        ext: 0.5,
+    };
+    let set1 = &ParsimonySet::from_slice(set1);
+    let set2 = &ParsimonySet::from_slice(set2);
+    for &blen in &[0.1, 1.0, 3.5, 2.4, 50.0, 34.2] {
+        let cost = SimpleScoring::new(mismatch, gap);
+        let score = if (set1 & set2).is_empty() {
+            mismatch
+        } else {
+            0.0
+        };
+        assert_relative_eq!(score, cost.min_match(blen, set1, set2))
+    }
 }
