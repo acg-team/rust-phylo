@@ -62,7 +62,7 @@ impl<A: Alignment> PhyloInfo<A> {
                 .iter()
                 .map(|rec| rec.seq().iter().filter(|&c| c == &char).count())
                 .sum::<usize>() as f64;
-            let mut char_freq = alphabet.char_encoding(char);
+            let mut char_freq = alphabet.char_encoding(char).clone();
             char_freq.scale_mut(1.0 / char_freq.sum());
             freqs += char_freq.scale(count);
         }

@@ -49,8 +49,8 @@ impl Alphabet {
         self.ambiguous
     }
 
-    pub fn char_encoding(&self, char: u8) -> FreqVector {
-        self.conditional_probs[char.to_ascii_uppercase() as usize].clone()
+    pub fn char_encoding(&self, char: u8) -> &FreqVector {
+        &self.conditional_probs[char.to_ascii_uppercase() as usize]
     }
 
     pub fn empty_freqs(&self) -> FreqVector {

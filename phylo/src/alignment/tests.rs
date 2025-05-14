@@ -6,7 +6,7 @@ use rand::thread_rng;
 use crate::alignment::{
     sequences::Sequences, InternalAlignments, PairwiseAlignment as PA, SeqMaps,
 };
-use crate::alignment::{Alignment, MASA, MSA};
+use crate::alignment::{Alignment, AncestralAlignment, MASA, MSA};
 use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, NUCLEOTIDES};
 use crate::io::read_sequences;
 use crate::tree::{
@@ -302,7 +302,7 @@ fn display_ancestral_alignment() {
     let sequences = Sequences::new(
         read_sequences(&PathBuf::from("./data/sequences_DNA1_with_ancestors.fasta")).unwrap(),
     );
-    let msa = MASA::from_aligned(sequences, &tree).unwrap();
+    let msa = MASA::from_aligned_with_ancestral(sequences, &tree).unwrap();
 
     let s = format!("{}", msa);
     let mut lines = s.lines().collect::<Vec<_>>();
