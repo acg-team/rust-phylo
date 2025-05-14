@@ -1,6 +1,6 @@
 use crate::alignment::{Alignment, AncestralAlignment, Sequences, MASA, MSA};
 use crate::asr::AncestralSequenceReconstruction;
-use crate::parsimony_indel_sites::ParsimonyIndelSites;
+use crate::parsimony_indel_points::ParsimonyIndelPoints;
 use crate::tree::NodeIdx::{Internal, Leaf};
 use crate::tree::Tree;
 use crate::{align, record, tree};
@@ -42,7 +42,7 @@ fn asr() {
     let aligned_s = aligned_seqs_with_ancestors_subset(&["A0", "B1", "C2", "D3", "E4"]);
     let all_seqs = aligned_seqs_with_ancestors();
     let msa = MSA::from_aligned(aligned_s.clone(), &tree).unwrap();
-    let p_asr = ParsimonyIndelSites {};
+    let p_asr = ParsimonyIndelPoints {};
 
     // act
     let ancestral_msa: MASA = p_asr.reconstruct_ancestral_seqs(&msa, &tree).unwrap();

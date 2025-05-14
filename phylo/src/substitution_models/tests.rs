@@ -452,7 +452,7 @@ fn designation() {
 }
 
 #[cfg(test)]
-fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo<impl Alignment> {
+fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo<MSA> {
     let tree = tree!(format!("((A0:{},B1:{}):1.0);", blen_i, blen_j).as_str());
     let msa = MSA::from_aligned(
         Sequences::new(vec![record!("A0", b"A"), record!("B1", b"A")]),
@@ -476,7 +476,7 @@ fn dna_simple_likelihood() {
 }
 
 #[cfg(test)]
-fn setup_cb_example_phylo_info() -> PhyloInfo<impl Alignment> {
+fn setup_cb_example_phylo_info() -> PhyloInfo<MSA> {
     let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
     let msa = MSA::from_aligned(
         Sequences::new(vec![
@@ -611,7 +611,7 @@ fn dna_gaps_as_ambigs() {
 }
 
 #[cfg(test)]
-fn setup_phylo_info_single_leaf() -> PhyloInfo<impl Alignment> {
+fn setup_phylo_info_single_leaf() -> PhyloInfo<MSA> {
     let tree = tree!("(A0:1.0);");
     let msa = MSA::from_aligned(Sequences::new(vec![record!("A0", b"AAAAAA")]), &tree).unwrap();
     PhyloInfo { msa, tree }
@@ -669,7 +669,7 @@ fn dna_cb_example_likelihood() {
 }
 
 #[cfg(test)]
-fn setup_mol_evo_example_phylo_info() -> PhyloInfo<impl Alignment> {
+fn setup_mol_evo_example_phylo_info() -> PhyloInfo<MSA> {
     let tree = tree!("(((one:0.2,two:0.2):0.1,three:0.2):0.1,(four:0.2,five:0.2):0.1);");
     let msa = MSA::from_aligned(
         Sequences::new(vec![
@@ -789,9 +789,7 @@ fn protein_example_likelihood() {
 }
 
 #[cfg(test)]
-fn simple_reroot_info(
-    alphabet: &Alphabet,
-) -> (PhyloInfo<impl Alignment>, PhyloInfo<impl Alignment>) {
+fn simple_reroot_info(alphabet: &Alphabet) -> (PhyloInfo<MSA>, PhyloInfo<MSA>) {
     let tree = tree!("((A:2.0,B:2.0):1.0,C:2.0):0.0;");
     let seqs = Sequences::with_alphabet(
         vec![

@@ -274,7 +274,7 @@ fn pip_p_example_matrix() {
 }
 
 #[cfg(test)]
-fn setup_example_phylo_info() -> PhyloInfo<impl Alignment> {
+fn setup_example_phylo_info() -> PhyloInfo<MSA> {
     let tree = tree!("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;");
     let msa = MSA::from_aligned(
         Sequences::new(vec![
@@ -512,7 +512,7 @@ fn pip_hky_likelihood_example_final() {
 }
 
 #[cfg(test)]
-fn setup_example_phylo_info_2() -> PhyloInfo<impl Alignment> {
+fn setup_example_phylo_info_2() -> PhyloInfo<MSA> {
     let tree = tree!("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;");
     let msa = MSA::from_aligned(
         Sequences::new(vec![

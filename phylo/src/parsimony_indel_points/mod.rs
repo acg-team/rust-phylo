@@ -8,10 +8,10 @@ use crate::{aligned_seq, record, Result};
 use bio::io::fasta::Record;
 use hashbrown::HashMap;
 
-pub struct ParsimonyIndelSites {}
+pub struct ParsimonyIndelPoints {}
 
 impl<A: Alignment, AA: AncestralAlignment> AncestralSequenceReconstruction<A, AA>
-    for ParsimonyIndelSites
+    for ParsimonyIndelPoints
 {
     fn reconstruct_ancestral_seqs(&self, alignment: &A, tree: &Tree) -> Result<AA> {
         let mut aligned_leaf_records = Vec::new();
@@ -37,6 +37,9 @@ impl<A: Alignment, AA: AncestralAlignment> AncestralSequenceReconstruction<A, AA
 fn get_ancestral_records<A: Alignment>(tree: &Tree, alignment: &A) -> Vec<Record> {
     // counter[node] keeps track of the sequence index during the procedurally generated mapping for the node
     let mut ancestral_seqs = HashMap::new();
+    // TODO: i could also have a matrix has_char[node, site] and then
+    //       loop over nodes and then sites, which might be faster due to caches
+    //       see https://github.com/acg-team/rust-phylo/pull/48/files#r2046683347
     for site in 0..alignment.len() {
         // upward pass
         let has_char = get_has_char(alignment, tree, site);
@@ -62,31 +65,31 @@ fn elongate_seqs(
     site: usize,
     has_char: Vec<bool>,
 ) {
-    for node in tree.preorder() {
-        if let Internal(_) = node {
-            let children = &tree.node(node).children;
-            let parent = &tree.node(node).parent;
-            let both_have_chars =
+    for node_idx in tree.preorder() {
+        if let Internal(_) = node_idx {
+            let children = &tree.node(node_idx).children;
+            let parent = &tree.node(node_idx).parent;
+            let both_chars =
                 has_char[usize::from(children[0])] && has_char[usize::from(children[1])];
-            let both_are_gap =
+            let both_gap =
                 !has_char[usize::from(children[0])] && !has_char[usize::from(children[1])];
 
-            let char_was_chosen_for_parent = match parent {
+            let parent_char = match parent {
                 None => false,
                 Some(parent) => ancestral_seqs[parent][site],
             };
-            let must_choose_char = (both_have_chars || char_was_chosen_for_parent) && !both_are_gap;
+            let current_char = (both_chars || parent_char) && !both_gap;
             // appending to the mapping of the node
             ancestral_seqs
-                .entry(*node)
+                .entry(*node_idx)
                 .or_insert_with(Vec::new)
-                .push(must_choose_char);
+                .push(current_char);
         }
     }
 }
 
+/// Returns a vector V with V[n] = true iff there is a leaf in the subtree rooted in node n that is not a gap.
 fn get_has_char<A: Alignment>(leaf_alignment: &A, tree: &Tree, site: usize) -> Vec<bool> {
-    // has_char[node] will be set to true if any leaf in the subtree rooted in node is not a gap
     let mut has_char = vec![false; tree.len()];
     for node_idx in tree.postorder() {
         match node_idx {

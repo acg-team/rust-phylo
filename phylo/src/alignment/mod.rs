@@ -6,7 +6,7 @@ use hashbrown::HashMap;
 
 use crate::alphabets::{Alphabet, GAP};
 use crate::asr::AncestralSequenceReconstruction;
-use crate::parsimony_indel_sites::ParsimonyIndelSites;
+use crate::parsimony_indel_points::ParsimonyIndelPoints;
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::{align, aligned_seq, record, Result};
 
@@ -41,6 +41,8 @@ pub trait Alignment: Display + Clone + Debug {
     fn len(&self) -> usize;
     fn seq_count(&self) -> usize;
     fn leaf_map(&self, node: &NodeIdx) -> &Mapping;
+    // TODO: in this trait this should not be named compile, just subroot_alignment
+    // bc a implementation can also choose to have it always ready,
     fn compile_subroot(&self, subroot: Option<&NodeIdx>, tree: &Tree) -> Result<Sequences>;
     fn internal_alignments(&self) -> &InternalAlignments;
     fn from_aligned(sequences: Sequences, tree: &Tree) -> Result<Self>;
@@ -76,7 +78,6 @@ impl MSA {
     }
 
     pub(crate) fn compile_leaf_map(&self, root: &NodeIdx, tree: &Tree) -> Result<SeqMaps> {
-        let order = &tree.preorder_subroot(root);
         let msa_len = match root {
             Int(_) => self.internal_alignments[root].map_x.len(),
             Leaf(_) => self.seqs.record_by_id(tree.node_id(root)).seq().len(),
@@ -84,7 +85,7 @@ impl MSA {
         let mut stack = HashMap::<NodeIdx, Mapping>::with_capacity(tree.len());
         stack.insert(*root, (0..msa_len).map(Some).collect());
         let mut leaf_map = SeqMaps::with_capacity(tree.n);
-        for idx in order {
+        for idx in &tree.preorder_subroot(root) {
             match idx {
                 Int(_) => {
                     let parent = &stack[idx];
@@ -102,12 +103,6 @@ impl MSA {
             }
         }
         Ok(leaf_map)
-    }
-
-    fn map_sequence(map: &Mapping, seq: &[u8]) -> Vec<u8> {
-        map.iter()
-            .map(|site| if let Some(idx) = site { seq[*idx] } else { GAP })
-            .collect()
     }
 
     fn map_child(parent: &Mapping, child: &Mapping) -> Mapping {
@@ -226,6 +221,7 @@ impl Alignment for MSA {
             internal_alignments: msa,
         })
     }
+
     fn internal_alignments(&self) -> &InternalAlignments {
         &self.internal_alignments
     }
@@ -313,7 +309,7 @@ impl Alignment for MSA {
         let mut records = Vec::with_capacity(map.len());
         for (idx, map) in &map {
             let rec = self.seqs.record_by_id(tree.node_id(idx));
-            let aligned_seq = Self::map_sequence(map, rec.seq());
+            let aligned_seq = aligned_seq!(map, rec.seq());
             records.push(Record::with_attrs(rec.id(), rec.desc(), &aligned_seq));
         }
 
@@ -336,8 +332,6 @@ pub struct MASA {
 }
 
 impl Display for MASA {
-    // TODO: this is the same as for the Alignment, but it does print the seqs
-    //       which are unaligned
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let both_maps = self.leaf_maps.iter().chain(self.ancestral_maps.iter());
         for (node_idx, seq_map) in both_maps {
@@ -386,15 +380,33 @@ impl Alignment for MASA {
         };
         let leaf_map = alignment.compile_leaf_map(&tree.root, tree).unwrap();
         alignment.leaf_maps = leaf_map;
-        let asr = ParsimonyIndelSites {};
+        let asr = ParsimonyIndelPoints {};
         asr.reconstruct_ancestral_seqs(&alignment, tree).unwrap()
     }
+
     fn internal_alignments(&self) -> &InternalAlignments {
         &self.internal_alignments
     }
 
-    fn compile_subroot(&self, _: Option<&NodeIdx>, _: &Tree) -> Result<Sequences> {
-        Ok(self.leaf_seqs.clone())
+    // TODO: or do i want to include the ancestral seqs here?
+    fn compile_subroot(&self, subroot_opt: Option<&NodeIdx>, tree: &Tree) -> Result<Sequences> {
+        let subroot = subroot_opt.unwrap_or(&tree.root);
+        let map = if subroot == &tree.root {
+            self.leaf_maps.clone()
+        } else {
+            tree.preorder_subroot(subroot)
+                .iter()
+                .filter(|node_idx| matches!(node_idx, Leaf(_)))
+                .map(|node_idx| (*node_idx, self.leaf_map(node_idx).clone()))
+                .collect()
+        };
+        let mut records = Vec::with_capacity(map.len());
+        for (idx, map) in &map {
+            let rec = self.leaf_seqs.record_by_id(tree.node_id(idx));
+            let aligned_seq = aligned_seq!(map, rec.seq());
+            records.push(Record::with_attrs(rec.id(), rec.desc(), &aligned_seq));
+        }
+        Ok(Sequences::with_alphabet(records, self.leaf_seqs.alphabet))
     }
 
     fn seqs(&self) -> &Sequences {
@@ -424,7 +436,9 @@ impl Alignment for MASA {
 
     fn from_aligned(sequences: Sequences, tree: &Tree) -> Result<Self> {
         let msa = MSA::from_aligned(sequences, tree)?;
-        let asr = ParsimonyIndelSites {};
+        // TODO: are the internal alignments build in the above line conform with adding ancestral seqs?
+        //       see also from_aligned_with_ancestral
+        let asr = ParsimonyIndelPoints {};
         asr.reconstruct_ancestral_seqs(&msa, tree)
     }
 }
@@ -433,6 +447,7 @@ impl AncestralAlignment for MASA {
     fn ancestral_map(&self, node: &NodeIdx) -> &Mapping {
         self.ancestral_maps.get(node).unwrap()
     }
+
     fn ancestral_seqs(&self) -> &Sequences {
         &self.ancestral_seqs
     }
@@ -445,8 +460,8 @@ impl AncestralAlignment for MASA {
             bail!("The number of seqs does not match the number of nodes in the tree")
         }
 
-        // TODO: i could also check if the lengths of the sequences match between the leaf_seqs and the ancestral_seqs
-        // TODO: i should also check if the alphabets are matching
+        // TODO: must i check that the ids of the tree match the sequences?
+        // mustst this also be checked in the normal alignment?
 
         all_seqs.remove_gap_cols();
         let mut leaf_maps = HashMap::<NodeIdx, Mapping>::new();
@@ -481,6 +496,9 @@ impl AncestralAlignment for MASA {
             alphabet: all_seqs.alphabet,
         };
         let ancestral_seqs = ancestral_seqs.into_gapless();
+
+        // TODO: internal_alignments still missing. How do they work if there are seqs at internal nodes?
+        //       see also MASA::from_aligned
         Ok(MASA {
             leaf_seqs,
             ancestral_seqs,
