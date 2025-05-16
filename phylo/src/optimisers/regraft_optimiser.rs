@@ -184,6 +184,7 @@ fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
 }
 }}
 
+/// for evo models with branch length optimisation enabled (disabled for parsimony),
 /// if the move doesn't result in improvement over `base_cost`
 /// the blen of the regrafted branch is optimised to check if an
 /// improvement could still be reached
@@ -198,7 +199,7 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
     cost_func.update_tree(new_tree.clone(), &[prune_location, regraft]);
 
     let mut move_cost = cost_func.cost();
-    if move_cost <= base_cost {
+    if cost_func.blen_optimisation() && move_cost <= base_cost {
         // reoptimise branch length at the regraft location
         let mut o = BranchOptimiser::new(cost_func);
         let blen_opt = o.optimise_branch(&regraft)?;

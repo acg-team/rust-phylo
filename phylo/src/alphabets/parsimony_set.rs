@@ -1,4 +1,4 @@
-use std::ops::{BitAnd, BitOr};
+use std::ops::{BitAnd, BitOr, Sub};
 use std::{fmt::Display, ops::Deref};
 
 use hashbrown::{hash_set::IntoIter, HashSet};
@@ -13,7 +13,7 @@ pub struct ParsimonySet {
 }
 
 impl ParsimonySet {
-    pub fn new() -> Self {
+    pub fn empty() -> Self {
         Self { s: HashSet::new() }
     }
 
@@ -71,6 +71,16 @@ impl BitOr for &ParsimonySet {
     fn bitor(self, rhs: Self) -> Self::Output {
         ParsimonySet {
             s: self.s.union(&rhs.s).copied().collect(),
+        }
+    }
+}
+
+impl Sub for &ParsimonySet {
+    type Output = ParsimonySet;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        ParsimonySet {
+            s: self.s.difference(&rhs.s).copied().collect(),
         }
     }
 }

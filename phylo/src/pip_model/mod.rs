@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 use std::iter;
 use std::marker::PhantomData;
@@ -7,6 +6,7 @@ use std::ops::Mul;
 use std::vec;
 
 use anyhow::bail;
+use hashbrown::HashMap;
 use lazy_static::lazy_static;
 use log::warn;
 use nalgebra::{DMatrix, DVector};
@@ -173,7 +173,7 @@ pub struct PIPModelInfo<Q: QMatrix> {
     valid: Vec<bool>,
     models: Vec<SubstMatrix>,
     models_valid: Vec<bool>,
-    leaf_sequence_info: HashMap<String, DMatrix<f64>>,
+    leaf_seq_info: HashMap<NodeIdx, DMatrix<f64>>,
 }
 
 impl<Q: QMatrix> PIPModelInfo<Q> {
@@ -181,21 +181,29 @@ impl<Q: QMatrix> PIPModelInfo<Q> {
         let n = model.q().nrows();
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
-        let mut leaf_seq_info: HashMap<String, DMatrix<f64>> = HashMap::new();
+        let mut leaf_seq_info = HashMap::with_capacity(info.tree.leaves().len());
         for node in info.tree.leaves() {
+            let seq = info.msa.seqs.record_by_id(&node.id).seq().to_vec();
+
             let alignment_map = info.msa.leaf_map(&node.idx);
-            let leaf_encoding = info.msa.leaf_encoding.get(&node.id).unwrap();
             let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(n, msa_length);
+
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
-                    let encoding = leaf_encoding.column(c).insert_row(n - 1, 0.0);
+                    let encoding = info
+                        .msa
+                        .alphabet()
+                        .char_encoding(seq[c])
+                        .clone()
+                        .insert_row(n - 1, 0.0);
+
                     site_info.copy_from(&encoding);
                 } else {
                     site_info.fill_row(n - 1, 1.0);
                 }
                 site_info.scale_mut((1.0) / site_info.sum());
             }
-            leaf_seq_info.insert(node.id.clone(), leaf_seq_w_gaps);
+            leaf_seq_info.insert(node.idx, leaf_seq_w_gaps);
         }
         Ok(PIPModelInfo {
             phantom: PhantomData,
@@ -209,7 +217,7 @@ impl<Q: QMatrix> PIPModelInfo<Q> {
             valid: vec![false; node_count],
             models: vec![SubstMatrix::zeros(n, n); node_count],
             models_valid: vec![false; node_count],
-            leaf_sequence_info: leaf_seq_info,
+            leaf_seq_info,
         })
     }
 }
@@ -399,11 +407,7 @@ impl<Q: QMatrix> PIPCost<Q> {
                 }
             }
 
-            tmp.ftilde[idx] = tmp
-                .leaf_sequence_info
-                .get(tree.node_id(node_idx))
-                .unwrap()
-                .clone();
+            tmp.ftilde[idx] = tmp.leaf_seq_info.get(node_idx).unwrap().clone();
 
             tmp.f[idx] = tmp.ftilde[idx]
                 .tr_mul(self.model.freqs())
@@ -486,9 +490,11 @@ impl<Q: QMatrix> PIPCost<Q> {
         let idx = usize::from(node_idx);
         let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
         let mut tmp = self.tmp.borrow_mut();
+
         // TODO: unnecessary clone of whole matrix
         let x_anc = tmp.anc[children[0]].clone();
         let y_anc = tmp.anc[children[1]].clone();
+
         tmp.anc[idx].set_column(1, &x_anc.column(0));
         tmp.anc[idx].set_column(2, &y_anc.column(0));
         tmp.anc[idx].set_column(0, &(x_anc.column(0) + y_anc.column(0)));

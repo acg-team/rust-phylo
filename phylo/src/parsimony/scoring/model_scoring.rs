@@ -1,14 +1,16 @@
+use std::fmt::Display;
+
 use log::{debug, info};
 use ordered_float::OrderedFloat;
 
-use crate::alphabets::Alphabet;
+use crate::alphabets::{Alphabet, ParsimonySet};
 use crate::parsimony::{
-    CostMatrix, DiagonalZeros, GapCost, ParsimonyCosts, ParsimonyModel, Rounding,
+    CostMatrix, DiagonalZeros, GapCost, ParsimonyModel, ParsimonyScoring, Rounding,
 };
 use crate::Result;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ModelCostBuilder<P: ParsimonyModel> {
+pub struct ModelScoringBuilder<P: ParsimonyModel> {
     model: P,
     gap: GapCost,
     diagonal: DiagonalZeros,
@@ -16,9 +18,9 @@ pub struct ModelCostBuilder<P: ParsimonyModel> {
     times: Vec<f64>,
 }
 
-impl<P: ParsimonyModel> ModelCostBuilder<P> {
+impl<P: ParsimonyModel> ModelScoringBuilder<P> {
     pub fn new(model: P) -> Self {
-        ModelCostBuilder {
+        ModelScoringBuilder {
             model,
             gap: GapCost::new(2.5, 1.0),
             diagonal: DiagonalZeros::non_zero(),
@@ -47,7 +49,7 @@ impl<P: ParsimonyModel> ModelCostBuilder<P> {
         self
     }
 
-    pub fn build(self) -> Result<ModelCosts> {
+    pub fn build(self) -> Result<ModelScoring<P>> {
         info!(
             "Setting up the parsimony scoring from the {} model.",
             self.model
@@ -72,7 +74,7 @@ impl<P: ParsimonyModel> ModelCostBuilder<P> {
                     *time,
                     TimeCosts {
                         avg,
-                        gap: self.gap.clone() * avg,
+                        gap: self.gap * avg,
                         c: cost_matrix,
                     },
                 )
@@ -84,16 +86,20 @@ impl<P: ParsimonyModel> ModelCostBuilder<P> {
             self.model, times
         );
         debug!("The scoring matrices are: {:?}", costs);
-        Ok(ModelCosts {
+        Ok(ModelScoring {
             alphabet: *self.model.alphabet(),
+            model: self.model,
+            gap: self.gap,
             costs,
         })
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ModelCosts {
+pub struct ModelScoring<P: ParsimonyModel> {
     alphabet: Alphabet,
+    model: P,
+    gap: GapCost,
     costs: Vec<(OrderedFloat<f64>, TimeCosts)>,
 }
 
@@ -104,7 +110,17 @@ pub(crate) struct TimeCosts {
     c: CostMatrix,
 }
 
-impl ModelCosts {
+impl<P: ParsimonyModel> Display for ModelScoring<P> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Model-based parsimony scoring with {}, {}",
+            self.model, self.gap
+        )
+    }
+}
+
+impl<P: ParsimonyModel> ModelScoring<P> {
     fn scoring(&self, target: OrderedFloat<f64>) -> &TimeCosts {
         let target = OrderedFloat(target);
         match self.costs.binary_search_by(|(time, _)| time.cmp(&target)) {
@@ -129,9 +145,17 @@ impl ModelCosts {
     }
 }
 
-impl ParsimonyCosts for ModelCosts {
+impl<P: ParsimonyModel> ParsimonyScoring for ModelScoring<P> {
     fn r#match(&self, blen: f64, i: &u8, j: &u8) -> f64 {
         self.scoring(OrderedFloat(blen)).c[(self.alphabet.index(i), self.alphabet.index(j))]
+    }
+
+    fn min_match(&self, blen: f64, i: &ParsimonySet, j: &ParsimonySet) -> f64 {
+        // Find minimal score among all pairs of chars in the sets (all to all)
+        i.iter()
+            .flat_map(|&a| j.iter().map(move |&b| self.r#match(blen, &a, &b)))
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap_or(0.0)
     }
 
     fn gap_open(&self, blen: f64) -> f64 {
@@ -157,7 +181,7 @@ mod private_tests {
     use crate::substitution_models::*;
 
     use super::*;
-    use super::{DiagonalZeros as Z, ModelCostBuilder as MCB, Rounding as R};
+    use super::{DiagonalZeros as Z, ModelScoringBuilder as MCB, Rounding as R};
 
     const TRUE_COST_MATRIX: [f64; 400] = [
         0.0, 6.0, 6.0, 5.0, 6.0, 6.0, 5.0, 4.0, 7.0, 7.0, 6.0, 5.0, 6.0, 7.0, 5.0, 4.0, 4.0, 9.0,
@@ -192,11 +216,10 @@ mod private_tests {
         rounding: R,
     ) {
         let gap = GapCost::new(6.5, 3.0);
-
-        let builder = ModelCostBuilder::new(model.clone())
-            .gap_cost(gap.clone())
-            .diagonal(diagonal.clone())
-            .rounding(rounding.clone())
+        let builder = ModelScoringBuilder::new(model.clone())
+            .gap_cost(gap)
+            .diagonal(diagonal)
+            .rounding(rounding)
             .times(vec![0.1, 0.5, 10.0]);
 
         assert_eq!(builder.model, model);
@@ -209,29 +232,29 @@ mod private_tests {
     fn model_builder_setters() {
         for d in [Z::zero(), Z::non_zero()] {
             for r in [R::zero(), R::four(), R::none()] {
-                builder_template(SubstModel::<HIVB>::new(&[], &[]), d.clone(), r.clone());
-                builder_template(SubstModel::<WAG>::new(&[], &[]), d.clone(), r.clone());
-                builder_template(SubstModel::<BLOSUM>::new(&[], &[]), d.clone(), r.clone());
+                builder_template(SubstModel::<HIVB>::new(&[], &[]), d, r);
+                builder_template(SubstModel::<WAG>::new(&[], &[]), d, r);
+                builder_template(SubstModel::<BLOSUM>::new(&[], &[]), d, r);
 
-                builder_template(SubstModel::<JC69>::new(&[], &[]), d.clone(), r.clone());
-                builder_template(SubstModel::<K80>::new(&[], &[]), d.clone(), r.clone());
+                builder_template(SubstModel::<JC69>::new(&[], &[]), d, r);
+                builder_template(SubstModel::<K80>::new(&[], &[]), d, r);
                 builder_template(
                     SubstModel::<HKY>::new(&[0.22, 0.26, 0.33, 0.19], &[0.5]),
-                    d.clone(),
-                    r.clone(),
+                    d,
+                    r,
                 );
                 builder_template(
                     SubstModel::<TN93>::new(
                         &[0.22, 0.26, 0.33, 0.19],
                         &[0.5970915, 0.2940435, 0.00135],
                     ),
-                    d.clone(),
-                    r.clone(),
+                    d,
+                    r,
                 );
                 builder_template(
                     SubstModel::<GTR>::new(&[0.1, 0.3, 0.4, 0.2], &[5.0, 1.0, 1.0, 1.0, 1.0, 5.0]),
-                    d.clone(),
-                    r.clone(),
+                    d,
+                    r,
                 );
             }
         }
@@ -239,9 +262,9 @@ mod private_tests {
 
     #[cfg(test)]
     fn builder_default_template<P: ParsimonyModel + Clone + PartialEq + Debug>(model: P) {
-        use crate::parsimony::costs::GapCost;
+        use crate::parsimony::scoring::GapCost;
 
-        let builder = ModelCostBuilder::new(model.clone());
+        let builder = ModelScoringBuilder::new(model.clone());
 
         assert_eq!(builder.model, model);
         assert_eq!(builder.gap, GapCost::new(2.5, 1.0));
@@ -271,7 +294,7 @@ mod private_tests {
 
     #[test]
     fn protein_scorings() {
-        let s = ModelCostBuilder::new(SubstModel::<WAG>::new(&[], &[]))
+        let s = ModelScoringBuilder::new(SubstModel::<WAG>::new(&[], &[]))
             .gap_cost(GapCost::new(2.5, 1.0))
             .diagonal(Z::non_zero())
             .rounding(R::zero())
@@ -290,16 +313,16 @@ mod private_tests {
 
     #[cfg(test)]
     fn rounding_template<P: ParsimonyModel + Clone>(model: P) {
-        let g = GapCost::new(2.5, 1.0);
+        let gap = GapCost::new(2.5, 1.0);
         let s_rounded = MCB::new(model.clone())
-            .gap_cost(g.clone())
+            .gap_cost(gap)
             .diagonal(Z::zero())
             .rounding(R::zero())
             .times(vec![0.1])
             .build()
             .unwrap();
         let s = MCB::new(model)
-            .gap_cost(g)
+            .gap_cost(gap)
             .diagonal(Z::zero())
             .times(vec![0.1])
             .build()
@@ -337,17 +360,16 @@ mod private_tests {
 
     #[cfg(test)]
     fn matrix_zero_diagonals_template<P: ParsimonyModel + Clone>(model: P) {
-        let g = GapCost::new(2.5, 1.0);
-
+        let gap = GapCost::new(2.5, 1.0);
         let s_zero_diags = MCB::new(model.clone())
-            .gap_cost(g.clone())
+            .gap_cost(gap)
             .diagonal(Z::zero())
             .times(vec![0.1])
             .build()
             .unwrap();
 
         let s = MCB::new(model)
-            .gap_cost(g)
+            .gap_cost(gap)
             .times(vec![0.1])
             .build()
             .unwrap();

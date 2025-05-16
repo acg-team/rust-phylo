@@ -1,17 +1,20 @@
 use std::default;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use hashbrown::HashMap;
 use log::info;
 use nalgebra::DMatrix;
 
 use crate::alignment::{Aligner, Alignment, InternalMapping, PairwiseAlignment, Sequences};
+use crate::alphabets::ParsimonySet;
 use crate::evolutionary_models::EvoModel;
 use crate::tree::{NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::Result;
 
-pub mod costs;
-use costs::*;
+pub mod cost;
+pub use cost::*;
+pub mod scoring;
+use scoring::*;
 pub mod matrices;
 pub(crate) use matrices::*;
 pub(crate) mod helpers;
@@ -19,30 +22,30 @@ pub(crate) use helpers::*;
 
 pub(crate) type CostMatrix = DMatrix<f64>;
 
-pub trait ParsimonyModel: Display + EvoModel {
+pub trait ParsimonyModel: EvoModel + Debug + Display + Clone {
     fn scoring(&self, time: f64, diagonals: &DiagonalZeros, rounding: &Rounding) -> CostMatrix;
 }
 
-pub struct ParsimonyAligner<PC: ParsimonyCosts> {
-    pub scoring: PC,
+pub struct ParsimonyAligner<PS: ParsimonyScoring> {
+    pub scoring: PS,
 }
 
-impl<PC: ParsimonyCosts + Clone> Aligner for ParsimonyAligner<PC> {
+impl<PS: ParsimonyScoring + Clone> Aligner for ParsimonyAligner<PS> {
     fn align(&self, seqs: &Sequences, tree: &Tree) -> Result<Alignment> {
         self.align_with_scores(seqs, tree).map(|(a, _)| a)
     }
 }
 
-impl default::Default for ParsimonyAligner<SimpleCosts> {
+impl default::Default for ParsimonyAligner<SimpleScoring> {
     fn default() -> Self {
         ParsimonyAligner {
-            scoring: SimpleCosts::new(1.0, GapCost::new(2.5, 0.5)),
+            scoring: SimpleScoring::new(1.0, GapCost::new(2.5, 0.5)),
         }
     }
 }
 
-impl<'a, PC: ParsimonyCosts + Clone> ParsimonyAligner<PC> {
-    pub fn new(scoring: PC) -> ParsimonyAligner<PC> {
+impl<'a, PS: ParsimonyScoring + Clone> ParsimonyAligner<PS> {
+    pub fn new(scoring: PS) -> ParsimonyAligner<PS> {
         ParsimonyAligner { scoring }
     }
 
@@ -88,7 +91,10 @@ impl<'a, PC: ParsimonyCosts + Clone> ParsimonyAligner<PC> {
                         .iter()
                         .map(|c| seqs.alphabet().parsimony_set(c))
                         .collect::<Vec<_>>();
-                    node_info[idx] = pars_sets.into_iter().map(ParsimonySite::leaf).collect();
+                    node_info[idx] = pars_sets
+                        .into_iter()
+                        .map(|set: &ParsimonySet| ParsimonySite::leaf(set.clone()))
+                        .collect();
                     info!("Processed leaf node.\n");
                 }
             }
@@ -99,11 +105,9 @@ impl<'a, PC: ParsimonyCosts + Clone> ParsimonyAligner<PC> {
             seqs: seqs.into_gapless(),
             leaf_map: HashMap::new(),
             node_map: alignments,
-            leaf_encoding: HashMap::new(),
         };
         let leaf_map = alignment.compile_leaf_map(&tree.root, tree).unwrap();
         alignment.leaf_map = leaf_map;
-        alignment.leaf_encoding = alignment.seqs.generate_leaf_encoding();
         Ok((alignment, scores))
     }
 
