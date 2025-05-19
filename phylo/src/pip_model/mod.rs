@@ -90,7 +90,7 @@ impl<Q: QMatrix + QMatrixMaker> PIPModel<Q> {
 
 impl<Q: QMatrix> EvoModel for PIPModel<Q> {
     fn p(&self, time: f64) -> SubstMatrix {
-        (self.q().clone() * time).exp()
+        (self.q() * time).exp()
     }
 
     fn q(&self) -> &SubstMatrix {
@@ -116,7 +116,7 @@ impl<Q: QMatrix> EvoModel for PIPModel<Q> {
     fn set_freqs(&mut self, pi: FreqVector) {
         debug_assert!(self.freqs.nrows() - 1 == pi.nrows() || self.freqs.nrows() == pi.nrows());
         self.freqs = pi.clone().insert_row(pi.nrows(), 0.0);
-        self.subst_q.set_freqs(pi.clone());
+        self.subst_q.set_freqs(pi);
         pip_q(&mut self.q, self.subst_q.q(), self.params[1]);
     }
 
@@ -407,13 +407,23 @@ impl<Q: QMatrix> PIPCost<Q> {
                 }
             }
 
-            tmp.ftilde[idx] = tmp.leaf_seq_info.get(node_idx).unwrap().clone();
+            {
+                let PIPModelInfo {
+                    ref leaf_seq_info,
+                    ftilde,
+                    ..
+                } = &mut *tmp;
+                leaf_seq_info
+                    .get(node_idx)
+                    .unwrap()
+                    .clone_into(&mut ftilde[idx]);
+            }
 
             tmp.f[idx] = tmp.ftilde[idx]
                 .tr_mul(self.model.freqs())
                 .component_mul(&tmp.anc[idx].column(0));
 
-            tmp.pnu[idx] = tmp.f[idx].clone() * tmp.surv_ins_weights[idx];
+            tmp.pnu[idx] = &tmp.f[idx] * tmp.surv_ins_weights[idx];
             tmp.c0_f1[idx] = -1.0;
             tmp.c0_pnu[idx] = -tmp.surv_ins_weights[idx];
             if let Some(parent_idx) = tree.parent(node_idx) {
@@ -421,6 +431,12 @@ impl<Q: QMatrix> PIPCost<Q> {
             }
             tmp.valid[idx] = true;
         }
+    }
+
+    #[inline]
+    fn get_children(tree: &Tree, node_idx: &NodeIdx) -> [NodeIdx; 2] {
+        let children = tree.children(node_idx);
+        [children[0], children[1]]
     }
 
     /// Dependent:
@@ -432,23 +448,24 @@ impl<Q: QMatrix> PIPCost<Q> {
     /// Modifies:
     /// - tmp.pnu of this node
     fn set_pnu(&self, tree: &Tree, node_idx: &NodeIdx) {
-        let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
+        let children = Self::get_children(tree, node_idx).map(usize::from);
+
         let idx = usize::from(node_idx);
 
-        let tmp = self.tmp.borrow();
-        let x_pnu = tmp.pnu[children[0]].clone();
-        let y_pnu = tmp.pnu[children[1]].clone();
-        let ancestors = tmp.anc[idx].clone();
-
-        drop(tmp);
-
         let mut tmp = self.tmp.borrow_mut();
-
-        // TODO: why clone?
-        tmp.pnu[idx] =
-            tmp.f[idx].clone().component_mul(&ancestors.column(0)) * tmp.surv_ins_weights[idx];
-        tmp.pnu[idx] +=
-            ancestors.column(1).component_mul(&x_pnu) + ancestors.column(2).component_mul(&y_pnu);
+        let PIPModelInfo {
+            pnu,
+            ref surv_ins_weights,
+            ref anc,
+            ref f,
+            ..
+        } = &mut *tmp;
+        let [x_pnu, y_pnu, this_pnu] = pnu
+            .get_disjoint_mut([children[0], children[1], idx])
+            .expect("children and parent should be disjoint");
+        *this_pnu = f[idx].component_mul(&anc[idx].column(0)) * surv_ins_weights[idx];
+        *this_pnu +=
+            anc[idx].column(1).component_mul(x_pnu) + anc[idx].column(2).component_mul(y_pnu);
     }
 
     /// Dependent:
@@ -459,10 +476,8 @@ impl<Q: QMatrix> PIPCost<Q> {
     /// - tmp.ftilde for this node
     /// - tmp.f for this node
     fn set_ftilde(&self, tree: &Tree, node_idx: &NodeIdx) {
-        let children = tree.children(node_idx);
         let idx = usize::from(node_idx);
-        let x_idx = usize::from(children[0]);
-        let y_idx = usize::from(children[1]);
+        let [x_idx, y_idx] = Self::get_children(tree, node_idx).map(usize::from);
         let mut tmp = self.tmp.borrow_mut();
         tmp.ftilde[idx] = (&tmp.models[x_idx])
             .mul(&tmp.ftilde[x_idx])
@@ -488,21 +503,21 @@ impl<Q: QMatrix> PIPCost<Q> {
     /// - tmp.anc of this node
     fn set_ancestors(&self, tree: &Tree, node_idx: &NodeIdx) {
         let idx = usize::from(node_idx);
-        let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
+        let children = Self::get_children(tree, node_idx).map(usize::from);
+
         let mut tmp = self.tmp.borrow_mut();
-
-        // TODO: unnecessary clone of whole matrix
-        let x_anc = tmp.anc[children[0]].clone();
-        let y_anc = tmp.anc[children[1]].clone();
-
-        tmp.anc[idx].set_column(1, &x_anc.column(0));
-        tmp.anc[idx].set_column(2, &y_anc.column(0));
-        tmp.anc[idx].set_column(0, &(x_anc.column(0) + y_anc.column(0)));
-        for i in 0..tmp.anc[idx].nrows() {
-            debug_assert!((0.0..=2.0).contains(&tmp.anc[idx][(i, 0)]));
-            if tmp.anc[idx][(i, 0)] == 2.0 {
-                tmp.anc[idx].fill_row(i, 0.0);
-                tmp.anc[idx][(i, 0)] = 1.0;
+        let [x_anc, y_anc, this_anc] = tmp
+            .anc
+            .get_disjoint_mut([children[0], children[1], idx])
+            .expect("children and parent should be disjoint");
+        this_anc.set_column(1, &x_anc.column(0));
+        this_anc.set_column(2, &y_anc.column(0));
+        this_anc.set_column(0, &(x_anc.column(0) + y_anc.column(0)));
+        for i in 0..this_anc.nrows() {
+            debug_assert!((0.0..=2.0).contains(&this_anc[(i, 0)]));
+            if this_anc[(i, 0)] == 2.0 {
+                this_anc.fill_row(i, 0.0);
+                this_anc[(i, 0)] = 1.0;
             }
         }
     }
@@ -517,9 +532,7 @@ impl<Q: QMatrix> PIPCost<Q> {
     /// - tmp.c0_pnu of this node
     fn set_c0(&self, tree: &Tree, node_idx: &NodeIdx) {
         let idx = usize::from(node_idx);
-        let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
-        let x_idx = children[0];
-        let y_idx = children[1];
+        let [x_idx, y_idx] = Self::get_children(tree, node_idx).map(usize::from);
 
         let x_blen = tree.nodes[x_idx].blen;
         let y_blen = tree.nodes[y_idx].blen;
