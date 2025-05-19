@@ -173,7 +173,7 @@ pub struct PIPModelInfo<Q: QMatrix> {
     valid: Vec<bool>,
     models: Vec<SubstMatrix>,
     models_valid: Vec<bool>,
-    leaf_seq_info: HashMap<NodeIdx, DMatrix<f64>>,
+    leaf_seq_info: HashMap<usize, DMatrix<f64>>,
 }
 
 impl<Q: QMatrix> PIPModelInfo<Q> {
@@ -203,7 +203,7 @@ impl<Q: QMatrix> PIPModelInfo<Q> {
                 }
                 site_info.scale_mut((1.0) / site_info.sum());
             }
-            leaf_seq_info.insert(node.idx, leaf_seq_w_gaps);
+            leaf_seq_info.insert(usize::from(node.idx), leaf_seq_w_gaps);
         }
         Ok(PIPModelInfo {
             phantom: PhantomData,
@@ -309,19 +309,55 @@ impl<Q: QMatrix + Display> Display for PIPCost<Q> {
     }
 }
 
+// TODO(MERBUG): maybe evaluate repr packed/C/
+// to make left_right_this the identity function
+#[derive(Debug, Clone, Copy)]
+struct PIPCostIndices {
+    children: [usize; 2],
+    this: usize,
+}
+
+impl PIPCostIndices {
+    fn new(children: [usize; 2], this: usize) -> Self {
+        assert_ne!(children[0], children[1]);
+        assert_ne!(children[0], this);
+        assert_ne!(children[1], this);
+        Self { children, this }
+    }
+
+    fn left_right_this(&self) -> [usize; 3] {
+        [self.children[0], self.children[1], self.this]
+    }
+
+    // fn get_disjoint_mut_safe<T>(self, slice: &mut [T]) -> [&mut T; 3] {
+    //     assert!(self.left_right_this().iter().all(|idx| *idx < slice.len()));
+    //     // safety:
+    //     // - constructor validates all indices are disjoin
+    //     // - one line above validates no out of bounds access
+    //     unsafe { slice.get_disjoint_unchecked_mut(self.left_right_this()) }
+    // }
+}
+
 impl<Q: QMatrix> PIPCost<Q> {
     fn logl(&self) -> f64 {
         for node_idx in self.info.tree.postorder() {
             match node_idx {
                 Int(_) => {
+                    let children = self.info.tree.children(node_idx);
+                    let children = [children[0], children[1]].map(usize::from);
+                    let indices = PIPCostIndices::new(children, usize::from(node_idx));
                     if self.info.tree.root == *node_idx {
-                        self.set_root(&self.info.tree, node_idx);
+                        self.set_root(&self.info.tree, &indices);
                     } else {
-                        self.set_internal(&self.info.tree, node_idx);
+                        self.set_internal(&self.info.tree, &indices);
                     }
                 }
                 Leaf(_) => {
-                    self.set_leaf(&self.info.tree, node_idx, self.info.msa.leaf_map(node_idx));
+                    self.set_leaf(
+                        &self.info.tree,
+                        usize::from(node_idx),
+                        self.info.msa.leaf_map(node_idx),
+                    );
                 }
             };
         }
@@ -349,61 +385,60 @@ impl<Q: QMatrix> PIPCost<Q> {
             - log_factorial_shifted(msa_length)
     }
 
-    fn set_root(&self, tree: &Tree, node_idx: &NodeIdx) {
+    fn set_root(&self, tree: &Tree, indices: &PIPCostIndices) {
+        let node_idx = indices.this;
         self.set_model(tree, node_idx);
-        let idx = usize::from(node_idx);
-        if !self.tmp.borrow().valid[idx] {
+        if !self.tmp.borrow().valid[node_idx] {
             let mut tmp = self.tmp.borrow_mut();
 
-            tmp.surv_ins_weights[idx] = self.model.lambda() / self.model.mu();
-            tmp.anc[idx].fill_column(0, 1.0);
+            tmp.surv_ins_weights[node_idx] = self.model.lambda() / self.model.mu();
+            tmp.anc[node_idx].fill_column(0, 1.0);
             drop(tmp);
 
-            self.set_ftilde(tree, node_idx);
-            self.set_ancestors(tree, node_idx);
-            self.set_pnu(tree, node_idx);
-            self.set_c0(tree, node_idx);
+            self.set_ftilde(tree, indices);
+            self.set_ancestors(tree, indices);
+            self.set_pnu(tree, indices);
+            self.set_c0(tree, indices);
 
             let mut tmp = self.tmp.borrow_mut();
-            tmp.valid[idx] = true;
+            tmp.valid[node_idx] = true;
         }
     }
 
-    fn set_internal(&self, tree: &Tree, node_idx: &NodeIdx) {
-        self.set_model(tree, node_idx);
-        let idx = usize::from(node_idx);
-        let node = tree.node(node_idx);
-        if !self.tmp.borrow().valid[idx] {
+    fn set_internal(&self, tree: &Tree, indices: &PIPCostIndices) {
+        self.set_model(tree, indices.this);
+        let node_idx = indices.this;
+        let node = &tree.nodes[node_idx];
+        if !self.tmp.borrow().valid[node_idx] {
             let mut tmp = self.tmp.borrow_mut();
 
-            tmp.surv_ins_weights[idx] =
+            tmp.surv_ins_weights[node_idx] =
                 Self::survival_insertion_weight(self.model.lambda(), self.model.mu(), node.blen);
             drop(tmp);
 
-            self.set_ftilde(tree, node_idx);
-            self.set_ancestors(tree, node_idx);
-            self.set_pnu(tree, node_idx);
-            self.set_c0(tree, node_idx);
+            self.set_ftilde(tree, indices);
+            self.set_ancestors(tree, indices);
+            self.set_pnu(tree, indices);
+            self.set_c0(tree, indices);
 
             let mut tmp = self.tmp.borrow_mut();
-            if let Some(parent_idx) = tree.parent(node_idx) {
+            if let Some(parent_idx) = tree.nodes[node_idx].parent {
                 tmp.valid[usize::from(parent_idx)] = false;
             }
-            tmp.valid[idx] = true;
+            tmp.valid[node_idx] = true;
         }
     }
 
-    fn set_leaf(&self, tree: &Tree, node_idx: &NodeIdx, leaf_map: &Mapping) {
+    fn set_leaf(&self, tree: &Tree, node_idx: usize, leaf_map: &Mapping) {
         self.set_model(tree, node_idx);
-        let idx = usize::from(node_idx);
-        let node = tree.node(node_idx);
-        if !self.tmp.borrow().valid[idx] {
+        let node = &tree.nodes[node_idx];
+        if !self.tmp.borrow().valid[node_idx] {
             let mut tmp = self.tmp.borrow_mut();
-            tmp.surv_ins_weights[idx] =
+            tmp.surv_ins_weights[node_idx] =
                 Self::survival_insertion_weight(self.model.lambda(), self.model.mu(), node.blen);
             for (i, c) in leaf_map.iter().enumerate() {
                 if c.is_some() {
-                    tmp.anc[idx][(i, 0)] = 1.0;
+                    tmp.anc[node_idx][(i, 0)] = 1.0;
                 }
             }
 
@@ -414,29 +449,23 @@ impl<Q: QMatrix> PIPCost<Q> {
                     ..
                 } = &mut *tmp;
                 leaf_seq_info
-                    .get(node_idx)
+                    .get(&node_idx)
                     .unwrap()
-                    .clone_into(&mut ftilde[idx]);
+                    .clone_into(&mut ftilde[node_idx]);
             }
 
-            tmp.f[idx] = tmp.ftilde[idx]
+            tmp.f[node_idx] = tmp.ftilde[node_idx]
                 .tr_mul(self.model.freqs())
-                .component_mul(&tmp.anc[idx].column(0));
+                .component_mul(&tmp.anc[node_idx].column(0));
 
-            tmp.pnu[idx] = &tmp.f[idx] * tmp.surv_ins_weights[idx];
-            tmp.c0_f1[idx] = -1.0;
-            tmp.c0_pnu[idx] = -tmp.surv_ins_weights[idx];
-            if let Some(parent_idx) = tree.parent(node_idx) {
+            tmp.pnu[node_idx] = &tmp.f[node_idx] * tmp.surv_ins_weights[node_idx];
+            tmp.c0_f1[node_idx] = -1.0;
+            tmp.c0_pnu[node_idx] = -tmp.surv_ins_weights[node_idx];
+            if let Some(parent_idx) = tree.nodes[node_idx].parent {
                 tmp.valid[usize::from(parent_idx)] = false;
             }
-            tmp.valid[idx] = true;
+            tmp.valid[node_idx] = true;
         }
-    }
-
-    #[inline]
-    fn get_children(tree: &Tree, node_idx: &NodeIdx) -> [NodeIdx; 2] {
-        let children = tree.children(node_idx);
-        [children[0], children[1]]
     }
 
     /// Dependent:
@@ -447,11 +476,7 @@ impl<Q: QMatrix> PIPCost<Q> {
     ///
     /// Modifies:
     /// - tmp.pnu of this node
-    fn set_pnu(&self, tree: &Tree, node_idx: &NodeIdx) {
-        let children = Self::get_children(tree, node_idx).map(usize::from);
-
-        let idx = usize::from(node_idx);
-
+    fn set_pnu(&self, _tree: &Tree, indices: &PIPCostIndices) {
         let mut tmp = self.tmp.borrow_mut();
         let PIPModelInfo {
             pnu,
@@ -461,8 +486,9 @@ impl<Q: QMatrix> PIPCost<Q> {
             ..
         } = &mut *tmp;
         let [x_pnu, y_pnu, this_pnu] = pnu
-            .get_disjoint_mut([children[0], children[1], idx])
+            .get_disjoint_mut(indices.left_right_this())
             .expect("children and parent should be disjoint");
+        let idx = indices.this;
         *this_pnu = f[idx].component_mul(&anc[idx].column(0)) * surv_ins_weights[idx];
         *this_pnu +=
             anc[idx].column(1).component_mul(x_pnu) + anc[idx].column(2).component_mul(y_pnu);
@@ -475,9 +501,10 @@ impl<Q: QMatrix> PIPCost<Q> {
     /// Modifies:
     /// - tmp.ftilde for this node
     /// - tmp.f for this node
-    fn set_ftilde(&self, tree: &Tree, node_idx: &NodeIdx) {
-        let idx = usize::from(node_idx);
-        let [x_idx, y_idx] = Self::get_children(tree, node_idx).map(usize::from);
+    // TODO: why doesnt this use tree.dirty/tmp.valid?
+    fn set_ftilde(&self, _tree: &Tree, indices: &PIPCostIndices) {
+        let idx = indices.this;
+        let [x_idx, y_idx] = indices.children;
         let mut tmp = self.tmp.borrow_mut();
         tmp.ftilde[idx] = (&tmp.models[x_idx])
             .mul(&tmp.ftilde[x_idx])
@@ -485,14 +512,13 @@ impl<Q: QMatrix> PIPCost<Q> {
         tmp.f[idx] = tmp.ftilde[idx].tr_mul(self.model.freqs());
     }
 
-    fn set_model(&self, tree: &Tree, node_idx: &NodeIdx) {
-        let idx = usize::from(node_idx);
-        let node = tree.node(node_idx);
-        if tree.dirty[idx] || !self.tmp.borrow().models_valid[idx] {
+    fn set_model(&self, tree: &Tree, node_idx: usize) {
+        let node = &tree.nodes[node_idx];
+        if tree.dirty[node_idx] || !self.tmp.borrow().models_valid[node_idx] {
             let mut tmp = self.tmp.borrow_mut();
-            tmp.models[idx] = self.model.p(node.blen);
-            tmp.models_valid[idx] = true;
-            tmp.valid[idx] = false;
+            tmp.models[node_idx] = self.model.p(node.blen);
+            tmp.models_valid[node_idx] = true;
+            tmp.valid[node_idx] = false;
         }
     }
 
@@ -501,14 +527,11 @@ impl<Q: QMatrix> PIPCost<Q> {
     ///
     /// Modifies:
     /// - tmp.anc of this node
-    fn set_ancestors(&self, tree: &Tree, node_idx: &NodeIdx) {
-        let idx = usize::from(node_idx);
-        let children = Self::get_children(tree, node_idx).map(usize::from);
-
+    fn set_ancestors(&self, _tree: &Tree, indices: &PIPCostIndices) {
         let mut tmp = self.tmp.borrow_mut();
         let [x_anc, y_anc, this_anc] = tmp
             .anc
-            .get_disjoint_mut([children[0], children[1], idx])
+            .get_disjoint_mut(indices.left_right_this())
             .expect("children and parent should be disjoint");
         this_anc.set_column(1, &x_anc.column(0));
         this_anc.set_column(2, &y_anc.column(0));
@@ -530,21 +553,22 @@ impl<Q: QMatrix> PIPCost<Q> {
     /// Modifies:
     /// - tmp.c0_f1 of this node
     /// - tmp.c0_pnu of this node
-    fn set_c0(&self, tree: &Tree, node_idx: &NodeIdx) {
-        let idx = usize::from(node_idx);
-        let [x_idx, y_idx] = Self::get_children(tree, node_idx).map(usize::from);
+    fn set_c0(&self, tree: &Tree, indices: &PIPCostIndices) {
+        let node_idx = indices.this;
+        let [x_idx, y_idx] = indices.children;
 
         let x_blen = tree.nodes[x_idx].blen;
         let y_blen = tree.nodes[y_idx].blen;
 
         let mut tmp = self.tmp.borrow_mut();
         let mu = self.model.mu();
-        tmp.c0_f1[idx] = (1.0 + (-mu * x_blen).exp() * tmp.c0_f1[x_idx])
+        tmp.c0_f1[node_idx] = (1.0 + (-mu * x_blen).exp() * tmp.c0_f1[x_idx])
             * (1.0 + (-mu * y_blen).exp() * tmp.c0_f1[y_idx])
             - 1.0;
 
-        tmp.c0_pnu[idx] =
-            tmp.surv_ins_weights[idx] * tmp.c0_f1[idx] + tmp.c0_pnu[x_idx] + tmp.c0_pnu[y_idx];
+        tmp.c0_pnu[node_idx] = tmp.surv_ins_weights[node_idx] * tmp.c0_f1[node_idx]
+            + tmp.c0_pnu[x_idx]
+            + tmp.c0_pnu[y_idx];
     }
 
     fn survival_insertion_weight(lambda: f64, mu: f64, b: f64) -> f64 {
