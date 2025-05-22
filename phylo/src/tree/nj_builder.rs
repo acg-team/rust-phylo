@@ -1,7 +1,6 @@
 use crate::tree::{
     Tree,
     NodeIdx,
-    rng_len,
     nj_matrices::{Mat, NJMat},
 };
 
@@ -42,14 +41,19 @@ impl NJBuilder {
                 }
             }
         }
-    
+        
         cfg_if::cfg_if! {
         if #[cfg(feature = "deterministic")]{
             arg_min[0]
         } else {
-            arg_min[rng_len(arg_min.len())]
+            arg_min[Self::rng_len(arg_min.len())]
         }
         }
+    }
+
+    #[cfg(not(feature = "deterministic"))]
+    fn rng_len(l: usize) -> usize {
+        rand::random::<usize>() % l
     }
 
     pub fn build_nj_tree_from_matrix(mut nj_data: NJMat, sequences: &Sequences) -> Result<Tree> {
@@ -104,3 +108,4 @@ impl NJBuilder {
         }
     }
 }
+// Implement the tests at the bottom of this module for ability to use private functions
