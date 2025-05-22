@@ -12,7 +12,7 @@ use crate::alignment::Sequences;
 use crate::io::read_newick_from_file;
 use crate::parsimony::Rounding;
 use crate::tree::{
-    argmin_wo_diagonal, build_nj_tree_from_matrix, compute_distance_matrix,
+    nj_builder::NJBuilder,
     nj_matrices::NJMat,
     percentiles, percentiles_rounded,
     tree_parser::{from_newick, ParsingError, Rule},
@@ -142,7 +142,8 @@ fn nj_correct_web_example() {
         record!("C2", b""),
         record!("D3", b""),
     ]);
-    let nj_tree = build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
+    //For now, may instantiate NJBuilder instance every time
+    let nj_tree = NJBuilder::build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
     let nodes = vec![
         Node::new_leaf(0, Some(I(4)), 1.0, "A0".to_string()),
         Node::new_leaf(1, Some(I(4)), 3.0, "B1".to_string()),
@@ -175,7 +176,8 @@ fn nj_correct() {
         record!("D3", b""),
         record!("E4", b""),
     ]);
-    let nj_tree = build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
+    //For now, may instantiate NJBuilder instance every time
+    let nj_tree = NJBuilder::build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
     let nodes = vec![
         Node::new_leaf(0, Some(I(5)), 2.0, "A0".to_string()),
         Node::new_leaf(1, Some(I(5)), 3.0, "B1".to_string()),
@@ -214,7 +216,8 @@ fn protein_nj_correct() {
         record!("C2", b""),
         record!("D3", b""),
     ]);
-    let tree = build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
+    //For now, may instantiate NJBuilder instance every time
+    let tree = NJBuilder::build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
     assert_eq!(tree.len(), 7);
     assert_eq!(tree.postorder.len(), 7);
     assert!(is_unique(&tree.postorder));
@@ -239,7 +242,8 @@ fn nj_correct_2() {
         record!("C", b""),
         record!("D", b""),
     ]);
-    let tree = build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
+    //For now, may instantiate NJBuilder instance every time
+    let tree = NJBuilder::build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
     assert_eq!(tree.by_id("A").blen, 1.0);
     assert_eq!(tree.by_id("B").blen, 3.0);
     assert_eq!(tree.by_id("C").blen, 2.0);
@@ -272,7 +276,8 @@ fn nj_correct_wiki_example() {
         record!("d", b""),
         record!("e", b""),
     ]);
-    let tree = build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
+    //For now, may instantiate NJBuilder instance every time
+    let tree = NJBuilder::build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
     assert_eq!(tree.by_id("a").blen, 2.0);
     assert_eq!(tree.by_id("b").blen, 3.0);
     assert_eq!(tree.by_id("c").blen, 4.0);
@@ -584,7 +589,8 @@ fn compute_distance_matrix_close() {
         record!("D3", b"A"),
         record!("E4", b"CC"),
     ]);
-    let mat = compute_distance_matrix(&sequences);
+    //For now, may instantiate NJBuilder instance every time
+    let mat = NJBuilder::compute_distance_matrix(&sequences);
     let true_mat = dmatrix![
         0.0, 26.728641210756745, 26.728641210756745, 26.728641210756745, 0.8239592165010822;
         26.728641210756745, 0.0, 0.8239592165010822, 0.0, 26.728641210756745;
@@ -602,7 +608,8 @@ fn compute_distance_matrix_far() {
         record!("C2", b"AAAAAAAAAAAAAAAAAAAAAAAAA"),
         record!("D3", b"CAAAAAAAAAAAAAAAAAAA"),
     ]);
-    let mat = compute_distance_matrix(&sequences);
+    //For now, may instantiate NJBuilder instance every time
+    let mat = NJBuilder::compute_distance_matrix(&sequences);
     let true_mat = dmatrix![
         0.0, 0.0, 0.2326161962278796, 0.051744653615213576;
         0.0, 0.0, 0.2326161962278796, 0.051744653615213576;
@@ -669,7 +676,8 @@ fn test_node_idx_debug() {
 #[test]
 #[should_panic]
 fn test_argmin_fail() {
-    argmin_wo_diagonal(DMatrix::<f64>::from_vec(1, 1, vec![0.0]));
+    //For now, may instantiate NJBuilder instance every time
+    NJBuilder::argmin_wo_diagonal(DMatrix::<f64>::from_vec(1, 1, vec![0.0]));
 }
 
 #[test]
@@ -1006,3 +1014,4 @@ fn rf_distance_against_raxml() {
     assert_eq!(tree_phyml.robinson_foulds(tree_from_nj), 0);
     assert_eq!(tree.robinson_foulds(tree_from_nj), 0);
 }
+//Should probably add a test for build_nj_tree(), though as long as composite functions work, I doubt there is an issue...?

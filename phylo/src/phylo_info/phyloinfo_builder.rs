@@ -9,7 +9,8 @@ use crate::alphabets::Alphabet;
 use crate::io::{self, DataError};
 use crate::parsimony::ParsimonyAligner;
 use crate::phylo_info::PhyloInfo;
-use crate::tree::{build_nj_tree, Tree};
+use crate::tree::{Tree};
+use crate::tree::nj_builder::NJBuilder;
 use crate::Result;
 
 pub struct PhyloInfoBuilder {
@@ -165,7 +166,10 @@ impl PhyloInfoBuilder {
             Some(tree_file) => self.read_tree(&sequences, tree_file)?,
             None => {
                 info!("Building NJ tree from sequences");
-                build_nj_tree(&sequences)?
+                let tree_builder = NJBuilder::new(0.00)?;
+                tree_builder.build_nj_tree(&sequences)?
+                // This will also work for now
+                //NJBuilder::build_nj_tree(&sequences)?
             }
         };
 
