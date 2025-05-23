@@ -6,6 +6,7 @@ use std::ops::Mul;
 use std::vec;
 
 use anyhow::bail;
+use fixedbitset::FixedBitSet;
 use hashbrown::HashMap;
 use lazy_static::lazy_static;
 use log::warn;
@@ -170,7 +171,8 @@ pub struct PIPModelInfo<Q: QMatrix> {
     pnu: Vec<DVector<f64>>,
     c0_f1: Vec<f64>,
     c0_pnu: Vec<f64>,
-    valid: Vec<bool>,
+    c0_valid: FixedBitSet,
+    valid_except_c0: Vec<bool>,
     models: Vec<SubstMatrix>,
     models_valid: Vec<bool>,
     leaf_seq_info: HashMap<usize, DMatrix<f64>>,
@@ -213,8 +215,9 @@ impl<Q: QMatrix> PIPModelInfo<Q> {
             pnu: vec![DVector::<f64>::zeros(msa_length); node_count],
             c0_f1: vec![0.0; node_count],
             c0_pnu: vec![0.0; node_count],
+            c0_valid: FixedBitSet::with_capacity(node_count),
             anc: vec![DMatrix::<f64>::zeros(msa_length, 3); node_count],
-            valid: vec![false; node_count],
+            valid_except_c0: vec![false; node_count],
             models: vec![SubstMatrix::zeros(n, n); node_count],
             models_valid: vec![false; node_count],
             leaf_seq_info,
@@ -261,12 +264,12 @@ impl<Q: QMatrix> TreeSearchCost for PIPCost<Q> {
     fn update_tree(&mut self, tree: Tree, dirty_nodes: &[NodeIdx]) {
         self.info.tree = tree;
         if dirty_nodes.is_empty() {
-            self.tmp.borrow_mut().valid.fill(false);
+            self.tmp.borrow_mut().valid_except_c0.fill(false);
             self.tmp.borrow_mut().models_valid.fill(false);
             return;
         }
         for node_idx in dirty_nodes {
-            self.tmp.borrow_mut().valid[usize::from(node_idx)] = false;
+            self.tmp.borrow_mut().valid_except_c0[usize::from(node_idx)] = false;
             self.tmp.borrow_mut().models_valid[usize::from(node_idx)] = false;
         }
     }
@@ -388,7 +391,7 @@ impl<Q: QMatrix> PIPCost<Q> {
     fn set_root(&self, tree: &Tree, indices: &PIPCostIndices) {
         let node_idx = indices.this;
         self.set_model(tree, node_idx);
-        if !self.tmp.borrow().valid[node_idx] {
+        if !self.tmp.borrow().valid_except_c0[node_idx] {
             let mut tmp = self.tmp.borrow_mut();
 
             tmp.surv_ins_weights[node_idx] = self.model.lambda() / self.model.mu();
@@ -401,7 +404,7 @@ impl<Q: QMatrix> PIPCost<Q> {
             self.set_c0(tree, indices);
 
             let mut tmp = self.tmp.borrow_mut();
-            tmp.valid[node_idx] = true;
+            tmp.valid_except_c0[node_idx] = true;
         }
     }
 
@@ -409,7 +412,7 @@ impl<Q: QMatrix> PIPCost<Q> {
         self.set_model(tree, indices.this);
         let node_idx = indices.this;
         let node = &tree.nodes[node_idx];
-        if !self.tmp.borrow().valid[node_idx] {
+        if !self.tmp.borrow().valid_except_c0[node_idx] {
             let mut tmp = self.tmp.borrow_mut();
 
             tmp.surv_ins_weights[node_idx] =
@@ -423,16 +426,16 @@ impl<Q: QMatrix> PIPCost<Q> {
 
             let mut tmp = self.tmp.borrow_mut();
             if let Some(parent_idx) = tree.nodes[node_idx].parent {
-                tmp.valid[usize::from(parent_idx)] = false;
+                tmp.valid_except_c0[usize::from(parent_idx)] = false;
             }
-            tmp.valid[node_idx] = true;
+            tmp.valid_except_c0[node_idx] = true;
         }
     }
 
     fn set_leaf(&self, tree: &Tree, node_idx: usize, leaf_map: &Mapping) {
         self.set_model(tree, node_idx);
         let node = &tree.nodes[node_idx];
-        if !self.tmp.borrow().valid[node_idx] {
+        if !self.tmp.borrow().valid_except_c0[node_idx] {
             let mut tmp = self.tmp.borrow_mut();
             tmp.surv_ins_weights[node_idx] =
                 Self::survival_insertion_weight(self.model.lambda(), self.model.mu(), node.blen);
@@ -462,9 +465,9 @@ impl<Q: QMatrix> PIPCost<Q> {
             tmp.c0_f1[node_idx] = -1.0;
             tmp.c0_pnu[node_idx] = -tmp.surv_ins_weights[node_idx];
             if let Some(parent_idx) = tree.nodes[node_idx].parent {
-                tmp.valid[usize::from(parent_idx)] = false;
+                tmp.valid_except_c0[usize::from(parent_idx)] = false;
             }
-            tmp.valid[node_idx] = true;
+            tmp.valid_except_c0[node_idx] = true;
         }
     }
 
@@ -518,7 +521,7 @@ impl<Q: QMatrix> PIPCost<Q> {
             let mut tmp = self.tmp.borrow_mut();
             tmp.models[node_idx] = self.model.p(node.blen);
             tmp.models_valid[node_idx] = true;
-            tmp.valid[node_idx] = false;
+            tmp.valid_except_c0[node_idx] = false;
         }
     }
 
@@ -553,6 +556,16 @@ impl<Q: QMatrix> PIPCost<Q> {
     /// Modifies:
     /// - tmp.c0_f1 of this node
     /// - tmp.c0_pnu of this node
+    ///
+    /// TODO MERBUG IDEA:
+    /// - blen only affects c0_f1 & c0_pnu
+    /// - c0_f1 & c0_pnu only affect only themselves
+    ///
+    /// -> ONLY blen changes at all(but often) during BranchOptimiser,
+    /// if we calculate c0_f1 & c0_pnu isolated from the rest we can keep all other
+    /// variables valid (cached) if only the blen changes
+    ///
+    ///
     fn set_c0(&self, tree: &Tree, indices: &PIPCostIndices) {
         let node_idx = indices.this;
         let [x_idx, y_idx] = indices.children;
