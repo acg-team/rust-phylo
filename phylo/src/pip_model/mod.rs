@@ -7,7 +7,6 @@ use std::vec;
 
 use anyhow::bail;
 use fixedbitset::FixedBitSet;
-use hashbrown::HashMap;
 use lazy_static::lazy_static;
 use log::warn;
 use nalgebra::{DMatrix, DVector};
@@ -194,7 +193,6 @@ pub struct PIPModelInfo<Q: QMatrix> {
     cache: Vec<PIPModelCacheEntry>,
     valid: FixedBitSet,
     models_valid: FixedBitSet,
-    leaf_seq_info: HashMap<usize, DMatrix<f64>>,
 }
 
 impl<Q: QMatrix> PIPModelInfo<Q> {
@@ -202,12 +200,12 @@ impl<Q: QMatrix> PIPModelInfo<Q> {
         let n = model.q().nrows();
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
-        let mut leaf_seq_info = HashMap::with_capacity(info.tree.leaves().len());
+        let mut cache_entries = vec![PIPModelCacheEntry::make_default(n, msa_length); node_count];
         for node in info.tree.leaves() {
             let seq = info.msa.seqs.record_by_id(&node.id).seq().to_vec();
 
             let alignment_map = info.msa.leaf_map(&node.idx);
-            let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(n, msa_length);
+            let leaf_seq_w_gaps = &mut cache_entries[usize::from(node.idx)].ftilde;
 
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
@@ -224,14 +222,12 @@ impl<Q: QMatrix> PIPModelInfo<Q> {
                 }
                 site_info.scale_mut((1.0) / site_info.sum());
             }
-            leaf_seq_info.insert(usize::from(node.idx), leaf_seq_w_gaps);
         }
         Ok(PIPModelInfo {
             phantom: PhantomData,
-            cache: vec![PIPModelCacheEntry::make_default(n, msa_length); node_count],
+            cache: cache_entries,
             valid: FixedBitSet::with_capacity(node_count),
             models_valid: FixedBitSet::with_capacity(node_count),
-            leaf_seq_info,
         })
     }
 }
@@ -357,7 +353,6 @@ impl<Q: QMatrix> PIPCost<Q> {
                 cache,
                 valid: valid_cache_entries,
                 models_valid: valid_model_cache_entries,
-                leaf_seq_info,
                 ..
             } = &mut *tmp;
             if self.tree().dirty[number_node_idx] || !valid_model_cache_entries[number_node_idx] {
@@ -401,9 +396,6 @@ impl<Q: QMatrix> PIPCost<Q> {
                     self.set_leaf(
                         self.tree().nodes[number_node_idx].blen,
                         &mut cache[number_node_idx],
-                        leaf_seq_info
-                            .get(&number_node_idx)
-                            .expect("leaf should have sequence info"),
                         self.info.msa.leaf_map(node_idx),
                     );
                 }
@@ -466,15 +458,14 @@ impl<Q: QMatrix> PIPCost<Q> {
         node_blen: f64,
         PIPModelCacheEntry {
             f,
-            ftilde,
             pnu,
             c0_f1,
             c0_pnu,
             surv_ins_weights,
+            ref ftilde,
             anc,
             ..
         }: &mut PIPModelCacheEntry,
-        leaf_seq_info: &DMatrix<f64>,
         leaf_map: &Mapping,
     ) {
         *surv_ins_weights =
@@ -484,8 +475,6 @@ impl<Q: QMatrix> PIPCost<Q> {
                 anc[(i, 0)] = 1.0;
             }
         }
-
-        leaf_seq_info.clone_into(ftilde);
 
         *f = ftilde
             .tr_mul(self.model.freqs())
