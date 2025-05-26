@@ -7,15 +7,13 @@ use inc_stats::Percentiles;
 
 use crate::alignment::Sequences;
 use crate::parsimony::Rounding;
-use crate::tree::{
-    NodeIdx::{Internal as Int, Leaf},
-};
+use crate::tree::NodeIdx::{Internal as Int, Leaf};
 use crate::Result;
 
-mod nj_matrices;
-pub mod tree_parser;
-pub mod tree_builder;
 pub mod nj_builder;
+mod nj_matrices;
+pub mod tree_builder;
+pub mod tree_parser;
 
 mod tree_node;
 pub use tree_node::*;

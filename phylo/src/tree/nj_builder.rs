@@ -1,13 +1,12 @@
 use crate::tree::{
-    Tree,
-    NodeIdx,
     nj_matrices::{Mat, NJMat},
+    NodeIdx, Tree,
 };
 
-use crate::Result;
-use nalgebra::{max, DMatrix};
-use bio::alignment::distance::levenshtein;
 use crate::alignment::Sequences;
+use crate::Result;
+use bio::alignment::distance::levenshtein;
+use nalgebra::{max, DMatrix};
 
 pub struct NJBuilder {
     use_random: f64,
@@ -18,7 +17,7 @@ impl NJBuilder {
     //Copied over the NJ_builder functionality from mod.rs
     pub(crate) fn new(use_random: f64) -> Result<Self> {
         Ok(Self {
-            use_random: use_random
+            use_random: use_random,
         })
     }
 
@@ -41,7 +40,7 @@ impl NJBuilder {
                 }
             }
         }
-        
+
         cfg_if::cfg_if! {
         if #[cfg(feature = "deterministic")]{
             arg_min[0]
@@ -84,7 +83,7 @@ impl NJBuilder {
         let nj_data = NJBuilder::compute_distance_matrix(sequences);
         NJBuilder::build_nj_tree_from_matrix(nj_data, sequences)
     }
-    
+
     pub fn compute_distance_matrix(sequences: &Sequences) -> NJMat {
         let nseqs = sequences.len();
         let mut distances = DMatrix::zeros(nseqs, nseqs);
