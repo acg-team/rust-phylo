@@ -350,8 +350,8 @@ impl<'a> PIPCostNodeCache<'a> {
 
 impl<Q: QMatrix> PIPCost<Q> {
     fn logl(&self) -> f64 {
-        for node_idx in self.info.tree.postorder() {
-            let nnode_idx = usize::from(node_idx);
+        for node_idx in self.tree().postorder() {
+            let number_node_idx = usize::from(node_idx);
             let mut tmp = self.tmp.borrow_mut();
             let PIPModelInfo {
                 cache,
@@ -360,15 +360,18 @@ impl<Q: QMatrix> PIPCost<Q> {
                 leaf_seq_info,
                 ..
             } = &mut *tmp;
-            if self.tree().dirty[nnode_idx] || !valid_model_cache_entries[nnode_idx] {
-                self.set_model(&self.info.tree, nnode_idx, &mut cache[nnode_idx]);
-                valid_model_cache_entries.insert(nnode_idx);
-                valid_cache_entries.remove(nnode_idx);
+            if self.tree().dirty[number_node_idx] || !valid_model_cache_entries[number_node_idx] {
+                self.set_model(
+                    self.tree().nodes[number_node_idx].blen,
+                    &mut cache[number_node_idx],
+                );
+                valid_model_cache_entries.insert(number_node_idx);
+                valid_cache_entries.remove(number_node_idx);
             }
 
             match node_idx {
                 Int(_) => {
-                    let children = self.tree().children(node_idx);
+                    let children = &self.tree().nodes[number_node_idx].children;
                     let children = [children[0], children[1]].map(usize::from);
                     let children_blen = children.map(|child_idx| self.tree().nodes[child_idx].blen);
 
@@ -377,30 +380,29 @@ impl<Q: QMatrix> PIPCost<Q> {
                         .expect("children and parent should be distinct");
                     let indices = &mut PIPCostNodeCache::new([left, right], this);
 
-                    if !valid_cache_entries[nnode_idx] {
+                    if !valid_cache_entries[number_node_idx] {
                         if self.tree().root == *node_idx {
-                            self.set_root(&self.info.tree, children_blen, indices);
+                            self.set_root(children_blen, indices);
                         } else {
                             self.set_internal(
-                                self.tree(),
-                                self.tree().nodes[nnode_idx].blen,
+                                self.tree().nodes[number_node_idx].blen,
                                 children_blen,
                                 indices,
                             );
-                            let parent_idx = self.tree().nodes[nnode_idx]
+                            let parent_idx = self.tree().nodes[number_node_idx]
                                 .parent
                                 .expect("all internal nodes have a parent");
                             valid_cache_entries.remove(usize::from(parent_idx));
                         }
-                        valid_cache_entries.insert(nnode_idx)
+                        valid_cache_entries.insert(number_node_idx)
                     }
                 }
                 Leaf(_) => {
                     self.set_leaf(
-                        self.tree().nodes[nnode_idx].blen,
-                        &mut cache[nnode_idx],
+                        self.tree().nodes[number_node_idx].blen,
+                        &mut cache[number_node_idx],
                         leaf_seq_info
-                            .get(&nnode_idx)
+                            .get(&number_node_idx)
                             .expect("leaf should have sequence info"),
                         self.info.msa.leaf_map(node_idx),
                     );
@@ -433,26 +435,19 @@ impl<Q: QMatrix> PIPCost<Q> {
     }
 
     // TODO: MERBUG try #[cold]
-    fn set_root<'a, 'b: 'a>(
-        &self,
-        tree: &Tree,
-
-        children_blen: [f64; 2],
-        indices: &'a mut PIPCostNodeCache<'b>,
-    ) {
+    fn set_root<'a, 'b: 'a>(&self, children_blen: [f64; 2], indices: &'a mut PIPCostNodeCache<'b>) {
         let this = indices.this_mut();
         this.surv_ins_weights = self.model.lambda() / self.model.mu();
         this.anc.fill_column(0, 1.0);
 
-        self.set_ftilde(tree, indices);
-        self.set_ancestors(tree, indices);
-        self.set_pnu(tree, indices);
+        self.set_ftilde(indices);
+        self.set_ancestors(indices);
+        self.set_pnu(indices);
         self.set_c0(children_blen, indices);
     }
 
     fn set_internal<'a, 'b: 'a>(
         &self,
-        tree: &Tree,
         node_blen: f64,
         children_blen: [f64; 2],
         indices: &'a mut PIPCostNodeCache<'b>,
@@ -460,37 +455,45 @@ impl<Q: QMatrix> PIPCost<Q> {
         indices.this_mut().surv_ins_weights =
             Self::survival_insertion_weight(self.model.lambda(), self.model.mu(), node_blen);
 
-        self.set_ftilde(tree, indices);
-        self.set_ancestors(tree, indices);
-        self.set_pnu(tree, indices);
+        self.set_ftilde(indices);
+        self.set_ancestors(indices);
+        self.set_pnu(indices);
         self.set_c0(children_blen, indices);
     }
 
     fn set_leaf(
         &self,
         node_blen: f64,
-        cache: &mut PIPModelCacheEntry,
+        PIPModelCacheEntry {
+            f,
+            ftilde,
+            pnu,
+            c0_f1,
+            c0_pnu,
+            surv_ins_weights,
+            anc,
+            ..
+        }: &mut PIPModelCacheEntry,
         leaf_seq_info: &DMatrix<f64>,
         leaf_map: &Mapping,
     ) {
-        cache.surv_ins_weights =
+        *surv_ins_weights =
             Self::survival_insertion_weight(self.model.lambda(), self.model.mu(), node_blen);
         for (i, c) in leaf_map.iter().enumerate() {
             if c.is_some() {
-                cache.anc[(i, 0)] = 1.0;
+                anc[(i, 0)] = 1.0;
             }
         }
 
-        leaf_seq_info.clone_into(&mut cache.ftilde);
+        leaf_seq_info.clone_into(ftilde);
 
-        cache.f = cache
-            .ftilde
+        *f = ftilde
             .tr_mul(self.model.freqs())
-            .component_mul(&cache.anc.column(0));
+            .component_mul(&anc.column(0));
 
-        cache.pnu = &cache.f * cache.surv_ins_weights;
-        cache.c0_f1 = -1.0;
-        cache.c0_pnu = -cache.surv_ins_weights;
+        *pnu = &*f * *surv_ins_weights;
+        *c0_f1 = -1.0;
+        *c0_pnu = -*surv_ins_weights;
     }
 
     /// Dependent:
@@ -501,7 +504,7 @@ impl<Q: QMatrix> PIPCost<Q> {
     ///
     /// Modifies:
     /// - tmp.pnu of this node
-    fn set_pnu<'a, 'b: 'a>(&self, _tree: &Tree, indices: &'a mut PIPCostNodeCache<'b>) {
+    fn set_pnu<'a, 'b: 'a>(&self, indices: &'a mut PIPCostNodeCache<'b>) {
         let [left, right, this] = indices.left_right_this_mut();
 
         this.pnu = this.f.component_mul(&this.anc.column(0)) * this.surv_ins_weights;
@@ -516,7 +519,7 @@ impl<Q: QMatrix> PIPCost<Q> {
     /// Modifies:
     /// - tmp.ftilde for this node
     /// - tmp.f for this node
-    fn set_ftilde<'a, 'b: 'a>(&self, _tree: &Tree, indices: &'a mut PIPCostNodeCache<'b>) {
+    fn set_ftilde<'a, 'b: 'a>(&self, indices: &'a mut PIPCostNodeCache<'b>) {
         let [left, right, this] = indices.left_right_this_mut();
         this.ftilde = (&left.models)
             .mul(&left.ftilde)
@@ -524,9 +527,12 @@ impl<Q: QMatrix> PIPCost<Q> {
         this.f = this.ftilde.tr_mul(self.model.freqs());
     }
 
-    fn set_model(&self, tree: &Tree, node_idx: usize, cache: &mut PIPModelCacheEntry) {
-        let node = &tree.nodes[node_idx];
-        cache.models = self.model.p(node.blen);
+    fn set_model(
+        &self,
+        node_blen: f64,
+        PIPModelCacheEntry { models, .. }: &mut PIPModelCacheEntry,
+    ) {
+        *models = self.model.p(node_blen);
     }
 
     /// Dependent:
@@ -534,7 +540,7 @@ impl<Q: QMatrix> PIPCost<Q> {
     ///
     /// Modifies:
     /// - tmp.anc of this node
-    fn set_ancestors<'a, 'b: 'a>(&self, _tree: &Tree, indices: &'a mut PIPCostNodeCache<'b>) {
+    fn set_ancestors<'a, 'b: 'a>(&self, indices: &'a mut PIPCostNodeCache<'b>) {
         let [left, right, this] = indices.left_right_this_mut();
         this.anc.set_column(1, &left.anc.column(0));
         this.anc.set_column(2, &right.anc.column(0));
