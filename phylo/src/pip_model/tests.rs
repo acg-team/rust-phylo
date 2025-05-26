@@ -503,6 +503,7 @@ fn pip_hky_likelihood_example_final() {
         epsilon = 1e-3
     );
     assert_relative_eq!(tmp.cache[0].c0_pnu, -5.591, epsilon = 1e-3);
+    drop(tmp);
     assert_relative_eq!(
         c.cost(),
         -20.769363665853653 - 0.709020450847471,

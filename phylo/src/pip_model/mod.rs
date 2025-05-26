@@ -352,32 +352,33 @@ impl<Q: QMatrix> PIPCost<Q> {
     fn logl(&self) -> f64 {
         for node_idx in self.info.tree.postorder() {
             let nnode_idx = usize::from(node_idx);
+            let mut tmp = self.tmp.borrow_mut();
+            let PIPModelInfo {
+                cache,
+                valid: valid_cache_entries,
+                models_valid: valid_model_cache_entries,
+                leaf_seq_info,
+                ..
+            } = &mut *tmp;
+            if self.tree().dirty[nnode_idx] || !valid_model_cache_entries[nnode_idx] {
+                self.set_model(&self.info.tree, nnode_idx, &mut cache[nnode_idx]);
+                valid_model_cache_entries.insert(nnode_idx);
+                valid_cache_entries.remove(nnode_idx);
+            }
+
             match node_idx {
                 Int(_) => {
-                    let children = self.info.tree.children(node_idx);
+                    let children = self.tree().children(node_idx);
                     let children = [children[0], children[1]].map(usize::from);
                     let children_blen = children.map(|child_idx| self.tree().nodes[child_idx].blen);
-                    let mut tmp = self.tmp.borrow_mut();
-                    let PIPModelInfo {
-                        cache,
-                        valid: valid_cache_entries,
-                        models_valid: valid_model_cache_entries,
-                        ..
-                    } = &mut *tmp;
 
                     let [left, right, this] = cache
                         .get_disjoint_mut([children[0], children[1], usize::from(node_idx)])
                         .expect("children and parent should be distinct");
                     let indices = &mut PIPCostNodeCache::new([left, right], this);
 
-                    if self.info.tree.dirty[nnode_idx] || !valid_model_cache_entries[nnode_idx] {
-                        self.set_model(&self.info.tree, nnode_idx, indices.this_mut());
-                        valid_model_cache_entries.insert(nnode_idx);
-                        valid_cache_entries.remove(nnode_idx);
-                    }
-
                     if !valid_cache_entries[nnode_idx] {
-                        if self.info.tree.root == *node_idx {
+                        if self.tree().root == *node_idx {
                             self.set_root(&self.info.tree, children_blen, indices);
                         } else {
                             self.set_internal(
@@ -395,11 +396,6 @@ impl<Q: QMatrix> PIPCost<Q> {
                     }
                 }
                 Leaf(_) => {
-                    let PIPModelInfo {
-                        cache,
-                        leaf_seq_info,
-                        ..
-                    } = &mut *self.tmp.borrow_mut();
                     self.set_leaf(
                         self.tree().nodes[nnode_idx].blen,
                         &mut cache[nnode_idx],
