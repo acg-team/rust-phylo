@@ -299,20 +299,20 @@ fn assert_values<Q: QMatrix>(
     exp_pnu: &[f64],
 ) {
     let e = 1e-3;
-    assert_relative_eq!(tmp.cache[idx].surv_ins_weights, exp_survins, epsilon = e);
+    assert_relative_eq!(tmp.cache.surv_ins_weights[idx], exp_survins, epsilon = e);
     assert_relative_eq!(
-        tmp.cache[idx].f,
+        tmp.cache.f[idx],
         DVector::<f64>::from_column_slice(exp_f),
         epsilon = e
     );
-    assert_eq!(tmp.cache[idx].anc.nrows(), exp_f.len());
-    assert_eq!(tmp.cache[idx].anc.ncols(), 3);
+    assert_eq!(tmp.cache.anc[idx].nrows(), exp_f.len());
+    assert_eq!(tmp.cache.anc[idx].ncols(), 3);
     assert_relative_eq!(
-        tmp.cache[idx].anc.as_slice(),
+        tmp.cache.anc[idx].as_slice(),
         DMatrix::<f64>::from_column_slice(exp_anc.len(), 1, exp_anc).as_slice(),
     );
     assert_relative_eq!(
-        tmp.cache[idx].pnu,
+        tmp.cache.pnu[idx],
         DVector::<f64>::from_column_slice(exp_pnu),
         epsilon = e
     );
@@ -422,8 +422,8 @@ fn pip_hky_likelihood_example_internals() {
 #[cfg(test)]
 fn assert_c0_values<Q: QMatrix>(tmp: &PIPModelInfo<Q>, idx: usize, exp_f1: f64, exp_pnu: f64) {
     let e = 1e-3;
-    assert_relative_eq!(tmp.cache[idx].c0_f1, exp_f1, epsilon = e);
-    assert_relative_eq!(tmp.cache[idx].c0_pnu, exp_pnu, epsilon = e);
+    assert_relative_eq!(tmp.cache.c0_f1[idx], exp_f1, epsilon = e);
+    assert_relative_eq!(tmp.cache.c0_pnu[idx], exp_pnu, epsilon = e);
 }
 
 #[test]
@@ -493,7 +493,7 @@ fn pip_hky_likelihood_example_final() {
 
     let nu = 7.5;
     assert_relative_eq!(
-        tmp.cache[0].pnu,
+        tmp.cache.pnu[0],
         DVector::from_column_slice(&[
             nu * 0.0392204949,
             nu * 0.000148719,
@@ -502,7 +502,7 @@ fn pip_hky_likelihood_example_final() {
         ]),
         epsilon = 1e-3
     );
-    assert_relative_eq!(tmp.cache[0].c0_pnu, -5.591, epsilon = 1e-3);
+    assert_relative_eq!(tmp.cache.c0_pnu[0], -5.591, epsilon = 1e-3);
     drop(tmp);
     assert_relative_eq!(
         c.cost(),
