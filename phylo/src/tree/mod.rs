@@ -486,7 +486,6 @@ pub fn percentiles_rounded(lengths: &[f64], categories: u32, rounding: &Rounding
     values
 }
 
-
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod tests;

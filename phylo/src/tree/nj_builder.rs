@@ -6,9 +6,9 @@ use crate::tree::{
 use crate::alignment::Sequences;
 use crate::Result;
 //use bio::utils::text::TextSlice;
+use crate::tree::tree_builder::TreeBuilder;
 use bio::alignment::distance::levenshtein;
 use nalgebra::{max, DMatrix};
-use crate::tree::tree_builder::TreeBuilder;
 
 pub struct NJBuilder {
     temperature: f64,
@@ -118,7 +118,7 @@ impl NJBuilder {
 #[cfg(test)]
 mod private_tests {
     //From test.rs in tree, so we can use macros
-    use crate::{record_wo_desc as record};
+    use crate::record_wo_desc as record;
     use nalgebra::{dmatrix, DMatrix};
 
     use super::*;
