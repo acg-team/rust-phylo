@@ -488,10 +488,7 @@ pub fn percentiles_rounded(lengths: &[f64], categories: u32, rounding: &Rounding
     values
 }
 
-#[cfg(not(feature = "deterministic"))]
-fn rng_len(l: usize) -> usize {
-    rand::random::<usize>() % l
-}
+
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod tests;
