@@ -2,7 +2,6 @@ use std::cell::RefCell;
 use std::fmt::{Debug, Display};
 use std::iter::{self, repeat_n};
 use std::marker::PhantomData;
-use std::ops::Mul;
 
 use anyhow::bail;
 use fixedbitset::FixedBitSet;
@@ -212,6 +211,7 @@ impl PIPModelCacheSOA {
 pub struct PIPModelInfo<Q: QMatrix> {
     phantom: PhantomData<Q>,
     cache: PIPModelCacheSOA,
+    ftilde_buf: DMatrix<f64>,
 }
 
 impl<Q: QMatrix> PIPModelInfo<Q> {
@@ -245,6 +245,7 @@ impl<Q: QMatrix> PIPModelInfo<Q> {
         Ok(PIPModelInfo {
             phantom: PhantomData,
             cache: cache_entries,
+            ftilde_buf: DMatrix::zeros(n, msa_length),
         })
     }
 }
@@ -396,7 +397,9 @@ impl<T> NodeCacheIndexer<T> for Box<[T]> {}
 impl<Q: QMatrix> PIPCost<Q> {
     fn logl(&self) -> f64 {
         let mut tmp = self.tmp.borrow_mut();
-        let PIPModelInfo { cache, .. } = &mut *tmp;
+        let PIPModelInfo {
+            cache, ftilde_buf, ..
+        } = &mut *tmp;
         for node_idx in self.tree().postorder() {
             let number_node_idx = usize::from(node_idx);
             if self.tree().dirty[number_node_idx] || !cache.models_valid[number_node_idx] {
@@ -460,14 +463,15 @@ impl<Q: QMatrix> PIPCost<Q> {
                                 ftilde: children_ftilde[child],
                                 models: children_models[child],
                             }),
+                            ftilde_buf,
                         );
                         self.set_ancestors(this_anc, [0, 1].map(|child| &*children_anc[child]));
                         self.set_pnu(
                             CachePnuViewMut {
                                 pnu: this_pnu,
-                                anc: this_anc,
                                 surv_ins_weights: *this_surv_ins_weights,
-                                f: this_f,
+                                anc: &*this_anc,
+                                f: &*this_f,
                             },
                             [0, 1].map(|child| CachePnuChildView {
                                 pnu: children_pnu[child],
@@ -550,11 +554,12 @@ impl<Q: QMatrix> PIPCost<Q> {
             }
         }
 
-        *f = ftilde
-            .tr_mul(self.model.freqs())
-            .component_mul(&anc.column(0));
+        ftilde.tr_mul_to(self.model.freqs(), f);
+        // TODO: doesn't seem to be reused, use pnu directly to avoid copy,
+        f.component_mul_assign(&anc.column(0));
 
-        *pnu = &*f * *surv_ins_weights;
+        pnu.copy_from(f);
+        *pnu *= *surv_ins_weights;
         *c0_f1 = -1.0;
         *c0_pnu = -*surv_ins_weights;
     }
@@ -568,7 +573,9 @@ impl<Q: QMatrix> PIPCost<Q> {
     /// Modifies:
     /// - tmp.pnu of this node
     fn set_pnu(&self, this: CachePnuViewMut, [left, right]: [CachePnuChildView; 2]) {
-        *this.pnu = this.f.component_mul(&this.anc.column(0)) * this.surv_ins_weights;
+        this.pnu.copy_from(this.f);
+        this.pnu.component_mul_assign(&this.anc.column(0));
+        *this.pnu *= this.surv_ins_weights;
         *this.pnu += this.anc.column(1).component_mul(left.pnu)
             + this.anc.column(2).component_mul(right.pnu);
     }
@@ -580,11 +587,17 @@ impl<Q: QMatrix> PIPCost<Q> {
     /// Modifies:
     /// - tmp.ftilde for this node
     /// - tmp.f for this node
-    fn set_ftilde(&self, this: CacheFtildeViewMut, [left, right]: [CacheFtildeChildView; 2]) {
-        *this.ftilde = (left.models)
-            .mul(left.ftilde)
-            .component_mul(&(right.models).mul(right.ftilde));
-        *this.f = this.ftilde.tr_mul(self.model.freqs());
+    fn set_ftilde(
+        &self,
+        this: CacheFtildeViewMut,
+        [left, right]: [CacheFtildeChildView; 2],
+        ftilde_buf: &mut DMatrix<f64>,
+    ) {
+        left.models.mul_to(left.ftilde, this.ftilde);
+        right.models.mul_to(right.ftilde, ftilde_buf);
+        this.ftilde.component_mul_assign(ftilde_buf);
+
+        this.ftilde.tr_mul_to(self.model.freqs(), this.f);
     }
 
     fn set_model(&self, node_blen: f64, models: &mut DMatrix<f64>) {
@@ -603,7 +616,10 @@ impl<Q: QMatrix> PIPCost<Q> {
     ) {
         this_anc.set_column(1, &left_anc.column(0));
         this_anc.set_column(2, &right_anc.column(0));
-        this_anc.set_column(0, &(left_anc.column(0) + right_anc.column(0)));
+        left_anc
+            .column(0)
+            .add_to(&right_anc.column(0), &mut this_anc.column_mut(0));
+
         for i in 0..this_anc.nrows() {
             debug_assert!((0.0..=2.0).contains(&this_anc[(i, 0)]));
             if this_anc[(i, 0)] == 2.0 {
