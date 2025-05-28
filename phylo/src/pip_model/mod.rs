@@ -5,6 +5,7 @@ use std::marker::PhantomData;
 
 use anyhow::bail;
 use fixedbitset::FixedBitSet;
+use indices::{DisjointIndices, NodeCacheIndexer};
 use lazy_static::lazy_static;
 use log::warn;
 use nalgebra::{DMatrix, DVector, DVectorViewMut, MatrixXx3};
@@ -375,24 +376,16 @@ struct CacheC0ChildView {
     c0_pnu: f64,
 }
 
-trait NodeCacheIndexer<T>: AsMut<[T]> {
-    fn left_right_this_mut(&mut self, [left, right, this]: [usize; 3]) -> [&mut T; 3] {
-        self.as_mut()
-            .get_disjoint_mut([left, right, this])
-            .expect("indices should be distinct")
-    }
-}
-
-impl<T> NodeCacheIndexer<T> for Box<[T]> {}
-
 impl<Q: QMatrix> PIPCost<Q> {
     fn logl(&self) -> f64 {
         let mut tmp = self.tmp.borrow_mut();
         let PIPModelInfo {
-            cache,
-            matrix_buf: ftilde_buf,
-            ..
+            cache, matrix_buf, ..
         } = &mut *tmp;
+
+        let root_idx = usize::from(self.tree().root);
+        let msa_length = self.info.msa.len();
+
         for node_idx in self.tree().postorder() {
             let number_node_idx = usize::from(node_idx);
             if self.tree().dirty[number_node_idx] || !cache.models_valid[number_node_idx] {
@@ -404,105 +397,60 @@ impl<Q: QMatrix> PIPCost<Q> {
                 cache.valid.remove(number_node_idx);
             }
 
-            match node_idx {
-                Int(_) => {
-                    let children = &self.tree().nodes[number_node_idx].children;
-                    let children = [children[0], children[1]].map(usize::from);
-                    let left_right_this_index = [children[0], children[1], number_node_idx];
-                    let children_blen = children.map(|child_idx| self.tree().nodes[child_idx].blen);
+            let this_blen = self.tree().nodes[number_node_idx].blen;
 
-                    if !cache.valid[number_node_idx] {
-                        if self.tree().root == *node_idx {
-                            cache.surv_ins_weights[number_node_idx] =
-                                self.model.lambda() / self.model.mu();
+            if !cache.valid[number_node_idx] {
+                match node_idx {
+                    Int(_) => {
+                        let children = &self.tree().nodes[number_node_idx].children;
+                        let children = [children[0], children[1]].map(usize::from);
+                        let indices =
+                            DisjointIndices::new([children[0], children[1]], number_node_idx);
+                        let children_blen =
+                            children.map(|child_idx| self.tree().nodes[child_idx].blen);
+
+                        let this_surv_ins_weights = cache.surv_ins_weights.this_mut(indices);
+
+                        if root_idx == number_node_idx {
+                            *this_surv_ins_weights = self.model.lambda() / self.model.mu();
                             cache.anc[number_node_idx].fill_column(0, 1.0);
                         } else {
-                            cache.surv_ins_weights[number_node_idx] =
-                                Self::survival_insertion_weight(
-                                    self.model.lambda(),
-                                    self.model.mu(),
-                                    self.tree().nodes[number_node_idx].blen,
-                                );
+                            *this_surv_ins_weights = Self::survival_insertion_weight(
+                                self.model.lambda(),
+                                self.model.mu(),
+                                this_blen,
+                            );
                             let parent_idx = self.tree().nodes[number_node_idx]
                                 .parent
                                 .expect("all internal nodes have a parent");
                             cache.valid.remove(usize::from(parent_idx));
                         }
-
-                        let this_surv_ins_weights = &mut cache.surv_ins_weights[number_node_idx];
-                        let [children_ftilde @ .., this_ftilde] =
-                            cache.ftilde.left_right_this_mut(left_right_this_index);
-                        let [children_models @ .., _this_model] =
-                            cache.models.left_right_this_mut(left_right_this_index);
-                        let [children_anc @ .., this_anc] =
-                            cache.anc.left_right_this_mut(left_right_this_index);
-                        let [children_pnu @ .., this_pnu] =
-                            cache.pnu.left_right_this_mut(left_right_this_index);
-                        let [children_c0_f1 @ .., this_c0_f1] =
-                            cache.c0_f1.left_right_this_mut(left_right_this_index);
-                        let [children_c0_pnu @ .., this_c0_pnu] =
-                            cache.c0_pnu.left_right_this_mut(left_right_this_index);
-
-                        self.set_ftilde(
-                            CacheFtildeViewMut {
-                                f: this_pnu, // on purpose, f doen't get used for anything else but assign to pnu
-                                ftilde: this_ftilde,
-                            },
-                            [0, 1].map(|child| CacheFtildeChildView {
-                                ftilde: children_ftilde[child],
-                                models: children_models[child],
-                            }),
-                            ftilde_buf,
-                        );
-                        self.set_ancestors(this_anc, [0, 1].map(|child| &*children_anc[child]));
-                        self.set_pnu(
-                            CachePnuViewMut {
-                                pnu: this_pnu,
-                                surv_ins_weights: *this_surv_ins_weights,
-                                anc: &*this_anc,
-                            },
-                            [0, 1].map(|child| CachePnuChildView {
-                                pnu: children_pnu[child],
-                            }),
-                            nalgebra::DVectorViewMut::<f64>::from_slice(
-                                ftilde_buf.as_mut_slice(),
-                                self.info.msa.len(),
-                            ),
-                        );
-                        self.set_c0(
+                        self.set_internal_common(
+                            cache,
+                            indices,
+                            matrix_buf,
                             children_blen,
-                            CacheC0ViewMut {
-                                surv_ins_weights: *this_surv_ins_weights,
-                                c0_f1: this_c0_f1,
-                                c0_pnu: this_c0_pnu,
-                            },
-                            [0, 1].map(|child| CacheC0ChildView {
-                                c0_f1: *children_c0_f1[child],
-                                c0_pnu: *children_c0_pnu[child],
-                            }),
+                            msa_length,
                         );
-                        cache.valid.insert(number_node_idx)
                     }
-                }
-                Leaf(_) => {
-                    self.set_leaf(
-                        self.tree().nodes[number_node_idx].blen,
-                        CacheLeafViewMut {
-                            ftilde: &mut cache.ftilde[number_node_idx],
-                            pnu: &mut cache.pnu[number_node_idx],
-                            anc: &mut cache.anc[number_node_idx],
-                            surv_ins_weights: &mut cache.surv_ins_weights[number_node_idx],
-                            c0_f1: &mut cache.c0_f1[number_node_idx],
-                            c0_pnu: &mut cache.c0_pnu[number_node_idx],
-                        },
-                        self.info.msa.leaf_map(node_idx),
-                    );
-                }
-            };
+                    Leaf(_) => {
+                        self.set_leaf(
+                            this_blen,
+                            CacheLeafViewMut {
+                                ftilde: &mut cache.ftilde[number_node_idx],
+                                pnu: &mut cache.pnu[number_node_idx],
+                                anc: &mut cache.anc[number_node_idx],
+                                surv_ins_weights: &mut cache.surv_ins_weights[number_node_idx],
+                                c0_f1: &mut cache.c0_f1[number_node_idx],
+                                c0_pnu: &mut cache.c0_pnu[number_node_idx],
+                            },
+                            self.info.msa.leaf_map(node_idx),
+                        );
+                    }
+                };
+                cache.valid.insert(number_node_idx)
+            }
         }
-
-        let root_idx = usize::from(&self.tree().root);
-        let msa_length = self.info.msa.len();
 
         // In certain scenarios (e.g. a completely unrelated sequence, see data/p105.msa.fa)
         // individual column probabilities become too close to 0.0 (become subnormal)
@@ -521,6 +469,59 @@ impl<Q: QMatrix> PIPCost<Q> {
             .sum()
             + cache.c0_pnu[root_idx]
             - log_factorial_shifted(msa_length)
+    }
+
+    fn set_internal_common(
+        &self,
+        cache: &mut PIPModelCacheSOA,
+        indices: DisjointIndices,
+        matrix_buf: &mut DMatrix<f64>,
+        children_blen: [f64; 2],
+        msa_length: usize,
+    ) {
+        let this_surv_ins_weights = *cache.surv_ins_weights.this(indices);
+        let [children_ftilde @ .., this_ftilde] = cache.ftilde.left_right_this_mut(indices);
+        let children_models = cache.models.left_right_mut(indices);
+        let [children_anc @ .., this_anc] = cache.anc.left_right_this_mut(indices);
+        let [children_pnu @ .., this_pnu] = cache.pnu.left_right_this_mut(indices);
+        let [children_c0_f1 @ .., this_c0_f1] = cache.c0_f1.left_right_this_mut(indices);
+        let [children_c0_pnu @ .., this_c0_pnu] = cache.c0_pnu.left_right_this_mut(indices);
+
+        self.set_ftilde(
+            CacheFtildeViewMut {
+                f: this_pnu, // on purpose, f doen't get used for anything else but assign to pnu
+                ftilde: this_ftilde,
+            },
+            [0, 1].map(|child| CacheFtildeChildView {
+                ftilde: children_ftilde[child],
+                models: children_models[child],
+            }),
+            matrix_buf,
+        );
+        self.set_ancestors(this_anc, [0, 1].map(|child| &*children_anc[child]));
+        self.set_pnu(
+            CachePnuViewMut {
+                pnu: this_pnu,
+                surv_ins_weights: this_surv_ins_weights,
+                anc: &*this_anc,
+            },
+            [0, 1].map(|child| CachePnuChildView {
+                pnu: children_pnu[child],
+            }),
+            nalgebra::DVectorViewMut::<f64>::from_slice(matrix_buf.as_mut_slice(), msa_length),
+        );
+        self.set_c0(
+            children_blen,
+            CacheC0ViewMut {
+                surv_ins_weights: this_surv_ins_weights,
+                c0_f1: this_c0_f1,
+                c0_pnu: this_c0_pnu,
+            },
+            [0, 1].map(|child| CacheC0ChildView {
+                c0_f1: *children_c0_f1[child],
+                c0_pnu: *children_c0_pnu[child],
+            }),
+        );
     }
 
     fn set_leaf(
@@ -570,9 +571,11 @@ impl<Q: QMatrix> PIPCost<Q> {
     ) {
         this.pnu.component_mul_assign(&this.anc.column(0));
         *this.pnu *= this.surv_ins_weights;
+
         pnu_buf.copy_from(&this.anc.column(1));
         pnu_buf.component_mul_assign(left.pnu);
         *this.pnu += &pnu_buf;
+
         pnu_buf.copy_from(&this.anc.column(2));
         pnu_buf.component_mul_assign(right.pnu);
         *this.pnu += &pnu_buf;
@@ -654,6 +657,62 @@ impl<Q: QMatrix> PIPCost<Q> {
         // nu * insertion_probability(tree_length, b, mu) * survival_probablitily(mu, b)
         lambda / mu * (1.0 - (-b * mu).exp())
     }
+}
+
+mod indices {
+    // to disallow direct member access that violates invariants
+    mod private {
+        #[derive(Clone, Copy)]
+        pub struct DisjointIndices {
+            left_right_this: [usize; 3],
+        }
+
+        impl DisjointIndices {
+            pub fn new([left, right]: [usize; 2], this: usize) -> Self {
+                assert_ne!(left, right);
+                assert_ne!(left, this);
+                assert_ne!(right, this);
+                Self {
+                    left_right_this: [left, right, this],
+                }
+            }
+            pub fn left_right_this(&self) -> [usize; 3] {
+                self.left_right_this
+            }
+            pub fn left_right(&self) -> [usize; 2] {
+                [self.left_right_this[0], self.left_right_this[1]]
+            }
+            pub fn this(&self) -> usize {
+                self.left_right_this[2]
+            }
+        }
+    }
+
+    pub(super) use private::DisjointIndices;
+
+    pub(super) trait NodeCacheIndexer<T>: AsMut<[T]> {
+        fn left_right_this_mut(&mut self, indices: DisjointIndices) -> [&mut T; 3] {
+            // NOTE: could check len and then use get_disjoint_mut_unchecked if unsafe
+            // becomes necessary
+            self.as_mut()
+                .get_disjoint_mut(indices.left_right_this())
+                .expect("indices should be distinct")
+        }
+        fn this(&mut self, indices: DisjointIndices) -> &T {
+            &self.as_mut()[indices.this()]
+        }
+        fn this_mut(&mut self, indices: DisjointIndices) -> &mut T {
+            &mut self.as_mut()[indices.this()]
+        }
+        fn left_right_mut(&mut self, indices: DisjointIndices) -> [&mut T; 2] {
+            // NOTE: could check len and then use get_disjoint_mut_unchecked if unsafe
+            // becomes necessary
+            self.as_mut()
+                .get_disjoint_mut(indices.left_right())
+                .expect("indices should be distinct")
+        }
+    }
+    impl<T> NodeCacheIndexer<T> for Box<[T]> {}
 }
 
 #[cfg(test)]
