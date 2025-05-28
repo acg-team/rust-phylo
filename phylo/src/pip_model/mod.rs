@@ -88,7 +88,14 @@ impl<Q: QMatrix + QMatrixMaker> PIPModel<Q> {
 
 impl<Q: QMatrix> EvoModel for PIPModel<Q> {
     fn p(&self, time: f64) -> SubstMatrix {
-        (self.q() * time).exp()
+        let mut to = SubstMatrix::zeros(self.q().nrows(), self.q().ncols());
+        self.p_to(time, &mut to);
+        to
+    }
+    fn p_to(&self, time: f64, to: &mut SubstMatrix) {
+        to.copy_from(self.q());
+        *to *= time;
+        *to = to.exp();
     }
 
     fn q(&self) -> &SubstMatrix {
@@ -577,7 +584,7 @@ impl<Q: QMatrix> PIPCost<Q> {
     }
 
     fn set_model(&self, node_blen: f64, models: &mut DMatrix<f64>) {
-        *models = self.model.p(node_blen);
+        self.model.p_to(node_blen, models);
     }
 
     /// Dependent:
