@@ -8,7 +8,7 @@ use fixedbitset::FixedBitSet;
 use indices::{DisjointIndices, NodeCacheIndexer};
 use lazy_static::lazy_static;
 use log::warn;
-use nalgebra::{DMatrix, DVector, DVectorViewMut, MatrixXx3};
+use nalgebra::{DMatrix, DVector, MatrixXx3};
 
 use crate::alignment::Mapping;
 use crate::alphabets::{Alphabet, GAP};
@@ -425,13 +425,7 @@ impl<Q: QMatrix> PIPCost<Q> {
                                 .expect("all internal nodes have a parent");
                             cache.valid.remove(usize::from(parent_idx));
                         }
-                        self.set_internal_common(
-                            cache,
-                            indices,
-                            matrix_buf,
-                            children_blen,
-                            msa_length,
-                        );
+                        self.set_internal_common(cache, indices, matrix_buf, children_blen);
                     }
                     Leaf(_) => {
                         self.set_leaf(
@@ -477,7 +471,6 @@ impl<Q: QMatrix> PIPCost<Q> {
         indices: DisjointIndices,
         matrix_buf: &mut DMatrix<f64>,
         children_blen: [f64; 2],
-        msa_length: usize,
     ) {
         let this_surv_ins_weights = *cache.surv_ins_weights.this(indices);
         let [children_ftilde @ .., this_ftilde] = cache.ftilde.left_right_this_mut(indices);
@@ -508,7 +501,6 @@ impl<Q: QMatrix> PIPCost<Q> {
             [0, 1].map(|child| CachePnuChildView {
                 pnu: children_pnu[child],
             }),
-            nalgebra::DVectorViewMut::<f64>::from_slice(matrix_buf.as_mut_slice(), msa_length),
         );
         self.set_c0(
             children_blen,
@@ -550,6 +542,7 @@ impl<Q: QMatrix> PIPCost<Q> {
         f.component_mul_assign(&anc.column(0));
 
         let pnu = f;
+
         *pnu *= *surv_ins_weights;
         *c0_f1 = -1.0;
         *c0_pnu = -*surv_ins_weights;
@@ -563,22 +556,15 @@ impl<Q: QMatrix> PIPCost<Q> {
     ///
     /// Modifies:
     /// - tmp.pnu of this node
-    fn set_pnu(
-        &self,
-        this: CachePnuViewMut,
-        [left, right]: [CachePnuChildView; 2],
-        mut pnu_buf: DVectorViewMut<f64>,
-    ) {
+    fn set_pnu(&self, this: CachePnuViewMut, [left, right]: [CachePnuChildView; 2]) {
         this.pnu.component_mul_assign(&this.anc.column(0));
-        *this.pnu *= this.surv_ins_weights;
-
-        pnu_buf.copy_from(&this.anc.column(1));
-        pnu_buf.component_mul_assign(left.pnu);
-        *this.pnu += &pnu_buf;
-
-        pnu_buf.copy_from(&this.anc.column(2));
-        pnu_buf.component_mul_assign(right.pnu);
-        *this.pnu += &pnu_buf;
+        // the multiplication `*this.pnu *= this.surv_ins_weights` is bundled
+        // into the cmpy function below
+        // pnu = 1 * a `compmul` b + surv_ins_weights * pnu
+        this.pnu
+            .cmpy(1., &this.anc.column(1), left.pnu, this.surv_ins_weights);
+        // pnu = 1 * a `compmul` b + 1. * pnu
+        this.pnu.cmpy(1., &this.anc.column(2), right.pnu, 1.);
     }
 
     /// Dependent:
