@@ -295,17 +295,11 @@ fn assert_values<Q: QMatrix>(
     idx: usize,
     exp_survins: f64,
     exp_anc: &[f64],
-    exp_f: &[f64],
     exp_pnu: &[f64],
 ) {
     let e = 1e-3;
     assert_relative_eq!(tmp.cache.surv_ins_weights[idx], exp_survins, epsilon = e);
-    assert_relative_eq!(
-        tmp.cache.f[idx],
-        DVector::<f64>::from_column_slice(exp_f),
-        epsilon = e
-    );
-    assert_eq!(tmp.cache.anc[idx].nrows(), exp_f.len());
+    assert_eq!(tmp.cache.anc[idx].nrows(), exp_pnu.len());
     assert_eq!(tmp.cache.anc[idx].ncols(), 3);
     assert_relative_eq!(
         tmp.cache.anc[idx].as_slice(),
@@ -335,7 +329,6 @@ fn pip_hky_likelihood_example_leaf_values() {
         usize::from(tree.idx("A")),
         nu * ib,
         &[[0.0, 1.0, 0.0, 0.0], [0.0; 4], [0.0; 4]].concat(),
-        &[0.0, 0.33, 0.0, 0.0],
         &[0.0, 0.33 * nu * ib, 0.0, 0.0],
     );
     assert_values(
@@ -343,7 +336,6 @@ fn pip_hky_likelihood_example_leaf_values() {
         usize::from(tree.idx("B")),
         nu * ib,
         &[[1.0, 1.0, 0.0, 0.0], [0.0; 4], [0.0; 4]].concat(),
-        &[0.26, 0.33, 0.0, 0.0],
         &[0.26 * nu * ib, 0.33 * nu * ib, 0.0, 0.0],
     );
 
@@ -353,7 +345,6 @@ fn pip_hky_likelihood_example_leaf_values() {
         usize::from(tree.idx("C")),
         nu * ib,
         &[[0.0, 1.0, 0.0, 1.0], [0.0; 4], [0.0; 4]].concat(),
-        &[0.0, 0.33, 0.0, 0.19],
         &[0.0, 0.33 * nu * ib, 0.0, 0.19 * nu * ib],
     );
     assert_values(
@@ -361,7 +352,6 @@ fn pip_hky_likelihood_example_leaf_values() {
         usize::from(tree.idx("D")),
         nu * ib,
         &[[0.0, 1.0, 1.0, 1.0], [0.0; 4], [0.0; 4]].concat(),
-        &[0.0, 0.26, 0.33, 0.33],
         &[0.0, 0.26 * nu * ib, 0.33 * nu * ib, 0.33 * nu * ib],
     );
 }
@@ -383,7 +373,6 @@ fn pip_hky_likelihood_example_internals() {
         usize::from(info.tree.idx("E")),
         nu * ib_e,
         &[1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-        &[0.0619, 0.0431, 0.154, 0.154],
         &[nu * ib_e * (0.0619 + 0.26), nu * ib_e * (0.0431), 0.0, 0.0],
     );
 
@@ -394,7 +383,6 @@ fn pip_hky_likelihood_example_internals() {
         usize::from(info.tree.idx("F")),
         nu * ib_f,
         &[0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
-        &[0.0488, 0.0449, 0.0567, 0.0261],
         &[
             0.0,
             nu * (0.0449 * ib_f),
@@ -409,7 +397,6 @@ fn pip_hky_likelihood_example_internals() {
         usize::from(info.tree.idx("R")),
         nu * ib_r,
         &[1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0],
-        &[0.0207, 0.000557, 0.013, 0.00598],
         &[
             nu * (0.0207 * ib_r + (0.0619 + 0.26) * ib_e),
             nu * (0.000557 * ib_r),

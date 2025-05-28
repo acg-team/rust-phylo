@@ -159,23 +159,10 @@ impl<Q: QMatrix + Display> Display for PIPModel<Q> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct PIPModelCacheEntry {
-    surv_ins_weights: f64,
-    anc: DMatrix<f64>,
-    ftilde: DMatrix<f64>,
-    f: DVector<f64>,
-    pnu: DVector<f64>,
-    c0_f1: f64,
-    c0_pnu: f64,
-    models: SubstMatrix,
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct PIPModelCacheSOA {
     surv_ins_weights: Box<[f64]>,
     anc: Box<[DMatrix<f64>]>,
     ftilde: Box<[DMatrix<f64>]>,
-    f: Box<[DVector<f64>]>,
     pnu: Box<[DVector<f64>]>,
     c0_f1: Box<[f64]>,
     c0_pnu: Box<[f64]>,
@@ -195,7 +182,6 @@ impl PIPModelCacheSOA {
             length: node_count,
             ftilde: Self::make_array(DMatrix::<f64>::zeros(n, msa_length), node_count),
             surv_ins_weights: Self::make_array(0.0, node_count),
-            f: Self::make_array(DVector::<f64>::zeros(msa_length), node_count),
             pnu: Self::make_array(DVector::<f64>::zeros(msa_length), node_count),
             c0_f1: Self::make_array(0.0, node_count),
             c0_pnu: Self::make_array(0.0, node_count),
@@ -349,7 +335,6 @@ struct CacheLeafViewMut<'a> {
     surv_ins_weights: &'a mut f64,
     anc: &'a mut DMatrix<f64>,
     ftilde: &'a DMatrix<f64>,
-    f: &'a mut DVector<f64>,
     pnu: &'a mut DVector<f64>,
     c0_f1: &'a mut f64,
     c0_pnu: &'a mut f64,
@@ -367,7 +352,6 @@ struct CacheFtildeChildView<'a> {
 struct CachePnuViewMut<'a> {
     surv_ins_weights: f64,
     anc: &'a DMatrix<f64>,
-    f: &'a DVector<f64>,
     pnu: &'a mut DVector<f64>,
 }
 struct CachePnuChildView<'a> {
@@ -436,14 +420,10 @@ impl<Q: QMatrix> PIPCost<Q> {
                             cache.valid.remove(usize::from(parent_idx));
                         }
 
-                        let [children_surv_ins_weights @ .., this_surv_ins_weights] = cache
-                            .surv_ins_weights
-                            .left_right_this_mut(left_right_this_index);
-                        let [children_f @ .., this_f] =
-                            cache.f.left_right_this_mut(left_right_this_index);
+                        let this_surv_ins_weights = &mut cache.surv_ins_weights[number_node_idx];
                         let [children_ftilde @ .., this_ftilde] =
                             cache.ftilde.left_right_this_mut(left_right_this_index);
-                        let [children_models @ .., this_model] =
+                        let [children_models @ .., _this_model] =
                             cache.models.left_right_this_mut(left_right_this_index);
                         let [children_anc @ .., this_anc] =
                             cache.anc.left_right_this_mut(left_right_this_index);
@@ -456,7 +436,7 @@ impl<Q: QMatrix> PIPCost<Q> {
 
                         self.set_ftilde(
                             CacheFtildeViewMut {
-                                f: this_f,
+                                f: this_pnu, // on purpose, f doen't get used for anything else but assign to pnu
                                 ftilde: this_ftilde,
                             },
                             [0, 1].map(|child| CacheFtildeChildView {
@@ -471,7 +451,6 @@ impl<Q: QMatrix> PIPCost<Q> {
                                 pnu: this_pnu,
                                 surv_ins_weights: *this_surv_ins_weights,
                                 anc: &*this_anc,
-                                f: &*this_f,
                             },
                             [0, 1].map(|child| CachePnuChildView {
                                 pnu: children_pnu[child],
@@ -500,7 +479,6 @@ impl<Q: QMatrix> PIPCost<Q> {
                             pnu: &mut cache.pnu[number_node_idx],
                             anc: &mut cache.anc[number_node_idx],
                             surv_ins_weights: &mut cache.surv_ins_weights[number_node_idx],
-                            f: &mut cache.f[number_node_idx],
                             c0_f1: &mut cache.c0_f1[number_node_idx],
                             c0_pnu: &mut cache.c0_pnu[number_node_idx],
                         },
@@ -536,7 +514,6 @@ impl<Q: QMatrix> PIPCost<Q> {
         &self,
         node_blen: f64,
         CacheLeafViewMut {
-            f,
             pnu,
             c0_f1,
             c0_pnu,
@@ -554,11 +531,11 @@ impl<Q: QMatrix> PIPCost<Q> {
             }
         }
 
+        let f = pnu;
         ftilde.tr_mul_to(self.model.freqs(), f);
-        // TODO: doesn't seem to be reused, use pnu directly to avoid copy,
         f.component_mul_assign(&anc.column(0));
 
-        pnu.copy_from(f);
+        let pnu = f;
         *pnu *= *surv_ins_weights;
         *c0_f1 = -1.0;
         *c0_pnu = -*surv_ins_weights;
@@ -573,7 +550,6 @@ impl<Q: QMatrix> PIPCost<Q> {
     /// Modifies:
     /// - tmp.pnu of this node
     fn set_pnu(&self, this: CachePnuViewMut, [left, right]: [CachePnuChildView; 2]) {
-        this.pnu.copy_from(this.f);
         this.pnu.component_mul_assign(&this.anc.column(0));
         *this.pnu *= this.surv_ins_weights;
         *this.pnu += this.anc.column(1).component_mul(left.pnu)
