@@ -440,6 +440,10 @@ impl<Q: QMatrix> PIPCost<Q> {
                             },
                             self.info.msa.leaf_map(node_idx),
                         );
+                        let parent_idx = self.tree().nodes[number_node_idx]
+                            .parent
+                            .expect("all leaf nodes have a parent");
+                        cache.valid.remove(usize::from(parent_idx));
                     }
                 };
                 cache.valid.insert(number_node_idx)
