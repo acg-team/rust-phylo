@@ -7,7 +7,7 @@ use anyhow::bail;
 use fixedbitset::FixedBitSet;
 use lazy_static::lazy_static;
 use log::warn;
-use nalgebra::{DMatrix, DVector};
+use nalgebra::{DMatrix, DVector, DVectorViewMut, MatrixXx3};
 
 use crate::alignment::Mapping;
 use crate::alphabets::{Alphabet, GAP};
@@ -168,7 +168,7 @@ impl<Q: QMatrix + Display> Display for PIPModel<Q> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PIPModelCacheSOA {
     surv_ins_weights: Box<[f64]>,
-    anc: Box<[DMatrix<f64>]>,
+    anc: Box<[MatrixXx3<f64>]>,
     ftilde: Box<[DMatrix<f64>]>,
     pnu: Box<[DVector<f64>]>,
     c0_f1: Box<[f64]>,
@@ -192,7 +192,7 @@ impl PIPModelCacheSOA {
             pnu: Self::make_array(DVector::<f64>::zeros(msa_length), node_count),
             c0_f1: Self::make_array(0.0, node_count),
             c0_pnu: Self::make_array(0.0, node_count),
-            anc: Self::make_array(DMatrix::<f64>::zeros(msa_length, 3), node_count),
+            anc: Self::make_array(MatrixXx3::<f64>::zeros(msa_length), node_count),
             models: Self::make_array(SubstMatrix::zeros(n, n), node_count),
             valid: FixedBitSet::with_capacity(node_count),
             models_valid: FixedBitSet::with_capacity(node_count),
@@ -204,7 +204,7 @@ impl PIPModelCacheSOA {
 pub struct PIPModelInfo<Q: QMatrix> {
     phantom: PhantomData<Q>,
     cache: PIPModelCacheSOA,
-    ftilde_buf: DMatrix<f64>,
+    matrix_buf: DMatrix<f64>,
 }
 
 impl<Q: QMatrix> PIPModelInfo<Q> {
@@ -238,7 +238,7 @@ impl<Q: QMatrix> PIPModelInfo<Q> {
         Ok(PIPModelInfo {
             phantom: PhantomData,
             cache: cache_entries,
-            ftilde_buf: DMatrix::zeros(n, msa_length),
+            matrix_buf: DMatrix::zeros(n, msa_length),
         })
     }
 }
@@ -340,7 +340,7 @@ impl<Q: QMatrix + Display> Display for PIPCost<Q> {
 
 struct CacheLeafViewMut<'a> {
     surv_ins_weights: &'a mut f64,
-    anc: &'a mut DMatrix<f64>,
+    anc: &'a mut MatrixXx3<f64>,
     ftilde: &'a DMatrix<f64>,
     pnu: &'a mut DVector<f64>,
     c0_f1: &'a mut f64,
@@ -358,7 +358,7 @@ struct CacheFtildeChildView<'a> {
 
 struct CachePnuViewMut<'a> {
     surv_ins_weights: f64,
-    anc: &'a DMatrix<f64>,
+    anc: &'a MatrixXx3<f64>,
     pnu: &'a mut DVector<f64>,
 }
 struct CachePnuChildView<'a> {
@@ -389,7 +389,9 @@ impl<Q: QMatrix> PIPCost<Q> {
     fn logl(&self) -> f64 {
         let mut tmp = self.tmp.borrow_mut();
         let PIPModelInfo {
-            cache, ftilde_buf, ..
+            cache,
+            matrix_buf: ftilde_buf,
+            ..
         } = &mut *tmp;
         for node_idx in self.tree().postorder() {
             let number_node_idx = usize::from(node_idx);
@@ -462,6 +464,10 @@ impl<Q: QMatrix> PIPCost<Q> {
                             [0, 1].map(|child| CachePnuChildView {
                                 pnu: children_pnu[child],
                             }),
+                            nalgebra::DVectorViewMut::<f64>::from_slice(
+                                ftilde_buf.as_mut_slice(),
+                                self.info.msa.len(),
+                            ),
                         );
                         self.set_c0(
                             children_blen,
@@ -551,16 +557,25 @@ impl<Q: QMatrix> PIPCost<Q> {
     /// Dependent:
     /// - tmp.pnu of both children
     /// - tmp.anc of this node
-    /// - tmp.f of this node
+    /// - tmp.f(actually tmp.pnu) of this node
     /// - tmp.surv_ins_weights of this node
     ///
     /// Modifies:
     /// - tmp.pnu of this node
-    fn set_pnu(&self, this: CachePnuViewMut, [left, right]: [CachePnuChildView; 2]) {
+    fn set_pnu(
+        &self,
+        this: CachePnuViewMut,
+        [left, right]: [CachePnuChildView; 2],
+        mut pnu_buf: DVectorViewMut<f64>,
+    ) {
         this.pnu.component_mul_assign(&this.anc.column(0));
         *this.pnu *= this.surv_ins_weights;
-        *this.pnu += this.anc.column(1).component_mul(left.pnu)
-            + this.anc.column(2).component_mul(right.pnu);
+        pnu_buf.copy_from(&this.anc.column(1));
+        pnu_buf.component_mul_assign(left.pnu);
+        *this.pnu += &pnu_buf;
+        pnu_buf.copy_from(&this.anc.column(2));
+        pnu_buf.component_mul_assign(right.pnu);
+        *this.pnu += &pnu_buf;
     }
 
     /// Dependent:
@@ -594,8 +609,8 @@ impl<Q: QMatrix> PIPCost<Q> {
     /// - tmp.anc of this node
     fn set_ancestors(
         &self,
-        this_anc: &mut DMatrix<f64>,
-        [left_anc, right_anc]: [&DMatrix<f64>; 2],
+        this_anc: &mut MatrixXx3<f64>,
+        [left_anc, right_anc]: [&MatrixXx3<f64>; 2],
     ) {
         this_anc.set_column(1, &left_anc.column(0));
         this_anc.set_column(2, &right_anc.column(0));
