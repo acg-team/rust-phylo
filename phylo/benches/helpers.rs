@@ -15,6 +15,25 @@ use phylo::{
 pub type BenchPath = &'static str;
 pub type SequencePaths = HashMap<&'static str, BenchPath>;
 
+pub const N10_M1000: &str = "data/benchmark-datasets/one_shot/seq_length/n10m1000.fasta";
+pub const N10_M5000: &str = "data/benchmark-datasets/one_shot/seq_length/n10m5000.fasta";
+pub const N10_M10000: &str = "data/benchmark-datasets/one_shot/seq_length/n10m10000.fasta";
+pub const N10_M20000: &str = "data/benchmark-datasets/one_shot/seq_length/n10m20000.fasta";
+pub const N10_M50000: &str = "data/benchmark-datasets/one_shot/seq_length/n10m50000.fasta";
+pub const N10_M100000: &str = "data/benchmark-datasets/one_shot/seq_length/n10m100000.fasta";
+pub const N10_M200000: &str = "data/benchmark-datasets/one_shot/seq_length/n10m200000.fasta";
+pub const N10_M300000: &str = "data/benchmark-datasets/one_shot/seq_length/n10m300000.fasta";
+
+pub const N10_M500: &str = "data/benchmark-datasets/one_shot/taxa/n10m500.fasta";
+pub const N20_M500: &str = "data/benchmark-datasets/one_shot/taxa/n20m500.fasta";
+pub const N30_M500: &str = "data/benchmark-datasets/one_shot/taxa/n30m500.fasta";
+pub const N40_M500: &str = "data/benchmark-datasets/one_shot/taxa/n40m500.fasta";
+pub const N50_M500: &str = "data/benchmark-datasets/one_shot/taxa/n50m500.fasta";
+pub const N60_M500: &str = "data/benchmark-datasets/one_shot/taxa/n60m500.fasta";
+pub const N70_M500: &str = "data/benchmark-datasets/one_shot/taxa/n70m500.fasta";
+pub const N80_M500: &str = "data/benchmark-datasets/one_shot/taxa/n80m500.fasta";
+pub const N90_M500: &str = "data/benchmark-datasets/one_shot/taxa/n90m500.fasta";
+pub const N100_M500: &str = "data/benchmark-datasets/one_shot/taxa/n100m500.fasta";
 pub const DNA_EASY_5X1000: &str = "data/sim/GTR/gtr.fasta";
 pub const DNA_EASY_8X1252: &str = "data/benchmark-datasets/dna/easy/wickd3b_7705.processed.fasta";
 pub const DNA_EASY_17X2292: &str = "data/benchmark-datasets/dna/easy/wickd3a_7771.processed.fasta";
