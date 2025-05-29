@@ -1,9 +1,8 @@
 use std::cell::RefCell;
 use std::fmt::{Debug, Display};
-use std::iter::{self, repeat_n};
+use std::iter::{self};
 use std::marker::PhantomData;
 use std::ops::Range;
-use std::ptr::NonNull;
 
 use anyhow::bail;
 use fixedbitset::FixedBitSet;
@@ -12,8 +11,8 @@ use itertools::Itertools;
 use lazy_static::lazy_static;
 use log::warn;
 use nalgebra::{
-    DMatrix, DMatrixView, DMatrixViewMut, DVector, DVectorView, DVectorViewMut, MatrixViewMutXx3,
-    MatrixViewXx3, MatrixXx3,
+    DMatrix, DMatrixView, DMatrixViewMut, DVectorView, DVectorViewMut, MatrixViewMutXx3,
+    MatrixViewXx3,
 };
 
 use crate::alignment::Mapping;
@@ -758,74 +757,134 @@ impl<Q: QMatrix> PIPCost<Q> {
         let root_idx = usize::from(self.tree().root);
         let msa_length = self.info.msa.len();
 
-        for node_idx in self.tree().postorder() {
-            let number_node_idx = usize::from(node_idx);
+        let postorder_tree = self.tree().postorder();
+        let mut invalid_leaf_nodes: Vec<usize> = Vec::with_capacity(self.info.msa.seq_count());
+        let mut internal_nodes: Vec<DisjointIndices> =
+            Vec::with_capacity(self.info.msa.seq_count() - 1);
+
+        for tree_node_idx in postorder_tree.iter() {
+            let number_node_idx = usize::from(tree_node_idx);
             if self.tree().dirty[number_node_idx] || !cache.models_valid[number_node_idx] {
                 self.set_model(
                     self.tree().nodes[number_node_idx].blen,
                     &mut cache.models_mut(number_node_idx),
                 );
-                cache.models_valid.insert(number_node_idx);
                 cache.valid.remove(number_node_idx);
             }
+            let children = self.tree().children(tree_node_idx);
+            match *tree_node_idx {
+                Leaf(leaf_idx) if !cache.valid[leaf_idx] => invalid_leaf_nodes.push(leaf_idx),
+                Leaf(_) => {}
+                Int(internal_idx) => internal_nodes.push(DisjointIndices::new(
+                    [children[0].into(), children[1].into()],
+                    internal_idx,
+                )),
+            };
+        }
+        cache.models_valid.insert_range(..);
 
-            let this_blen = self.tree().nodes[number_node_idx].blen;
+        for leaf_node_idx in invalid_leaf_nodes {
+            let this_blen = self.tree().nodes[leaf_node_idx].blen;
+            let mut leaf_cache = cache.entry_mut(leaf_node_idx);
+            self.set_leaf(
+                this_blen,
+                CacheLeafViewMut {
+                    ftilde: &leaf_cache.ftilde.as_view(),
+                    pnu: &mut leaf_cache.pnu,
+                    anc: &mut leaf_cache.anc,
+                    surv_ins_weights: leaf_cache.surv_ins_weight,
+                    c0_f1: leaf_cache.c0_f1,
+                    c0_pnu: leaf_cache.c0_pnu,
+                },
+                self.info.msa.leaf_map(&NodeIdx::Leaf(leaf_node_idx)),
+            );
+            let parent_idx = self.tree().nodes[leaf_node_idx]
+                .parent
+                .expect("all internal nodes have a parent");
+            cache.valid.remove(usize::from(parent_idx));
+            // valid gets set all at once in the end
+        }
 
-            if !cache.valid[number_node_idx] {
-                match node_idx {
-                    Int(_) => {
-                        let children = &self.tree().nodes[number_node_idx].children;
-                        let children = [children[0], children[1]].map(usize::from);
-                        let indices =
-                            DisjointIndices::new([children[0], children[1]], number_node_idx);
-                        let children_blen =
-                            children.map(|child_idx| self.tree().nodes[child_idx].blen);
+        for internal_node in internal_nodes.iter() {
+            if !cache.valid[internal_node.this()] {
+                let this_blen = self.tree().nodes[internal_node.this()].blen;
 
-                        let mut this_cache = cache.entry_mut(indices.this());
-
-                        if root_idx == number_node_idx {
-                            *this_cache.surv_ins_weight = self.model.lambda() / self.model.mu();
-                            this_cache.anc.fill_column(0, 1.0);
-                        } else {
-                            *this_cache.surv_ins_weight = Self::survival_insertion_weight(
-                                self.model.lambda(),
-                                self.model.mu(),
-                                this_blen,
-                            );
-                            let parent_idx = self.tree().nodes[number_node_idx]
-                                .parent
-                                .expect("all internal nodes have a parent");
-                            cache.valid.remove(usize::from(parent_idx));
-                        }
-                        self.set_internal_common(
-                            cache.entries_mut(indices),
-                            matrix_buf,
-                            children_blen,
-                        );
-                    }
-                    Leaf(_) => {
-                        let mut leaf_cache = cache.entry_mut(number_node_idx);
-                        self.set_leaf(
+                if internal_node.this() == root_idx {
+                    cache.surv_ins_weights_mut()[internal_node.this()] =
+                        self.model.lambda() / self.model.mu();
+                    cache.anc_mut(internal_node.this()).fill_column(0, 1.0);
+                } else {
+                    cache.surv_ins_weights_mut()[internal_node.this()] =
+                        Self::survival_insertion_weight(
+                            self.model.lambda(),
+                            self.model.mu(),
                             this_blen,
-                            CacheLeafViewMut {
-                                ftilde: &leaf_cache.ftilde.as_view(),
-                                pnu: &mut leaf_cache.pnu,
-                                anc: &mut leaf_cache.anc,
-                                surv_ins_weights: leaf_cache.surv_ins_weight,
-                                c0_f1: leaf_cache.c0_f1,
-                                c0_pnu: leaf_cache.c0_pnu,
-                            },
-                            self.info.msa.leaf_map(node_idx),
                         );
-                        let parent_idx = self.tree().nodes[number_node_idx]
-                            .parent
-                            .expect("all leaf nodes have a parent");
-                        cache.valid.remove(usize::from(parent_idx));
-                    }
-                };
-                cache.valid.insert(number_node_idx)
+                    let parent_idx = self.tree().nodes[internal_node.this()]
+                        .parent
+                        .expect("all internal nodes have a parent");
+                    cache.valid.remove(usize::from(parent_idx));
+                }
             }
         }
+        internal_nodes.retain(|node_idx| !cache.valid[node_idx.this()]);
+        let invalid_internal_nodes = internal_nodes;
+
+        for internal_node in invalid_internal_nodes.iter().copied() {
+            let [children_cache @ .., mut this_cache] = cache.entries_mut(internal_node);
+
+            self.set_ftilde(
+                CacheFtildeViewMut {
+                    f: &mut this_cache.pnu, // on purpose, f doen't get used for anything else but assign to pnu
+                    ftilde: &mut this_cache.ftilde,
+                },
+                children_cache.map(|child| CacheFtildeChildView {
+                    ftilde: child.ftilde.into(),
+                    models: child.model.into(),
+                }),
+                matrix_buf,
+            );
+        }
+        for internal_node in invalid_internal_nodes.iter().copied() {
+            let [left_anc, right_anc, mut this_anc] = cache.indices_anc_mut(internal_node);
+
+            self.set_ancestors(&mut this_anc, [&left_anc.into(), &right_anc.into()]);
+        }
+        for internal_node in invalid_internal_nodes.iter().copied() {
+            let [children_cache @ .., mut this_cache] = cache.entries_mut(internal_node);
+
+            self.set_pnu(
+                CachePnuViewMut {
+                    pnu: &mut this_cache.pnu,
+                    surv_ins_weights: *this_cache.surv_ins_weight,
+                    anc: this_cache.anc.into(),
+                },
+                children_cache.map(|child| CachePnuChildView {
+                    pnu: child.pnu.into(),
+                }),
+            );
+        }
+
+        for internal_node in invalid_internal_nodes.iter().copied() {
+            let this_surv_ins_weights = cache.surv_ins_weights()[internal_node.this()];
+            let [children_c0 @ .., this_c0] = cache.c0_mut().left_right_this_mut(internal_node);
+
+            self.set_c0(
+                internal_node
+                    .left_right()
+                    .map(|child_idx| self.tree().nodes[child_idx].blen),
+                CacheC0ViewMut {
+                    surv_ins_weights: this_surv_ins_weights,
+                    c0_f1: &mut this_c0.f1,
+                    c0_pnu: &mut this_c0.pnu,
+                },
+                children_c0.map(|child| CacheC0ChildView {
+                    c0_f1: child.f1,
+                    c0_pnu: child.pnu,
+                }),
+            );
+        }
+        cache.valid.insert_range(..);
 
         // In certain scenarios (e.g. a completely unrelated sequence, see data/p105.msa.fa)
         // individual column probabilities become too close to 0.0 (become subnormal)
@@ -845,61 +904,6 @@ impl<Q: QMatrix> PIPCost<Q> {
             .sum()
             + cache.c0()[root_idx].pnu
             - log_factorial_shifted(msa_length)
-    }
-
-    fn set_internal_common(
-        &self,
-        [left_cache, right_cache, mut this_cache]: [PIPModelCacheEntryViewMut; 3],
-        matrix_buf: &mut DMatrix<f64>,
-        children_blen: [f64; 2],
-    ) {
-        self.set_ftilde(
-            CacheFtildeViewMut {
-                f: &mut this_cache.pnu, // on purpose, f doen't get used for anything else but assign to pnu
-                ftilde: &mut this_cache.ftilde,
-            },
-            itertools::izip!(
-                [left_cache.ftilde, right_cache.ftilde],
-                [left_cache.model, right_cache.model]
-            )
-            .map(|(ftilde, model)| CacheFtildeChildView {
-                ftilde: ftilde.into(),
-                models: model.into(),
-            })
-            .collect_array::<2>()
-            .unwrap(),
-            matrix_buf,
-        );
-        self.set_ancestors(
-            &mut this_cache.anc,
-            [&left_cache.anc.as_view(), &right_cache.anc.as_view()],
-        );
-        self.set_pnu(
-            CachePnuViewMut {
-                pnu: &mut this_cache.pnu,
-                surv_ins_weights: *this_cache.surv_ins_weight,
-                anc: this_cache.anc.as_view(),
-            },
-            [left_cache.pnu, right_cache.pnu].map(|pnu| CachePnuChildView { pnu: pnu.into() }),
-        );
-        self.set_c0(
-            children_blen,
-            CacheC0ViewMut {
-                surv_ins_weights: *this_cache.surv_ins_weight,
-                c0_f1: this_cache.c0_f1,
-                c0_pnu: this_cache.c0_pnu,
-            },
-            itertools::izip!(
-                [left_cache.c0_f1, right_cache.c0_f1],
-                [left_cache.c0_pnu, right_cache.c0_pnu]
-            )
-            .map(|(c0_f1, c0_pnu)| CacheC0ChildView {
-                c0_f1: *c0_f1,
-                c0_pnu: *c0_pnu,
-            })
-            .collect_array::<2>()
-            .unwrap(),
-        );
     }
 
     fn set_leaf(
