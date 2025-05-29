@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use dyn_clone::DynClone;
+use nalgebra::DMatrixViewMut;
 
 use crate::alphabets::Alphabet;
 use crate::substitution_models::{FreqVector, SubstMatrix};
@@ -14,7 +15,7 @@ pub enum FrequencyOptimisation {
 
 pub trait EvoModel: Display + DynClone {
     fn p(&self, time: f64) -> SubstMatrix;
-    fn p_to(&self, time: f64, to: &mut SubstMatrix);
+    fn p_to(&self, time: f64, to: &mut DMatrixViewMut<f64>);
     fn q(&self) -> &SubstMatrix;
     fn rate(&self, i: u8, j: u8) -> f64;
     fn params(&self) -> &[f64];
