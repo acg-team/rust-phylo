@@ -285,7 +285,7 @@ pub struct PIPModelCacheEntryViewMut<'a> {
 impl PIPModelCacheBuf {
     fn new(n: usize, msa_length: usize, node_count: usize) -> Self {
         let dimensions = PIPModelCacheBufDimensions::new(n, msa_length, node_count);
-        let cum_dynamic_vector_and_matrix_size = [
+        let cum_dynamic_vector_and_matrix_size_in_f64 = [
             dimensions.models_range().len(),
             dimensions.surv_ins_weights_range().len(),
             dimensions.ftilde_range().len(),
@@ -294,10 +294,9 @@ impl PIPModelCacheBuf {
             dimensions.c0_range().len(),
         ]
         .iter()
-        .sum::<usize>()
-            * size_of::<f64>();
+        .sum::<usize>();
         Self {
-            buf: vec![0.0; cum_dynamic_vector_and_matrix_size].into_boxed_slice(),
+            buf: vec![0.0; cum_dynamic_vector_and_matrix_size_in_f64].into_boxed_slice(),
             dimensions,
             valid: FixedBitSet::with_capacity(node_count),
             models_valid: FixedBitSet::with_capacity(node_count),
