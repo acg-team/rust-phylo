@@ -61,7 +61,7 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
                 // clone because of interior mutability in PIPCost
                 || data.clone(),
                 |data| run_optimisation(data.1, data.0.freq_opt, data.0.max_iters, data.0.epsilon),
-                criterion::BatchSize::SmallInput,
+                criterion::BatchSize::PerIteration,
             );
         });
     };

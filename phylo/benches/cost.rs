@@ -24,7 +24,7 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
                 // clone because of interior mutability
                 || data.clone(),
                 |cost_fn| cost_fn.cost(),
-                criterion::BatchSize::SmallInput,
+                criterion::BatchSize::PerIteration,
             );
         });
     };
