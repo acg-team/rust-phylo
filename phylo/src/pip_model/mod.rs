@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::fmt::{Debug, Display};
 use std::iter::{self};
 use std::marker::PhantomData;
+use std::num::NonZero;
 use std::ops::Range;
 
 use anyhow::bail;
@@ -25,6 +26,7 @@ use crate::tree::{
     NodeIdx::{self, Internal as Int, Leaf},
     Tree,
 };
+use crate::util::mem::boxed::BoxSlice;
 use crate::Result;
 
 // (2.0 * PI).ln() / 2.0;
@@ -200,9 +202,7 @@ trait SubSlicerMut<T>: AsMut<[T]> {
     }
 }
 
-impl<T> SubSlicer<T> for Box<[T]> {}
 impl<T> SubSlicer<T> for [T] {}
-impl<T> SubSlicerMut<T> for Box<[T]> {}
 impl<T> SubSlicerMut<T> for [T] {}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -317,7 +317,7 @@ impl PIPModelCacheBufDimensions {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PIPModelCacheBuf {
-    buf: Box<[f64]>,
+    buf: BoxSlice<f64>,
     dimensions: PIPModelCacheBufDimensions,
     valid: FixedBitSet,
     models_valid: FixedBitSet,
@@ -343,7 +343,10 @@ impl PIPModelCacheBuf {
             .iter()
             .sum::<usize>();
         Self {
-            buf: vec![0.0; cum_dynamic_vector_and_matrix_size_in_f64].into_boxed_slice(),
+            buf: BoxSlice::alloc_slice(
+                0.0,
+                NonZero::try_from(cum_dynamic_vector_and_matrix_size_in_f64).unwrap(),
+            ),
             dimensions,
             valid: FixedBitSet::with_capacity(node_count),
             models_valid: FixedBitSet::with_capacity(node_count),
@@ -1172,7 +1175,6 @@ mod indices {
                 .expect("indices should be distinct")
         }
     }
-    impl<T> NodeCacheIndexer<T> for Box<[T]> {}
     impl<T> NodeCacheIndexer<T> for [T] {}
     pub(super) trait NodeCacheSlicer<T>: AsMut<[T]> {
         fn slice_left_right_this_mut(&mut self, indices: DisjointRanges) -> [&mut [T]; 3] {
