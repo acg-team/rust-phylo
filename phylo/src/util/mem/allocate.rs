@@ -25,23 +25,26 @@ const MEMINFO_PATH: &str = "/proc/meminfo";
 const HUGEPAGESIZE_PREFIX: &str = "Hugepagesize:";
 
 lazy_static::lazy_static! {
-    static ref HUGEPAGE_SIZE: isize = {
+    static ref HUGEPAGE_SIZE: usize = {
+        // TODO: lazy read lines
         let buf = File::open(MEMINFO_PATH).map_or("".to_owned(), |mut f| {
             let mut s = String::new();
             let _ = f.read_to_string(&mut s);
             s
         });
-        parse_hugepage_size(&buf)
+        let hugepage_size = parse_hugepage_size(&buf);
+        assert_eq!(hugepage_size, 2048 * 1024);
+        hugepage_size
     };
 }
 
-fn parse_hugepage_size(s: &str) -> isize {
+fn parse_hugepage_size(s: &str) -> usize {
     for line in s.lines() {
         if let Some(without_prefix) = line.strip_prefix(HUGEPAGESIZE_PREFIX) {
             let mut parts = without_prefix.split_whitespace();
 
-            let p = parts.next().unwrap_or("0");
-            let mut hugepage_size = p.parse::<isize>().unwrap_or(-1);
+            let p = parts.next().unwrap();
+            let mut hugepage_size = p.parse::<usize>().unwrap();
 
             hugepage_size *= parts.next().map_or(1, |x| match x {
                 "kB" => 1024,
@@ -53,7 +56,7 @@ fn parse_hugepage_size(s: &str) -> isize {
         }
     }
 
-    -1
+    panic!("failed to read huge page configuration")
 }
 
 fn align_to(size: usize, align: usize) -> usize {
@@ -63,32 +66,78 @@ fn align_to(size: usize, align: usize) -> usize {
 // hugepage allocator.
 pub(crate) struct HugePageAllocator;
 
-unsafe impl GlobalAlloc for HugePageAllocator {
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        let len = align_to(layout.size(), *HUGEPAGE_SIZE as usize);
-        let p = libc::mmap(
-            null_mut(),
-            len,
-            PROT_READ | PROT_WRITE,
-            MAP_PRIVATE | MAP_ANONYMOUS, // TOOD: MAP_HUGETLB currently fails
-            -1,
-            0,
-        );
-
+impl HugePageAllocator {
+    #[allow(dead_code)]
+    pub unsafe fn mmap_hugetlbfs(layout: Layout) -> *mut u8 {
+        let len = layout
+            .align_to(*HUGEPAGE_SIZE)
+            .unwrap()
+            .pad_to_align()
+            .size();
+        let p = unsafe {
+            libc::mmap(
+                null_mut(),
+                len,
+                PROT_READ | PROT_WRITE,
+                MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, // if this fails you probably have
+                // nr_hugepages = 0 in your kernel, see justfile
+                -1,
+                0,
+            )
+        };
         if p == MAP_FAILED {
             let layout_size = layout.size();
             panic!(
-                "alloc failed for len {layout_size}/{len} {:?}",
+                "hugetlbfs alloc failed for len {layout_size}/{len}: '{:?}', did you allocate hugetables in your kernel?",
                 CString::from_raw(libc::strerror(*libc::__errno_location()))
             );
-            return null_mut();
+            // return null_mut();
         }
 
         p as *mut u8
     }
 
+    pub unsafe fn mmap_transparent_hugepages(layout: Layout) -> *mut u8 {
+        let len = align_to(layout.size(), *HUGEPAGE_SIZE);
+        let p = unsafe {
+            libc::mmap(
+                null_mut(),
+                len,
+                PROT_READ | PROT_WRITE,
+                MAP_PRIVATE | MAP_ANONYMOUS,
+                -1,
+                0,
+            )
+        };
+
+        libc::madvise(p, len, libc::MADV_HUGEPAGE);
+        if p == MAP_FAILED {
+            return null_mut();
+        }
+
+        p as *mut u8
+    }
+}
+
+unsafe impl GlobalAlloc for HugePageAllocator {
+    #[cfg(feature = "hugetlbfs")]
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        HugePageAllocator::mmap_hugetlbfs(layout)
+    }
+    #[cfg(not(feature = "hugetlbfs"))]
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        HugePageAllocator::mmap_transparent_hugepages(layout)
+    }
+
     unsafe fn dealloc(&self, p: *mut u8, layout: Layout) {
-        libc::munmap(p as *mut c_void, layout.size());
+        libc::munmap(
+            p as *mut c_void,
+            layout
+                .align_to(*HUGEPAGE_SIZE)
+                .unwrap()
+                .pad_to_align()
+                .size(),
+        );
     }
 }
 
@@ -102,10 +151,6 @@ mod tests {
         // correct.
         assert_eq!(parse_hugepage_size("Hugepagesize:1024"), 1024);
         assert_eq!(parse_hugepage_size("Hugepagesize: 2 kB"), 2048);
-
-        // wrong.
-        assert_eq!(parse_hugepage_size("Hugepagesize:1kB"), -1);
-        assert_eq!(parse_hugepage_size("Hugepagesize: 2kB"), -1);
     }
 
     #[test]

@@ -1,0 +1,7 @@
+
+# NOTE/TODO/MERBUG: for some reason this doesnt apply, each time calling this
+# increments the value a bit but not to 2048
+configure-hugetlbfs:
+    sudo sysctl -w vm.nr_hugepages=4096 # should allow for 4096 * 2mb -> 8gb
+clear-hugetlbfs:
+    sudo sysctl -w vm.nr_hugepages=0
