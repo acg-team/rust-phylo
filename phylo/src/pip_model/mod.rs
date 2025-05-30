@@ -1,9 +1,8 @@
 use std::cell::RefCell;
 use std::fmt::{Debug, Display};
-use std::iter::{self, repeat_n};
+use std::iter::{self};
 use std::marker::PhantomData;
 use std::ops::Range;
-use std::ptr::NonNull;
 
 use anyhow::bail;
 use fixedbitset::FixedBitSet;
@@ -12,8 +11,8 @@ use itertools::Itertools;
 use lazy_static::lazy_static;
 use log::warn;
 use nalgebra::{
-    DMatrix, DMatrixView, DMatrixViewMut, DVector, DVectorView, DVectorViewMut, MatrixViewMutXx3,
-    MatrixViewXx3, MatrixXx3,
+    DMatrix, DMatrixView, DMatrixViewMut, DVectorView, DVectorViewMut, MatrixViewMutXx3,
+    MatrixViewXx3,
 };
 
 use crate::alignment::Mapping;
@@ -183,7 +182,8 @@ struct C0Scalars {
 
 trait SubSlicer<T>: AsRef<[T]> {
     fn slice_idx_with_len_in(&self, range: Range<usize>, idx: usize, len: usize) -> &[T] {
-        let slice_in_range = idx * len..(idx + 1) * len;
+        let aligned_len = PIPModelCacheBufDimensions::pad(len);
+        let slice_in_range = idx * aligned_len..(idx * aligned_len) + len;
         &self.as_ref()[range][slice_in_range]
     }
 }
@@ -194,7 +194,8 @@ trait SubSlicerMut<T>: AsMut<[T]> {
         idx: usize,
         len: usize,
     ) -> &mut [T] {
-        let slice_in_range = idx * len..(idx + 1) * len;
+        let aligned_len = PIPModelCacheBufDimensions::pad(len);
+        let slice_in_range = idx * aligned_len..(idx * aligned_len) + len;
         &mut self.as_mut()[range][slice_in_range]
     }
 }
@@ -212,12 +213,38 @@ pub struct PIPModelCacheBufDimensions {
 }
 
 impl PIPModelCacheBufDimensions {
+    const ALIGNMENT_IN_U8: usize = 16;
+    const ALIGNMENT_IN_F64: usize = Self::ALIGNMENT_IN_U8 / size_of::<f64>();
+    const _CHECK: () = assert!(Self::ALIGNMENT_IN_U8 % 8 == 0);
     pub fn new(n: usize, msa_length: usize, node_count: usize) -> Self {
-        Self {
+        let dimensions = Self {
             n,
             msa_length,
             node_count,
+        };
+
+        #[cfg(debug_assertions)]
+        for ranges in dimensions.ordered().windows(2) {
+            let [prev, current] = ranges else { panic!() };
+            debug_assert_eq!(prev.end, current.start);
         }
+
+        dimensions
+    }
+
+    const fn ordered(&self) -> [Range<usize>; 6] {
+        [
+            self.models_range(),
+            self.surv_ins_weights_range(),
+            self.ftilde_range(),
+            self.anc_range(),
+            self.pnu_range(),
+            self.c0_range(),
+        ]
+    }
+
+    const fn pad(len: usize) -> usize {
+        (len + (Self::ALIGNMENT_IN_F64 - 1)) & !(Self::ALIGNMENT_IN_F64 - 1)
     }
 
     const fn models_len(&self) -> usize {
@@ -225,12 +252,17 @@ impl PIPModelCacheBufDimensions {
     }
     const fn models_range(&self) -> Range<usize> {
         let offset = 0;
-        offset..(offset + self.node_count * self.n * self.n)
+        debug_assert!(offset * size_of::<f64>() % Self::ALIGNMENT_IN_U8 == 0);
+        offset..offset + self.node_count * Self::pad(self.models_len())
     }
 
+    const fn surv_ins_weights_len(&self) -> usize {
+        self.node_count
+    }
     const fn surv_ins_weights_range(&self) -> Range<usize> {
         let offset = self.models_range().end;
-        offset..(offset + self.node_count)
+        debug_assert!(offset * size_of::<f64>() % Self::ALIGNMENT_IN_U8 == 0);
+        offset..offset + Self::pad(self.surv_ins_weights_len())
     }
 
     const fn ftilde_len(&self) -> usize {
@@ -238,7 +270,8 @@ impl PIPModelCacheBufDimensions {
     }
     const fn ftilde_range(&self) -> Range<usize> {
         let offset = self.surv_ins_weights_range().end;
-        offset..(offset + self.node_count * self.ftilde_len())
+        debug_assert!(offset * size_of::<f64>() % Self::ALIGNMENT_IN_U8 == 0);
+        offset..offset + self.node_count * Self::pad(self.ftilde_len())
     }
 
     const fn anc_len(&self) -> usize {
@@ -246,7 +279,8 @@ impl PIPModelCacheBufDimensions {
     }
     const fn anc_range(&self) -> Range<usize> {
         let offset = self.ftilde_range().end;
-        offset..(offset + self.node_count * self.anc_len())
+        debug_assert!(offset * size_of::<f64>() % Self::ALIGNMENT_IN_U8 == 0);
+        offset..offset + self.node_count * Self::pad(self.anc_len())
     }
 
     const fn pnu_len(&self) -> usize {
@@ -254,12 +288,17 @@ impl PIPModelCacheBufDimensions {
     }
     const fn pnu_range(&self) -> Range<usize> {
         let offset = self.anc_range().end;
-        offset..(offset + self.node_count * self.pnu_len())
+        debug_assert!(offset * size_of::<f64>() % Self::ALIGNMENT_IN_U8 == 0);
+        offset..offset + self.node_count * Self::pad(self.pnu_len())
     }
 
+    const fn c0_len(&self) -> usize {
+        self.node_count * 2
+    }
     const fn c0_range(&self) -> Range<usize> {
         let offset = self.pnu_range().end;
-        offset..(offset + self.node_count * 2)
+        debug_assert!(offset * size_of::<f64>() % Self::ALIGNMENT_IN_U8 == 0);
+        offset..offset + Self::pad(self.c0_len())
     }
 }
 
@@ -285,16 +324,11 @@ pub struct PIPModelCacheEntryViewMut<'a> {
 impl PIPModelCacheBuf {
     fn new(n: usize, msa_length: usize, node_count: usize) -> Self {
         let dimensions = PIPModelCacheBufDimensions::new(n, msa_length, node_count);
-        let cum_dynamic_vector_and_matrix_size_in_f64 = [
-            dimensions.models_range().len(),
-            dimensions.surv_ins_weights_range().len(),
-            dimensions.ftilde_range().len(),
-            dimensions.anc_range().len(),
-            dimensions.pnu_range().len(),
-            dimensions.c0_range().len(),
-        ]
-        .iter()
-        .sum::<usize>();
+        let cum_dynamic_vector_and_matrix_size_in_f64 = dimensions
+            .ordered()
+            .map(|range| range.len())
+            .iter()
+            .sum::<usize>();
         Self {
             buf: vec![0.0; cum_dynamic_vector_and_matrix_size_in_f64].into_boxed_slice(),
             dimensions,
@@ -304,7 +338,8 @@ impl PIPModelCacheBuf {
     }
 
     fn idx_len_to_range(idx: usize, len: usize) -> Range<usize> {
-        idx * len..(idx + 1) * len
+        let aligned_len = PIPModelCacheBufDimensions::pad(len);
+        idx * aligned_len..(idx * aligned_len) + len
     }
 
     fn entry_mut(&mut self, idx: usize) -> PIPModelCacheEntryViewMut {
@@ -383,7 +418,7 @@ impl PIPModelCacheBuf {
                 .expect("regions dont overlap");
         let models = {
             let item_len = self.dimensions.models_len();
-            let disjoint_ranges = DisjointRanges::new(indices, item_len);
+            let disjoint_ranges = DisjointRanges::new_aligned(indices, item_len);
             let sub_slices = models_slice.slice_left_right_this_mut(disjoint_ranges);
 
             sub_slices.map(|sub_slice| {
@@ -395,7 +430,7 @@ impl PIPModelCacheBuf {
         let ftildes = {
             let item_len = self.dimensions.ftilde_len();
 
-            let disjoint_ranges = DisjointRanges::new(indices, item_len);
+            let disjoint_ranges = DisjointRanges::new_aligned(indices, item_len);
             let sub_slices = ftildes_slice.slice_left_right_this_mut(disjoint_ranges);
 
             sub_slices.map(|sub_slice| {
@@ -405,7 +440,7 @@ impl PIPModelCacheBuf {
         let ancs = {
             let item_len = self.dimensions.anc_len();
 
-            let disjoint_ranges = DisjointRanges::new(indices, item_len);
+            let disjoint_ranges = DisjointRanges::new_aligned(indices, item_len);
             let sub_slices = ancs_slice.slice_left_right_this_mut(disjoint_ranges);
 
             sub_slices.map(|sub_slice| {
@@ -416,7 +451,7 @@ impl PIPModelCacheBuf {
         let pnus = {
             let item_len = self.dimensions.pnu_len();
 
-            let disjoint_ranges = DisjointRanges::new(indices, item_len);
+            let disjoint_ranges = DisjointRanges::new_aligned(indices, item_len);
             let sub_slices = pnus_slice.slice_left_right_this_mut(disjoint_ranges);
 
             sub_slices
@@ -446,7 +481,7 @@ impl PIPModelCacheBuf {
         let range = self.dimensions.models_range();
         let item_len = self.dimensions.models_len();
 
-        let disjoint_ranges = DisjointRanges::new(indices, item_len);
+        let disjoint_ranges = DisjointRanges::new_aligned(indices, item_len);
         let sub_slices = self.buf[range].slice_left_right_this_mut(disjoint_ranges);
 
         sub_slices.map(|sub_slice| {
@@ -466,18 +501,18 @@ impl PIPModelCacheBuf {
 
     fn surv_ins_weights_mut(&mut self) -> &mut [f64] {
         let range = self.dimensions.surv_ins_weights_range();
-        &mut self.buf[range]
+        &mut self.buf[range][..self.dimensions.surv_ins_weights_len()]
     }
     fn surv_ins_weights(&self) -> &[f64] {
         let range = self.dimensions.surv_ins_weights_range();
-        &self.buf[range]
+        &self.buf[range][..self.dimensions.surv_ins_weights_len()]
     }
 
     fn indices_ftilde_mut(&mut self, indices: DisjointIndices) -> [DMatrixViewMut<f64>; 3] {
         let range = self.dimensions.ftilde_range();
         let item_len = self.dimensions.ftilde_len();
 
-        let disjoint_ranges = DisjointRanges::new(indices, item_len);
+        let disjoint_ranges = DisjointRanges::new_aligned(indices, item_len);
         let sub_slices = self.buf[range].slice_left_right_this_mut(disjoint_ranges);
 
         sub_slices.map(|sub_slice| {
@@ -509,7 +544,7 @@ impl PIPModelCacheBuf {
         let range = self.dimensions.anc_range();
         let item_len = self.dimensions.anc_len();
 
-        let disjoint_ranges = DisjointRanges::new(indices, item_len);
+        let disjoint_ranges = DisjointRanges::new_aligned(indices, item_len);
         let sub_slices = self.buf[range].slice_left_right_this_mut(disjoint_ranges);
 
         sub_slices
@@ -538,7 +573,7 @@ impl PIPModelCacheBuf {
         let range = self.dimensions.pnu_range();
         let item_len = self.dimensions.pnu_len();
 
-        let disjoint_ranges = DisjointRanges::new(indices, item_len);
+        let disjoint_ranges = DisjointRanges::new_aligned(indices, item_len);
         let sub_slices = self.buf[range].slice_left_right_this_mut(disjoint_ranges);
 
         sub_slices
@@ -553,23 +588,23 @@ impl PIPModelCacheBuf {
             self.dimensions.msa_length,
         )
     }
-    fn pnu(&self, index: usize) -> DVectorView<f64> {
+    fn pnu(&self, idx: usize) -> DVectorView<f64> {
         let range = self.dimensions.pnu_range();
         let item_len = self.dimensions.pnu_len();
 
         DVectorView::from_slice(
-            &self.buf[range][index * item_len..(index + 1) * item_len],
+            self.buf.slice_idx_with_len_in(range, idx, item_len),
             self.dimensions.msa_length,
         )
     }
 
     fn c0(&self) -> &[C0Scalars] {
         let range = self.dimensions.c0_range();
-        bytemuck::cast_slice(&self.buf[range])
+        bytemuck::cast_slice(&self.buf[range][..self.dimensions.c0_len()])
     }
     fn c0_mut(&mut self) -> &mut [C0Scalars] {
         let range = self.dimensions.c0_range();
-        bytemuck::cast_slice_mut(&mut self.buf[range])
+        bytemuck::cast_slice_mut(&mut self.buf[range][..self.dimensions.c0_len()])
     }
 }
 
@@ -1062,6 +1097,8 @@ mod indices {
     mod disjoint_ranges {
         use std::ops::Range;
 
+        use crate::pip_model::PIPModelCacheBufDimensions;
+
         use super::DisjointIndices;
 
         #[derive(Clone)]
@@ -1073,11 +1110,13 @@ mod indices {
             const LEFT: usize = 0;
             const RIGHT: usize = 1;
             const THIS: usize = 2;
-            pub fn new(indices: DisjointIndices, len: usize) -> Self {
+            pub fn new_aligned(indices: DisjointIndices, len: usize) -> Self {
+                let aligned_len = PIPModelCacheBufDimensions::pad(len);
                 Self {
                     left_right_this: indices
                         .left_right_this()
-                        .map(|idx| (idx * len)..((idx + 1) * len)),
+                        // only the start of the matrix is aligned
+                        .map(|idx| (idx * aligned_len)..((idx * aligned_len) + len)),
                 }
             }
             pub fn left_right_this(&self) -> [Range<usize>; 3] {
