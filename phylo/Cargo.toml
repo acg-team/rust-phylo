@@ -13,6 +13,8 @@ use-precomputed-test-results = []
 par-regraft = ["dep:rayon"]
 par-regraft-chunk = ["dep:rayon"]
 par-regraft-manual = ["dep:rayon"]
+# otherwise transparent hugepages will be used
+hugetlbfs = []
 
 [lib]
 bench = false

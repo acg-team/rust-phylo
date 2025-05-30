@@ -32,6 +32,14 @@ impl<T> BoxSlice<T> {
         // safety: slice is villed with elements of T
         unsafe { Self::from_raw(slice) }
     }
+    pub fn alloc_slice_transparent_hugepages(value: T, len: NonZero<usize>) -> Self
+    where
+        T: Copy,
+    {
+        let slice = alloc_huge_slice_value_transparent_hugepages(value, len.into());
+        // safety: slice is villed with elements of T
+        unsafe { Self::from_raw(slice) }
+    }
 
     /// # Safety
     /// raw must be a correctly aligned and fully initialized slice of T
@@ -110,6 +118,28 @@ impl<T> DerefMut for BoxSlice<T> {
     fn deref_mut(&mut self) -> &mut [T] {
         unsafe { self.data.as_mut() }
     }
+}
+
+fn alloc_huge_slice_uninit_transparent_hugepages<'a, T>(len: usize) -> &'a mut [MaybeUninit<T>] {
+    let layout = Layout::array::<T>(len).unwrap();
+    let mem = unsafe { allocate::HugePageAllocator::mmap_transparent_hugepages(layout) }
+        as *mut MaybeUninit<T>;
+
+    if mem.is_null() {
+        panic!("alloc failed");
+    }
+
+    // safety: we allocated the memory for exactly `len` T's above with the correct alignment
+    unsafe { slice::from_raw_parts_mut(mem, len) }
+}
+fn alloc_huge_slice_value_transparent_hugepages<'a, T: Copy>(value: T, len: usize) -> &'a mut [T] {
+    let slice = alloc_huge_slice_uninit_transparent_hugepages(len);
+    for element in &mut *slice {
+        *element = MaybeUninit::new(value);
+    }
+    // safety: all elements of the slice have been initialized with a valid value
+    // of T
+    unsafe { std::mem::transmute(slice) }
 }
 
 fn alloc_huge_slice_uninit<'a, T>(len: usize) -> &'a mut [MaybeUninit<T>] {
