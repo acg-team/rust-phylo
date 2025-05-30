@@ -45,6 +45,7 @@ ftail = "0.2.0"
 hashbrown = "0.15.2"
 itertools = "0.14.0"
 lazy_static = "1.4.0"
+libc = "0.2.172"
 log = "0.4.19"
 # NOTE: mutli threaded kernels for matrix multiplication are available
 # through the matrixmultiply peer-dep
@@ -80,4 +81,7 @@ name = "spr"
 harness = false
 [[bench]]
 name = "helpers"
+harness = false
+[[bench]]
+name = "matrix"
 harness = false
