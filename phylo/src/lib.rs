@@ -13,6 +13,7 @@ pub mod phylo_info;
 pub mod pip_model;
 pub mod substitution_models;
 pub mod tree;
+pub mod util;
 
 pub(crate) mod test_macros;
 
