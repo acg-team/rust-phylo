@@ -35,7 +35,7 @@ fn run_simulated_topo_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
                 // clone because of interior mutability in PIPCost
                 || data.clone(),
                 run_fixed_iter_topo,
-                criterion::BatchSize::SmallInput,
+                criterion::BatchSize::PerIteration,
             );
         });
     };

@@ -45,7 +45,7 @@ fn run_single_spr_cycle_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
                 // clone because of interior mutability in PIPCost
                 || data.clone(),
                 |(cost_fn, prune_locations)| single_spr_cycle(cost_fn, prune_locations),
-                criterion::BatchSize::SmallInput,
+                criterion::BatchSize::PerIteration,
             );
         });
     };
