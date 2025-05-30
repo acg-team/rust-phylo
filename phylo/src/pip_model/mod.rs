@@ -207,6 +207,7 @@ impl<T> SubSlicerMut<T> for [T] {}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PIPModelCacheBufDimensions {
+    // equals (4[dna] or 20[aa]) + 1[gap]
     n: usize,
     msa_length: usize,
     node_count: usize,
@@ -232,7 +233,7 @@ impl PIPModelCacheBufDimensions {
         dimensions
     }
 
-    const fn ordered(&self) -> [Range<usize>; 6] {
+    pub const fn ordered(&self) -> [Range<usize>; 6] {
         [
             self.models_range(),
             self.surv_ins_weights_range(),
@@ -300,6 +301,18 @@ impl PIPModelCacheBufDimensions {
         debug_assert!(offset * size_of::<f64>() % Self::ALIGNMENT_IN_U8 == 0);
         offset..offset + Self::pad(self.c0_len())
     }
+
+    pub const fn n(&self) -> usize {
+        self.n
+    }
+
+    pub const fn msa_length(&self) -> usize {
+        self.msa_length
+    }
+
+    pub const fn node_count(&self) -> usize {
+        self.node_count
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -322,7 +335,7 @@ pub struct PIPModelCacheEntryViewMut<'a> {
 }
 
 impl PIPModelCacheBuf {
-    fn new(n: usize, msa_length: usize, node_count: usize) -> Self {
+    pub fn new(n: usize, msa_length: usize, node_count: usize) -> Self {
         let dimensions = PIPModelCacheBufDimensions::new(n, msa_length, node_count);
         let cum_dynamic_vector_and_matrix_size_in_f64 = dimensions
             .ordered()
