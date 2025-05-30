@@ -13,9 +13,15 @@ use std::slice;
 /// A pointer type for hugepage allocation.
 ///
 /// Allocates memory on the hugepage and then places x into it.
+#[derive(Debug, PartialEq)]
 pub struct BoxSlice<T> {
     data: NonNull<[T]>,
 }
+
+// safety:
+// only we own the underlying memory so no other threads
+// could access the data
+unsafe impl<T> Send for BoxSlice<T> {}
 
 impl<T> BoxSlice<T> {
     pub fn alloc_slice(value: T, len: NonZero<usize>) -> Self

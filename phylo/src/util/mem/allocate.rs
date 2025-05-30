@@ -3,6 +3,7 @@ use libc::{
 };
 use std::{
     alloc::{GlobalAlloc, Layout},
+    ffi::CString,
     fs::File,
     io::Read,
     ptr::null_mut,
@@ -21,7 +22,7 @@ use std::{
 
 // constant.
 const MEMINFO_PATH: &str = "/proc/meminfo";
-const TOKEN: &str = "Hugepagesize:";
+const HUGEPAGESIZE_PREFIX: &str = "Hugepagesize:";
 
 lazy_static::lazy_static! {
     static ref HUGEPAGE_SIZE: isize = {
@@ -36,22 +37,23 @@ lazy_static::lazy_static! {
 
 fn parse_hugepage_size(s: &str) -> isize {
     for line in s.lines() {
-        if line.starts_with(TOKEN) {
-            let mut parts = line[TOKEN.len()..].split_whitespace();
+        if let Some(without_prefix) = line.strip_prefix(HUGEPAGESIZE_PREFIX) {
+            let mut parts = without_prefix.split_whitespace();
 
             let p = parts.next().unwrap_or("0");
             let mut hugepage_size = p.parse::<isize>().unwrap_or(-1);
 
             hugepage_size *= parts.next().map_or(1, |x| match x {
                 "kB" => 1024,
-                _ => 1,
+                "" => 1,
+                _ => panic!("unrecognized hugepage size unit"),
             });
 
             return hugepage_size;
         }
     }
 
-    return -1;
+    -1
 }
 
 fn align_to(size: usize, align: usize) -> usize {
@@ -74,6 +76,11 @@ unsafe impl GlobalAlloc for HugePageAllocator {
         );
 
         if p == MAP_FAILED {
+            let layout_size = layout.size();
+            panic!(
+                "alloc failed for len {layout_size}/{len} {:?}",
+                CString::from_raw(libc::strerror(*libc::__errno_location()))
+            );
             return null_mut();
         }
 
