@@ -124,7 +124,12 @@ pub mod spr {
     use itertools::Itertools;
     use log::info;
 
-    use crate::{likelihood::TreeSearchCost, optimisers::RegraftOptimiser, tree::NodeIdx, Result};
+    use crate::{
+        likelihood::TreeSearchCost,
+        optimisers::{RegraftOptimiser, RegraftOptimiserSimpleStorage},
+        tree::NodeIdx,
+        Result,
+    };
 
     /// Iterates over `prune_locations` in order and applies the best (improving)
     /// SPR move for each pruneing location in place
@@ -150,12 +155,14 @@ pub mod spr {
             .iter()
             .copied()
             .try_fold(base_cost, |base_cost, prune| -> Result<_> {
-                let regraft_optimiser = RegraftOptimiser::new(cost_fn, prune);
+                let mut regraft_optimiser =
+                    RegraftOptimiser::<_, RegraftOptimiserSimpleStorage<_>>::new(cost_fn, prune);
                 let Some(best_regraft_info) =
                     regraft_optimiser.find_max_cost_regraft_for_prune(base_cost)?
                 else {
                     return Ok(base_cost);
                 };
+                drop(regraft_optimiser);
 
                 let (best_cost, best_regraft, best_tree) = (
                     best_regraft_info.cost(),

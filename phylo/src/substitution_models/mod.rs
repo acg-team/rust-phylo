@@ -37,7 +37,7 @@ pub trait QMatrixMaker {
     fn create(frequencies: &[f64], params: &[f64]) -> Self;
 }
 
-pub trait QMatrix: Debug + Clone + Display {
+pub trait QMatrix: Debug + Clone + Display + Send {
     fn set_param(&mut self, param: usize, value: f64);
     fn params(&self) -> &[f64];
     fn freqs(&self) -> &FreqVector;
