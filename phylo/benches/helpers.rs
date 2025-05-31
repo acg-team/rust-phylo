@@ -35,6 +35,7 @@ pub const N80_M500: &str = "data/benchmark-datasets/one_shot/taxa/n80m500.fasta"
 pub const N90_M500: &str = "data/benchmark-datasets/one_shot/taxa/n90m500.fasta";
 pub const N100_M500: &str = "data/benchmark-datasets/one_shot/taxa/n100m500.fasta";
 pub const N200_M500: &str = "data/benchmark-datasets/one_shot/taxa/n200m500.fasta";
+pub const HIV_1: &str = "data/real_examples/HIV-1_env_DNA_mafft_alignment_subset.fasta";
 pub const DNA_EASY_5X1000: &str = "data/sim/GTR/gtr.fasta";
 pub const DNA_EASY_8X1252: &str = "data/benchmark-datasets/dna/easy/wickd3b_7705.processed.fasta";
 pub const DNA_EASY_17X2292: &str = "data/benchmark-datasets/dna/easy/wickd3a_7771.processed.fasta";
