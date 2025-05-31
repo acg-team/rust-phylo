@@ -98,7 +98,11 @@ impl HugePageAllocator {
     }
 
     pub unsafe fn mmap_transparent_hugepages(layout: Layout) -> *mut u8 {
-        let len = align_to(layout.size(), *HUGEPAGE_SIZE);
+        let len = layout
+            .align_to(*HUGEPAGE_SIZE)
+            .unwrap()
+            .pad_to_align()
+            .size();
         let p = unsafe {
             libc::mmap(
                 null_mut(),
