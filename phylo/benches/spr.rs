@@ -5,7 +5,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use itertools::Itertools;
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::TreeSearchCost;
-use phylo::optimisers::{spr, RegraftOptimiser};
+use phylo::optimisers::{spr, RegraftOptimiser, RegraftOptimiserSimpleStorage};
 use phylo::pip_model::PIPCost;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 use phylo::tree::NodeIdx;
@@ -26,7 +26,8 @@ fn find_best_regraft_for_single_spr_move<C: TreeSearchCost + Clone + Display + S
     cost_fn: C,
     prune_location: &NodeIdx,
 ) -> anyhow::Result<f64> {
-    let regraft_optimiser = RegraftOptimiser::new(&cost_fn, prune_location);
+    let mut regraft_optimiser =
+        RegraftOptimiser::<_, RegraftOptimiserSimpleStorage<_>>::new(&cost_fn, prune_location);
     let best_regraft = regraft_optimiser
         .find_max_cost_regraft_for_prune(f64::MIN)?
         .expect("invalid prune location for benchmarking");

@@ -1,7 +1,9 @@
+use std::alloc::Layout;
 use std::cell::RefCell;
 use std::fmt::{Debug, Display};
 use std::iter::{self};
 use std::marker::PhantomData;
+use std::mem::MaybeUninit;
 use std::num::NonZero;
 use std::ops::Range;
 
@@ -214,9 +216,11 @@ pub struct PIPModelCacheBufDimensions {
 }
 
 impl PIPModelCacheBufDimensions {
-    const ALIGNMENT_IN_U8: usize = 16;
+    pub const ALIGNMENT_IN_U8: usize = 16;
     const ALIGNMENT_IN_F64: usize = Self::ALIGNMENT_IN_U8 / size_of::<f64>();
-    const _CHECK: () = assert!(Self::ALIGNMENT_IN_U8 % 8 == 0);
+    const _CHECK: () = {
+        assert!(Self::ALIGNMENT_IN_U8 % 8 == 0);
+    };
     pub fn new(n: usize, msa_length: usize, node_count: usize) -> Self {
         let dimensions = Self {
             n,
@@ -230,7 +234,28 @@ impl PIPModelCacheBufDimensions {
             debug_assert_eq!(prev.end, current.start);
         }
 
+        #[cfg(debug_assertions)]
+        {
+            let cum_dynamic_vector_and_matrix_size_in_f64 = dimensions
+                .ordered()
+                .map(|range| range.len())
+                .iter()
+                .sum::<usize>();
+            assert_eq!(
+                cum_dynamic_vector_and_matrix_size_in_f64,
+                dimensions.ordered().last().unwrap().end
+            );
+        }
+
         dimensions
+    }
+
+    fn padded_layout(&self) -> Layout {
+        Layout::array::<f64>(self.ordered().last().unwrap().end)
+            .unwrap()
+            .align_to(Self::ALIGNMENT_IN_U8)
+            .unwrap()
+            .pad_to_align()
     }
 
     pub const fn ordered(&self) -> [Range<usize>; 6] {
@@ -242,6 +267,10 @@ impl PIPModelCacheBufDimensions {
             self.pnu_range(),
             self.c0_range(),
         ]
+    }
+    pub const fn total_len_f64_padded(&self) -> usize {
+        let ordered = self.ordered();
+        Self::pad(ordered.last().unwrap().end)
     }
 
     const fn pad(len: usize) -> usize {
@@ -315,12 +344,44 @@ impl PIPModelCacheBufDimensions {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct PIPModelCacheBuf {
-    buf: BoxSlice<f64>,
+    // TODO: would need borrowing version of pipcost to do cleanly
+    buf: &'static mut [f64],
     dimensions: PIPModelCacheBufDimensions,
     valid: FixedBitSet,
     models_valid: FixedBitSet,
+    is_owned: bool,
+}
+
+impl Clone for PIPModelCacheBuf {
+    fn clone(&self) -> Self {
+        // safety: we manually dealloc the cache in Drop
+        let new_cache_buf = BoxSlice::alloc_slice_uninit(NonZero::new(self.buf.len()).unwrap());
+        let new_cache_ref = unsafe { new_cache_buf.clone().leak() };
+        new_cache_ref.copy_from_slice(unsafe {
+            std::mem::transmute::<&[f64], &[MaybeUninit<f64>]>(self.buf)
+        });
+
+        let new_cache_ref =
+            unsafe { std::mem::transmute::<&mut [MaybeUninit<f64>], &mut [f64]>(new_cache_ref) };
+        Self {
+            buf: new_cache_ref,
+            dimensions: self.dimensions,
+            valid: self.valid.clone(),
+            models_valid: self.models_valid.clone(),
+            is_owned: true,
+        }
+    }
+}
+
+impl Drop for PIPModelCacheBuf {
+    fn drop(&mut self) {
+        if self.is_owned {
+            // owned buffers are allocated with BoxSlice
+            unsafe { BoxSlice::from_raw(self.buf) };
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -335,21 +396,40 @@ pub struct PIPModelCacheEntryViewMut<'a> {
 }
 
 impl PIPModelCacheBuf {
-    pub fn new(n: usize, msa_length: usize, node_count: usize) -> Self {
-        let dimensions = PIPModelCacheBufDimensions::new(n, msa_length, node_count);
-        let cum_dynamic_vector_and_matrix_size_in_f64 = dimensions
-            .ordered()
-            .map(|range| range.len())
-            .iter()
-            .sum::<usize>();
+    pub fn new_owned(dimensions: PIPModelCacheBufDimensions) -> Self {
+        let storage =
+            BoxSlice::alloc_slice(0.0, dimensions.total_len_f64_padded().try_into().unwrap());
+
+        // safety: owned PIPModelCacheBuf will be dropped with BoxSlice
+        let mut cache = Self::new(dimensions, unsafe { storage.leak() });
+        cache.is_owned = true;
+
+        cache
+    }
+    pub fn new(dimensions: PIPModelCacheBufDimensions, storage: &'static mut [f64]) -> Self {
+        assert_eq!(storage.len(), dimensions.total_len_f64_padded());
         Self {
-            buf: BoxSlice::alloc_slice(
-                0.0,
-                NonZero::try_from(cum_dynamic_vector_and_matrix_size_in_f64).unwrap(),
-            ),
+            is_owned: false,
+            buf: storage,
             dimensions,
-            valid: FixedBitSet::with_capacity(node_count),
-            models_valid: FixedBitSet::with_capacity(node_count),
+            valid: FixedBitSet::with_capacity(dimensions.node_count),
+            models_valid: FixedBitSet::with_capacity(dimensions.node_count),
+        }
+    }
+
+    pub fn clone_in(&self, buf: &'static mut [MaybeUninit<f64>]) -> Self {
+        buf.copy_from_slice(unsafe {
+            std::mem::transmute::<&[f64], &[MaybeUninit<f64>]>(self.buf)
+        });
+        let buf = unsafe {
+            std::mem::transmute::<&'static mut [MaybeUninit<f64>], &'static mut [f64]>(buf)
+        };
+        Self {
+            buf,
+            dimensions: self.dimensions,
+            valid: self.valid.clone(),
+            models_valid: self.models_valid.clone(),
+            is_owned: false,
         }
     }
 
@@ -622,6 +702,10 @@ impl PIPModelCacheBuf {
         let range = self.dimensions.c0_range();
         bytemuck::cast_slice_mut(&mut self.buf[range][..self.dimensions.c0_len()])
     }
+
+    pub const fn dimensions(&self) -> PIPModelCacheBufDimensions {
+        self.dimensions
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -632,11 +716,15 @@ pub struct PIPModelInfo<Q: QMatrix> {
 }
 
 impl<Q: QMatrix> PIPModelInfo<Q> {
+    pub const fn dimensions(&self) -> PIPModelCacheBufDimensions {
+        self.cache.dimensions()
+    }
     pub fn new(info: &PhyloInfo, model: &PIPModel<Q>) -> Result<Self> {
         let n = model.q().nrows();
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
-        let mut cache_entries = PIPModelCacheBuf::new(n, msa_length, node_count);
+        let dimensions = PIPModelCacheBufDimensions::new(n, msa_length, node_count);
+        let mut cache_entries = PIPModelCacheBuf::new_owned(dimensions);
         for node in info.tree.leaves() {
             let seq = info.msa.seqs.record_by_id(&node.id).seq().to_vec();
 
@@ -800,6 +888,18 @@ struct CacheC0ChildView {
 }
 
 impl<Q: QMatrix> PIPCost<Q> {
+    // TODO MERBUG own trait
+    pub fn clone_cache_in(&self, buf: &'static mut [MaybeUninit<f64>]) -> Self {
+        Self {
+            model: self.model.clone(),
+            info: self.info.clone(),
+            tmp: RefCell::new(PIPModelInfo {
+                phantom: PhantomData,
+                cache: self.tmp.borrow().cache.clone_in(buf),
+                matrix_buf: self.tmp.borrow().matrix_buf.clone(),
+            }),
+        }
+    }
     fn logl(&self) -> f64 {
         let mut tmp = self.tmp.borrow_mut();
         let PIPModelInfo {

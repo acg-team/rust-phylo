@@ -32,6 +32,11 @@ impl<T> BoxSlice<T> {
         // safety: slice is villed with elements of T
         unsafe { Self::from_raw(slice) }
     }
+    pub fn alloc_slice_uninit(len: NonZero<usize>) -> BoxSlice<MaybeUninit<T>> {
+        let slice = alloc_huge_slice_uninit(len.into());
+        // safety: slice is villed with elements of T
+        unsafe { BoxSlice::from_raw(slice) }
+    }
     pub fn alloc_slice_transparent_hugepages(value: T, len: NonZero<usize>) -> Self
     where
         T: Copy,
@@ -39,6 +44,13 @@ impl<T> BoxSlice<T> {
         let slice = alloc_huge_slice_value_transparent_hugepages(value, len.into());
         // safety: slice is villed with elements of T
         unsafe { Self::from_raw(slice) }
+    }
+    /// # Safety
+    /// - remember to drop this using BoxSlice::from_raw
+    pub unsafe fn leak<'a>(self) -> &'a mut [T] {
+        let mut this = std::mem::ManuallyDrop::new(self);
+        // safety: data is valid and initialized
+        unsafe { this.data.as_mut() }
     }
 
     /// # Safety
