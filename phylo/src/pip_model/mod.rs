@@ -396,6 +396,11 @@ pub struct PIPModelCacheEntryViewMut<'a> {
 }
 
 impl PIPModelCacheBuf {
+    pub fn reset(&mut self) {
+        self.buf.fill(0.0);
+        self.valid.clear();
+        self.models_valid.clear();
+    }
     pub fn new_owned(dimensions: PIPModelCacheBufDimensions) -> Self {
         let storage =
             BoxSlice::alloc_slice(0.0, dimensions.total_len_f64_padded().try_into().unwrap());
@@ -889,6 +894,12 @@ struct CacheC0ChildView {
 
 impl<Q: QMatrix> PIPCost<Q> {
     // TODO MERBUG own trait
+    pub fn reset_cache(&mut self) {
+        self.tmp.borrow_mut().cache.reset();
+    }
+    pub fn cache_dimensions(&self) -> PIPModelCacheBufDimensions {
+        self.tmp.borrow().dimensions()
+    }
     pub fn clone_cache_in(&self, buf: &'static mut [MaybeUninit<f64>]) -> Self {
         Self {
             model: self.model.clone(),

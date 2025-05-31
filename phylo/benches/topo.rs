@@ -1,10 +1,10 @@
-use std::fmt::Display;
+use std::hint::black_box;
 use std::num::NonZero;
+use std::time::{Duration, Instant};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use phylo::evolutionary_models::FrequencyOptimisation;
-use phylo::likelihood::TreeSearchCost;
 use phylo::optimisers::{TopologyOptimiser, TopologyOptimiserPredicate};
 use phylo::pip_model::PIPCost;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
@@ -14,12 +14,10 @@ use helpers::{
     DNA_EASY_8X1252,
 };
 
-fn run_fixed_iter_topo<C: TreeSearchCost + Clone + Display + Send>(cost: C) -> anyhow::Result<f64> {
-    let topo_opt = TopologyOptimiser::new_with_pred(
-        cost,
-        TopologyOptimiserPredicate::fixed_iter(NonZero::new(3).unwrap()),
-    );
-    Ok(topo_opt.run()?.final_cost)
+fn run_fixed_iter_topo<Q: QMatrix>(
+    topo_opt: &mut TopologyOptimiser<PIPCost<Q>>,
+) -> anyhow::Result<f64> {
+    Ok(topo_opt.run_mut()?.final_cost)
 }
 
 fn run_simulated_topo_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
@@ -29,19 +27,28 @@ fn run_simulated_topo_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
 ) {
     let mut bench_group =
         criterion.benchmark_group(format!("SIMULATED-TOPO-OPTIMISER {group_name}"));
-    let mut bench = |id: &str, data: PIPCost<Q>| {
+    let mut bench = |id: &str, mut topo_opt: TopologyOptimiser<PIPCost<Q>>| {
         bench_group.bench_function(id, |bench| {
-            bench.iter_batched(
-                // clone because of interior mutability in PIPCost
-                || data.clone(),
-                run_fixed_iter_topo,
-                criterion::BatchSize::PerIteration,
-            );
+            bench.iter_custom(|iters| {
+                let mut elapsed = Duration::ZERO;
+                for _ in 0..iters {
+                    let start = Instant::now();
+                    let _ = black_box(run_fixed_iter_topo(&mut topo_opt));
+                    elapsed += start.elapsed();
+                    topo_opt.reset_cache();
+                }
+                elapsed
+            });
         });
     };
     for (key, path) in paths {
         let cost = black_box_pip_cost::<Q>(path, FrequencyOptimisation::Empirical);
-        bench(key, cost);
+
+        let topo_opt = TopologyOptimiser::new_with_pred_inplace(
+            &cost,
+            TopologyOptimiserPredicate::fixed_iter(NonZero::new(3).unwrap()),
+        );
+        bench(key, topo_opt);
     }
     bench_group.finish();
 }

@@ -1,10 +1,16 @@
 use std::fmt::Display;
-use std::num::NonZeroUsize;
+use std::mem::MaybeUninit;
+use std::num::{NonZero, NonZeroUsize};
+use std::ptr::NonNull;
 
 use log::{debug, info};
 
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult};
+use crate::pip_model::PIPCost;
+use crate::substitution_models::QMatrix;
+use crate::tree::Tree;
+use crate::util::mem::boxed::BoxSlice;
 use crate::Result;
 
 #[derive(Debug, Clone, Copy)]
@@ -37,28 +43,131 @@ impl TopologyOptimiserPredicate {
     }
 }
 
+// TODO: MERBUG fix this in thesis
+pub(crate) fn max_regrafts_for_tree(tree: &Tree) -> usize {
+    tree.nodes.len() - 4
+}
+pub struct TopologyOptimiserStorage<C: TreeSearchCost + Display + Clone + Send> {
+    cost_fns: Box<[C]>,
+    // safety: don't read/write the value, possible race condition
+    buf_base: Option<NonNull<[f64]>>,
+}
+
+impl<C: TreeSearchCost + Display + Clone + Send> TopologyOptimiserStorage<C> {
+    fn new_basic(base_cost_fn: C) -> Self {
+        let max_regrafts = max_regrafts_for_tree(base_cost_fn.tree());
+        Self {
+            buf_base: None,
+            cost_fns: vec![base_cost_fn; max_regrafts].into_boxed_slice(),
+        }
+    }
+    fn base_cost_fn(&self) -> &C {
+        self.cost_fns.first().expect("always at least one cost fn")
+    }
+    fn base_cost_fn_mut(&mut self) -> &mut C {
+        self.cost_fns
+            .first_mut()
+            .expect("always at least one cost fn")
+    }
+    fn cost_fns_mut(&mut self) -> &mut [C] {
+        &mut self.cost_fns
+    }
+}
+
+impl<C: TreeSearchCost + Display + Clone + Send> Drop for TopologyOptimiserStorage<C> {
+    fn drop(&mut self) {
+        if let Some(mut owned_buf_ptr) = self.buf_base {
+            drop(unsafe { BoxSlice::from_raw(owned_buf_ptr.as_mut()) });
+        }
+    }
+}
+
+impl<Q: QMatrix> TopologyOptimiserStorage<PIPCost<Q>> {
+    // NOTE: could be optimized by clearing buf once and then simply
+    // clearing all *valid flags individually
+    pub fn clean_cache(&mut self) {
+        self.cost_fns.iter_mut().for_each(PIPCost::<Q>::reset_cache);
+    }
+    pub fn new_inplace(cost_fn: &PIPCost<Q>) -> Self {
+        let single_dimensions = cost_fn.cache_dimensions();
+        let max_available_regraft_locations = max_regrafts_for_tree(cost_fn.tree());
+        let total_padded_len =
+            max_available_regraft_locations * single_dimensions.total_len_f64_padded();
+        // safety: gets dealloc with BoxSlice in Drop
+        let buf = unsafe {
+            BoxSlice::alloc_slice_uninit(NonZero::try_from(total_padded_len).unwrap()).leak()
+        };
+        let buf_base = NonNull::new(buf).unwrap();
+
+        let mut ranges = Vec::with_capacity(max_available_regraft_locations);
+        let mut buf_mut = buf;
+        for _ in 0..max_available_regraft_locations {
+            let (sub_slice, rest) = buf_mut.split_at_mut(single_dimensions.total_len_f64_padded());
+            ranges.push(sub_slice);
+            buf_mut = rest;
+        }
+        assert_eq!(buf_mut.len(), 0);
+
+        // safety: we manually drop the full buf
+        let ranges = unsafe {
+            std::mem::transmute::<
+                &mut [&mut [MaybeUninit<f64>]],
+                &mut [&'static mut [MaybeUninit<f64>]],
+            >(ranges.as_mut_slice())
+        };
+
+        Self {
+            cost_fns: ranges
+                .iter_mut()
+                .map(|sub_slice| cost_fn.clone_cache_in(sub_slice))
+                .collect(),
+            // safety: after initialization of all sub_slices
+            buf_base: unsafe {
+                Some(std::mem::transmute::<
+                    NonNull<[MaybeUninit<f64>]>,
+                    NonNull<[f64]>,
+                >(buf_base))
+            },
+        }
+    }
+}
+
 pub struct TopologyOptimiser<C: TreeSearchCost + Display + Clone + Send> {
     pub(crate) predicate: TopologyOptimiserPredicate,
-    pub(crate) c: C,
+    pub(crate) storage: TopologyOptimiserStorage<C>,
+}
+impl<Q: QMatrix> TopologyOptimiser<PIPCost<Q>> {
+    pub fn reset_cache(&mut self) {
+        self.storage.clean_cache();
+    }
+    pub fn new_with_pred_inplace(cost: &PIPCost<Q>, predicate: TopologyOptimiserPredicate) -> Self {
+        Self {
+            predicate,
+            storage: TopologyOptimiserStorage::new_inplace(cost),
+        }
+    }
 }
 
 impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
     pub fn new(cost: C) -> Self {
-        Self {
-            predicate: TopologyOptimiserPredicate::GtEpsilon(1e-3),
-            c: cost,
-        }
+        Self::new_with_pred(cost, TopologyOptimiserPredicate::GtEpsilon(1e-3))
     }
     pub fn new_with_pred(cost: C, predicate: TopologyOptimiserPredicate) -> Self {
-        Self { predicate, c: cost }
+        Self {
+            predicate,
+            storage: TopologyOptimiserStorage::new_basic(cost),
+        }
     }
 
     pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
-        debug_assert!(self.c.tree().len() > 3);
+        self.run_mut()
+    }
+    pub fn run_mut(&mut self) -> Result<PhyloOptimisationResult<C>> {
+        debug_assert!(self.storage.base_cost_fn().tree().len() > 3);
 
         info!("Optimising tree topology with SPRs.");
-        let init_cost = self.c.cost();
-        let init_tree = self.c.tree();
+        let init_cost = self.storage.base_cost_fn().cost();
+        let init_tree = self.storage.base_cost_fn().tree();
 
         info!("Initial cost: {}.", init_cost);
         debug!("Initial tree: \n{}", init_tree);
@@ -90,20 +199,26 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
                 current_prunes.shuffle(rng);
             }
 
-            curr_cost = spr::fold_improving_moves(&mut self.c, curr_cost, &current_prunes)?;
+            curr_cost = spr::fold_improving_moves(&mut self.storage, curr_cost, &current_prunes)?;
 
             // Optimise branch lengths on current tree to match PhyML
-            if self.c.blen_optimisation() {
-                let o = BranchOptimiser::new(self.c.clone()).run()?;
+            if self.storage.base_cost_fn().blen_optimisation() {
+                let o = BranchOptimiser::new(self.storage.base_cost_fn().clone()).run()?;
                 if o.final_cost > curr_cost {
                     curr_cost = o.final_cost;
-                    self.c.update_tree(o.cost.tree().clone(), &[]);
+                    self.storage
+                        .base_cost_fn_mut()
+                        .update_tree(o.cost.tree().clone(), &[]);
                 }
             }
-            debug!("Tree after iteration {}: \n{}", iterations, self.c.tree());
+            debug!(
+                "Tree after iteration {}: \n{}",
+                iterations,
+                self.storage.base_cost_fn().tree()
+            );
         }
 
-        debug_assert_eq!(curr_cost, self.c.cost());
+        debug_assert_eq!(curr_cost, self.storage.base_cost_fn().cost());
         info!("Done optimising tree topology.");
         info!(
             "Final cost: {}, achieved in {} iteration(s).",
@@ -113,7 +228,7 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
             initial_cost: init_cost,
             final_cost: curr_cost,
             iterations,
-            cost: self.c,
+            cost: self.storage.base_cost_fn().clone(),
         })
     }
 }
@@ -126,24 +241,29 @@ pub mod spr {
 
     use crate::{
         likelihood::TreeSearchCost,
-        optimisers::{RegraftOptimiser, RegraftOptimiserSimpleStorage},
+        optimisers::{RegraftOptimiser, RegraftOptimiserCacheStorageView},
         tree::NodeIdx,
         Result,
     };
+
+    use super::TopologyOptimiserStorage;
 
     /// Iterates over `prune_locations` in order and applies the best (improving)
     /// SPR move for each pruneing location in place
     /// # Returns:
     /// - the new cost (or `base_cost` if no improvement was found)
     pub fn fold_improving_moves<C: TreeSearchCost + Display + Clone + Send>(
-        cost_fn: &mut C,
+        storage: &mut TopologyOptimiserStorage<C>,
         base_cost: f64,
         prune_locations: &[&NodeIdx],
     ) -> Result<f64> {
         debug_assert!(
             {
-                let correct_prune_locations =
-                    cost_fn.tree().find_possible_prune_locations().collect_vec();
+                let correct_prune_locations = storage
+                    .base_cost_fn()
+                    .tree()
+                    .find_possible_prune_locations()
+                    .collect_vec();
                 prune_locations
                     .iter()
                     .all(|prune_location| correct_prune_locations.contains(prune_location))
@@ -155,14 +275,15 @@ pub mod spr {
             .iter()
             .copied()
             .try_fold(base_cost, |base_cost, prune| -> Result<_> {
-                let mut regraft_optimiser =
-                    RegraftOptimiser::<_, RegraftOptimiserSimpleStorage<_>>::new(cost_fn, prune);
+                let mut regraft_optimiser = RegraftOptimiser::new_with_storage(
+                    prune,
+                    RegraftOptimiserCacheStorageView::new(storage.cost_fns_mut()),
+                );
                 let Some(best_regraft_info) =
                     regraft_optimiser.find_max_cost_regraft_for_prune(base_cost)?
                 else {
                     return Ok(base_cost);
                 };
-                drop(regraft_optimiser);
 
                 let (best_cost, best_regraft, best_tree) = (
                     best_regraft_info.cost(),
@@ -171,7 +292,9 @@ pub mod spr {
                 );
 
                 if best_cost > base_cost {
-                    cost_fn.update_tree(best_tree, &[*prune, best_regraft]);
+                    storage
+                        .base_cost_fn_mut()
+                        .update_tree(best_tree, &[*prune, best_regraft]);
                     info!(
                         "    Regrafted to {:?}, new cost {}.",
                         best_regraft, best_cost
