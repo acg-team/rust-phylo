@@ -1,21 +1,16 @@
-use std::alloc::Layout;
 use std::fmt::Display;
 use std::marker::PhantomData;
-use std::mem::MaybeUninit;
-use std::num::NonZero;
 use std::ops::DerefMut;
-use std::ptr::NonNull;
 
 use itertools::Itertools;
 use log::{debug, info};
 
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::BranchOptimiser;
-use crate::pip_model::{PIPCost, PIPModelCacheBufDimensions};
-use crate::substitution_models::QMatrix;
 use crate::tree::{NodeIdx, Tree};
-use crate::util::mem::boxed::BoxSlice;
 use crate::Result;
+
+use super::max_regrafts_for_tree;
 
 pub struct RegraftCostInfo {
     regraft: NodeIdx,
@@ -39,7 +34,7 @@ impl RegraftCostInfo {
 }
 
 pub trait RegraftOptimiserStorage<'a, C: TreeSearchCost + Clone + Display + Send> {
-    fn base(&self) -> &'a C;
+    fn base(&self) -> &C;
     fn cost_fns_mut(&mut self) -> &mut [C];
 }
 
@@ -70,7 +65,7 @@ impl<'a, C: TreeSearchCost + Clone + Display + Send> RegraftOptimiserSimpleStora
 impl<'a, C: TreeSearchCost + Clone + Display + Send> RegraftOptimiserStorage<'a, C>
     for RegraftOptimiserSimpleStorage<'a, C>
 {
-    fn base(&self) -> &'a C {
+    fn base(&self) -> &C {
         self.cost_fn
     }
 
@@ -79,84 +74,24 @@ impl<'a, C: TreeSearchCost + Clone + Display + Send> RegraftOptimiserStorage<'a,
     }
 }
 
-pub struct RegraftOptimiserCacheStorage<'a, Q: QMatrix> {
-    cost_fns: Box<[PIPCost<Q>]>,
-    // TODO: replace with first
-    cost_fn: &'a PIPCost<Q>,
-    // safety: don't read/write the value, possible race condition
-    buf_base: NonNull<[f64]>,
+pub struct RegraftOptimiserCacheStorageView<'a, C: TreeSearchCost + Clone + Display + Send> {
+    cost_fns: &'a mut [C],
 }
 
-impl<Q: QMatrix> Drop for RegraftOptimiserCacheStorage<'_, Q> {
-    fn drop(&mut self) {
-        unsafe { BoxSlice::from_raw(self.buf_base.as_mut()) };
-    }
-}
-
-impl<'a, Q: QMatrix> RegraftOptimiserStorage<'a, PIPCost<Q>>
-    for RegraftOptimiserCacheStorage<'a, Q>
+impl<'a, C: TreeSearchCost + Clone + Display + Send> RegraftOptimiserStorage<'a, C>
+    for RegraftOptimiserCacheStorageView<'a, C>
 {
-    fn base(&self) -> &'a PIPCost<Q> {
-        self.cost_fn
+    fn base(&self) -> &C {
+        &self.cost_fns[0]
     }
-    fn cost_fns_mut(&mut self) -> &mut [PIPCost<Q>] {
+    fn cost_fns_mut(&mut self) -> &mut [C] {
         self.cost_fns.deref_mut()
     }
 }
 
-// TODO: MERBUG fix this in thesis
-fn max_regrafts_for_tree(tree: &Tree) -> usize {
-    tree.nodes.len() - 4
-}
-
-impl<'a, Q: QMatrix + Send> RegraftOptimiserCacheStorage<'a, Q> {
-    pub fn new(
-        cost_fn: &'a PIPCost<Q>,
-        single_dimensions: PIPModelCacheBufDimensions,
-    ) -> RegraftOptimiserCacheStorage<'a, Q> {
-        let max_available_regraft_locations = max_regrafts_for_tree(cost_fn.tree());
-        let padded_len = Layout::array::<f64>(
-            max_available_regraft_locations * single_dimensions.total_len_f64_padded(),
-        )
-        .unwrap()
-        .align_to(PIPModelCacheBufDimensions::ALIGNMENT_IN_U8)
-        .unwrap()
-        .pad_to_align();
-        // safety: gets dealloc with BoxSlice in Drop
-        let buf = unsafe {
-            BoxSlice::alloc_slice_uninit(
-                NonZero::try_from(padded_len.size() * single_dimensions.node_count()).unwrap(),
-            )
-            .leak()
-        };
-        let buf_base = NonNull::new(buf).unwrap();
-
-        let mut ranges = Vec::with_capacity(max_available_regraft_locations);
-        let mut buf_mut = buf;
-        for _ in 0..max_available_regraft_locations {
-            let (sub_slice, rest) = buf_mut.split_at_mut(padded_len.size());
-            ranges.push(sub_slice);
-            buf_mut = rest;
-        }
-        // safety: we manually drop the full buf
-        let ranges = unsafe {
-            std::mem::transmute::<
-                &mut [&mut [MaybeUninit<f64>]],
-                &mut [&'static mut [MaybeUninit<f64>]],
-            >(ranges.as_mut_slice())
-        };
-
-        Self {
-            cost_fns: ranges
-                .iter_mut()
-                .map(|sub_slice| cost_fn.clone_cache_in(sub_slice))
-                .collect(),
-            cost_fn,
-            // safety: after initialization of all sub_slices
-            buf_base: unsafe {
-                std::mem::transmute::<NonNull<[MaybeUninit<f64>]>, NonNull<[f64]>>(buf_base)
-            },
-        }
+impl<'a, C: TreeSearchCost + Clone + Display + Send> RegraftOptimiserCacheStorageView<'a, C> {
+    pub fn new(cost_fns: &'a mut [C]) -> RegraftOptimiserCacheStorageView<'a, C> {
+        Self { cost_fns }
     }
 }
 impl<'a, C: TreeSearchCost + Clone + Display + Send + 'a, S: RegraftOptimiserStorage<'a, C>>
@@ -292,7 +227,7 @@ fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
     regraft_locations: Vec<NodeIdx>,
     cost_fns: &mut [C],
 ) -> Result<RegraftCostInfo> {
-    #[derive(Clone)]
+    #[derive(Clone, Copy)]
     struct RecursiveForkJoinRegrafter {
         prune_location: NodeIdx,
         base_cost: f64,
@@ -301,15 +236,14 @@ fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
     /// using rayon::scope might look simpler but incurrs overhead by having to manage
     /// tasks on the heap
     fn regraft_recursive<C: TreeSearchCost + Clone + Display + Send>(state: RecursiveForkJoinRegrafter, regraft_locations: &[NodeIdx], cost_fns: &mut [C]) -> Result<RegraftCostInfo> {
-                debug_assert_eq!(regraft_locations.len(), cost_fns.len());
+        debug_assert_eq!(regraft_locations.len(), cost_fns.len());
         if regraft_locations.len() == 1 {
             return calc_spr_cost_with_blen_opt(state.prune_location, regraft_locations[0], state.base_cost, &mut cost_fns[0]);
         }
         let mid =regraft_locations.len() / 2;
         let (left_cost_fns, right_cost_fns) = cost_fns.split_at_mut(mid);
         let (left_locations, right_locations) = regraft_locations.split_at(mid);
-        let r2 = state.clone();
-        match rayon::join(move || regraft_recursive(state, left_locations, left_cost_fns), move ||regraft_recursive(r2, right_locations, right_cost_fns)) {
+        match rayon::join(move || regraft_recursive(state, left_locations, left_cost_fns), move ||regraft_recursive(state, right_locations, right_cost_fns)) {
             (Ok(left), Ok(right)) => Ok(if left.cost() > right.cost() {left} else {right}) ,
             (Err(error), _) | (_, Err(error))   => Err(error),
         }
