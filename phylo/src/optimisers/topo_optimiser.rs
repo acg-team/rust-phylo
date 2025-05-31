@@ -54,22 +54,22 @@ pub struct TopologyOptimiserStorage<C: TreeSearchCost + Display + Clone + Send> 
 }
 
 impl<C: TreeSearchCost + Display + Clone + Send> TopologyOptimiserStorage<C> {
-    fn new_basic(base_cost_fn: C) -> Self {
+    pub fn new_basic(base_cost_fn: C) -> Self {
         let max_regrafts = max_regrafts_for_tree(base_cost_fn.tree());
         Self {
             buf_base: None,
             cost_fns: vec![base_cost_fn; max_regrafts].into_boxed_slice(),
         }
     }
-    fn base_cost_fn(&self) -> &C {
+    pub fn base_cost_fn(&self) -> &C {
         self.cost_fns.first().expect("always at least one cost fn")
     }
-    fn base_cost_fn_mut(&mut self) -> &mut C {
+    pub fn base_cost_fn_mut(&mut self) -> &mut C {
         self.cost_fns
             .first_mut()
             .expect("always at least one cost fn")
     }
-    fn cost_fns_mut(&mut self) -> &mut [C] {
+    pub fn cost_fns_mut(&mut self) -> &mut [C] {
         &mut self.cost_fns
     }
 }
