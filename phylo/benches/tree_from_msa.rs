@@ -47,7 +47,7 @@ fn run_optimisation(
 
         // resulting cost_fn is in base_cost_fn
         let o = topo_opt.run_mut().unwrap();
-        final_cost = o.1;
+        final_cost = o.final_cost;
     }
     Ok((final_cost, topo_opt.base_cost_fn().tree().clone()))
 }

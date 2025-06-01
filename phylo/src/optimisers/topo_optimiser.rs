@@ -191,6 +191,8 @@ mod storage {
 }
 pub use storage::TopologyOptimiserStorage;
 
+use super::PhyloOptimisationResultStats;
+
 pub struct TopologyOptimiser<C: TreeSearchCost + Display + Clone + Send> {
     pub(crate) predicate: TopologyOptimiserPredicate,
     pub(crate) storage: TopologyOptimiserStorage<C>,
@@ -226,16 +228,20 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
     }
 
     pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
-        let (initial_cost, final_cost, iterations) = self.run_mut()?;
+        let PhyloOptimisationResultStats {
+            initial_cost,
+            final_cost,
+            iterations,
+        } = self.run_mut()?;
 
         Ok(PhyloOptimisationResult {
             initial_cost,
             final_cost,
             iterations,
-            cost: self.storage.base_cost_fn().clone(),
+            cost: self.base_cost_fn().clone(),
         })
     }
-    pub fn run_mut(&mut self) -> Result<(f64, f64, usize)> {
+    pub fn run_mut(&mut self) -> Result<PhyloOptimisationResultStats> {
         debug_assert!(self.storage.base_cost_fn().tree().len() > 3);
 
         info!("Optimising tree topology with SPRs.");
@@ -278,7 +284,11 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
 
             // Optimise branch lengths on current tree to match PhyML
             if self.storage.base_cost_fn().blen_optimisation() {
-                let o = BranchOptimiser::new(self.storage.base_cost_fn().clone()).run()?;
+                self.storage.set_cost_fns_to_base_upto_excluding(1);
+                let [branch_opt_cost] = self.storage.cost_fns_mut_up_to_excluding(1) else {
+                    panic!("requesting one cost_fn returns one");
+                };
+                let o = BranchOptimiser::new(branch_opt_cost).run()?;
                 if o.final_cost > curr_cost {
                     curr_cost = o.final_cost;
                     self.storage
@@ -299,7 +309,11 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
             "Final cost: {}, achieved in {} iteration(s).",
             curr_cost, iterations
         );
-        Ok((init_cost, curr_cost, iterations))
+        Ok(PhyloOptimisationResultStats {
+            initial_cost: init_cost,
+            final_cost: curr_cost,
+            iterations,
+        })
     }
 }
 

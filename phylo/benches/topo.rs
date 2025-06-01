@@ -17,7 +17,7 @@ use helpers::{
 fn run_fixed_iter_topo<Q: QMatrix>(
     topo_opt: &mut TopologyOptimiser<PIPCost<Q>>,
 ) -> anyhow::Result<f64> {
-    Ok(topo_opt.run_mut()?.1)
+    Ok(topo_opt.run_mut()?.final_cost)
 }
 
 fn run_simulated_topo_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
