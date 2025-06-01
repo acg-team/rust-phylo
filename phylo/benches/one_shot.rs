@@ -59,7 +59,6 @@ fn test_one_shot_increasing_length() {
         ("10X50000", N10_M50000),
         ("10X100000", N10_M100000),
         ("10X200000", N10_M200000),
-        ("10X300000", N10_M300000),
     ]);
     for (key, path) in paths {
         let data = black_box_raw_pip_cost_with_config::<JC69>(path);
