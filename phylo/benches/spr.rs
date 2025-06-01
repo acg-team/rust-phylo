@@ -48,12 +48,13 @@ fn run_single_spr_cycle_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
     )| {
         bench_group.bench_function(id, |bench| {
             bench.iter_custom(|iters| {
+                let base_cost_fn = storage.base_cost_fn().clone();
                 let mut elapsed = Duration::ZERO;
                 for _ in 0..iters {
                     let start = Instant::now();
                     let _ = black_box(single_spr_cycle(&mut storage, prune_locations));
                     elapsed += start.elapsed();
-                    storage.clean_cache();
+                    storage.set_cost_fns_to(&base_cost_fn);
                 }
                 elapsed
             });
@@ -80,9 +81,11 @@ fn run_find_best_regraft_for_single_spr_move<Q: QMatrix + QMatrixMaker + Send>(
 ) {
     let mut bench_group =
         criterion.benchmark_group(format!("SINGLE-SPR-MOVE-FIND-BEST-REGRAFT {group_name}"));
-    let mut bench = |id: &str, (cost_fn, prune_location)| {
+    let mut bench = |id: &str, (cost_fn, prune_location): (PIPCost<Q>, _)| {
         bench_group.bench_function(id, |bench| {
             bench.iter_custom(|iters| {
+                let base_cost_fn = cost_fn.clone();
+
                 let mut elapsed = Duration::ZERO;
                 let mut topo_storage = TopologyOptimiserStorage::new_inplace(&cost_fn);
                 for _ in 0..iters {
@@ -95,7 +98,7 @@ fn run_find_best_regraft_for_single_spr_move<Q: QMatrix + QMatrixMaker + Send>(
                         &mut regraft_optimiser,
                     ));
                     elapsed += start.elapsed();
-                    topo_storage.clean_cache();
+                    topo_storage.set_cost_fns_to(&base_cost_fn);
                 }
                 elapsed
             });
