@@ -360,6 +360,13 @@ impl Clone for PIPModelCacheBuf {
             is_owned: true,
         }
     }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.dimensions = source.dimensions;
+        self.buf.copy_from_slice(source.buf);
+        self.valid.clone_from(&source.valid);
+        self.models_valid.clone_from(&source.models_valid);
+    }
 }
 
 impl Drop for PIPModelCacheBuf {
@@ -383,11 +390,6 @@ pub struct PIPModelCacheEntryViewMut<'a> {
 }
 
 impl PIPModelCacheBuf {
-    pub fn copy_from(&mut self, other: &PIPModelCacheBuf) {
-        self.buf.copy_from_slice(other.buf);
-        self.valid.clone_from(&other.valid);
-        self.models_valid.clone_from(&other.valid);
-    }
     pub fn new_owned(dimensions: PIPModelCacheBufDimensions) -> Self {
         let storage = vec![0.0; dimensions.total_len_f64_padded()].into_boxed_slice();
 
@@ -622,11 +624,27 @@ impl PIPModelCacheBuf {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct PIPModelInfo<Q: QMatrix> {
     phantom: PhantomData<Q>,
     cache: PIPModelCacheBuf,
     matrix_buf: DMatrix<f64>,
+}
+
+impl<Q: QMatrix> Clone for PIPModelInfo<Q> {
+    fn clone(&self) -> Self {
+        Self {
+            phantom: self.phantom,
+            cache: self.cache.clone(),
+            matrix_buf: self.matrix_buf.clone(),
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.phantom = source.phantom;
+        self.cache.clone_from(&source.cache);
+        // NOTE: contents of matrix buf are irrelevant
+    }
 }
 
 impl<Q: QMatrix> PIPModelInfo<Q> {
@@ -693,11 +711,27 @@ impl<Q: QMatrix> PIPCostBuilder<Q> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PIPCost<Q: QMatrix> {
     pub(crate) model: PIPModel<Q>,
     pub(crate) info: PhyloInfo,
     tmp: RefCell<PIPModelInfo<Q>>,
+}
+
+impl<Q: QMatrix> Clone for PIPCost<Q> {
+    fn clone(&self) -> Self {
+        Self {
+            model: self.model.clone(),
+            info: self.info.clone(),
+            tmp: self.tmp.clone(),
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.model.clone_from(&source.model);
+        self.info.clone_from(&source.info);
+        self.tmp.borrow_mut().clone_from(&*source.tmp.borrow());
+    }
 }
 
 impl<Q: QMatrix> TreeSearchCost for PIPCost<Q> {
@@ -804,23 +838,17 @@ struct CacheC0ChildView {
 impl<Q: QMatrix> PIPCost<Q> {
     // TODO MERBUG own trait
     pub fn copy_from(&mut self, other: &PIPCost<Q>) {
-        other.copy_cache_to(self);
-        self.model.clone_from(&other.model);
-        self.info.clone_from(&other.info);
-    }
-    pub fn clone_cache(&self) -> PIPModelCacheBuf {
-        self.tmp.borrow_mut().cache.clone()
-    }
-    fn copy_cache_to(&self, to: &mut Self) {
-        to.tmp
+        self.tmp
             .borrow_mut()
             .cache
-            .copy_from(&self.tmp.borrow().cache);
+            .clone_from(&other.tmp.borrow().cache);
+        self.model.clone_from(&other.model);
+        self.info.clone_from(&other.info);
     }
     pub fn cache_dimensions(&self) -> PIPModelCacheBufDimensions {
         self.tmp.borrow().dimensions()
     }
-    pub fn clone_cache_in(&self, buf: &'static mut [MaybeUninit<f64>]) -> Self {
+    pub fn clone_with_cache_in(&self, buf: &'static mut [MaybeUninit<f64>]) -> Self {
         debug_assert_eq!(buf.len(), self.cache_dimensions().total_len_f64_padded());
         Self {
             model: self.model.clone(),
