@@ -574,6 +574,12 @@ impl PIPModelCacheBuf {
         )
     }
 
+    #[allow(dead_code)]
+    fn surv_ins_weights(&self) -> &[f64] {
+        let range = self.dimensions.surv_ins_weights_range();
+        &self.buf[range][..self.dimensions.surv_ins_weights_len()]
+    }
+
     fn ftilde_mut(&mut self, idx: usize) -> DMatrixViewMut<f64> {
         let range = self.dimensions.ftilde_range();
         let item_len = self.dimensions.ftilde_len();
@@ -584,6 +590,18 @@ impl PIPModelCacheBuf {
             self.dimensions.msa_length,
         )
     }
+
+    #[allow(dead_code)]
+    fn anc(&self, idx: usize) -> MatrixViewXx3<f64> {
+        let range = self.dimensions.anc_range();
+        let item_len = self.dimensions.anc_len();
+
+        MatrixViewXx3::from_slice(
+            self.buf.slice_idx_with_len_in(range, idx, item_len),
+            self.dimensions.msa_length,
+        )
+    }
+
     fn pnu(&self, idx: usize) -> DVectorView<f64> {
         let range = self.dimensions.pnu_range();
         let item_len = self.dimensions.pnu_len();
@@ -785,13 +803,15 @@ struct CacheC0ChildView {
 
 impl<Q: QMatrix> PIPCost<Q> {
     // TODO MERBUG own trait
-    pub fn copy_cache(&mut self, other: &PIPModelCacheBuf) {
-        self.tmp.borrow_mut().cache.copy_from(other);
+    pub fn copy_from(&mut self, other: &PIPCost<Q>) {
+        other.copy_cache_to(self);
+        self.model.clone_from(&other.model);
+        self.info.clone_from(&other.info);
     }
     pub fn clone_cache(&self) -> PIPModelCacheBuf {
         self.tmp.borrow_mut().cache.clone()
     }
-    pub fn copy_cache_to(&self, to: &mut Self) {
+    fn copy_cache_to(&self, to: &mut Self) {
         to.tmp
             .borrow_mut()
             .cache

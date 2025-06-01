@@ -9,7 +9,7 @@ use log::{debug, info};
 
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult};
-use crate::pip_model::{PIPCost, PIPModelCacheBuf};
+use crate::pip_model::PIPCost;
 use crate::substitution_models::QMatrix;
 use crate::tree::Tree;
 use crate::util::mem::boxed::BoxSlice;
@@ -58,9 +58,10 @@ pub struct TopologyOptimiserStorage<C: TreeSearchCost + Display + Clone + Send> 
 impl<C: TreeSearchCost + Display + Clone + Send> TopologyOptimiserStorage<C> {
     pub fn new_basic(base_cost_fn: C) -> Self {
         let max_regrafts = max_regrafts_for_tree(base_cost_fn.tree());
+        let total_cost_fns = max_regrafts + 1;
         Self {
             buf_base: None,
-            cost_fns: vec![base_cost_fn; max_regrafts].into_boxed_slice(),
+            cost_fns: vec![base_cost_fn; total_cost_fns].into_boxed_slice(),
         }
     }
     pub fn base_cost_fn(&self) -> &C {
@@ -72,7 +73,7 @@ impl<C: TreeSearchCost + Display + Clone + Send> TopologyOptimiserStorage<C> {
             .expect("always at least one cost fn")
     }
     pub fn cost_fns_mut(&mut self) -> &mut [C] {
-        &mut self.cost_fns
+        &mut self.cost_fns[1..]
     }
 }
 
@@ -87,33 +88,34 @@ impl<C: TreeSearchCost + Display + Clone + Send> Drop for TopologyOptimiserStora
 impl<Q: QMatrix> TopologyOptimiserStorage<PIPCost<Q>> {
     // NOTE: could be optimized by clearing buf once and then simply
     // clearing all *valid flags individually
-    pub fn set_all_cache_to_base(&mut self) {
+    pub fn set_cost_fns_to_base(&mut self) {
         let [base, others @ ..] = self.cost_fns.deref_mut() else {
             panic!("always at least one cost function in storage")
         };
         others
             .iter_mut()
-            .for_each(|cost_fn| base.copy_cache_to(cost_fn));
+            .for_each(|cost_fn| base.copy_from(cost_fn));
     }
-    pub fn copy_cache_from(&mut self, value: &PIPModelCacheBuf) {
+    pub fn set_cost_fns_to(&mut self, new_base: &PIPCost<Q>) {
         self.cost_fns
             .iter_mut()
-            .for_each(|cost_fn| cost_fn.copy_cache(value));
+            .for_each(|cost_fn| cost_fn.copy_from(new_base));
     }
+
     pub fn new_inplace(cost_fn: &PIPCost<Q>) -> Self {
         let single_dimensions = cost_fn.cache_dimensions();
-        let max_available_regraft_locations = max_regrafts_for_tree(cost_fn.tree());
-        let total_padded_len =
-            max_available_regraft_locations * single_dimensions.total_len_f64_padded();
+        let total_cost_fns = max_regrafts_for_tree(cost_fn.tree()) + 1;
+        let total_padded_len = total_cost_fns * single_dimensions.total_len_f64_padded();
+
         // safety: gets dealloc with BoxSlice in Drop
         let buf = unsafe {
             BoxSlice::alloc_slice_uninit(NonZero::try_from(total_padded_len).unwrap()).leak()
         };
         let buf_base = NonNull::new(buf).unwrap();
 
-        let mut ranges = Vec::with_capacity(max_available_regraft_locations);
+        let mut ranges = Vec::with_capacity(total_cost_fns);
         let mut buf_mut = buf;
-        for _ in 0..max_available_regraft_locations {
+        for _ in 0..total_cost_fns {
             let (sub_slice, rest) = buf_mut.split_at_mut(single_dimensions.total_len_f64_padded());
             ranges.push(sub_slice);
             buf_mut = rest;
@@ -150,7 +152,7 @@ pub struct TopologyOptimiser<C: TreeSearchCost + Display + Clone + Send> {
 }
 impl<Q: QMatrix> TopologyOptimiser<PIPCost<Q>> {
     pub fn reset_cache(&mut self) {
-        self.storage.set_all_cache_to_base();
+        self.storage.set_cost_fns_to_base();
     }
     pub fn new_with_pred_inplace(cost: &PIPCost<Q>, predicate: TopologyOptimiserPredicate) -> Self {
         Self {
