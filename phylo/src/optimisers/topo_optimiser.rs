@@ -87,12 +87,12 @@ mod storage {
         // NOTE: could be optimized by clearing buf once and then simply
         // clearing all *valid flags individually
         pub fn set_cost_fns_to_base(&mut self) {
-            let [base, others @ ..] = self.cost_fns.deref_mut() else {
+            let [ref base, others @ ..] = self.cost_fns.deref_mut() else {
                 panic!("always at least one cost function in storage")
             };
             others
                 .iter_mut()
-                .for_each(|cost_fn| base.clone_from(cost_fn));
+                .for_each(|cost_fn| cost_fn.clone_from(base));
         }
         pub fn set_cost_fns_to(&mut self, new_base: &C) {
             self.cost_fns
