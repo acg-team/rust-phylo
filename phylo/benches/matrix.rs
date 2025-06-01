@@ -17,6 +17,8 @@ use helpers::{
 
 const DNA_N: usize = 5;
 
+const BUF_VAL: f64 = 5.3;
+
 fn run_for_sizes(
     dimensions: &[PIPModelCacheBufDimensions],
     group_name: &'static str,
@@ -29,13 +31,13 @@ fn run_for_sizes(
         });
     };
     for n_items in (0..100 * 1024).step_by(10).map(|n| n * 1024).skip(1) {
-        let chunk = black_box(vec![0.0; n_items].into_boxed_slice());
+        let chunk = black_box(vec![BUF_VAL; n_items].into_boxed_slice());
         let now = Instant::now();
         let _chunk2 = black_box(chunk.clone());
         let took = now.elapsed();
         drop(_chunk2);
 
-        let chunk_huge = BoxSlice::alloc_slice(0.0, NonZero::try_from(n_items).unwrap());
+        let chunk_huge = BoxSlice::alloc_slice(BUF_VAL, NonZero::try_from(n_items).unwrap());
         let now_huge = Instant::now();
         let _chunk_huge2 = black_box(chunk_huge.clone());
         let took_huge = now_huge.elapsed();
@@ -46,8 +48,10 @@ fn run_for_sizes(
         let took_huge_manual = now_huge_manual.elapsed();
         drop(_chunk_huge_manual2);
 
-        let chunk_huge_transparent =
-            BoxSlice::alloc_slice_transparent_hugepages(0.0, NonZero::try_from(n_items).unwrap());
+        let chunk_huge_transparent = BoxSlice::alloc_slice_transparent_hugepages(
+            BUF_VAL,
+            NonZero::try_from(n_items).unwrap(),
+        );
         let now_huge_transparent = Instant::now();
         let _chunk_huge_transparent2 = black_box(chunk_huge_transparent.clone());
         let took_huge_transparent = now_huge_transparent.elapsed();
@@ -55,7 +59,8 @@ fn run_for_sizes(
 
         let n_chunks = n_items.div_ceil(10 * 1024); // 10kb chunk
         let chunk_multiple = black_box(
-            vec![black_box(vec![0.0; 10 * 1024].into_boxed_slice()); n_chunks].into_boxed_slice(),
+            vec![black_box(vec![BUF_VAL; 10 * 1024].into_boxed_slice()); n_chunks]
+                .into_boxed_slice(),
         );
         let now_multiple = Instant::now();
         let _chunk_multiple2 = black_box(chunk_multiple.clone());

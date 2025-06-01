@@ -87,11 +87,10 @@ impl<T> BoxSlice<T> {
 impl<T> Drop for BoxSlice<T> {
     fn drop(&mut self) {
         // safety: pointer is never modified after initialization
+        let layout = Layout::array::<T>(self.data.len()).unwrap();
         unsafe {
-            allocate::HugePageAllocator.dealloc(
-                self.data.as_ptr() as *mut u8,
-                Layout::array::<T>(self.data.len()).unwrap(),
-            );
+            // std::alloc::dealloc(self.data.as_ptr() as *mut u8, layout);
+            allocate::HugePageAllocator.dealloc(self.data.as_ptr() as *mut u8, layout);
         }
     }
 }
@@ -157,6 +156,7 @@ fn alloc_huge_slice_value_transparent_hugepages<'a, T: Copy>(value: T, len: usiz
 fn alloc_huge_slice_uninit<'a, T>(len: usize) -> &'a mut [MaybeUninit<T>] {
     let layout = Layout::array::<T>(len).unwrap();
     let mem = unsafe { allocate::HugePageAllocator.alloc(layout) } as *mut MaybeUninit<T>;
+    // let mem = unsafe { std::alloc::alloc(layout) } as *mut MaybeUninit<T>;
 
     if mem.is_null() {
         panic!("alloc failed");
