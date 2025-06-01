@@ -26,6 +26,7 @@ use crate::tree::{
     NodeIdx::{self, Internal as Int, Leaf},
     Tree,
 };
+use crate::util::mem::boxed::BoxSlice;
 use crate::Result;
 
 // (2.0 * PI).ln() / 2.0;
@@ -343,11 +344,11 @@ pub struct PIPModelCacheBuf {
 
 impl Clone for PIPModelCacheBuf {
     fn clone(&self) -> Self {
-        let new_cache_buf = Box::new_uninit_slice(self.buf.len());
-        let new_cache_ref = Box::leak(new_cache_buf);
-        // let new_cache_buf = BoxSlice::alloc_slice_uninit(NonZero::new(self.buf.len()).unwrap());
+        // let new_cache_buf = Box::new_uninit_slice(self.buf.len());
+        // let new_cache_ref = Box::leak(new_cache_buf);
+        let new_cache_buf = BoxSlice::alloc_slice_uninit(self.buf.len().try_into().unwrap());
         // // safety: we manually dealloc the cache in Drop
-        // let new_cache_ref = unsafe { new_cache_buf.leak() };
+        let new_cache_ref = unsafe { new_cache_buf.leak() };
         new_cache_ref.copy_from_slice(unsafe {
             std::mem::transmute::<&[f64], &[MaybeUninit<f64>]>(self.buf)
         });
@@ -375,7 +376,8 @@ impl Drop for PIPModelCacheBuf {
     fn drop(&mut self) {
         if self.is_owned {
             // owned buffers are allocated with BoxSlice
-            drop(unsafe { Box::from_raw(self.buf) });
+            // drop(unsafe { Box::from_raw(self.buf) });
+            drop(unsafe { BoxSlice::from_raw(self.buf) });
         }
     }
 }
@@ -393,13 +395,13 @@ pub struct PIPModelCacheEntryViewMut<'a> {
 
 impl PIPModelCacheBuf {
     pub fn new_owned(dimensions: PIPModelCacheBufDimensions) -> Self {
-        let storage = vec![0.0; dimensions.total_len_f64_padded()].into_boxed_slice();
-        let storage_ref = Box::leak(storage);
-        // let storage = BoxSlice::alloc_slice(
-        //     0.0,
-        //     NonZero::new(dimensions.total_len_f64_padded()).unwrap(),
-        // );
-        // let storage_ref = unsafe { storage.leak() };
+        // let storage = vec![0.0; dimensions.total_len_f64_padded()].into_boxed_slice();
+        // let storage_ref = Box::leak(storage);
+        let storage = BoxSlice::alloc_slice(
+            0.0,
+            std::num::NonZero::new(dimensions.total_len_f64_padded()).unwrap(),
+        );
+        let storage_ref = unsafe { storage.leak() };
 
         let mut cache = Self::new(dimensions, storage_ref);
         cache.is_owned = true;

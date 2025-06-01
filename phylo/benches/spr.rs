@@ -87,7 +87,7 @@ fn run_find_best_regraft_for_single_spr_move<Q: QMatrix + QMatrixMaker + Send>(
                 let base_cost_fn = cost_fn.clone();
 
                 let mut elapsed = Duration::ZERO;
-                let mut topo_storage = TopologyOptimiserStorage::new_inplace(&cost_fn);
+                let mut topo_storage = TopologyOptimiserStorage::new_basic(base_cost_fn.clone());
                 for _ in 0..iters {
                     let mut regraft_optimiser = RegraftOptimiser::new_with_storage(
                         &prune_location,
