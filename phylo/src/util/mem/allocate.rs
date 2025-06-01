@@ -3,7 +3,7 @@ use libc::{
 };
 use std::{
     alloc::{GlobalAlloc, Layout},
-    ffi::CString,
+    ffi::{CStr, CString},
     fs::File,
     io::Read,
     ptr::null_mut,
@@ -59,10 +59,6 @@ fn parse_hugepage_size(s: &str) -> usize {
     panic!("failed to read huge page configuration")
 }
 
-fn align_to(size: usize, align: usize) -> usize {
-    (size + align - 1) & !(align - 1)
-}
-
 // hugepage allocator.
 pub(crate) struct HugePageAllocator;
 
@@ -89,7 +85,7 @@ impl HugePageAllocator {
             let layout_size = layout.size();
             panic!(
                 "hugetlbfs alloc failed for len {layout_size}/{len}: '{:?}', did you allocate hugetables in your kernel?",
-                CString::from_raw(libc::strerror(*libc::__errno_location()))
+                CStr::from_ptr(libc::strerror(*libc::__errno_location()))
             );
             // return null_mut();
         }
@@ -134,7 +130,7 @@ unsafe impl GlobalAlloc for HugePageAllocator {
     }
 
     unsafe fn dealloc(&self, p: *mut u8, layout: Layout) {
-        libc::munmap(
+        let error = libc::munmap(
             p as *mut c_void,
             layout
                 .align_to(*HUGEPAGE_SIZE)
@@ -142,6 +138,12 @@ unsafe impl GlobalAlloc for HugePageAllocator {
                 .pad_to_align()
                 .size(),
         );
+        if error != 0 {
+            panic!(
+                "munmap failed {:?}",
+                CStr::from_ptr(libc::strerror(*libc::__errno_location()))
+            );
+        }
     }
 }
 
@@ -155,12 +157,6 @@ mod tests {
         // correct.
         assert_eq!(parse_hugepage_size("Hugepagesize:1024"), 1024);
         assert_eq!(parse_hugepage_size("Hugepagesize: 2 kB"), 2048);
-    }
-
-    #[test]
-    fn test_align_to() {
-        assert_eq!(align_to(8, 4), 8);
-        assert_eq!(align_to(8, 16), 16);
     }
 
     #[test]
