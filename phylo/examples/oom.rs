@@ -56,12 +56,13 @@ fn run_single_spr_cycle_for_sizes<Q: QMatrix + QMatrixMaker + Send>(paths: &Hash
         TopologyOptimiserStorage<PIPCost<Q>>,
         &[&NodeIdx],
     )| {
+        let base_clone = storage.base_cost_fn().clone_cache();
         let mut elapsed = Duration::ZERO;
         for _ in 0..ITERS {
             let start = Instant::now();
             let _ = black_box(single_spr_cycle(&mut storage, prune_locations));
             elapsed += start.elapsed();
-            storage.clean_cache();
+            storage.copy_cache_from(&base_clone);
         }
         elapsed
     };

@@ -1,10 +1,8 @@
-use std::alloc::Layout;
 use std::cell::RefCell;
 use std::fmt::{Debug, Display};
 use std::iter::{self};
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
-use std::num::NonZero;
 use std::ops::Range;
 
 use anyhow::bail;
@@ -28,7 +26,6 @@ use crate::tree::{
     NodeIdx::{self, Internal as Int, Leaf},
     Tree,
 };
-use crate::util::mem::boxed::BoxSlice;
 use crate::Result;
 
 // (2.0 * PI).ln() / 2.0;
@@ -98,9 +95,7 @@ impl<Q: QMatrix + QMatrixMaker> PIPModel<Q> {
 
 impl<Q: QMatrix> EvoModel for PIPModel<Q> {
     fn p(&self, time: f64) -> SubstMatrix {
-        let mut to = SubstMatrix::zeros(self.q().nrows(), self.q().ncols());
-        self.p_to(time, &mut to.as_view_mut());
-        to
+        (self.q() * time).exp()
     }
     fn p_to(&self, time: f64, to: &mut DMatrixViewMut<f64>) {
         to.copy_from(self.q());
@@ -250,14 +245,6 @@ impl PIPModelCacheBufDimensions {
         dimensions
     }
 
-    fn padded_layout(&self) -> Layout {
-        Layout::array::<f64>(self.ordered().last().unwrap().end)
-            .unwrap()
-            .align_to(Self::ALIGNMENT_IN_U8)
-            .unwrap()
-            .pad_to_align()
-    }
-
     pub const fn ordered(&self) -> [Range<usize>; 6] {
         [
             self.models_range(),
@@ -357,8 +344,8 @@ pub struct PIPModelCacheBuf {
 impl Clone for PIPModelCacheBuf {
     fn clone(&self) -> Self {
         // safety: we manually dealloc the cache in Drop
-        let new_cache_buf = BoxSlice::alloc_slice_uninit(NonZero::new(self.buf.len()).unwrap());
-        let new_cache_ref = unsafe { new_cache_buf.clone().leak() };
+        let new_cache_buf = Box::new_uninit_slice(self.buf.len());
+        let new_cache_ref = Box::leak(new_cache_buf);
         new_cache_ref.copy_from_slice(unsafe {
             std::mem::transmute::<&[f64], &[MaybeUninit<f64>]>(self.buf)
         });
@@ -378,8 +365,8 @@ impl Clone for PIPModelCacheBuf {
 impl Drop for PIPModelCacheBuf {
     fn drop(&mut self) {
         if self.is_owned {
-            // owned buffers are allocated with BoxSlice
-            unsafe { BoxSlice::from_raw(self.buf) };
+            // owned buffers are allocated with Box/Vec
+            drop(unsafe { Box::from_raw(self.buf) });
         }
     }
 }
@@ -396,17 +383,15 @@ pub struct PIPModelCacheEntryViewMut<'a> {
 }
 
 impl PIPModelCacheBuf {
-    pub fn reset(&mut self) {
-        self.buf.fill(0.0);
-        self.valid.clear();
-        self.models_valid.clear();
+    pub fn copy_from(&mut self, other: &PIPModelCacheBuf) {
+        self.buf.copy_from_slice(other.buf);
+        self.valid.clone_from(&other.valid);
+        self.models_valid.clone_from(&other.valid);
     }
     pub fn new_owned(dimensions: PIPModelCacheBufDimensions) -> Self {
-        let storage =
-            BoxSlice::alloc_slice(0.0, dimensions.total_len_f64_padded().try_into().unwrap());
+        let storage = vec![0.0; dimensions.total_len_f64_padded()].into_boxed_slice();
 
-        // safety: owned PIPModelCacheBuf will be dropped with BoxSlice
-        let mut cache = Self::new(dimensions, unsafe { storage.leak() });
+        let mut cache = Self::new(dimensions, Box::leak(storage));
         cache.is_owned = true;
 
         cache
@@ -578,17 +563,6 @@ impl PIPModelCacheBuf {
             .expect("all input cache view arrays are of length 3")
     }
 
-    fn indices_models_mut(&mut self, indices: DisjointIndices) -> [DMatrixViewMut<f64>; 3] {
-        let range = self.dimensions.models_range();
-        let item_len = self.dimensions.models_len();
-
-        let disjoint_ranges = DisjointRanges::new_aligned(indices, item_len);
-        let sub_slices = self.buf[range].slice_left_right_this_mut(disjoint_ranges);
-
-        sub_slices.map(|sub_slice| {
-            DMatrixViewMut::from_slice(sub_slice, self.dimensions.n, self.dimensions.n)
-        })
-    }
     fn models_mut(&mut self, idx: usize) -> DMatrixViewMut<f64> {
         let range = self.dimensions.models_range();
         let item_len = self.dimensions.models_len();
@@ -600,26 +574,6 @@ impl PIPModelCacheBuf {
         )
     }
 
-    fn surv_ins_weights_mut(&mut self) -> &mut [f64] {
-        let range = self.dimensions.surv_ins_weights_range();
-        &mut self.buf[range][..self.dimensions.surv_ins_weights_len()]
-    }
-    fn surv_ins_weights(&self) -> &[f64] {
-        let range = self.dimensions.surv_ins_weights_range();
-        &self.buf[range][..self.dimensions.surv_ins_weights_len()]
-    }
-
-    fn indices_ftilde_mut(&mut self, indices: DisjointIndices) -> [DMatrixViewMut<f64>; 3] {
-        let range = self.dimensions.ftilde_range();
-        let item_len = self.dimensions.ftilde_len();
-
-        let disjoint_ranges = DisjointRanges::new_aligned(indices, item_len);
-        let sub_slices = self.buf[range].slice_left_right_this_mut(disjoint_ranges);
-
-        sub_slices.map(|sub_slice| {
-            DMatrixViewMut::from_slice(sub_slice, self.dimensions.n, self.dimensions.msa_length)
-        })
-    }
     fn ftilde_mut(&mut self, idx: usize) -> DMatrixViewMut<f64> {
         let range = self.dimensions.ftilde_range();
         let item_len = self.dimensions.ftilde_len();
@@ -627,65 +581,6 @@ impl PIPModelCacheBuf {
         DMatrixViewMut::from_slice(
             self.buf.slice_mut_idx_with_len_in(range, idx, item_len),
             self.dimensions.n,
-            self.dimensions.msa_length,
-        )
-    }
-    fn ftilde(&self, idx: usize) -> DMatrixView<f64> {
-        let range = self.dimensions.ftilde_range();
-        let item_len = self.dimensions.ftilde_len();
-
-        DMatrixView::from_slice(
-            self.buf.slice_idx_with_len_in(range, idx, item_len),
-            self.dimensions.n,
-            self.dimensions.msa_length,
-        )
-    }
-
-    fn indices_anc_mut(&mut self, indices: DisjointIndices) -> [MatrixViewMutXx3<f64>; 3] {
-        let range = self.dimensions.anc_range();
-        let item_len = self.dimensions.anc_len();
-
-        let disjoint_ranges = DisjointRanges::new_aligned(indices, item_len);
-        let sub_slices = self.buf[range].slice_left_right_this_mut(disjoint_ranges);
-
-        sub_slices
-            .map(|sub_slice| MatrixViewMutXx3::from_slice(sub_slice, self.dimensions.msa_length))
-    }
-    fn anc_mut(&mut self, idx: usize) -> MatrixViewMutXx3<f64> {
-        let range = self.dimensions.anc_range();
-        let item_len = self.dimensions.anc_len();
-
-        MatrixViewMutXx3::from_slice(
-            self.buf.slice_mut_idx_with_len_in(range, idx, item_len),
-            self.dimensions.msa_length,
-        )
-    }
-    fn anc(&self, idx: usize) -> MatrixViewXx3<f64> {
-        let range = self.dimensions.anc_range();
-        let item_len = self.dimensions.anc_len();
-
-        MatrixViewXx3::from_slice(
-            self.buf.slice_idx_with_len_in(range, idx, item_len),
-            self.dimensions.msa_length,
-        )
-    }
-
-    fn indices_pnu_mut(&mut self, indices: DisjointIndices) -> [DVectorViewMut<f64>; 3] {
-        let range = self.dimensions.pnu_range();
-        let item_len = self.dimensions.pnu_len();
-
-        let disjoint_ranges = DisjointRanges::new_aligned(indices, item_len);
-        let sub_slices = self.buf[range].slice_left_right_this_mut(disjoint_ranges);
-
-        sub_slices
-            .map(|sub_slice| DVectorViewMut::from_slice(sub_slice, self.dimensions.msa_length))
-    }
-    fn pnu_mut(&mut self, idx: usize) -> DVectorViewMut<f64> {
-        let range = self.dimensions.pnu_range();
-        let item_len = self.dimensions.pnu_len();
-
-        DVectorViewMut::from_slice(
-            self.buf.slice_mut_idx_with_len_in(range, idx, item_len),
             self.dimensions.msa_length,
         )
     }
@@ -702,10 +597,6 @@ impl PIPModelCacheBuf {
     fn c0(&self) -> &[C0Scalars] {
         let range = self.dimensions.c0_range();
         bytemuck::cast_slice(&self.buf[range][..self.dimensions.c0_len()])
-    }
-    fn c0_mut(&mut self) -> &mut [C0Scalars] {
-        let range = self.dimensions.c0_range();
-        bytemuck::cast_slice_mut(&mut self.buf[range][..self.dimensions.c0_len()])
     }
 
     pub const fn dimensions(&self) -> PIPModelCacheBufDimensions {
@@ -894,13 +785,23 @@ struct CacheC0ChildView {
 
 impl<Q: QMatrix> PIPCost<Q> {
     // TODO MERBUG own trait
-    pub fn reset_cache(&mut self) {
-        self.tmp.borrow_mut().cache.reset();
+    pub fn copy_cache(&mut self, other: &PIPModelCacheBuf) {
+        self.tmp.borrow_mut().cache.copy_from(other);
+    }
+    pub fn clone_cache(&self) -> PIPModelCacheBuf {
+        self.tmp.borrow_mut().cache.clone()
+    }
+    pub fn copy_cache_to(&self, to: &mut Self) {
+        to.tmp
+            .borrow_mut()
+            .cache
+            .copy_from(&self.tmp.borrow().cache);
     }
     pub fn cache_dimensions(&self) -> PIPModelCacheBufDimensions {
         self.tmp.borrow().dimensions()
     }
     pub fn clone_cache_in(&self, buf: &'static mut [MaybeUninit<f64>]) -> Self {
+        debug_assert_eq!(buf.len(), self.cache_dimensions().total_len_f64_padded());
         Self {
             model: self.model.clone(),
             info: self.info.clone(),
@@ -1136,7 +1037,10 @@ impl<Q: QMatrix> PIPCost<Q> {
     }
 
     fn set_model(&self, node_blen: f64, models: &mut DMatrixViewMut<f64>) {
-        self.model.p_to(node_blen, models);
+        let f = (self.model.q() * node_blen).exp();
+        // f.fill(node_blen);
+        models.copy_from(&f);
+        // self.model.p_to(node_blen, models);
     }
 
     /// Dependent:
@@ -1213,9 +1117,6 @@ mod indices {
             pub fn left_right_this(&self) -> [usize; 3] {
                 self.left_right_this
             }
-            pub fn left_right(&self) -> [usize; 2] {
-                [self.left_right_this[0], self.left_right_this[1]]
-            }
             pub fn this(&self) -> usize {
                 self.left_right_this[2]
             }
@@ -1233,6 +1134,7 @@ mod indices {
             left_right_this: [Range<usize>; 3],
         }
 
+        #[allow(dead_code)]
         impl DisjointRanges {
             const LEFT: usize = 0;
             const RIGHT: usize = 1;
@@ -1272,19 +1174,6 @@ mod indices {
                 .get_disjoint_mut(indices.left_right_this())
                 .expect("indices should be distinct")
         }
-        fn this(&mut self, indices: DisjointIndices) -> &T {
-            &self.as_mut()[indices.this()]
-        }
-        fn this_mut(&mut self, indices: DisjointIndices) -> &mut T {
-            &mut self.as_mut()[indices.this()]
-        }
-        fn left_right_mut(&mut self, indices: DisjointIndices) -> [&mut T; 2] {
-            // NOTE: could check len and then use get_disjoint_mut_unchecked if unsafe
-            // becomes necessary
-            self.as_mut()
-                .get_disjoint_mut(indices.left_right())
-                .expect("indices should be distinct")
-        }
     }
     impl<T> NodeCacheIndexer<T> for [T] {}
     pub(super) trait NodeCacheSlicer<T>: AsMut<[T]> {
@@ -1293,19 +1182,6 @@ mod indices {
             // becomes necessary
             self.as_mut()
                 .get_disjoint_mut(indices.left_right_this())
-                .expect("indices should be distinct")
-        }
-        fn this(&mut self, indices: DisjointRanges) -> &[T] {
-            &self.as_mut()[indices.this()]
-        }
-        fn this_mut(&mut self, indices: DisjointRanges) -> &mut [T] {
-            &mut self.as_mut()[indices.this()]
-        }
-        fn left_right_mut(&mut self, indices: DisjointRanges) -> [&mut [T]; 2] {
-            // NOTE: could check len and then use get_disjoint_mut_unchecked if unsafe
-            // becomes necessary
-            self.as_mut()
-                .get_disjoint_mut(indices.left_right())
                 .expect("indices should be distinct")
         }
     }

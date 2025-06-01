@@ -1,13 +1,15 @@
 use std::fmt::Display;
 use std::mem::MaybeUninit;
 use std::num::{NonZero, NonZeroUsize};
+use std::ops::DerefMut;
+use std::panic;
 use std::ptr::NonNull;
 
 use log::{debug, info};
 
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult};
-use crate::pip_model::PIPCost;
+use crate::pip_model::{PIPCost, PIPModelCacheBuf};
 use crate::substitution_models::QMatrix;
 use crate::tree::Tree;
 use crate::util::mem::boxed::BoxSlice;
@@ -85,8 +87,18 @@ impl<C: TreeSearchCost + Display + Clone + Send> Drop for TopologyOptimiserStora
 impl<Q: QMatrix> TopologyOptimiserStorage<PIPCost<Q>> {
     // NOTE: could be optimized by clearing buf once and then simply
     // clearing all *valid flags individually
-    pub fn clean_cache(&mut self) {
-        self.cost_fns.iter_mut().for_each(PIPCost::<Q>::reset_cache);
+    pub fn set_all_cache_to_base(&mut self) {
+        let [base, others @ ..] = self.cost_fns.deref_mut() else {
+            panic!("always at least one cost function in storage")
+        };
+        others
+            .iter_mut()
+            .for_each(|cost_fn| base.copy_cache_to(cost_fn));
+    }
+    pub fn copy_cache_from(&mut self, value: &PIPModelCacheBuf) {
+        self.cost_fns
+            .iter_mut()
+            .for_each(|cost_fn| cost_fn.copy_cache(value));
     }
     pub fn new_inplace(cost_fn: &PIPCost<Q>) -> Self {
         let single_dimensions = cost_fn.cache_dimensions();
@@ -138,7 +150,7 @@ pub struct TopologyOptimiser<C: TreeSearchCost + Display + Clone + Send> {
 }
 impl<Q: QMatrix> TopologyOptimiser<PIPCost<Q>> {
     pub fn reset_cache(&mut self) {
-        self.storage.clean_cache();
+        self.storage.set_all_cache_to_base();
     }
     pub fn new_with_pred_inplace(cost: &PIPCost<Q>, predicate: TopologyOptimiserPredicate) -> Self {
         Self {
@@ -279,6 +291,8 @@ pub mod spr {
                     prune,
                     RegraftOptimiserCacheStorageView::new(storage.cost_fns_mut()),
                 );
+                // TODO MERBUG: this modifies storage thus storage.base_cost() afterwards
+                // contains a tree that already has a SPR move applied leading to bugs
                 let Some(best_regraft_info) =
                     regraft_optimiser.find_max_cost_regraft_for_prune(base_cost)?
                 else {
@@ -292,6 +306,8 @@ pub mod spr {
                 );
 
                 if best_cost > base_cost {
+                    // TODO MERBUG, separate regraft_optimiser storage and base_cost_fn,
+                    // use it to overwrite the storage before each iteration
                     storage
                         .base_cost_fn_mut()
                         .update_tree(best_tree, &[*prune, best_regraft]);
