@@ -14,7 +14,7 @@ use phylo::substitution_models::{QMatrix, QMatrixMaker, WAG};
 use phylo::tree::NodeIdx;
 
 pub const AA_EASY_12X73: &str = "data/benchmark-datasets/aa/easy/nagya1_Cluster6386.aln";
-pub const ITERS: usize = 5;
+pub const ITERS: usize = 20;
 
 pub fn black_box_deterministic_phylo_info(seq_file: impl Into<PathBuf>) -> PhyloInfo {
     black_box(
@@ -56,13 +56,13 @@ fn run_single_spr_cycle_for_sizes<Q: QMatrix + QMatrixMaker + Send>(paths: &Hash
         TopologyOptimiserStorage<PIPCost<Q>>,
         &[&NodeIdx],
     )| {
-        let base_clone = storage.base_cost_fn().clone_cache();
+        let base_clone = storage.base_cost_fn().clone();
         let mut elapsed = Duration::ZERO;
         for _ in 0..ITERS {
             let start = Instant::now();
             let _ = black_box(single_spr_cycle(&mut storage, prune_locations));
             elapsed += start.elapsed();
-            storage.copy_cache_from(&base_clone);
+            storage.set_cost_fns_to(&base_clone);
         }
         elapsed
     };
