@@ -94,6 +94,9 @@ mod storage {
                 .iter_mut()
                 .for_each(|cost_fn| cost_fn.clone_from(base));
         }
+        pub fn set_base_cost_fn_to(&mut self, new_base: &C) {
+            self.base_cost_fn_mut().clone_from(new_base);
+        }
         pub fn set_cost_fns_to(&mut self, new_base: &C) {
             self.cost_fns
                 .iter_mut()
@@ -162,7 +165,10 @@ pub struct TopologyOptimiser<C: TreeSearchCost + Display + Clone + Send> {
     pub(crate) storage: TopologyOptimiserStorage<C>,
 }
 impl<Q: QMatrix> TopologyOptimiser<PIPCost<Q>> {
-    pub fn reset_cache(&mut self) {
+    pub fn set_base_cost_fn_to(&mut self, new_base: &PIPCost<Q>) {
+        self.storage.set_base_cost_fn_to(new_base);
+    }
+    pub fn set_cost_fns_to_base(&mut self) {
         self.storage.set_cost_fns_to_base();
     }
     pub fn new_with_pred_inplace(cost: &PIPCost<Q>, predicate: TopologyOptimiserPredicate) -> Self {
@@ -182,6 +188,10 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
             predicate,
             storage: TopologyOptimiserStorage::new_basic(cost),
         }
+    }
+
+    pub fn base_cost_fn(&self) -> &C {
+        self.storage.base_cost_fn()
     }
 
     pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
@@ -214,6 +224,10 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
         // the search stops.
         // This means that curr_cost is always hugher than or equel to prev_cost.
         while self.predicate.test(iterations, curr_cost - prev_cost) {
+            // run this bin the start of the loop to also capture if the calculation
+            // of init_cost filled the cache
+            self.storage.set_cost_fns_to_base();
+
             iterations += 1;
             info!("Iteration: {}, current cost: {}.", iterations, curr_cost);
             prev_cost = curr_cost;
@@ -236,7 +250,6 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
                         .update_tree(o.cost.tree().clone(), &[]);
                 }
             }
-            self.storage.set_cost_fns_to_base();
             debug!(
                 "Tree after iteration {}: \n{}",
                 iterations,

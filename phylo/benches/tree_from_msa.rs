@@ -1,4 +1,3 @@
-use std::fmt::Display;
 use std::result::Result::Ok;
 use std::time::Duration;
 
@@ -8,8 +7,8 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use log::info;
 
 use phylo::evolutionary_models::FrequencyOptimisation;
-use phylo::likelihood::{ModelSearchCost, TreeSearchCost};
-use phylo::optimisers::{ModelOptimiser, TopologyOptimiser};
+use phylo::likelihood::TreeSearchCost;
+use phylo::optimisers::{ModelOptimiser, TopologyOptimiser, TopologyOptimiserPredicate};
 use phylo::pip_model::PIPCost;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 use phylo::tree::Tree;
@@ -24,14 +23,18 @@ use helpers::{
 ///
 /// TODO: expose this as part of the rust-phylo library
 fn run_optimisation(
-    cost: impl TreeSearchCost + ModelSearchCost + Display + Clone + Send,
+    cost: &PIPCost<impl QMatrix>,
     freq_opt: FrequencyOptimisation,
     max_iterations: usize,
     epsilon: f64,
 ) -> Result<(f64, Tree)> {
-    let mut cost = cost;
+    // needs to be intialized first for now because it holds the master cache
+    let mut topo_opt = TopologyOptimiser::new_with_pred_inplace(
+        cost,
+        TopologyOptimiserPredicate::gt_epsilon(1e-3),
+    );
     let mut prev_cost = f64::NEG_INFINITY;
-    let mut final_cost = TreeSearchCost::cost(&cost);
+    let mut final_cost = TreeSearchCost::cost(topo_opt.base_cost_fn());
 
     let mut iterations = 0;
     while final_cost - prev_cost > epsilon && iterations < max_iterations {
@@ -39,17 +42,17 @@ fn run_optimisation(
         info!("Iteration: {}", iterations);
 
         prev_cost = final_cost;
-        let model_optimiser = ModelOptimiser::new(cost, freq_opt);
-        let o = TopologyOptimiser::new(model_optimiser.run()?.cost)
-            .run()
-            .unwrap();
+        let model_optimiser = ModelOptimiser::new(topo_opt.base_cost_fn().clone(), freq_opt);
+        topo_opt.set_base_cost_fn_to(&model_optimiser.run()?.cost);
+
+        // resulting cost_fn is in base_cost_fn
+        let o = topo_opt.run_mut().unwrap();
         final_cost = o.final_cost;
-        cost = o.cost;
     }
-    Ok((final_cost, cost.tree().clone()))
+    Ok((final_cost, topo_opt.base_cost_fn().tree().clone()))
 }
 
-fn run_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
+fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
     paths: &SequencePaths,
     group_name: &'static str,
     criterion: &mut Criterion,
@@ -60,7 +63,14 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
             bench.iter_batched(
                 // clone because of interior mutability in PIPCost
                 || data.clone(),
-                |data| run_optimisation(data.1, data.0.freq_opt, data.0.max_iters, data.0.epsilon),
+                |(pip_config, pip_cost)| {
+                    run_optimisation(
+                        &pip_cost,
+                        pip_config.freq_opt,
+                        pip_config.max_iters,
+                        pip_config.epsilon,
+                    )
+                },
                 criterion::BatchSize::PerIteration,
             );
         });
