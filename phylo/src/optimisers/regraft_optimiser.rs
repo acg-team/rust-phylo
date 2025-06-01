@@ -145,6 +145,11 @@ impl<'a, C: TreeSearchCost + Clone + Display + Send + 'a, S: RegraftOptimiserSto
 
         let cost_fns = &mut self.storage.cost_fns_mut()[..regraft_locations.len()];
 
+        // TODO MERBUG: require PartialEq for C
+        // debug_assert!(
+        //     cost_fns.iter().all_equal(),
+        //     "at the start of each SPR cycle all entries on storage should have the same value"
+        // );
         info!("Node {:?}: trying to regraft", self.prune_location);
         let best_regraft =
             calc_best_regraft_cost(base_cost, *self.prune_location, regraft_locations, cost_fns)?;
