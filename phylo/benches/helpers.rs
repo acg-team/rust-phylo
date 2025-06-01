@@ -1,7 +1,8 @@
 #![allow(dead_code)]
+use core::slice;
 /// this file is essentially a workaround for #[cfg(test)] like behaviour for the benchmarks
 /// The dev-depencies are only available in benchmarks or tests
-use std::{collections::HashMap, hint::black_box, path::PathBuf, time::Duration};
+use std::{collections::HashMap, hint::black_box, mem::MaybeUninit, path::PathBuf, time::Duration};
 
 use criterion::Criterion;
 use phylo::{
@@ -10,6 +11,7 @@ use phylo::{
     phylo_info::{PhyloInfo, PhyloInfoBuilder},
     pip_model::{PIPCost, PIPCostBuilder, PIPModel},
     substitution_models::{QMatrix, QMatrixMaker},
+    util::mem::boxed::BoxSlice,
 };
 
 pub type BenchPath = &'static str;
@@ -65,6 +67,34 @@ pub fn black_box_pip_cost<Model: QMatrix + QMatrixMaker>(
             .expect("model optimiser should pass")
             .cost,
     )
+}
+
+/// # Safety
+/// - As long as PIPCost doesnt have a lifetime be sure not to leak it above
+///   the scope of the buffer and manually drop the buffer
+/// - DO NOT READ FROM THE RETURNED POINTER, a mutable reference to it exists
+///   in PIPCost making it UB
+pub unsafe fn black_box_pip_cost_with_cache_buf<Model: QMatrix + QMatrixMaker>(
+    path: impl Into<PathBuf>,
+    freq_opt: FrequencyOptimisation,
+) -> (PIPCost<Model>, *mut [MaybeUninit<f64>]) {
+    let pip_cost_in_regular_buf = black_box_pip_cost(path, freq_opt);
+
+    let cache_buf = BoxSlice::alloc_slice_uninit(
+        pip_cost_in_regular_buf
+            .cache_dimensions()
+            .total_len_f64_padded()
+            .try_into()
+            .unwrap(),
+    );
+    let leaked_buf: *mut [MaybeUninit<f64>] = cache_buf.leak();
+    let leaked_buf_len = leaked_buf.len();
+    let leaked_buf_ptr = unsafe { leaked_buf.as_mut() }.unwrap().as_mut_ptr();
+
+    // safety: lifetime of the pipcost is tied to this buf, as noted in doc comments
+    let cost_in_cache_buf = pip_cost_in_regular_buf
+        .clone_with_cache_in(unsafe { slice::from_raw_parts_mut(leaked_buf_ptr, leaked_buf_len) });
+    (cost_in_cache_buf, leaked_buf)
 }
 
 #[derive(Clone)]
