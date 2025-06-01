@@ -1084,10 +1084,7 @@ impl<Q: QMatrix> PIPCost<Q> {
     }
 
     fn set_model(&self, node_blen: f64, models: &mut DMatrixViewMut<f64>) {
-        let f = (self.model.q() * node_blen).exp();
-        // f.fill(node_blen);
-        models.copy_from(&f);
-        // self.model.p_to(node_blen, models);
+        self.model.p_to(node_blen, models);
     }
 
     /// Dependent:
