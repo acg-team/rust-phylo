@@ -3,7 +3,7 @@ use libc::{
 };
 use std::{
     alloc::{GlobalAlloc, Layout},
-    ffi::{CStr, CString},
+    ffi::CStr,
     fs::File,
     io::Read,
     ptr::null_mut,
