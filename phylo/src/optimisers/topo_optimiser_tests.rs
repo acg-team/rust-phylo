@@ -281,9 +281,10 @@ fn pip_vs_subst_dna_tree() {
 
     // Check that likelihoods under substitution model are similar for both trees
     // but reoptimise branch lengths for PIP tree because they are not comparable
-    let k80_pip_tree_res = BranchOptimiser::new(SCB::new(k80, pip_res.cost.info).build().unwrap())
-        .run()
-        .unwrap();
+    let k80_pip_tree_res =
+        BranchOptimiser::new(&mut SCB::new(k80, pip_res.cost.info).build().unwrap())
+            .run()
+            .unwrap();
     assert_relative_eq!(
         k80_res.final_cost,
         k80_pip_tree_res.final_cost,
@@ -293,7 +294,7 @@ fn pip_vs_subst_dna_tree() {
     // Check that likelihoods under PIP are similar for both trees
     // but reoptimise branch lengths for substitution tree because they are not comparable
     let pip_k80_tree_res =
-        BranchOptimiser::new(PIPCB::new(pip, k80_res.cost.info).build().unwrap())
+        BranchOptimiser::new(&mut PIPCB::new(pip, k80_res.cost.info).build().unwrap())
             .run()
             .unwrap();
     assert_relative_eq!(
@@ -335,7 +336,7 @@ fn wag_nogaps_pip_vs_subst_tree_nj_start() {
 
     // Check that likelihoods under same model are similar for both trees
     let pip_tree_reopt_wag_logl = BranchOptimiser::new(
-        SCB::new(wag.clone(), pip_res.cost.info.clone())
+        &mut SCB::new(wag.clone(), pip_res.cost.info.clone())
             .build()
             .unwrap(),
     )
@@ -346,7 +347,7 @@ fn wag_nogaps_pip_vs_subst_tree_nj_start() {
 
     // Check that the likelihoods under the same model are similar for both trees
     let wag_tree_reopt_pip_logl =
-        BranchOptimiser::new(PIPCB::new(pip.clone(), wag_res.cost.info).build().unwrap())
+        BranchOptimiser::new(&mut PIPCB::new(pip.clone(), wag_res.cost.info).build().unwrap())
             .run()
             .unwrap()
             .final_cost;
@@ -354,7 +355,9 @@ fn wag_nogaps_pip_vs_subst_tree_nj_start() {
 
     // Just a random check that reestimating branch lengths makes no difference
     let new_pip_cost = PIPCB::new(pip, pip_res.cost.info.clone()).build().unwrap();
-    let reopt_res = BranchOptimiser::new(new_pip_cost.clone()).run().unwrap();
+    let reopt_res = BranchOptimiser::new(&mut new_pip_cost.clone())
+        .run()
+        .unwrap();
     assert_relative_eq!(new_pip_cost.cost(), reopt_res.final_cost, epsilon = 1e-5);
     assert_relative_eq!(
         pip_tree.height,
@@ -486,9 +489,10 @@ fn pip_wag_vs_phyml_empirical_freqs() {
         .build()
         .unwrap();
     // Reoptimise branch lengths for the phyml tree because they are not comparable with PIP
-    let phyml_brlen_opt = BranchOptimiser::new(PIPCB::new(pip_opt, phyml_res).build().unwrap())
-        .run()
-        .unwrap();
+    let phyml_brlen_opt =
+        BranchOptimiser::new(&mut PIPCB::new(pip_opt, phyml_res).build().unwrap())
+            .run()
+            .unwrap();
 
     // Check that our tree is better than phyml
     assert!(res.final_cost > phyml_brlen_opt.final_cost);
