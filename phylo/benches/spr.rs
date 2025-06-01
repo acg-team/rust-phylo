@@ -98,7 +98,7 @@ fn run_find_best_regraft_for_single_spr_move<Q: QMatrix + QMatrixMaker + Send>(
                         &mut regraft_optimiser,
                     ));
                     elapsed += start.elapsed();
-                    topo_storage.set_cost_fns_to(&base_cost_fn);
+                    topo_storage.set_base_cost_fn_to(&base_cost_fn);
                 }
                 elapsed
             });

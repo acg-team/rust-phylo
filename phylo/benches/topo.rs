@@ -17,7 +17,7 @@ use helpers::{
 fn run_fixed_iter_topo<Q: QMatrix>(
     topo_opt: &mut TopologyOptimiser<PIPCost<Q>>,
 ) -> anyhow::Result<f64> {
-    Ok(topo_opt.run_mut()?.final_cost)
+    Ok(topo_opt.run_mut()?.1)
 }
 
 fn run_simulated_topo_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
@@ -30,12 +30,13 @@ fn run_simulated_topo_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
     let mut bench = |id: &str, mut topo_opt: TopologyOptimiser<PIPCost<Q>>| {
         bench_group.bench_function(id, |bench| {
             bench.iter_custom(|iters| {
+                let base_clone = topo_opt.base_cost_fn().clone();
                 let mut elapsed = Duration::ZERO;
                 for _ in 0..iters {
                     let start = Instant::now();
                     let _ = black_box(run_fixed_iter_topo(&mut topo_opt));
                     elapsed += start.elapsed();
-                    topo_opt.reset_cache();
+                    topo_opt.set_base_cost_fn_to(&base_clone);
                 }
                 elapsed
             });

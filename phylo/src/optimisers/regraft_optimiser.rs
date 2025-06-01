@@ -35,6 +35,8 @@ impl RegraftCostInfo {
 pub trait RegraftOptimiserStorage<'a, C: TreeSearchCost + Clone + Display + Send> {
     fn base(&self) -> &C;
     fn cost_fns_mut(&mut self) -> &mut [C];
+    fn cost_fns_mut_up_to_excluding(&mut self, to: usize) -> &mut [C];
+    fn set_cost_fns_to_base_upto_excluding(&mut self, to: usize);
 }
 
 pub struct RegraftOptimiser<
@@ -47,17 +49,17 @@ pub struct RegraftOptimiser<
     storage: S,
 }
 pub struct RegraftOptimiserSimpleStorage<'a, C: TreeSearchCost + Clone + Display + Send> {
-    cost_fns: Box<[C]>,
+    mut_cost_fns: Box<[C]>,
     // TODO: replace with first
-    cost_fn: &'a C,
+    base_cost_fn: &'a C,
 }
 
 impl<'a, C: TreeSearchCost + Clone + Display + Send> RegraftOptimiserSimpleStorage<'a, C> {
     pub fn new(cost_fn: &'a C) -> RegraftOptimiserSimpleStorage<'a, C> {
         let max_regrafts = max_regrafts_for_tree(cost_fn.tree());
         Self {
-            cost_fns: vec![cost_fn.clone(); max_regrafts].into_boxed_slice(),
-            cost_fn,
+            mut_cost_fns: vec![cost_fn.clone(); max_regrafts].into_boxed_slice(),
+            base_cost_fn: cost_fn,
         }
     }
 }
@@ -65,26 +67,41 @@ impl<'a, C: TreeSearchCost + Clone + Display + Send> RegraftOptimiserStorage<'a,
     for RegraftOptimiserSimpleStorage<'a, C>
 {
     fn base(&self) -> &C {
-        self.cost_fn
+        self.base_cost_fn
     }
 
     fn cost_fns_mut(&mut self) -> &mut [C] {
-        &mut self.cost_fns
+        &mut self.mut_cost_fns
+    }
+
+    fn cost_fns_mut_up_to_excluding(&mut self, to: usize) -> &mut [C] {
+        &mut self.cost_fns_mut()[..to]
+    }
+    fn set_cost_fns_to_base_upto_excluding(&mut self, to: usize) {
+        self.mut_cost_fns[..to]
+            .iter_mut()
+            .for_each(|cost_fn| cost_fn.clone_from(self.base_cost_fn));
     }
 }
 
 pub struct RegraftOptimiserCacheStorageView<'a, C: TreeSearchCost + Clone + Display + Send> {
-    cost_fns: &'a mut TopologyOptimiserStorage<C>,
+    topo_storage: &'a mut TopologyOptimiserStorage<C>,
 }
 
 impl<'a, C: TreeSearchCost + Clone + Display + Send> RegraftOptimiserStorage<'a, C>
     for RegraftOptimiserCacheStorageView<'a, C>
 {
     fn base(&self) -> &C {
-        self.cost_fns.base_cost_fn()
+        self.topo_storage.base_cost_fn()
     }
     fn cost_fns_mut(&mut self) -> &mut [C] {
-        self.cost_fns.cost_fns_mut()
+        self.topo_storage.cost_fns_mut()
+    }
+    fn cost_fns_mut_up_to_excluding(&mut self, to: usize) -> &mut [C] {
+        self.topo_storage.cost_fns_mut_up_to_excluding(to)
+    }
+    fn set_cost_fns_to_base_upto_excluding(&mut self, to: usize) {
+        self.topo_storage.set_cost_fns_to_base_upto_excluding(to);
     }
 }
 
@@ -92,7 +109,9 @@ impl<'a, C: TreeSearchCost + Clone + Display + Send> RegraftOptimiserCacheStorag
     pub fn new(
         cost_fns: &'a mut TopologyOptimiserStorage<C>,
     ) -> RegraftOptimiserCacheStorageView<'a, C> {
-        Self { cost_fns }
+        Self {
+            topo_storage: cost_fns,
+        }
     }
 }
 impl<'a, C: TreeSearchCost + Clone + Display + Send + 'a, S: RegraftOptimiserStorage<'a, C>>
@@ -143,7 +162,11 @@ impl<'a, C: TreeSearchCost + Clone + Display + Send + 'a, S: RegraftOptimiserSto
 
         let regraft_locations = self.available_regraft_locations().copied().collect_vec();
 
-        let cost_fns = &mut self.storage.cost_fns_mut()[..regraft_locations.len()];
+        self.storage
+            .set_cost_fns_to_base_upto_excluding(regraft_locations.len());
+        let cost_fns = self
+            .storage
+            .cost_fns_mut_up_to_excluding(regraft_locations.len());
 
         // TODO MERBUG: require PartialEq for C
         // debug_assert!(

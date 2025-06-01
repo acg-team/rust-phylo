@@ -61,32 +61,60 @@ mod storage {
         cost_fns: Box<[C]>,
         // safety: don't read/write the value, possible race condition
         buf_base: Option<NonNull<[f64]>>,
+        valid_mut_cost_fns: usize,
     }
 
     impl<C: TreeSearchCost + Display + Clone + Send> TopologyOptimiserStorage<C> {
         pub fn new_basic(base_cost_fn: C) -> Self {
-            let max_regrafts = super::max_regrafts_for_tree(base_cost_fn.tree());
-            let total_cost_fns = max_regrafts + 1;
+            let total_cost_fns = super::max_regrafts_for_tree(base_cost_fn.tree()) + 1;
             Self {
                 buf_base: None,
                 cost_fns: vec![base_cost_fn; total_cost_fns].into_boxed_slice(),
+                valid_mut_cost_fns: total_cost_fns - 1,
             }
         }
         pub fn base_cost_fn(&self) -> &C {
             self.cost_fns.first().expect("always at least one cost fn")
         }
         pub fn base_cost_fn_mut(&mut self) -> &mut C {
+            self.valid_mut_cost_fns = 0;
             self.cost_fns
                 .first_mut()
                 .expect("always at least one cost fn")
         }
         pub fn cost_fns_mut(&mut self) -> &mut [C] {
+            assert!(self.valid_mut_cost_fns == self.cost_fns.len());
+            self.valid_mut_cost_fns = 0;
             &mut self.cost_fns[1..]
+        }
+        pub fn cost_fns_mut_up_to_excluding(&mut self, to: usize) -> &mut [C] {
+            // offset by base
+            assert!(self.valid_mut_cost_fns >= to);
+            self.valid_mut_cost_fns = 0;
+            &mut self.cost_fns[1..to + 1]
         }
 
         // NOTE: could be optimized by clearing buf once and then simply
         // clearing all *valid flags individually
+        pub fn set_cost_fns_to_base_upto_excluding(&mut self, to: usize) {
+            assert!(to < self.cost_fns.len());
+            if self.valid_mut_cost_fns >= to {
+                return;
+            }
+            // base offset
+            self.valid_mut_cost_fns = to;
+            let [ref base, others @ ..] = self.cost_fns.deref_mut() else {
+                panic!("always at least one cost function in storage")
+            };
+            others[..to]
+                .iter_mut()
+                .for_each(|cost_fn| cost_fn.clone_from(base));
+        }
         pub fn set_cost_fns_to_base(&mut self) {
+            if self.valid_mut_cost_fns == self.cost_fns.len() - 1 {
+                return;
+            }
+            self.valid_mut_cost_fns = self.cost_fns.len() - 1;
             let [ref base, others @ ..] = self.cost_fns.deref_mut() else {
                 panic!("always at least one cost function in storage")
             };
@@ -95,9 +123,11 @@ mod storage {
                 .for_each(|cost_fn| cost_fn.clone_from(base));
         }
         pub fn set_base_cost_fn_to(&mut self, new_base: &C) {
+            self.valid_mut_cost_fns = 0;
             self.base_cost_fn_mut().clone_from(new_base);
         }
         pub fn set_cost_fns_to(&mut self, new_base: &C) {
+            self.valid_mut_cost_fns = self.cost_fns.len() - 1;
             self.cost_fns
                 .iter_mut()
                 .for_each(|cost_fn| cost_fn.clone_from(new_base));
@@ -143,6 +173,7 @@ mod storage {
             };
 
             Self {
+                valid_mut_cost_fns: total_cost_fns - 1,
                 cost_fns: ranges
                     .iter_mut()
                     .map(|sub_slice| cost_fn.clone_with_cache_in(sub_slice))
@@ -195,13 +226,22 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
     }
 
     pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
-        self.run_mut()
+        let (initial_cost, final_cost, iterations) = self.run_mut()?;
+
+        Ok(PhyloOptimisationResult {
+            initial_cost,
+            final_cost,
+            iterations,
+            cost: self.storage.base_cost_fn().clone(),
+        })
     }
-    pub fn run_mut(&mut self) -> Result<PhyloOptimisationResult<C>> {
+    pub fn run_mut(&mut self) -> Result<(f64, f64, usize)> {
         debug_assert!(self.storage.base_cost_fn().tree().len() > 3);
 
         info!("Optimising tree topology with SPRs.");
         let init_cost = self.storage.base_cost_fn().cost();
+        // get the fresh cache from the initial cost calculation
+        self.storage.set_cost_fns_to_base();
         let init_tree = self.storage.base_cost_fn().tree();
 
         info!("Initial cost: {}.", init_cost);
@@ -224,10 +264,6 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
         // the search stops.
         // This means that curr_cost is always hugher than or equel to prev_cost.
         while self.predicate.test(iterations, curr_cost - prev_cost) {
-            // run this bin the start of the loop to also capture if the calculation
-            // of init_cost filled the cache
-            self.storage.set_cost_fns_to_base();
-
             iterations += 1;
             info!("Iteration: {}, current cost: {}.", iterations, curr_cost);
             prev_cost = curr_cost;
@@ -263,12 +299,7 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
             "Final cost: {}, achieved in {} iteration(s).",
             curr_cost, iterations
         );
-        Ok(PhyloOptimisationResult {
-            initial_cost: init_cost,
-            final_cost: curr_cost,
-            iterations,
-            cost: self.storage.base_cost_fn().clone(),
-        })
+        Ok((init_cost, curr_cost, iterations))
     }
 }
 
@@ -344,10 +375,6 @@ pub mod spr {
                     info!("    No improvement, best cost {}.", best_cost);
                     base_cost
                 };
-                // NOTE: theoretically we dont need each cost_fn every time so we
-                // could minimally optimize by only setting the required amount
-                // This is also more "dangerous"/difficult to do correctly
-                storage.set_cost_fns_to_base();
 
                 Ok(new_cost)
             })
