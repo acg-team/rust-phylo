@@ -1,6 +1,5 @@
 use std::fmt::Display;
 use std::marker::PhantomData;
-use std::ops::DerefMut;
 
 use itertools::Itertools;
 use log::{debug, info};
@@ -10,7 +9,7 @@ use crate::optimisers::BranchOptimiser;
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
 
-use super::max_regrafts_for_tree;
+use super::{max_regrafts_for_tree, TopologyOptimiserStorage};
 
 pub struct RegraftCostInfo {
     regraft: NodeIdx,
@@ -75,22 +74,24 @@ impl<'a, C: TreeSearchCost + Clone + Display + Send> RegraftOptimiserStorage<'a,
 }
 
 pub struct RegraftOptimiserCacheStorageView<'a, C: TreeSearchCost + Clone + Display + Send> {
-    cost_fns: &'a mut [C],
+    cost_fns: &'a mut TopologyOptimiserStorage<C>,
 }
 
 impl<'a, C: TreeSearchCost + Clone + Display + Send> RegraftOptimiserStorage<'a, C>
     for RegraftOptimiserCacheStorageView<'a, C>
 {
     fn base(&self) -> &C {
-        &self.cost_fns[0]
+        self.cost_fns.base_cost_fn()
     }
     fn cost_fns_mut(&mut self) -> &mut [C] {
-        self.cost_fns.deref_mut()
+        self.cost_fns.cost_fns_mut()
     }
 }
 
 impl<'a, C: TreeSearchCost + Clone + Display + Send> RegraftOptimiserCacheStorageView<'a, C> {
-    pub fn new(cost_fns: &'a mut [C]) -> RegraftOptimiserCacheStorageView<'a, C> {
+    pub fn new(
+        cost_fns: &'a mut TopologyOptimiserStorage<C>,
+    ) -> RegraftOptimiserCacheStorageView<'a, C> {
         Self { cost_fns }
     }
 }

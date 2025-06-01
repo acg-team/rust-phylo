@@ -91,7 +91,7 @@ fn run_find_best_regraft_for_single_spr_move<Q: QMatrix + QMatrixMaker + Send>(
                 for _ in 0..iters {
                     let mut regraft_optimiser = RegraftOptimiser::new_with_storage(
                         &prune_location,
-                        RegraftOptimiserCacheStorageView::new(topo_storage.cost_fns_mut()),
+                        RegraftOptimiserCacheStorageView::new(&mut topo_storage),
                     );
                     let start = Instant::now();
                     let _ = black_box(find_best_regraft_for_single_spr_move(

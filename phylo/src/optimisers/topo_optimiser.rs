@@ -94,6 +94,11 @@ mod storage {
                 .iter_mut()
                 .for_each(|cost_fn| base.clone_from(cost_fn));
         }
+        pub fn set_cost_fns_to(&mut self, new_base: &C) {
+            self.cost_fns
+                .iter_mut()
+                .for_each(|cost_fn| cost_fn.clone_from(new_base));
+        }
     }
 
     impl<C: TreeSearchCost + Display + Clone + Send> Drop for TopologyOptimiserStorage<C> {
@@ -105,12 +110,6 @@ mod storage {
     }
 
     impl<Q: QMatrix> TopologyOptimiserStorage<PIPCost<Q>> {
-        pub fn set_cost_fns_to(&mut self, new_base: &PIPCost<Q>) {
-            self.cost_fns
-                .iter_mut()
-                .for_each(|cost_fn| cost_fn.copy_from(new_base));
-        }
-
         pub fn new_inplace(cost_fn: &PIPCost<Q>) -> Self {
             let single_dimensions = cost_fn.cache_dimensions();
             let total_cost_fns = max_regrafts_for_tree(cost_fn.tree()) + 1;
@@ -304,7 +303,7 @@ pub mod spr {
             .try_fold(base_cost, |base_cost, prune| -> Result<_> {
                 let mut regraft_optimiser = RegraftOptimiser::new_with_storage(
                     prune,
-                    RegraftOptimiserCacheStorageView::new(storage.cost_fns_mut()),
+                    RegraftOptimiserCacheStorageView::new(storage),
                 );
 
                 let Some(best_regraft_info) =
