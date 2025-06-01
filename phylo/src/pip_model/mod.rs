@@ -836,15 +836,6 @@ struct CacheC0ChildView {
 }
 
 impl<Q: QMatrix> PIPCost<Q> {
-    // TODO MERBUG own trait
-    pub fn copy_from(&mut self, other: &PIPCost<Q>) {
-        self.tmp
-            .borrow_mut()
-            .cache
-            .clone_from(&other.tmp.borrow().cache);
-        self.model.clone_from(&other.model);
-        self.info.clone_from(&other.info);
-    }
     pub fn cache_dimensions(&self) -> PIPModelCacheBufDimensions {
         self.tmp.borrow().dimensions()
     }
