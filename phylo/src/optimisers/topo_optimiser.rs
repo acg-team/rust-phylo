@@ -91,7 +91,6 @@ mod storage {
             &mut self.cost_fns[1..]
         }
         pub fn cost_fns_mut_up_to_excluding(&mut self, to: usize) -> &mut [C] {
-            // offset by base
             assert!(self.valid_mut_cost_fns >= to);
             self.valid_mut_cost_fns = 0;
             &mut self.cost_fns[1..to + 1]
@@ -104,7 +103,6 @@ mod storage {
             if self.valid_mut_cost_fns >= to {
                 return;
             }
-            // base offset
             self.valid_mut_cost_fns = to;
             let n_cost_fns = self.cost_fns.len();
             if let Some(mut buf_base) = self.buf_base {
@@ -125,40 +123,9 @@ mod storage {
                 .iter_mut()
                 .for_each(|cost_fn| cost_fn.clone_from_smart(base));
         }
-        pub fn set_cost_fns_to_base(&mut self) {
-            if self.valid_mut_cost_fns == self.cost_fns.len() - 1 {
-                return;
-            }
-            self.valid_mut_cost_fns = self.cost_fns.len() - 1;
-            let n_cost_fns = self.cost_fns.len();
-            if let Some(mut buf_base) = self.buf_base {
-                let single_len = buf_base.len() / n_cost_fns;
-
-                let buf_slice = unsafe { buf_base.as_mut() };
-
-                let (ref base, mut_cost_fns) = buf_slice.split_at_mut(single_len);
-
-                for cost_fn_idx in 0..n_cost_fns - 1 {
-                    mut_cost_fns[(cost_fn_idx * single_len)..(cost_fn_idx + 1) * single_len]
-                        .copy_from_slice(base);
-                }
-            }
-            let [ref base, others @ ..] = self.cost_fns.deref_mut() else {
-                panic!("always at least one cost function in storage")
-            };
-            others
-                .iter_mut()
-                .for_each(|cost_fn| cost_fn.clone_from_smart(base));
-        }
         pub fn set_base_cost_fn_to(&mut self, new_base: &C) {
             self.valid_mut_cost_fns = 0;
             self.base_cost_fn_mut().clone_from(new_base);
-        }
-        pub fn set_cost_fns_to(&mut self, new_base: &C) {
-            self.valid_mut_cost_fns = self.cost_fns.len() - 1;
-            self.cost_fns
-                .iter_mut()
-                .for_each(|cost_fn| cost_fn.clone_from(new_base));
         }
     }
 
@@ -229,9 +196,6 @@ impl<Q: QMatrix> TopologyOptimiser<PIPCost<Q>> {
     pub fn set_base_cost_fn_to(&mut self, new_base: &PIPCost<Q>) {
         self.storage.set_base_cost_fn_to(new_base);
     }
-    pub fn set_cost_fns_to_base(&mut self) {
-        self.storage.set_cost_fns_to_base();
-    }
     pub fn new_with_pred_inplace(cost: &PIPCost<Q>, predicate: TopologyOptimiserPredicate) -> Self {
         Self {
             predicate,
@@ -274,8 +238,6 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
 
         info!("Optimising tree topology with SPRs.");
         let init_cost = self.storage.base_cost_fn().cost();
-        // get the fresh cache from the initial cost calculation
-        self.storage.set_cost_fns_to_base();
         let init_tree = self.storage.base_cost_fn().tree();
 
         info!("Initial cost: {}.", init_cost);

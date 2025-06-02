@@ -84,7 +84,7 @@ fn run_single_spr_cycle_for_sizes() {
         let start = Instant::now();
         let _ = black_box(single_spr_cycle(&mut storage, &prune_locations));
         elapsed += start.elapsed();
-        storage.set_cost_fns_to(&base_cost_fn);
+        storage.set_base_cost_fn_to(&base_cost_fn);
     }
 }
 
