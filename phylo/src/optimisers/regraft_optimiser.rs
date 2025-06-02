@@ -117,7 +117,7 @@ fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
             for regraft_result in regrafts.iter().map(move |regraft| {
                 calc_spr_cost_with_blen_opt(prune_location, *regraft, base_cost, cost_func.clone())
             }) {
-                match result {
+                match regraft_result {
                     Ok(regraft_info) if regraft_info.cost() > max_cost => {
                         max_cost = regraft_info.cost();
                         max = Some(regraft_info);
