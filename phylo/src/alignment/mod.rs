@@ -4,7 +4,7 @@ use anyhow::bail;
 use bio::io::fasta::Record;
 use hashbrown::HashMap;
 
-use crate::alphabets::{Alphabet, GAP};
+use crate::alphabets::Alphabet;
 use crate::asr::AncestralSequenceReconstruction;
 use crate::parsimony_indel_points::ParsimonyIndelPoints;
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
@@ -190,7 +190,7 @@ impl Alignment for MSA {
 
         let msa_len = seqs.record(0).seq().len();
         let mut stack = HashMap::<NodeIdx, Mapping>::with_capacity(tree.len());
-        let mut msa = InternalAlignments::with_capacity(tree.n);
+        let mut internal_alignments = InternalAlignments::with_capacity(tree.n);
         for node_idx in tree.postorder() {
             match node_idx {
                 Int(_) => {
@@ -198,7 +198,8 @@ impl Alignment for MSA {
                     let map_x = stack[&childs[0]].clone();
                     let map_y = stack[&childs[1]].clone();
                     stack.insert(*node_idx, Self::stack_maps(msa_len, &map_x, &map_y));
-                    msa.insert(*node_idx, Self::clear_common_gaps(msa_len, &map_x, &map_y));
+                    internal_alignments
+                        .insert(*node_idx, Self::clear_common_gaps(msa_len, &map_x, &map_y));
                 }
                 Leaf(_) => {
                     let seq = seqs.record_by_id(tree.node_id(node_idx)).seq();
@@ -218,7 +219,7 @@ impl Alignment for MSA {
         Ok(MSA {
             seqs,
             leaf_maps,
-            internal_alignments: msa,
+            internal_alignments,
         })
     }
 
@@ -327,6 +328,7 @@ pub struct MASA {
     ancestral_seqs: Sequences,
     leaf_maps: SeqMaps,
     ancestral_maps: SeqMaps,
+    // TODO: this needs to be implemented
     internal_alignments: InternalAlignments,
     idx_to_id: Vec<String>,
 }
@@ -353,7 +355,7 @@ impl MASA {
         ancestral_seqs: Sequences,
         leaf_maps: SeqMaps,
         ancestral_maps: SeqMaps,
-        int_align_maps: InternalAlignments,
+        internal_alignments: InternalAlignments,
         idx_to_id: Vec<String>,
     ) -> MASA {
         MASA {
@@ -361,8 +363,8 @@ impl MASA {
             ancestral_seqs,
             leaf_maps,
             ancestral_maps,
+            internal_alignments,
             idx_to_id,
-            internal_alignments: int_align_maps,
         }
     }
 }
@@ -459,9 +461,6 @@ impl AncestralAlignment for MASA {
         if all_seqs.len() != tree.len() {
             bail!("The number of seqs does not match the number of nodes in the tree")
         }
-
-        // TODO: must i check that the ids of the tree match the sequences?
-        // mustst this also be checked in the normal alignment?
 
         all_seqs.remove_gap_cols();
         let mut leaf_maps = HashMap::<NodeIdx, Mapping>::new();

@@ -298,20 +298,23 @@ fn display_alignment() {
 
 #[test]
 fn display_ancestral_alignment() {
-    let tree = tree!("((C:0.1,D:0.2)I1:0.3,(A:0.4,B:0.5)I2:0.6)I3;");
+    // arrange
+    let tree = tree!("((C:0.1,D:0.2)I01:0.3,(A:0.4,B:0.5)I02:0.6)Root;");
     let sequences = Sequences::new(
         read_sequences(&PathBuf::from("./data/sequences_DNA1_with_ancestors.fasta")).unwrap(),
     );
     let msa = MASA::from_aligned_with_ancestral(sequences, &tree).unwrap();
+    let true_lines = std::fs::read_to_string("./data/sequences_DNA1_with_ancestors.fasta").unwrap();
+    let mut true_lines = true_lines.lines().collect::<Vec<_>>();
+    true_lines.sort();
 
-    let s = format!("{}", msa);
-    let mut lines = s.lines().collect::<Vec<_>>();
+    // act
+    let lines = format!("{}", msa);
+
+    // assert
+    let mut lines = lines.lines().collect::<Vec<_>>();
     lines.sort();
     assert_eq!(lines.len(), 14);
-
-    let s = std::fs::read_to_string("./data/sequences_DNA1_with_ancestors.fasta").unwrap();
-    let mut true_lines = s.lines().collect::<Vec<_>>();
-    true_lines.sort();
     assert_eq!(lines, true_lines);
 }
 

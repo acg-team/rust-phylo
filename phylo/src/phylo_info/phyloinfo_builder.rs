@@ -9,6 +9,7 @@ use crate::alphabets::Alphabet;
 use crate::asr::AncestralSequenceReconstruction;
 use crate::io::{self, DataError};
 use crate::parsimony::ParsimonyAligner;
+use crate::parsimony_indel_points::ParsimonyIndelPoints;
 use crate::phylo_info::PhyloInfo;
 use crate::tree::{build_nj_tree, Tree};
 use crate::Result;
@@ -17,7 +18,7 @@ pub struct PhyloInfoBuilder<A: Alignment, AA: AncestralAlignment> {
     sequence_file: PathBuf,
     tree_file: Option<PathBuf>,
     // since alignment and asr is only done once, we can use dynamic dispatch
-    // but since we access the alignment on a regular basis (or do we actually? since we instead use the encoding)
+    // but since we access the alignment on a regular basis (or do we actually? Since we instead use the encoding)
     aligner: Option<Box<dyn Aligner<A>>>,
     asr: Option<Box<dyn AncestralSequenceReconstruction<A, AA>>>,
     alphabet: Option<Alphabet>,
@@ -150,6 +151,91 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     /// assert_eq!(info.tree.len(), 7);
     /// ```
     pub fn build(self) -> Result<PhyloInfo<A>> {
+        let sequences = self.read_sequences()?;
+        let tree = match &self.tree_file {
+            Some(tree_file) => {
+                let tree = self.read_tree(tree_file)?;
+                validate_taxa_ids(&tree, &sequences)?;
+                tree
+            }
+            None => {
+                info!("Building NJ tree from sequences");
+                build_nj_tree(&sequences)?
+            }
+        };
+
+        let msa = if sequences.aligned {
+            info!("Sequences are aligned.");
+            A::from_aligned(sequences, &tree)?
+        } else {
+            info!("Sequences are not aligned, aligning.");
+            self.aligner
+                .unwrap_or(Box::new(ParsimonyAligner::default()))
+                .align(&sequences, &tree)?
+        };
+        Ok(PhyloInfo { tree, msa })
+    }
+
+    pub fn build_with_ancestors(self) -> Result<PhyloInfo<AA>> {
+        let sequences = self.read_sequences()?;
+        let tree = match &self.tree_file {
+            Some(tree_file) => self.read_tree(tree_file)?,
+            None => {
+                info!("Building NJ tree from sequences");
+                build_nj_tree(&sequences)?
+            }
+        };
+        let msa = if sequences.len() == tree.n {
+            if self.tree_file.is_some() {
+                validate_taxa_ids(&tree, &sequences)?;
+            }
+            if sequences.aligned {
+                info!(
+                    "Aligned sequences without ancestral sequences. Inferring ancestral sequences."
+                );
+                AA::from_aligned(sequences, &tree)
+            } else {
+                // !sequences.aligned
+                info!("Sequences are not aligned, aligning.");
+                let leaf_msa = self
+                    .aligner
+                    .unwrap_or(Box::new(ParsimonyAligner::default()))
+                    .align(&sequences, &tree)?;
+                info!("Ancestral sequences are not provided, inferring them.");
+                self.asr
+                    .unwrap_or(Box::new(ParsimonyIndelPoints {}))
+                    .reconstruct_ancestral_seqs(&leaf_msa, &tree)
+            }
+        } else if sequences.len() == tree.len() {
+            if sequences.aligned {
+                if self.tree_file.is_some() {
+                    validate_taxa_ids_with_ancestros(&tree, &sequences)?;
+                }
+                info!("Aligned sequences including ancestral sequences.");
+                AA::from_aligned_with_ancestral(sequences, &tree)
+            } else {
+                bail!("Building an ancestral alignment from unaligned sequences (including ancestral_sequencess) is not supported");
+            }
+        } else {
+            bail!("The number of sequences does not match the number of leaves nor the number of nodes in the tree.");
+        }?;
+
+        // TODO: for tkf if want to check whether the root is right next to one of its children
+        //       because otherwise rerooting it would not be as intended
+        let combined_seqs = Sequences::new(
+            msa.seqs()
+                .s
+                .iter()
+                .cloned()
+                .chain(msa.ancestral_seqs().s.iter().cloned())
+                .collect(),
+        );
+        // TODO remove this before merge
+        validate_taxa_ids_with_ancestros(&tree, &combined_seqs)?;
+        Ok(PhyloInfo { tree, msa })
+    }
+
+    fn read_sequences(&self) -> Result<Sequences> {
         info!(
             "Reading sequences from file {}",
             self.sequence_file.display()
@@ -168,82 +254,95 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
             )
         };
         info!("{} sequence(s) read successfully", sequences.len());
-
-        let tree = match &self.tree_file {
-            Some(tree_file) => self.read_tree(&sequences, tree_file)?,
-            None => {
-                info!("Building NJ tree from sequences");
-                build_nj_tree(&sequences)?
-            }
-        };
-
-        let msa = if sequences.aligned {
-            info!("Sequences are aligned.");
-            A::from_aligned(sequences, &tree)?
-        } else {
-            info!("Sequences are not aligned, aligning.");
-            self.aligner
-                .unwrap_or(Box::new(ParsimonyAligner::default()))
-                .align(&sequences, &tree)?
-        };
-
-        Ok(PhyloInfo { tree, msa })
+        Ok(sequences)
     }
 
-    // pub fn build_with_ancestors(self) -> Result<PhyloInfo<impl AncestralAlignment>> {}
-
-    fn read_tree(&self, sequences: &Sequences, tree_file: &PathBuf) -> Result<Tree> {
+    /// Reads the tree and checks if the tree node ids match the sequences ids
+    fn read_tree(&self, tree_file: &PathBuf) -> Result<Tree> {
         info!("Reading trees from file {}", tree_file.display());
         let mut trees = io::read_newick_from_file(tree_file)?;
         info!("{} tree(s) read successfully", trees.len());
-        self.check_tree_number(&trees)?;
+        check_tree_number(&trees)?;
         let tree = trees.remove(0);
-        self.validate_taxa_ids(&tree, sequences)?;
         Ok(tree)
     }
+}
 
-    /// Checks that the ids of the tree leaves and the sequences match, bails with an error otherwise.
-    fn validate_taxa_ids(&self, tree: &Tree, sequences: &Sequences) -> Result<()> {
-        let tip_ids: HashSet<String> = HashSet::from_iter(tree.leaf_ids());
-        let sequence_ids: HashSet<String> =
-            HashSet::from_iter(sequences.iter().map(|rec| rec.id().to_string()));
-        info!("Checking that tree tip and sequence IDs match.");
-        let mut missing_tips = sequence_ids.difference(&tip_ids).collect::<Vec<_>>();
-        if !missing_tips.is_empty() {
-            missing_tips.sort();
-            bail!(DataError {
-                message: format!(
-                    "Mismatched IDs found, missing tree tip IDs: {:?}",
-                    missing_tips
-                )
-            });
-        }
-        let mut missing_seqs = tip_ids.difference(&sequence_ids).collect::<Vec<_>>();
-        if !missing_seqs.is_empty() {
-            missing_seqs.sort();
-            bail!(DataError {
-                message: format!(
-                    "Mismatched IDs found, missing sequence IDs: {:?}",
-                    missing_seqs
-                )
-            });
-        }
-        Ok(())
+/// Checks that the ids of the tree nodes and the sequences match, bails with an error
+/// otherwise.
+fn validate_taxa_ids_with_ancestros(tree: &Tree, sequences: &Sequences) -> Result<()> {
+    let tree_ids: HashSet<String> = HashSet::from_iter(
+        tree.preorder()
+            .iter()
+            .map(|node_idx| tree.node_id(node_idx).to_string()),
+    );
+    let sequence_ids: HashSet<String> =
+        HashSet::from_iter(sequences.iter().map(|rec| rec.id().to_string()));
+    info!("Checking that tree and sequence IDs match.");
+    let mut missing_nodes = sequence_ids.difference(&tree_ids).collect::<Vec<_>>();
+    if !missing_nodes.is_empty() {
+        missing_nodes.sort();
+        bail!(DataError {
+            message: format!(
+                "Mismatched IDs found, missing tree IDs: {:?}",
+                missing_nodes
+            )
+        });
     }
+    let mut missing_seqs = tree_ids.difference(&sequence_ids).collect::<Vec<_>>();
+    if !missing_seqs.is_empty() {
+        missing_seqs.sort();
+        bail!(DataError {
+            message: format!(
+                "Mismatched IDs found, missing sequence IDs: {:?}",
+                missing_seqs
+            )
+        });
+    }
+    Ok(())
+}
 
-    /// Checks that there is at least one tree in the vector, bails with an error otherwise.
-    /// Prints a warning if there is more than one tree because only the first tree will be processed.
-    fn check_tree_number(&self, trees: &[Tree]) -> Result<()> {
-        if trees.is_empty() {
-            bail!(DataError {
-                message: String::from("No trees in the tree file, aborting.")
-            });
-        }
-        if trees.len() > 1 {
-            warn!("More than one tree in the tree file, only the first tree will be processed.");
-        }
-        Ok(())
+/// Checks that the ids of the tree leaves and the sequences match, bails with an error otherwise.
+fn validate_taxa_ids(tree: &Tree, sequences: &Sequences) -> Result<()> {
+    let tip_ids: HashSet<String> = HashSet::from_iter(tree.leaf_ids());
+    let sequence_ids: HashSet<String> =
+        HashSet::from_iter(sequences.iter().map(|rec| rec.id().to_string()));
+    info!("Checking that tree tip and sequence IDs match.");
+    let mut missing_tips = sequence_ids.difference(&tip_ids).collect::<Vec<_>>();
+    if !missing_tips.is_empty() {
+        missing_tips.sort();
+        bail!(DataError {
+            message: format!(
+                "Mismatched IDs found, missing tree tip IDs: {:?}",
+                missing_tips
+            )
+        });
     }
+    let mut missing_seqs = tip_ids.difference(&sequence_ids).collect::<Vec<_>>();
+    if !missing_seqs.is_empty() {
+        missing_seqs.sort();
+        bail!(DataError {
+            message: format!(
+                "Mismatched IDs found, missing sequence IDs: {:?}",
+                missing_seqs
+            )
+        });
+    }
+    Ok(())
+}
+
+/// Checks that there is at least one tree in the vector, bails with an error otherwise.
+/// Prints a warning if there is more than one tree because only the first tree will be processed.
+fn check_tree_number(trees: &[Tree]) -> Result<()> {
+    if trees.is_empty() {
+        bail!(DataError {
+            message: String::from("No trees in the tree file, aborting.")
+        });
+    }
+    if trees.len() > 1 {
+        warn!("More than one tree in the tree file, only the first tree will be processed.");
+    }
+    Ok(())
 }
 
 #[cfg(test)]

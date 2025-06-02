@@ -39,12 +39,12 @@ pub trait QMatrixMaker {
 }
 
 pub trait QMatrix: Debug + Clone + Display {
-    fn set_param(&mut self, param: usize, value: f64);
-    fn params(&self) -> &[f64];
-    fn freqs(&self) -> &FreqVector;
-    fn set_freqs(&mut self, freqs: FreqVector);
     fn q(&self) -> &SubstMatrix;
     fn rate(&self, i: u8, j: u8) -> f64;
+    fn params(&self) -> &[f64];
+    fn set_param(&mut self, param: usize, value: f64);
+    fn freqs(&self) -> &FreqVector;
+    fn set_freqs(&mut self, freqs: FreqVector);
     fn n(&self) -> usize;
     fn alphabet(&self) -> &Alphabet;
 }

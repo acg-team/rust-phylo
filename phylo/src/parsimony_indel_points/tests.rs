@@ -7,27 +7,27 @@ use crate::{align, record, tree};
 
 #[cfg(test)]
 fn test_tree() -> Tree {
-    tree!("((A0:1.0, B1:1.0) I5:1.0,(C2:1.0,(D3:1.0, E4:1.0) I6:1.0) I7:1.0) I8:1.0;")
+    tree!("((A0:1.0, B1:1.0) I5:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0) I7:1.0) I8:1.0;")
 }
 
 #[cfg(test)]
 fn aligned_seqs_with_ancestors() -> Sequences {
-    aligned_seqs_with_ancestors_subset(&["A0", "B1", "C2", "D3", "E4", "I5", "I6", "I7", "I8"])
+    aligned_seqs_with_ancestors_subset(&["A0", "B1", "C2", "D3", "E4", "I5", "I9", "I7", "I8"])
 }
 
 #[cfg(test)]
 fn aligned_seqs_with_ancestors_subset(ids: &[&str]) -> Sequences {
     Sequences::new(
         [
-            record!("A0", Some("seq A0 with 4 nucls"), b"A--AAA"),
-            record!("B1", Some("seq B1 with 3 nucls"), b"-A--AA"),
-            record!("C2", Some("seq C2 with 3 nucls"), b"A-A-A-"),
-            record!("D3", Some("seq D3 with 2 nucls"), b"-A-A--"),
-            record!("E4", Some("seq E4 with 1 nucls"), b"--A---"),
-            record!("I5", None, b"XX-XXX"),
-            record!("I6", None, b"-XXX--"),
-            record!("I7", None, b"XXXXX-"),
-            record!("I8", None, b"XX-XX-"),
+            record!("A0", Some("seq A0 with 4 nucls"), b"AA--AAA"),
+            record!("B1", Some("seq B1 with 3 nucls"), b"--A--AA"),
+            record!("C2", Some("seq C2 with 3 nucls"), b"-A-A-A-"),
+            record!("D3", Some("seq D3 with 2 nucls"), b"--A-A--"),
+            record!("E4", Some("seq E4 with 1 nucls"), b"---A---"),
+            record!("I5", None, b"-XX-XXX"),
+            record!("I9", None, b"--XXX--"),
+            record!("I7", None, b"-XXXXX-"),
+            record!("I8", None, b"-XX-XX-"),
         ]
         .into_iter()
         .filter(|rec| ids.contains(&rec.id()))
@@ -63,8 +63,8 @@ fn asr() {
     assert_eq!(leaf_seqs.s, true_leaf_seqs.s);
     let ancestral_seqs = ancestral_msa.ancestral_seqs();
     let true_ancestral_seqs =
-        aligned_seqs_with_ancestors_subset(&["I5", "I6", "I7", "I8"]).into_gapless();
+        aligned_seqs_with_ancestors_subset(&["I5", "I9", "I7", "I8"]).into_gapless();
     assert_eq!(ancestral_seqs.s, true_ancestral_seqs.s);
-    assert_eq!(ancestral_msa_len, 6);
+    assert_eq!(ancestral_msa_len, 7);
     assert_eq!(ancestral_msa.seq_count(), 5);
 }
