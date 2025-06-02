@@ -6,13 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
+default = ["par"]
 ci_coverage = []
 deterministic = []
 # Feature that can speed up repeated test runs for when tree search is not affected and tests are ran locally.
 use-precomputed-test-results = []
-par-regraft = ["dep:rayon"]
-par-regraft-chunk = ["dep:rayon"]
-par-regraft-manual = ["dep:rayon"]
+par-regraft = ["par"]
+par-regraft-chunk = ["par"]
+par-regraft-manual = ["par"]
+par = ["dep:rayon"]
 # otherwise transparent hugepages will be used
 hugetlbfs = []
 
