@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 
 use approx::assert_relative_eq;
-use nalgebra::DVectorView;
 
 use crate::alignment::{Alignment, Sequences};
 use crate::alphabets::{protein_alphabet, AMINOACIDS as aas, GAP, NUCLEOTIDES as nucls};
@@ -297,21 +296,12 @@ fn assert_values<Q: QMatrix>(
     exp_anc: &[f64],
     exp_pnu: &[f64],
 ) {
-    use nalgebra::{DVectorView, MatrixViewXx3};
-
     let e = 1e-3;
-    assert_relative_eq!(tmp.cache.surv_ins_weights()[idx], exp_survins, epsilon = e);
-    assert_eq!(tmp.cache.anc(idx).nrows(), exp_pnu.len());
-    assert_eq!(tmp.cache.anc(idx).ncols(), 3);
-    assert_relative_eq!(
-        tmp.cache.anc(idx),
-        MatrixViewXx3::<f64>::from_slice(exp_anc, exp_pnu.len()),
-    );
-    assert_relative_eq!(
-        tmp.cache.pnu(idx),
-        DVectorView::<f64>::from_slice(exp_pnu, exp_pnu.len()),
-        epsilon = e
-    );
+    assert_relative_eq!(tmp.cache.surv_ins_weights[idx], exp_survins, epsilon = e);
+    assert_eq!(tmp.cache.anc[idx].nrows(), exp_pnu.len());
+    assert_eq!(tmp.cache.anc[idx].ncols(), 3);
+    assert_relative_eq!(tmp.cache.anc[idx].as_slice(), exp_anc,);
+    assert_relative_eq!(tmp.cache.pnu[idx].as_slice(), exp_pnu, epsilon = e);
 }
 
 #[test]
@@ -411,8 +401,8 @@ fn pip_hky_likelihood_example_internals() {
 #[cfg(test)]
 fn assert_c0_values<Q: QMatrix>(tmp: &PIPModelInfo<Q>, idx: usize, exp_f1: f64, exp_pnu: f64) {
     let e = 1e-3;
-    assert_relative_eq!(tmp.cache.c0()[idx].f1, exp_f1, epsilon = e);
-    assert_relative_eq!(tmp.cache.c0()[idx].pnu, exp_pnu, epsilon = e);
+    assert_relative_eq!(tmp.cache.c0_f1[idx], exp_f1, epsilon = e);
+    assert_relative_eq!(tmp.cache.c0_pnu[idx], exp_pnu, epsilon = e);
 }
 
 #[test]
@@ -482,19 +472,17 @@ fn pip_hky_likelihood_example_final() {
 
     let nu = 7.5;
     assert_relative_eq!(
-        tmp.cache.pnu(0),
-        DVectorView::from_slice(
-            &[
-                nu * 0.0392204949,
-                nu * 0.000148719,
-                nu * 0.03102171,
-                nu * 0.00527154
-            ],
-            4
-        ),
+        tmp.cache.pnu[0].as_slice(),
+        &[
+            nu * 0.0392204949,
+            nu * 0.000148719,
+            nu * 0.03102171,
+            nu * 0.00527154
+        ]
+        .as_slice(),
         epsilon = 1e-3
     );
-    assert_relative_eq!(tmp.cache.c0()[0].pnu, -5.591, epsilon = 1e-3);
+    assert_relative_eq!(tmp.cache.c0_pnu[0], -5.591, epsilon = 1e-3);
     drop(tmp);
     assert_relative_eq!(
         c.cost(),

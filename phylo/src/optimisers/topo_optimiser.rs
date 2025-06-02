@@ -47,13 +47,8 @@ pub(crate) fn max_regrafts_for_tree(tree: &Tree) -> usize {
 
 mod storage {
     use crate::likelihood::TreeSearchCost;
-    use crate::optimisers::max_regrafts_for_tree;
-    use crate::pip_model::PIPCost;
-    use crate::substitution_models::QMatrix;
     use crate::util::mem::boxed::BoxSlice;
     use std::fmt::Display;
-    use std::mem::MaybeUninit;
-    use std::num::NonZero;
     use std::ops::DerefMut;
     use std::panic;
     use std::ptr::NonNull;
@@ -141,53 +136,6 @@ mod storage {
             }
         }
     }
-
-    impl<Q: QMatrix> TopologyOptimiserStorage<PIPCost<Q>> {
-        pub fn new_inplace(cost_fn: &PIPCost<Q>) -> Self {
-            let single_dimensions = cost_fn.cache_dimensions();
-            let total_cost_fns = max_regrafts_for_tree(cost_fn.tree()) + 1;
-            let total_padded_len = total_cost_fns * single_dimensions.total_len_f64_padded();
-
-            // safety: gets dealloc with BoxSlice in Drop
-            let buf = unsafe {
-                BoxSlice::alloc_slice_uninit(NonZero::try_from(total_padded_len).unwrap()).leak()
-            };
-            let buf_base = NonNull::new(buf).unwrap();
-
-            let mut ranges = Vec::with_capacity(total_cost_fns);
-            let mut buf_mut = buf;
-            for _ in 0..total_cost_fns {
-                let (sub_slice, rest) =
-                    buf_mut.split_at_mut(single_dimensions.total_len_f64_padded());
-                ranges.push(sub_slice);
-                buf_mut = rest;
-            }
-            assert_eq!(buf_mut.len(), 0);
-
-            // safety: we manually drop the full buf
-            let ranges = unsafe {
-                std::mem::transmute::<
-                    &mut [&mut [MaybeUninit<f64>]],
-                    &mut [&'static mut [MaybeUninit<f64>]],
-                >(ranges.as_mut_slice())
-            };
-
-            Self {
-                valid_mut_cost_fns: total_cost_fns - 1,
-                cost_fns: ranges
-                    .iter_mut()
-                    .map(|sub_slice| cost_fn.clone_with_cache_in(sub_slice))
-                    .collect(),
-                // safety: after initialization of all sub_slices
-                buf_base: unsafe {
-                    Some(std::mem::transmute::<
-                        NonNull<[MaybeUninit<f64>]>,
-                        NonNull<[f64]>,
-                    >(buf_base))
-                },
-            }
-        }
-    }
 }
 pub use storage::TopologyOptimiserStorage;
 
@@ -203,12 +151,6 @@ impl<Q: QMatrix> TopologyOptimiser<PIPCost<Q>> {
     }
     pub fn set_cost_fns_to_base(&mut self) {
         self.storage.set_cost_fns_to_base();
-    }
-    pub fn new_with_pred_inplace(cost: &PIPCost<Q>, predicate: TopologyOptimiserPredicate) -> Self {
-        Self {
-            predicate,
-            storage: TopologyOptimiserStorage::new_inplace(cost),
-        }
     }
 }
 

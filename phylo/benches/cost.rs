@@ -13,9 +13,9 @@ use phylo::{
 };
 mod helpers;
 use helpers::{
-    black_box_pip_cost_with_cache_buf, SequencePaths, AA_EASY_12X73, AA_EASY_14X165,
-    AA_EASY_27X632, AA_EASY_45X223, AA_EASY_6X97, AA_MEDIUM_79X106, DNA_EASY_17X2292,
-    DNA_EASY_33X4455, DNA_EASY_46X16250, DNA_EASY_5X1000, DNA_EASY_8X1252, DNA_MEDIUM_128X688,
+    SequencePaths, AA_EASY_12X73, AA_EASY_14X165, AA_EASY_27X632, AA_EASY_45X223, AA_EASY_6X97,
+    AA_MEDIUM_79X106, DNA_EASY_17X2292, DNA_EASY_33X4455, DNA_EASY_46X16250, DNA_EASY_5X1000,
+    DNA_EASY_8X1252, DNA_MEDIUM_128X688,
 };
 
 fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
@@ -43,12 +43,8 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
     for (key, path) in paths {
         // safety: we immediately drop data and then the buffer after each bench
         // and never read from the pointer
-        let (mut data, buf_ptr) = unsafe {
-            black_box_pip_cost_with_cache_buf::<Q>(path, FrequencyOptimisation::Empirical)
-        };
+        let mut data = black_box_pip_cost::<Q>(path, FrequencyOptimisation::Empirical);
         bench(key, &mut data);
-        drop(data);
-        drop(unsafe { BoxSlice::from_raw(buf_ptr) })
     }
     bench_group.finish();
 }

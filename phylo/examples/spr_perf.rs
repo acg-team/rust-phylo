@@ -77,7 +77,7 @@ fn run_single_spr_cycle_for_sizes() {
         .collect_vec();
     let prune_locations = prune_locations.iter().collect_vec();
 
-    let mut storage = TopologyOptimiserStorage::new_inplace(&cost_fn);
+    let mut storage = TopologyOptimiserStorage::new_basic(cost_fn);
     let base_cost_fn = storage.base_cost_fn().clone();
     let mut elapsed = Duration::ZERO;
     for _ in 0..ITERS {
@@ -103,7 +103,7 @@ fn run_find_best_regraft_for_single_spr_move() {
     let base_cost_fn = cost_fn.clone();
 
     let mut elapsed = Duration::ZERO;
-    let mut topo_storage = TopologyOptimiserStorage::new_inplace(&cost_fn);
+    let mut topo_storage = TopologyOptimiserStorage::new_basic(cost_fn);
     for _ in 0..ITERS {
         let mut regraft_optimiser = RegraftOptimiser::new_with_storage(
             &prune_location,

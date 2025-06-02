@@ -45,8 +45,8 @@ fn run_simulated_topo_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
     for (key, path) in paths {
         let cost = black_box_pip_cost::<Q>(path, FrequencyOptimisation::Empirical);
 
-        let topo_opt = TopologyOptimiser::new_with_pred_inplace(
-            &cost,
+        let topo_opt = TopologyOptimiser::new_with_pred(
+            cost,
             TopologyOptimiserPredicate::fixed_iter(NonZero::new(3).unwrap()),
         );
         bench(key, topo_opt);

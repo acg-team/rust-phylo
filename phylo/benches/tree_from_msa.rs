@@ -23,16 +23,14 @@ use helpers::{
 ///
 /// TODO: expose this as part of the rust-phylo library
 fn run_optimisation(
-    cost: &PIPCost<impl QMatrix>,
+    cost: PIPCost<impl QMatrix>,
     freq_opt: FrequencyOptimisation,
     max_iterations: usize,
     epsilon: f64,
 ) -> Result<(f64, Tree)> {
     // needs to be intialized first for now because it holds the master cache
-    let mut topo_opt = TopologyOptimiser::new_with_pred_inplace(
-        cost,
-        TopologyOptimiserPredicate::gt_epsilon(1e-3),
-    );
+    let mut topo_opt =
+        TopologyOptimiser::new_with_pred(cost, TopologyOptimiserPredicate::gt_epsilon(1e-3));
     let mut prev_cost = f64::NEG_INFINITY;
     let mut final_cost = TreeSearchCost::cost(topo_opt.base_cost_fn());
 
@@ -65,7 +63,7 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
                 || data.clone(),
                 |(pip_config, pip_cost)| {
                     run_optimisation(
-                        &pip_cost,
+                        pip_cost,
                         pip_config.freq_opt,
                         pip_config.max_iters,
                         pip_config.epsilon,

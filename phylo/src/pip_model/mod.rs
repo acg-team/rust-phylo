@@ -8,12 +8,12 @@ use std::ops::Range;
 use anyhow::bail;
 use fixedbitset::FixedBitSet;
 use indices::{DisjointIndices, DisjointRanges, NodeCacheIndexer, NodeCacheSlicer};
-use itertools::Itertools;
+use itertools::{repeat_n, zip_eq, Itertools};
 use lazy_static::lazy_static;
 use log::warn;
 use nalgebra::{
-    DMatrix, DMatrixView, DMatrixViewMut, DVectorView, DVectorViewMut, MatrixViewMutXx3,
-    MatrixViewXx3,
+    DMatrix, DMatrixViewMut, DVector, DVectorView, DVectorViewMut, MatrixViewMutXx3, MatrixViewXx3,
+    MatrixXx3,
 };
 
 use crate::alignment::Mapping;
@@ -98,12 +98,10 @@ impl<Q: QMatrix> EvoModel for PIPModel<Q> {
     fn p(&self, time: f64) -> SubstMatrix {
         (self.q() * time).exp()
     }
-    fn p_to(&self, time: f64, to: &mut DMatrixViewMut<f64>) {
+    fn p_to(&self, time: f64, to: &mut SubstMatrix) {
         to.copy_from(self.q());
         *to *= time;
-        // TODO: nalgebra seems to require the matrix to be owned
-        // for exp
-        to.copy_from(&to.clone_owned().exp());
+        to.copy_from(&to.exp());
     }
 
     fn q(&self) -> &SubstMatrix {
@@ -329,6 +327,83 @@ impl PIPModelCacheBufDimensions {
 
     pub const fn node_count(&self) -> usize {
         self.node_count
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PIPModelCacheSOA {
+    surv_ins_weights: Box<[f64]>,
+    anc: Box<[MatrixXx3<f64>]>,
+    ftilde: Box<[DMatrix<f64>]>,
+    pnu: Box<[DVector<f64>]>,
+    c0_f1: Box<[f64]>,
+    c0_pnu: Box<[f64]>,
+    models: Box<[SubstMatrix]>,
+    valid: FixedBitSet,
+    models_valid: FixedBitSet,
+    length: usize,
+}
+
+impl Clone for PIPModelCacheSOA {
+    fn clone(&self) -> Self {
+        Self {
+            surv_ins_weights: self.surv_ins_weights.clone(),
+            anc: self.anc.clone(),
+            ftilde: self.ftilde.clone(),
+            pnu: self.pnu.clone(),
+            c0_f1: self.c0_f1.clone(),
+            c0_pnu: self.c0_pnu.clone(),
+            models: self.models.clone(),
+            valid: self.valid.clone(),
+            models_valid: self.models_valid.clone(),
+            length: self.length,
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        assert_eq!(self.length, source.length);
+
+        self.surv_ins_weights
+            .copy_from_slice(&source.surv_ins_weights);
+
+        zip_eq(&mut self.anc, &source.anc).for_each(|(this, source)| this.copy_from(source));
+        // self.anc.clone_from_slice(&source.anc);
+
+        zip_eq(&mut self.ftilde, &source.ftilde).for_each(|(this, source)| this.copy_from(source));
+        // self.ftilde.clone_from_slice(&source.ftilde);
+
+        zip_eq(&mut self.pnu, &source.pnu).for_each(|(this, source)| this.copy_from(source));
+        // self.pnu.clone_from_slice(&source.pnu);
+
+        self.c0_f1.copy_from_slice(&source.c0_f1);
+        self.c0_pnu.copy_from_slice(&source.c0_pnu);
+
+        zip_eq(&mut self.models, &source.models).for_each(|(this, source)| this.copy_from(source));
+        // self.models.clone_from_slice(&source.models);
+
+        self.valid.clone_from(&source.valid);
+        self.models_valid.clone_from(&source.models_valid);
+    }
+}
+
+impl PIPModelCacheSOA {
+    fn make_array<C: Clone>(item: C, count: usize) -> Box<[C]> {
+        repeat_n(item, count).collect()
+    }
+    fn make_default(n: usize, msa_length: usize, node_count: usize) -> Self {
+        // MERBUG: try an ArenaAllocator so all these are continuous in memory
+        Self {
+            length: node_count,
+            ftilde: Self::make_array(DMatrix::<f64>::zeros(n, msa_length), node_count),
+            surv_ins_weights: Self::make_array(0.0, node_count),
+            pnu: Self::make_array(DVector::<f64>::zeros(msa_length), node_count),
+            c0_f1: Self::make_array(0.0, node_count),
+            c0_pnu: Self::make_array(0.0, node_count),
+            anc: Self::make_array(MatrixXx3::<f64>::zeros(msa_length), node_count),
+            models: Self::make_array(SubstMatrix::zeros(n, n), node_count),
+            valid: FixedBitSet::with_capacity(node_count),
+            models_valid: FixedBitSet::with_capacity(node_count),
+        }
     }
 }
 
@@ -637,7 +712,7 @@ impl PIPModelCacheBuf {
 #[derive(Debug, PartialEq)]
 pub struct PIPModelInfo<Q: QMatrix> {
     phantom: PhantomData<Q>,
-    cache: PIPModelCacheBuf,
+    cache: PIPModelCacheSOA,
     matrix_buf: DMatrix<f64>,
 }
 
@@ -658,20 +733,16 @@ impl<Q: QMatrix> Clone for PIPModelInfo<Q> {
 }
 
 impl<Q: QMatrix> PIPModelInfo<Q> {
-    pub const fn dimensions(&self) -> PIPModelCacheBufDimensions {
-        self.cache.dimensions()
-    }
     pub fn new(info: &PhyloInfo, model: &PIPModel<Q>) -> Result<Self> {
         let n = model.q().nrows();
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
-        let dimensions = PIPModelCacheBufDimensions::new(n, msa_length, node_count);
-        let mut cache_entries = PIPModelCacheBuf::new_owned(dimensions);
+        let mut cache_entries = PIPModelCacheSOA::make_default(n, msa_length, node_count);
         for node in info.tree.leaves() {
             let seq = info.msa.seqs.record_by_id(&node.id).seq().to_vec();
 
             let alignment_map = info.msa.leaf_map(&node.idx);
-            let leaf_seq_w_gaps = &mut cache_entries.ftilde_mut(usize::from(node.idx));
+            let leaf_seq_w_gaps = &mut cache_entries.ftilde[usize::from(node.idx)];
 
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
@@ -808,31 +879,31 @@ impl<Q: QMatrix + Display> Display for PIPCost<Q> {
     }
 }
 
-struct CacheLeafViewMut<'a, 'b: 'a> {
+struct CacheLeafViewMut<'a> {
     surv_ins_weights: &'a mut f64,
-    anc: &'a mut MatrixViewMutXx3<'b, f64>,
-    ftilde: &'a DMatrixView<'b, f64>,
-    pnu: &'a mut DVectorViewMut<'b, f64>,
+    anc: &'a mut MatrixXx3<f64>,
+    ftilde: &'a DMatrix<f64>,
+    pnu: &'a mut DVector<f64>,
     c0_f1: &'a mut f64,
     c0_pnu: &'a mut f64,
 }
 
-struct CacheFtildeViewMut<'a, 'b: 'a> {
-    ftilde: &'a mut DMatrixViewMut<'b, f64>,
-    f: &'a mut DVectorViewMut<'b, f64>,
+struct CacheFtildeViewMut<'a> {
+    ftilde: &'a mut DMatrix<f64>,
+    f: &'a mut DVector<f64>,
 }
 struct CacheFtildeChildView<'a> {
-    ftilde: DMatrixView<'a, f64>,
-    models: DMatrixView<'a, f64>,
+    ftilde: &'a DMatrix<f64>,
+    models: &'a DMatrix<f64>,
 }
 
-struct CachePnuViewMut<'a, 'b: 'a> {
+struct CachePnuViewMut<'a> {
     surv_ins_weights: f64,
-    anc: MatrixViewXx3<'a, f64>,
-    pnu: &'a mut DVectorViewMut<'b, f64>,
+    anc: &'a MatrixXx3<f64>,
+    pnu: &'a mut DVector<f64>,
 }
 struct CachePnuChildView<'a> {
-    pnu: DVectorView<'a, f64>,
+    pnu: &'a DVector<f64>,
 }
 
 struct CacheC0ViewMut<'a> {
@@ -846,21 +917,6 @@ struct CacheC0ChildView {
 }
 
 impl<Q: QMatrix> PIPCost<Q> {
-    pub fn cache_dimensions(&self) -> PIPModelCacheBufDimensions {
-        self.tmp.borrow().dimensions()
-    }
-    pub fn clone_with_cache_in(&self, buf: &'static mut [MaybeUninit<f64>]) -> Self {
-        debug_assert_eq!(buf.len(), self.cache_dimensions().total_len_f64_padded());
-        Self {
-            model: self.model.clone(),
-            info: self.info.clone(),
-            tmp: RefCell::new(PIPModelInfo {
-                phantom: PhantomData,
-                cache: self.tmp.borrow().cache.clone_in(buf),
-                matrix_buf: self.tmp.borrow().matrix_buf.clone(),
-            }),
-        }
-    }
     fn logl(&self) -> f64 {
         let mut tmp = self.tmp.borrow_mut();
         let PIPModelInfo {
@@ -875,7 +931,7 @@ impl<Q: QMatrix> PIPCost<Q> {
             if self.tree().dirty[number_node_idx] || !cache.models_valid[number_node_idx] {
                 self.set_model(
                     self.tree().nodes[number_node_idx].blen,
-                    &mut cache.models_mut(number_node_idx),
+                    &mut cache.models[number_node_idx],
                 );
                 cache.models_valid.insert(number_node_idx);
                 cache.valid.remove(number_node_idx);
@@ -893,13 +949,13 @@ impl<Q: QMatrix> PIPCost<Q> {
                         let children_blen =
                             children.map(|child_idx| self.tree().nodes[child_idx].blen);
 
-                        let mut this_cache = cache.entry_mut(indices.this());
+                        let this_surv_ins_weights = cache.surv_ins_weights.this_mut(indices);
 
                         if root_idx == number_node_idx {
-                            *this_cache.surv_ins_weight = self.model.lambda() / self.model.mu();
-                            this_cache.anc.fill_column(0, 1.0);
+                            *this_surv_ins_weights = self.model.lambda() / self.model.mu();
+                            cache.anc[number_node_idx].fill_column(0, 1.0);
                         } else {
-                            *this_cache.surv_ins_weight = Self::survival_insertion_weight(
+                            *this_surv_ins_weights = Self::survival_insertion_weight(
                                 self.model.lambda(),
                                 self.model.mu(),
                                 this_blen,
@@ -909,23 +965,18 @@ impl<Q: QMatrix> PIPCost<Q> {
                                 .expect("all internal nodes have a parent");
                             cache.valid.remove(usize::from(parent_idx));
                         }
-                        self.set_internal_common(
-                            cache.entries_mut(indices),
-                            matrix_buf,
-                            children_blen,
-                        );
+                        self.set_internal_common(cache, indices, matrix_buf, children_blen);
                     }
                     Leaf(_) => {
-                        let mut leaf_cache = cache.entry_mut(number_node_idx);
                         self.set_leaf(
                             this_blen,
                             CacheLeafViewMut {
-                                ftilde: &leaf_cache.ftilde.as_view(),
-                                pnu: &mut leaf_cache.pnu,
-                                anc: &mut leaf_cache.anc,
-                                surv_ins_weights: leaf_cache.surv_ins_weight,
-                                c0_f1: leaf_cache.c0_f1,
-                                c0_pnu: leaf_cache.c0_pnu,
+                                ftilde: &mut cache.ftilde[number_node_idx],
+                                pnu: &mut cache.pnu[number_node_idx],
+                                anc: &mut cache.anc[number_node_idx],
+                                surv_ins_weights: &mut cache.surv_ins_weights[number_node_idx],
+                                c0_f1: &mut cache.c0_f1[number_node_idx],
+                                c0_pnu: &mut cache.c0_pnu[number_node_idx],
                             },
                             self.info.msa.leaf_map(node_idx),
                         );
@@ -945,8 +996,7 @@ impl<Q: QMatrix> PIPCost<Q> {
         // length optimisation BrentOpt cannot handle it and proposes NaN branch lengths.
         // This is a workaround that sets the probability to the smallest posible positive float,
         // which is equivalent to restricting the log likelihood to f64::MIN.
-        cache
-            .pnu(root_idx)
+        cache.pnu[root_idx]
             .map(|x| {
                 if x == 0.0 || x.is_subnormal() {
                     *MINLOGPROB
@@ -955,62 +1005,58 @@ impl<Q: QMatrix> PIPCost<Q> {
                 }
             })
             .sum()
-            + cache.c0()[root_idx].pnu
+            + cache.c0_pnu[root_idx]
             - log_factorial_shifted(msa_length)
     }
 
     fn set_internal_common(
         &self,
-        [left_cache, right_cache, mut this_cache]: [PIPModelCacheEntryViewMut; 3],
+        cache: &mut PIPModelCacheSOA,
+        indices: DisjointIndices,
         matrix_buf: &mut DMatrix<f64>,
         children_blen: [f64; 2],
     ) {
+        let this_surv_ins_weights = *cache.surv_ins_weights.this(indices);
+        let [children_ftilde @ .., this_ftilde] = cache.ftilde.left_right_this_mut(indices);
+        let children_models = cache.models.left_right_mut(indices);
+        let [children_anc @ .., this_anc] = cache.anc.left_right_this_mut(indices);
+        let [children_pnu @ .., this_pnu] = cache.pnu.left_right_this_mut(indices);
+        let [children_c0_f1 @ .., this_c0_f1] = cache.c0_f1.left_right_this_mut(indices);
+        let [children_c0_pnu @ .., this_c0_pnu] = cache.c0_pnu.left_right_this_mut(indices);
+
         self.set_ftilde(
             CacheFtildeViewMut {
-                f: &mut this_cache.pnu, // on purpose, f doen't get used for anything else but assign to pnu
-                ftilde: &mut this_cache.ftilde,
+                f: this_pnu, // on purpose, f doen't get used for anything else but assign to pnu
+                ftilde: this_ftilde,
             },
-            itertools::izip!(
-                [left_cache.ftilde, right_cache.ftilde],
-                [left_cache.model, right_cache.model]
-            )
-            .map(|(ftilde, model)| CacheFtildeChildView {
-                ftilde: ftilde.into(),
-                models: model.into(),
-            })
-            .collect_array::<2>()
-            .unwrap(),
+            [0, 1].map(|child| CacheFtildeChildView {
+                ftilde: children_ftilde[child],
+                models: children_models[child],
+            }),
             matrix_buf,
         );
-        self.set_ancestors(
-            &mut this_cache.anc,
-            [&left_cache.anc.as_view(), &right_cache.anc.as_view()],
-        );
+        self.set_ancestors(this_anc, [0, 1].map(|child| &*children_anc[child]));
         self.set_pnu(
             CachePnuViewMut {
-                pnu: &mut this_cache.pnu,
-                surv_ins_weights: *this_cache.surv_ins_weight,
-                anc: this_cache.anc.as_view(),
+                pnu: this_pnu,
+                surv_ins_weights: this_surv_ins_weights,
+                anc: &*this_anc,
             },
-            [left_cache.pnu, right_cache.pnu].map(|pnu| CachePnuChildView { pnu: pnu.into() }),
+            [0, 1].map(|child| CachePnuChildView {
+                pnu: children_pnu[child],
+            }),
         );
         self.set_c0(
             children_blen,
             CacheC0ViewMut {
-                surv_ins_weights: *this_cache.surv_ins_weight,
-                c0_f1: this_cache.c0_f1,
-                c0_pnu: this_cache.c0_pnu,
+                surv_ins_weights: this_surv_ins_weights,
+                c0_f1: this_c0_f1,
+                c0_pnu: this_c0_pnu,
             },
-            itertools::izip!(
-                [left_cache.c0_f1, right_cache.c0_f1],
-                [left_cache.c0_pnu, right_cache.c0_pnu]
-            )
-            .map(|(c0_f1, c0_pnu)| CacheC0ChildView {
-                c0_f1: *c0_f1,
-                c0_pnu: *c0_pnu,
-            })
-            .collect_array::<2>()
-            .unwrap(),
+            [0, 1].map(|child| CacheC0ChildView {
+                c0_f1: *children_c0_f1[child],
+                c0_pnu: *children_c0_pnu[child],
+            }),
         );
     }
 
@@ -1060,9 +1106,9 @@ impl<Q: QMatrix> PIPCost<Q> {
         // into the cmpy function below
         // pnu = 1 * a `compmul` b + surv_ins_weights * pnu
         this.pnu
-            .cmpy(1., &this.anc.column(1), &left.pnu, this.surv_ins_weights);
+            .cmpy(1., &this.anc.column(1), left.pnu, this.surv_ins_weights);
         // pnu = 1 * a `compmul` b + 1. * pnu
-        this.pnu.cmpy(1., &this.anc.column(2), &right.pnu, 1.);
+        this.pnu.cmpy(1., &this.anc.column(2), right.pnu, 1.);
     }
 
     /// Dependent:
@@ -1078,14 +1124,14 @@ impl<Q: QMatrix> PIPCost<Q> {
         [left, right]: [CacheFtildeChildView; 2],
         ftilde_buf: &mut DMatrix<f64>,
     ) {
-        left.models.mul_to(&left.ftilde, this.ftilde);
-        right.models.mul_to(&right.ftilde, ftilde_buf);
+        left.models.mul_to(left.ftilde, this.ftilde);
+        right.models.mul_to(right.ftilde, ftilde_buf);
         this.ftilde.component_mul_assign(ftilde_buf);
 
         this.ftilde.tr_mul_to(self.model.freqs(), this.f);
     }
 
-    fn set_model(&self, node_blen: f64, models: &mut DMatrixViewMut<f64>) {
+    fn set_model(&self, node_blen: f64, models: &mut DMatrix<f64>) {
         self.model.p_to(node_blen, models);
     }
 
@@ -1096,8 +1142,8 @@ impl<Q: QMatrix> PIPCost<Q> {
     /// - tmp.anc of this node
     fn set_ancestors(
         &self,
-        this_anc: &mut MatrixViewMutXx3<f64>,
-        [left_anc, right_anc]: [&MatrixViewXx3<f64>; 2],
+        this_anc: &mut MatrixXx3<f64>,
+        [left_anc, right_anc]: [&MatrixXx3<f64>; 2],
     ) {
         this_anc.set_column(1, &left_anc.column(0));
         this_anc.set_column(2, &right_anc.column(0));
@@ -1163,6 +1209,10 @@ mod indices {
             pub fn left_right_this(&self) -> [usize; 3] {
                 self.left_right_this
             }
+
+            pub fn left_right(&self) -> [usize; 2] {
+                [self.left_right_this[0], self.left_right_this[1]]
+            }
             pub fn this(&self) -> usize {
                 self.left_right_this[2]
             }
@@ -1218,6 +1268,19 @@ mod indices {
             // becomes necessary
             self.as_mut()
                 .get_disjoint_mut(indices.left_right_this())
+                .expect("indices should be distinct")
+        }
+        fn this(&mut self, indices: DisjointIndices) -> &T {
+            &self.as_mut()[indices.this()]
+        }
+        fn this_mut(&mut self, indices: DisjointIndices) -> &mut T {
+            &mut self.as_mut()[indices.this()]
+        }
+        fn left_right_mut(&mut self, indices: DisjointIndices) -> [&mut T; 2] {
+            // NOTE: could check len and then use get_disjoint_mut_unchecked if unsafe
+            // becomes necessary
+            self.as_mut()
+                .get_disjoint_mut(indices.left_right())
                 .expect("indices should be distinct")
         }
     }

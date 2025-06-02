@@ -68,7 +68,7 @@ fn run_single_spr_cycle_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
             .copied()
             .collect_vec();
         let prune_locations_ref = prune_locations.iter().collect_vec();
-        let storage = TopologyOptimiserStorage::new_inplace(&cost_fn);
+        let storage = TopologyOptimiserStorage::new_basic(cost_fn);
         bench(key, (storage, &prune_locations_ref));
     }
     bench_group.finish();
