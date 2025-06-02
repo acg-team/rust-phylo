@@ -8,8 +8,8 @@ use log::info;
 
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::{ModelSearchCost, TreeSearchCost};
-use phylo::optimisers::{ModelOptimiser, TopologyOptimiser};
-use phylo::substitution_models::JC69;
+use phylo::optimisers::{ModelOptimiser, TopologyOptimiser, TopologyOptimiserPredicate};
+use phylo::substitution_models::{QMatrix, JC69};
 use phylo::tree::Tree;
 mod helpers;
 use crate::helpers::{
@@ -18,20 +18,25 @@ use crate::helpers::{
     N70_M500, N80_M500, N90_M500,
 };
 use helpers::{black_box_raw_pip_cost_with_config, SequencePaths};
+use phylo::pip_model::PIPCost;
 
 /// NOTE: This is essentially a snapshot of the JATI binary at the time of creation
 /// ANY changes must be manually tracked to accurately measure real-world usage.
 ///
 /// TODO: expose this as part of the rust-phylo library
 fn run_optimisation(
-    cost: impl TreeSearchCost + ModelSearchCost + Display + Clone + Send,
+    cost: &PIPCost<impl QMatrix>,
     freq_opt: FrequencyOptimisation,
     max_iterations: usize,
     epsilon: f64,
 ) -> Result<(f64, Tree)> {
-    let mut cost = cost;
+    // needs to be intialized first for now because it holds the master cache
+    let mut topo_opt = TopologyOptimiser::new_with_pred_inplace(
+        cost,
+        TopologyOptimiserPredicate::gt_epsilon(1e-3),
+    );
     let mut prev_cost = f64::NEG_INFINITY;
-    let mut final_cost = TreeSearchCost::cost(&cost);
+    let mut final_cost = TreeSearchCost::cost(topo_opt.base_cost_fn());
 
     let mut iterations = 0;
     while final_cost - prev_cost > epsilon && iterations < max_iterations {
@@ -39,14 +44,14 @@ fn run_optimisation(
         info!("Iteration: {}", iterations);
 
         prev_cost = final_cost;
-        let model_optimiser = ModelOptimiser::new(cost, freq_opt);
-        let o = TopologyOptimiser::new(model_optimiser.run()?.cost)
-            .run()
-            .unwrap();
+        let model_optimiser = ModelOptimiser::new(topo_opt.base_cost_fn().clone(), freq_opt);
+        topo_opt.set_base_cost_fn_to(&model_optimiser.run()?.cost);
+
+        // resulting cost_fn is in base_cost_fn
+        let o = topo_opt.run_mut().unwrap();
         final_cost = o.final_cost;
-        cost = o.cost;
     }
-    Ok((final_cost, cost.tree().clone()))
+    Ok((final_cost, topo_opt.base_cost_fn().tree().clone()))
 }
 
 #[test]
@@ -63,7 +68,7 @@ fn test_one_shot_increasing_length() {
     for (key, path) in paths {
         let data = black_box_raw_pip_cost_with_config::<JC69>(path);
         let start = Instant::now();
-        run_optimisation(data.1, data.0.freq_opt, data.0.max_iters, data.0.epsilon)
+        run_optimisation(&data.1, data.0.freq_opt, data.0.max_iters, data.0.epsilon)
             .expect("Should have run");
         let duration = start.elapsed();
         println!("{}", key);
@@ -83,7 +88,7 @@ fn test_one_shot_increasing_taxa() {
     for (key, path) in paths {
         let data = black_box_raw_pip_cost_with_config::<JC69>(path);
         let start = Instant::now();
-        run_optimisation(data.1, data.0.freq_opt, data.0.max_iters, data.0.epsilon)
+        run_optimisation(&data.1, data.0.freq_opt, data.0.max_iters, data.0.epsilon)
             .expect("Should have run");
         let duration = start.elapsed();
         println!("{}", key);
@@ -101,7 +106,7 @@ fn test_one_shot_increasing_taxa_large() {
     for (key, path) in paths {
         let data = black_box_raw_pip_cost_with_config::<JC69>(path);
         let start = Instant::now();
-        run_optimisation(data.1, data.0.freq_opt, data.0.max_iters, data.0.epsilon)
+        run_optimisation(&data.1, data.0.freq_opt, data.0.max_iters, data.0.epsilon)
             .expect("Should have run");
         let duration = start.elapsed();
         println!("{}", key);
@@ -115,7 +120,7 @@ fn test_one_shot_increasing_taxa_vlarge() {
     for (key, path) in paths {
         let data = black_box_raw_pip_cost_with_config::<JC69>(path);
         let start = Instant::now();
-        run_optimisation(data.1, data.0.freq_opt, data.0.max_iters, data.0.epsilon)
+        run_optimisation(&data.1, data.0.freq_opt, data.0.max_iters, data.0.epsilon)
             .expect("Should have run");
         let duration = start.elapsed();
         println!("{}", key);
@@ -129,7 +134,7 @@ fn test_one_shot_increasing_taxa_xlarge() {
     for (key, path) in paths {
         let data = black_box_raw_pip_cost_with_config::<JC69>(path);
         let start = Instant::now();
-        run_optimisation(data.1, data.0.freq_opt, data.0.max_iters, data.0.epsilon)
+        run_optimisation(&data.1, data.0.freq_opt, data.0.max_iters, data.0.epsilon)
             .expect("Should have run");
         let duration = start.elapsed();
         println!("{}", key);
@@ -143,7 +148,7 @@ fn test_one_shot_real_world() {
     for (key, path) in paths {
         let data = black_box_raw_pip_cost_with_config::<JC69>(path);
         let start = Instant::now();
-        run_optimisation(data.1, data.0.freq_opt, data.0.max_iters, data.0.epsilon)
+        run_optimisation(&data.1, data.0.freq_opt, data.0.max_iters, data.0.epsilon)
             .expect("Should have run");
         let duration = start.elapsed();
         println!("{}", key);
