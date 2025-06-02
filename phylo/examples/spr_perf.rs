@@ -19,7 +19,7 @@ use phylo::{
     pip_model::{PIPCostBuilder, PIPModel},
 };
 
-const ITERS: usize = 1000;
+const ITERS: usize = 10;
 const DNA_EASY_17X2292: &str = "data/benchmark-datasets/dna/easy/wickd3a_7771.processed.fasta";
 
 fn black_box_deterministic_phylo_info(seq_file: impl Into<PathBuf>) -> PhyloInfo {
