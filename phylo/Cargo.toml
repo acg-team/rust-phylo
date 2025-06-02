@@ -6,13 +6,17 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
+default = ["par"]
 ci_coverage = []
 deterministic = []
 # Feature that can speed up repeated test runs for when tree search is not affected and tests are ran locally.
 use-precomputed-test-results = []
-par-regraft = ["dep:rayon"]
-par-regraft-chunk = ["dep:rayon"]
-par-regraft-manual = ["dep:rayon"]
+par-regraft = ["par"]
+par-regraft-chunk = ["par"]
+par-regraft-manual = ["par"]
+par = ["dep:rayon"]
+# otherwise transparent hugepages will be used
+hugetlbfs = []
 
 [lib]
 bench = false
@@ -35,6 +39,8 @@ argmin = "0.8.1"
 assert_matches = "1.5.0"
 bio = "1.3.1"
 bitvec = "1.0.1"
+bumpalo = "3.17.0"
+bytemuck = { version = "1.23.0", features = ["derive"] }
 cfg-if = "1.0.0"
 clap = { version = "4.5.28", features = ["derive"] }
 dyn-clone = "1.0.18"
@@ -43,6 +49,7 @@ ftail = "0.2.0"
 hashbrown = "0.15.2"
 itertools = "0.14.0"
 lazy_static = "1.4.0"
+libc = "0.2.172"
 log = "0.4.19"
 # NOTE: mutli threaded kernels for matrix multiplication are available
 # through the matrixmultiply peer-dep
@@ -78,4 +85,7 @@ name = "spr"
 harness = false
 [[bench]]
 name = "helpers"
+harness = false
+[[bench]]
+name = "matrix"
 harness = false

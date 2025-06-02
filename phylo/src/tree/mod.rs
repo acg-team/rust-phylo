@@ -63,14 +63,14 @@ impl From<NodeIdx> for usize {
 #[derive(Debug, Clone)]
 pub struct Tree {
     pub root: NodeIdx,
-    pub(crate) nodes: Vec<Node>,
+    pub nodes: Vec<Node>,
     postorder: Vec<NodeIdx>,
     preorder: Vec<NodeIdx>,
     leaf_ids: Vec<String>,
     pub complete: bool,
     pub n: usize,
     pub height: f64,
-    pub(crate) dirty: Vec<bool>,
+    pub dirty: Vec<bool>,
 }
 
 impl Display for Tree {

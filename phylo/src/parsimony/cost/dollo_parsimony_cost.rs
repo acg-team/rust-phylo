@@ -15,13 +15,13 @@ use crate::tree::{
 };
 
 #[derive(Debug, Clone)]
-pub struct DolloParsimonyCost<S: ParsimonyScoring> {
+pub struct DolloParsimonyCost<S: ParsimonyScoring + Clone> {
     pub(crate) info: PhyloInfo,
     tmp: RefCell<DolloParsimonyInfo>,
     scoring: S,
 }
 
-impl<S: ParsimonyScoring> Display for DolloParsimonyCost<S> {
+impl<S: ParsimonyScoring + Clone> Display for DolloParsimonyCost<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Dollo parsimony using: \n\t{}", self.scoring)
     }
@@ -38,7 +38,7 @@ impl DolloParsimonyCost<SimpleScoring> {
     }
 }
 
-impl<S: ParsimonyScoring> DolloParsimonyCost<S> {
+impl<S: ParsimonyScoring + Clone> DolloParsimonyCost<S> {
     pub fn with_scoring(info: PhyloInfo, scoring: S) -> Self {
         let tmp = RefCell::new(DolloParsimonyInfo::new(&info));
         DolloParsimonyCost { info, tmp, scoring }
@@ -143,7 +143,7 @@ impl<S: ParsimonyScoring> DolloParsimonyCost<S> {
     }
 }
 
-impl<S: ParsimonyScoring> TreeSearchCost for DolloParsimonyCost<S> {
+impl<S: ParsimonyScoring + Clone> TreeSearchCost for DolloParsimonyCost<S> {
     fn cost(&self) -> f64 {
         -self.score()
     }

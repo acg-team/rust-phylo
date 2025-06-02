@@ -17,6 +17,11 @@ pub struct SingleValOptResult {
     pub value: f64,
 }
 
+pub struct PhyloOptimisationResultStats {
+    pub initial_cost: f64,
+    pub final_cost: f64,
+    pub iterations: usize,
+}
 pub struct PhyloOptimisationResult<C: TreeSearchCost> {
     pub initial_cost: f64,
     pub final_cost: f64,

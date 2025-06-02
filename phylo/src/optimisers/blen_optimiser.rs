@@ -10,23 +10,25 @@ use crate::optimisers::{PhyloOptimisationResult, SingleValOptResult};
 use crate::tree::NodeIdx;
 use crate::{Result, MAX_BLEN};
 
-pub struct BranchOptimiser<C: TreeSearchCost + Display + Clone> {
+use super::PhyloOptimisationResultStats;
+
+pub struct BranchOptimiser<'a, C: TreeSearchCost + Display + Clone> {
     pub(crate) epsilon: f64,
-    pub(crate) c: RefCell<C>,
+    pub(crate) c: &'a mut C,
 }
 
-impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
-    pub fn new(cost: C) -> Self {
-        Self {
+impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<'_, C> {
+    pub fn new(cost: &'_ mut C) -> BranchOptimiser<'_, C> {
+        BranchOptimiser {
             epsilon: 1e-3,
-            c: RefCell::new(cost),
+            c: cost,
         }
     }
 
-    pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
+    pub fn run_mut(&mut self) -> Result<PhyloOptimisationResultStats> {
         info!("Optimising branch lengths.");
-        let init_cost = self.c.borrow().cost();
-        let mut tree = self.c.borrow().tree().clone();
+        let init_cost = self.c.cost();
+        let mut tree = self.c.tree().clone();
 
         info!("Initial cost: {}.", init_cost);
         let mut curr_cost = init_cost;
@@ -55,35 +57,47 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
                 }
                 // The branch length may have changed during the optimisation attempt, so the tree
                 // should be reset even if the optimisation was unsuccessful.
-                self.c.borrow_mut().update_tree(tree.clone(), &[*branch]);
+                self.c.update_tree(tree.clone(), &[*branch]);
             }
         }
 
-        debug_assert_eq!(curr_cost, self.c.borrow().cost());
+        debug_assert_eq!(curr_cost, self.c.cost());
         info!("Done optimising branch lengths.");
         info!(
             "Final cost: {}, achieved in {} iteration(s).",
             curr_cost, iterations
         );
-        Ok(PhyloOptimisationResult {
+        Ok(PhyloOptimisationResultStats {
             initial_cost: init_cost,
             final_cost: curr_cost,
             iterations,
-            cost: self.c.into_inner(),
+        })
+    }
+    pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
+        let PhyloOptimisationResultStats {
+            initial_cost,
+            final_cost,
+            iterations,
+        } = self.run_mut()?;
+        Ok(PhyloOptimisationResult {
+            initial_cost,
+            final_cost,
+            iterations,
+            cost: self.c.clone(),
         })
     }
 }
 
-impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
+impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<'_, C> {
     pub(crate) fn optimise_branch(&mut self, branch: &NodeIdx) -> Result<SingleValOptResult> {
-        let start_blen = self.c.borrow().tree().node(branch).blen;
+        let start_blen = self.c.tree().node(branch).blen;
         let (min, max) = if start_blen == 0.0 {
             (0.0, 1.0)
         } else {
             (start_blen * 0.1, MAX_BLEN.min(start_blen * 10.0))
         };
         let optimiser = SingleBranchOptimiser {
-            cost: &mut self.c,
+            cost: self.c.into(),
             branch: *branch,
         };
         let gss = BrentOpt::new(min, max);
@@ -99,7 +113,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
 }
 
 pub(crate) struct SingleBranchOptimiser<'a, C: TreeSearchCost> {
-    pub(crate) cost: &'a RefCell<C>,
+    pub(crate) cost: RefCell<&'a mut C>,
     pub(crate) branch: NodeIdx,
 }
 

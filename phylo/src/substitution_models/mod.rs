@@ -5,7 +5,7 @@ use std::ops::Mul;
 
 use anyhow::bail;
 use hashbrown::HashMap;
-use nalgebra::{DMatrix, DVector};
+use nalgebra::{DMatrix, DMatrixViewMut, DVector};
 
 use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
@@ -37,7 +37,7 @@ pub trait QMatrixMaker {
     fn create(frequencies: &[f64], params: &[f64]) -> Self;
 }
 
-pub trait QMatrix: Debug + Clone + Display {
+pub trait QMatrix: Debug + Clone + Display + Send {
     fn set_param(&mut self, param: usize, value: f64);
     fn params(&self) -> &[f64];
     fn freqs(&self) -> &FreqVector;
@@ -73,16 +73,17 @@ impl<Q: QMatrix + QMatrixMaker> SubstModel<Q> {
 impl<Q: QMatrix> EvoModel for SubstModel<Q> {
     fn p(&self, time: f64) -> SubstMatrix {
         let mut to = SubstMatrix::zeros(self.q().nrows(), self.q().ncols());
-        self.p_to(time, &mut to);
+        self.p_to(time, &mut to.as_view_mut());
         to
     }
 
-    fn p_to(&self, time: f64, to: &mut SubstMatrix) {
+    fn p_to(&self, time: f64, to: &mut DMatrixViewMut<f64>) {
         to.copy_from(self.q());
         // If time > 1e10f64 the matrix exponentiation breaks and stops converging, but before it breaks
         // starting with 1e5f64 it converges to the same result.
         *to *= if time > MAX_BLEN { MAX_BLEN } else { time };
-        *to = to.exp();
+        // TODO: nalgebra requires the receiver of exp to be owned for some reason
+        to.copy_from(&to.clone_owned().exp());
     }
 
     fn q(&self) -> &SubstMatrix {

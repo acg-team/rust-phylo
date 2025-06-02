@@ -1,7 +1,7 @@
 use crate::substitution_models::FreqVector;
 use crate::tree::{NodeIdx, Tree};
 
-pub trait TreeSearchCost {
+pub trait TreeSearchCost: Clone {
     fn cost(&self) -> f64;
     // update_tree implies that the tree is a valid modification of the existing tree (e.g. an SPR move),
     // and that the dirty_nodes are the nodes that have changed, but this is not enforced by the trait.
@@ -10,6 +10,9 @@ pub trait TreeSearchCost {
     fn tree(&self) -> &Tree;
     fn blen_optimisation(&self) -> bool {
         true
+    }
+    fn clone_from_smart(&mut self, source: &Self) {
+        self.clone_from(source);
     }
 }
 

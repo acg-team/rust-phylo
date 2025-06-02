@@ -23,7 +23,7 @@ fn branch_opt_likelihood_increase_pip() {
     );
     let c = PIPCB::new(model.clone(), info.clone()).build().unwrap();
     assert_relative_eq!(c.cost(), -5664.780425829528, epsilon = 1e-6);
-    let o = BranchOptimiser::new(c.clone()).run().unwrap();
+    let o = BranchOptimiser::new(&mut c.clone()).run().unwrap();
 
     assert!(o.final_cost > o.initial_cost);
     assert_eq!(c.cost(), o.initial_cost);
@@ -49,7 +49,7 @@ fn branch_opt_likelihood_increase_gtr() {
         .build()
         .unwrap();
     let gtr = SubstModel::<GTR>::new(&[0.25, 0.25, 0.25, 0.25], &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]);
-    let o = BranchOptimiser::new(SCB::new(gtr.clone(), info.clone()).build().unwrap())
+    let o = BranchOptimiser::new(&mut SCB::new(gtr.clone(), info.clone()).build().unwrap())
         .run()
         .unwrap();
 
@@ -68,7 +68,7 @@ fn branch_optimiser_against_phyml() {
         .build()
         .unwrap();
     let model = SubstModel::<JC69>::new(&[], &[]);
-    let o = BranchOptimiser::new(SCB::new(model.clone(), info.clone()).build().unwrap())
+    let o = BranchOptimiser::new(&mut SCB::new(model.clone(), info.clone()).build().unwrap())
         .run()
         .unwrap();
     assert!(o.final_cost > o.initial_cost);
@@ -120,7 +120,7 @@ fn repeated_optimisation_limit() {
     while final_cost - prev_cost > epsilon && iterations < max_iterations {
         iterations += 1;
         prev_cost = final_cost;
-        let branch_o = BranchOptimiser::new(cost.clone()).run().unwrap();
+        let branch_o = BranchOptimiser::new(&mut cost.clone()).run().unwrap();
         assert!(branch_o.final_cost > branch_o.initial_cost);
         final_cost = branch_o.final_cost;
         cost = branch_o.cost;
@@ -140,9 +140,10 @@ fn only_gap_sequence() {
     .unwrap();
     let info = PhyloInfo { msa, tree };
     let model = SubstModel::<WAG>::new(&[], &[]);
-    let c = SCB::new(model, info).build().unwrap();
 
-    let o = BranchOptimiser::new(c).run().unwrap();
+    let o = BranchOptimiser::new(&mut SCB::new(model, info).build().unwrap())
+        .run()
+        .unwrap();
     assert!(o.final_cost >= o.initial_cost);
     assert!(o.final_cost.is_sign_negative());
 }
