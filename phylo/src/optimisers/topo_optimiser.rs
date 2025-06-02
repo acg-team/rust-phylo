@@ -46,6 +46,9 @@ pub(crate) fn max_regrafts_for_tree(tree: &Tree) -> usize {
 }
 
 mod storage {
+    use rayon::iter::ParallelIterator;
+    use rayon::slice::ParallelSliceMut;
+
     use crate::likelihood::TreeSearchCost;
     use crate::optimisers::max_regrafts_for_tree;
     use crate::pip_model::PIPCost;
@@ -111,10 +114,9 @@ mod storage {
 
                 let (ref base, mut_cost_fns) = buf_slice.split_at_mut(single_len);
 
-                for cost_fn_idx in 0..to {
-                    mut_cost_fns[(cost_fn_idx * single_len)..(cost_fn_idx + 1) * single_len]
-                        .copy_from_slice(base);
-                }
+                let mut par_copy = mut_cost_fns[..single_len * to].par_chunks_exact_mut(single_len);
+                assert_eq!(par_copy.remainder().len(), 0);
+                par_copy.for_each(|cost_fn_buf| cost_fn_buf.copy_from_slice(base));
             }
             let [ref base, others @ ..] = self.cost_fns.deref_mut() else {
                 panic!("always at least one cost function in storage")
