@@ -392,6 +392,11 @@ pub struct PIPModelCacheEntryViewMut<'a> {
 }
 
 impl PIPModelCacheBuf {
+    fn clone_from_smart(&mut self, source: &Self) {
+        assert_eq!(self.dimensions(), source.dimensions());
+        self.valid.clone_from(&source.valid);
+        self.models_valid.clone_from(&source.models_valid);
+    }
     pub fn new_owned(dimensions: PIPModelCacheBufDimensions) -> Self {
         let storage = vec![0.0; dimensions.total_len_f64_padded()].into_boxed_slice();
         let storage_ref = Box::leak(storage);
@@ -656,6 +661,14 @@ impl<Q: QMatrix> Clone for PIPModelInfo<Q> {
 }
 
 impl<Q: QMatrix> PIPModelInfo<Q> {
+    fn clone_from_smart(&mut self, source: &Self) {
+        if !self.cache.is_owned {
+            self.cache.clone_from_smart(&source.cache);
+        } else {
+            self.cache.clone_from(&source.cache);
+        }
+        // NOTE: contents of matrix buf are irrelevant
+    }
     pub const fn dimensions(&self) -> PIPModelCacheBufDimensions {
         self.cache.dimensions()
     }
@@ -743,6 +756,14 @@ impl<Q: QMatrix> Clone for PIPCost<Q> {
 }
 
 impl<Q: QMatrix> TreeSearchCost for PIPCost<Q> {
+    fn clone_from_smart(&mut self, source: &Self) {
+        self.model.clone_from(&source.model);
+        self.info.clone_from(&source.info);
+        self.tmp
+            .borrow_mut()
+            .clone_from_smart(&*source.tmp.borrow());
+    }
+
     fn cost(&self) -> f64 {
         self.logl()
     }
