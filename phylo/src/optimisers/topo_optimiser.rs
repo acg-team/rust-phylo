@@ -112,9 +112,21 @@ mod storage {
 
                 let (ref base, mut_cost_fns) = buf_slice.split_at_mut(single_len);
 
-                let mut par_copy = mut_cost_fns[..single_len * to].par_chunks_exact_mut(single_len);
-                assert_eq!(par_copy.remainder().len(), 0);
-                par_copy.for_each(|cost_fn_buf| cost_fn_buf.copy_from_slice(base));
+                let n_copy_threads = 10usize;
+                let cost_fns_to_copy_per_thread = to.div_ceil(n_copy_threads);
+
+                // let cost_fns_to_copy_per_thread = 4usize;
+                mut_cost_fns[..single_len * to]
+                    .par_chunks_mut(cost_fns_to_copy_per_thread * single_len)
+                    .for_each(|multiple_costfn_buf| {
+                        let n_copies = multiple_costfn_buf.len() / single_len;
+                        debug_assert_eq!(multiple_costfn_buf.len() % single_len, 0);
+
+                        for i in 0..n_copies {
+                            multiple_costfn_buf[i * single_len..(i + 1) * single_len]
+                                .copy_from_slice(base);
+                        }
+                    });
             }
             let [ref base, others @ ..] = self.cost_fns.deref_mut() else {
                 panic!("always at least one cost function in storage")
@@ -201,6 +213,9 @@ impl<Q: QMatrix> TopologyOptimiser<PIPCost<Q>> {
             predicate,
             storage: TopologyOptimiserStorage::new_inplace(cost),
         }
+    }
+    pub fn new_inplace(cost: &PIPCost<Q>) -> Self {
+        Self::new_with_pred_inplace(cost, TopologyOptimiserPredicate::GtEpsilon(1e-3))
     }
 }
 
