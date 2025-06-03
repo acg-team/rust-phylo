@@ -169,7 +169,7 @@ mod private_tests {
         let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
         let info = PhyloInfo {
-            msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+            msa: Alignment::from_aligned(seqs, &tree).unwrap().into(),
             tree,
         };
         let cost = BasicParsimonyCost::new(info).unwrap();

@@ -137,7 +137,8 @@ fn only_gap_sequence() {
         ),
         &tree,
     )
-    .unwrap();
+    .unwrap()
+    .into();
     let info = PhyloInfo { msa, tree };
     let model = SubstModel::<WAG>::new(&[], &[]);
 

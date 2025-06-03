@@ -31,7 +31,8 @@ fn empirical_frequencies_easy() {
         ]),
         &tree,
     )
-    .unwrap();
+    .unwrap()
+    .into();
     let info = PhyloInfo { tree, msa };
     let freqs = info.freqs();
     assert_eq!(freqs, frequencies!(&[0.25, 0.25, 0.25, 0.25]));
@@ -50,7 +51,8 @@ fn empirical_frequencies() {
         ]),
         &tree,
     )
-    .unwrap();
+    .unwrap()
+    .into();
 
     let info = PhyloInfo { tree, msa };
     let freqs = info.freqs();
@@ -246,7 +248,8 @@ fn check_empirical_frequencies() {
         ]),
         &tree,
     )
-    .unwrap();
+    .unwrap()
+    .into();
     let info = PhyloInfo { tree, msa };
     let freqs = info.freqs();
     assert_eq!(freqs.clone().sum(), 1.0);
@@ -265,7 +268,8 @@ fn empirical_frequencies_no_ambigs() {
         ]),
         &tree,
     )
-    .unwrap();
+    .unwrap()
+    .into();
     let info = PhyloInfo { tree, msa };
     assert_relative_eq!(info.freqs(), frequencies!(&[0.25; 4]), epsilon = 1e-6);
 }
@@ -282,7 +286,8 @@ fn empirical_frequencies_ambig_x() {
         ]),
         &tree,
     )
-    .unwrap();
+    .unwrap()
+    .into();
     let info = PhyloInfo { tree, msa };
     assert_relative_eq!(info.freqs(), frequencies!(&[0.25; 4]), epsilon = 1e-6);
 }
@@ -299,7 +304,8 @@ fn empirical_frequencies_ambig_n() {
         ]),
         &tree,
     )
-    .unwrap();
+    .unwrap()
+    .into();
     let info = PhyloInfo { tree, msa };
     assert_relative_eq!(
         info.freqs(),
@@ -318,7 +324,8 @@ fn empirical_frequencies_ambig_other() {
         ]),
         &tree,
     )
-    .unwrap();
+    .unwrap()
+    .into();
 
     let info = PhyloInfo {
         tree: tree.clone(),
@@ -333,7 +340,8 @@ fn empirical_frequencies_ambig_other() {
         ]),
         &tree,
     )
-    .unwrap();
+    .unwrap()
+    .into();
     let info = PhyloInfo { tree, msa };
     assert_relative_eq!(info.freqs(), frequencies!(&[0.25; 4]), epsilon = 1e-6);
 }
@@ -341,8 +349,9 @@ fn empirical_frequencies_ambig_other() {
 #[test]
 fn empirical_frequencies_no_aas() {
     let tree = tree!("A:1.0;");
-    let msa =
-        Alignment::from_aligned(Sequences::new(vec![record!("A", b"BBBBBBBBB")]), &tree).unwrap();
+    let msa = Alignment::from_aligned(Sequences::new(vec![record!("A", b"BBBBBBBBB")]), &tree)
+        .unwrap()
+        .into();
 
     let info = PhyloInfo { tree, msa };
     assert_relative_eq!(

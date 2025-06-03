@@ -285,7 +285,8 @@ fn setup_example_phylo_info() -> PhyloInfo {
         ]),
         &tree,
     )
-    .unwrap();
+    .unwrap()
+    .into();
     PhyloInfo { msa, tree }
 }
 
@@ -516,7 +517,8 @@ fn setup_example_phylo_info_2() -> PhyloInfo {
         ]),
         &tree,
     )
-    .unwrap();
+    .unwrap()
+    .into();
     PhyloInfo { msa, tree }
 }
 
@@ -721,12 +723,14 @@ fn pip_logl_correct_w_diff_info() {
     ]);
 
     let info1 = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree1).unwrap(),
+        msa: Alignment::from_aligned(seqs.clone(), &tree1)
+            .unwrap()
+            .into(),
         tree: tree1,
     };
 
     let info2 = PhyloInfo {
-        msa: Alignment::from_aligned(seqs, &tree2).unwrap(),
+        msa: Alignment::from_aligned(seqs, &tree2).unwrap().into(),
         tree: tree2,
     };
 
@@ -797,7 +801,8 @@ fn logl_not_inf_for_empty_col() {
         Sequences::new(read_sequences(&PathBuf::from("./data/sequences_empty_col.fasta")).unwrap()),
         &tree,
     )
-    .unwrap();
+    .unwrap()
+    .into();
 
     let info = PhyloInfo { msa, tree };
     let model = PIPModel::<WAG>::new(&[], &[0.5, 0.5]);
@@ -838,7 +843,8 @@ fn blen_leading_to_minusinf() {
         ),
         &tree,
     )
-    .unwrap();
+    .unwrap()
+    .into();
 
     let info = PhyloInfo { msa, tree };
 

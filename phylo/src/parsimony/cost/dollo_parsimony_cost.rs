@@ -250,7 +250,7 @@ mod private_tests {
         let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
         let info = PhyloInfo {
-            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap().into(),
             tree,
         };
         let cost = DolloParsimonyCost::new(info);
@@ -274,7 +274,7 @@ mod private_tests {
         let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
         let info = PhyloInfo {
-            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap().into(),
             tree,
         };
         let scoring = SimpleScoring::new(1.0, GapCost::new(2.5, 1.0));
@@ -295,7 +295,7 @@ mod private_tests {
         let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
         let info = PhyloInfo {
-            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap().into(),
             tree,
         };
 
@@ -318,7 +318,7 @@ mod private_tests {
         let tree = tree!("((A:1.0,B:1.0)I1:1.0,(C:1.0,D:1.0)I4:1.0)I0:0.0;");
 
         let info = PhyloInfo {
-            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap().into(),
             tree: tree.clone(),
         };
         let mut cost = DolloParsimonyCost::new(info.clone());
@@ -344,7 +344,7 @@ mod private_tests {
         let tree = tree!("(((D:1,(A:1,C:0.5)I1:0.5)I4:1,B:2)I0:0);");
 
         let info = PhyloInfo {
-            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap().into(),
             tree: tree.clone(),
         };
 
