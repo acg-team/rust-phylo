@@ -10,6 +10,9 @@ ci_coverage = []
 deterministic = []
 # Feature that can speed up repeated test runs for when tree search is not affected and tests are ran locally.
 use-precomputed-test-results = []
+par-regraft = ["dep:rayon"]
+par-regraft-chunk = ["dep:rayon"]
+par-regraft-manual = ["dep:rayon"]
 
 [lib]
 bench = false
@@ -35,6 +38,7 @@ bitvec = "1.0.1"
 cfg-if = "1.0.0"
 clap = { version = "4.5.28", features = ["derive"] }
 dyn-clone = "1.0.18"
+fixedbitset = "0.5.7"
 ftail = "0.2.0"
 hashbrown = "0.15.2"
 itertools = "0.14.0"
@@ -47,6 +51,7 @@ ordered-float = "3.7.0"
 pest = "2.7.2"
 pest_derive = "2.7.2"
 rand = "0.8.5"
+rayon = { version = "1.10.0", optional = true }
 rstest = "0.18.1"
 stats-cli = "3.0.1"
 tempfile = "3.8.0"

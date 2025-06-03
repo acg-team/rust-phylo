@@ -15,7 +15,7 @@ use helpers::{
     DNA_EASY_8X1252,
 };
 
-fn run_fixed_iter_topo<C: TreeSearchCost + Clone + Display>(cost: C) -> anyhow::Result<f64> {
+fn run_fixed_iter_topo<C: TreeSearchCost + Clone + Display + Send>(cost: C) -> anyhow::Result<f64> {
     let topo_opt = TopologyOptimiser::new_with_pred(
         cost,
         TopologyOptimiserPredicate::fixed_iter(NonZero::new(3).unwrap()),
@@ -23,7 +23,7 @@ fn run_fixed_iter_topo<C: TreeSearchCost + Clone + Display>(cost: C) -> anyhow::
     Ok(topo_opt.run()?.final_cost)
 }
 
-fn run_simulated_topo_for_sizes<Q: QMatrix + QMatrixMaker>(
+fn run_simulated_topo_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
     paths: &SequencePaths,
     group_name: &'static str,
     criterion: &mut Criterion,

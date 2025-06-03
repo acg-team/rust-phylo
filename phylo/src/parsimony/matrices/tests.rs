@@ -1,7 +1,7 @@
 use approx::assert_relative_eq;
 
-use crate::parsimony::costs::{GapCost as GC, ModelCostBuilder as MCB, SimpleCosts};
 use crate::parsimony::matrices::Direction::{GapInX, GapInY, Matc};
+use crate::parsimony::scoring::{GapCost as GC, ModelScoringBuilder as MCB, SimpleScoring};
 use crate::parsimony::{ParsimonyAlignmentMatrices as PAM, ParsimonySite, SiteFlag::*};
 use crate::substitution_models::{SubstModel, K80};
 use crate::{site, test_align as align};
@@ -10,7 +10,7 @@ use crate::{site, test_align as align};
 fn fill_matrix() {
     let mismatch = 1.0;
     let gap = GC::new(2.5, 0.5);
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
 
     let node_info_1 = vec![site!(b"C", NoGap), site!(b"C", NoGap)];
     let node_info_2 = vec![site!(b"A", NoGap), site!(b"C", NoGap)];
@@ -74,7 +74,7 @@ fn fill_matrix() {
 fn fill_matrix_other_outcome() {
     let mismatch = 1.0;
     let gap = GC::new(2.5, 0.5);
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
 
     let node_info_1 = vec![site!(b"C", NoGap), site!(b"C", NoGap)];
     let node_info_2 = vec![site!(b"A", NoGap), site!(b"C", NoGap)];
@@ -138,7 +138,7 @@ fn fill_matrix_other_outcome() {
 fn traceback_correct() {
     let mismatch = 1.0;
     let gap = GC::new(2.5, 0.5);
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
 
     let node_info_1 = vec![site!(b"C", NoGap), site!(b"C", NoGap)];
     let node_info_2 = vec![site!(b"A", NoGap), site!(b"C", NoGap)];
@@ -173,7 +173,7 @@ fn fill_matrix_gap_adjustment_1() {
     // Tree file: tree_fill_matrix_gap_adjustment_1.newick
     let mismatch = 1.0;
     let gap = GC::new(5.5, 0.5);
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
 
     let left_info = vec![
         site!(b"A", NoGap),
@@ -256,7 +256,7 @@ fn traceback_gap_adjustment_1() {
     // Tree file: tree_fill_matrix_gap_adjustment_1.newick
     let mismatch = 1.0;
     let gap = GC::new(5.5, 0.5);
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
 
     let left_info = vec![
         site!(b"A", NoGap),
@@ -289,7 +289,7 @@ fn fill_matrix_gap_adjustment_2() {
     let mismatch = 1.0;
     let gap = GC::new(4.5, 1.0);
 
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
     let sites_left = vec![
         site!(b"A", GapOpen),
         site!(b"C", GapExt),
@@ -367,7 +367,7 @@ fn traceback_gap_adjustment_2() {
     // Tree file: tree_fill_matrix_gap_adjustment_2.newick
     let mismatch = 1.0;
     let gap = GC::new(4.5, 1.0);
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
     let sites_left = vec![
         site!(b"A", GapOpen),
         site!(b"C", GapExt),
@@ -394,7 +394,7 @@ fn fill_matrix_gap_adjustment_3() {
     // Tree file: tree_fill_matrix_gap_adjustment_3.newick
     let mismatch = 1.0;
     let gap = GC::new(0.75, 0.5);
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
     let left_info = vec![
         site!(b"-", GapFixed),
         site!(b"A", GapOpen),
@@ -489,7 +489,7 @@ fn traceback_gap_adjustment_3() {
     // Tree file: tree_fill_matrix_gap_adjustment_3.newick
     let mismatch = 1.0;
     let gap = GC::new(0.75, 0.5);
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
     let left_info = vec![
         site!(b"-", GapFixed),
         site!(b"A", GapOpen),
@@ -526,7 +526,7 @@ fn fill_matrix_gap_adjustment_4() {
     // Slightly different setup to ensure there's a gap opening at the beginning of the alignment
     let mismatch = 1.0;
     let gap = GC::new(0.75, 0.5);
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
     let left_info = vec![
         site!(b"-", GapFixed),
         site!(b"A", NoGap),
@@ -622,7 +622,7 @@ fn traceback_gap_adjustment_4() {
     // Slightly different setup to ensure there's a gap opening at the beginning of the alignment
     let mismatch = 1.0;
     let gap = GC::new(0.75, 0.5);
-    let scoring = SimpleCosts::new(mismatch, gap);
+    let scoring = SimpleScoring::new(mismatch, gap);
     let left_info = vec![
         site!(b"-", GapFixed),
         site!(b"A", NoGap),

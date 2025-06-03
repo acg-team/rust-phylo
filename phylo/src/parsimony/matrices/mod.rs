@@ -4,7 +4,7 @@ use crate::alignment::{Mapping, PairwiseAlignment};
 use crate::alphabets::ParsimonySet;
 use crate::parsimony::{
     Direction::{self, GapInX, GapInY, Matc},
-    ParsimonyCosts, ParsimonySite,
+    ParsimonyScoring, ParsimonySite,
     SiteFlag::{self, *},
 };
 
@@ -43,7 +43,7 @@ impl TracebackMatrices {
 pub(crate) struct ParsimonyAlignmentMatrices<'a> {
     rows: usize,
     cols: usize,
-    scoring: &'a dyn ParsimonyCosts,
+    scoring: &'a dyn ParsimonyScoring,
     x_info: &'a [ParsimonySite],
     x_blen: f64,
     y_info: &'a [ParsimonySite],
@@ -90,7 +90,7 @@ impl<'a> ParsimonyAlignmentMatrices<'a> {
         x_blen: f64,
         y_info: &'a [ParsimonySite],
         y_blen: f64,
-        scoring: &'a impl ParsimonyCosts,
+        scoring: &'a impl ParsimonyScoring,
         rng: fn(usize) -> usize,
     ) -> ParsimonyAlignmentMatrices<'a> {
         let rows = x_info.len() + 1;

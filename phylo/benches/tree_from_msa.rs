@@ -25,7 +25,7 @@ use helpers::{
 ///
 /// TODO: expose this as part of the rust-phylo library
 fn run_optimisation(
-    cost: impl TreeSearchCost + ModelSearchCost + Display + Clone,
+    cost: impl TreeSearchCost + ModelSearchCost + Display + Clone + Send,
     freq_opt: FrequencyOptimisation,
     max_iterations: usize,
     epsilon: f64,
@@ -50,7 +50,7 @@ fn run_optimisation(
     Ok((final_cost, cost.tree().clone()))
 }
 
-fn run_for_sizes<Q: QMatrix + QMatrixMaker>(
+fn run_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
     paths: &SequencePaths,
     group_name: &'static str,
     criterion: &mut Criterion,

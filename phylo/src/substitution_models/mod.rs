@@ -1,10 +1,10 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 use std::marker::PhantomData;
 use std::ops::Mul;
 
 use anyhow::bail;
+use hashbrown::HashMap;
 use nalgebra::{DMatrix, DVector};
 
 use crate::alignment::Alignment;
@@ -279,7 +279,6 @@ impl<Q: QMatrix, A: Alignment> SubstitutionCost<Q, A> {
             return;
         }
 
-        // get leaf sequence encoding
         let leaf_seq = tmp_values.leaf_seq_info.get(node_idx).unwrap();
         tmp_values.node_info[idx] = (&tmp_values.node_models[idx]).mul(leaf_seq);
         if let Some(parent_idx) = tree.parent(node_idx) {
@@ -308,8 +307,8 @@ impl<Q: QMatrix> SubstModelInfo<Q> {
 
         let mut leaf_seq_info = HashMap::with_capacity(info.tree.leaves().len());
         for node in info.tree.leaves() {
-            let alignment_map = info.msa.leaf_map(&node.idx);
             let seq = info.msa.seqs().record_by_id(&node.id).seq().to_vec();
+            let alignment_map = info.msa.leaf_map(&node.idx);
             let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(n, msa_length);
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
