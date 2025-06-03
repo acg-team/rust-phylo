@@ -12,25 +12,25 @@ use crate::Result;
 
 use super::SingleValOptResult;
 
-pub struct ModelOptimiser<C: ModelSearchCost + Display> {
+pub struct ModelOptimiser<'a, C: ModelSearchCost + Display> {
     pub(crate) epsilon: f64,
-    pub(crate) c: RefCell<C>,
+    pub(crate) c: &'a mut C,
     pub(crate) freq_opt: FrequencyOptimisation,
 }
 
-impl<C: ModelSearchCost + Display> ModelOptimiser<C> {
-    pub fn new(cost: C, freq_opt: FrequencyOptimisation) -> Self {
+impl<'a, C: ModelSearchCost + Display> ModelOptimiser<'a, C> {
+    pub fn new(cost: &'a mut C, freq_opt: FrequencyOptimisation) -> ModelOptimiser<'a, C> {
         Self {
             epsilon: 1e-3,
-            c: RefCell::new(cost),
+            c: cost,
             freq_opt,
         }
     }
 
-    pub fn run(self) -> Result<ModelOptimisationResult<C>> {
-        info!("Optimising the evolutionary model: {}.", self.c.borrow());
+    pub fn run(mut self) -> Result<ModelOptimisationResult<'a, C>> {
+        info!("Optimising the evolutionary model: {}.", self.c);
 
-        let init_cost = self.c.borrow().cost();
+        let init_cost = self.c.cost();
         info!("Initial cost: {}.", init_cost);
         let mut curr_cost = init_cost;
         let mut prev_cost = f64::NEG_INFINITY;
@@ -40,13 +40,13 @@ impl<C: ModelSearchCost + Display> ModelOptimiser<C> {
             FrequencyOptimisation::Empirical => {
                 info!("Setting stationary frequencies to empirical.");
                 self.empirical_freqs();
-                curr_cost = self.c.borrow().cost();
+                curr_cost = self.c.cost();
                 info!("Cost after frequency optimisation: {}.", curr_cost);
             }
             FrequencyOptimisation::Estimated => {
                 warn!("Stationary frequency estimation not available, falling back on empirical.");
                 self.empirical_freqs();
-                curr_cost = self.c.borrow().cost();
+                curr_cost = self.c.cost();
                 info!("Cost after frequency optimisation: {}.", curr_cost);
             }
             FrequencyOptimisation::Fixed => {}
@@ -55,7 +55,7 @@ impl<C: ModelSearchCost + Display> ModelOptimiser<C> {
         while (curr_cost - prev_cost) > self.epsilon {
             iterations += 1;
             debug!("Iteration: {}", iterations);
-            let parameters = self.c.borrow().params().to_vec();
+            let parameters = self.c.params().to_vec();
             prev_cost = curr_cost;
 
             for (param, start_value) in parameters.iter().enumerate() {
@@ -66,20 +66,20 @@ impl<C: ModelSearchCost + Display> ModelOptimiser<C> {
                 let param_opt = self.opt_parameter(param, *start_value)?;
                 if param_opt.final_cost < curr_cost {
                     // Parameter will have been reset by the optimiser, set it back to start value
-                    self.c.borrow_mut().set_param(param, *start_value);
+                    self.c.set_param(param, *start_value);
                     continue;
                 }
-                self.c.borrow_mut().set_param(param, param_opt.value);
+                self.c.set_param(param, param_opt.value);
                 curr_cost = param_opt.final_cost;
                 debug!(
                     "Optimised parameter {:?} to value {} with cost {}",
                     param, param_opt.value, curr_cost
                 );
             }
-            debug!("New parameters: {}\n", self.c.borrow());
+            debug!("New parameters: {}\n", self.c);
         }
 
-        debug_assert_eq!(curr_cost, self.c.borrow().cost());
+        debug_assert_eq!(curr_cost, self.c.cost());
         info!("Done optimising model parameters.");
         info!(
             "Final cost: {}, achieved in {} iteration(s).",
@@ -89,18 +89,18 @@ impl<C: ModelSearchCost + Display> ModelOptimiser<C> {
             initial_cost: init_cost,
             final_cost: curr_cost,
             iterations,
-            cost: self.c.into_inner(),
+            cost: self.c,
         })
     }
 
-    fn empirical_freqs(&self) {
-        let emp_freqs = self.c.borrow().empirical_freqs();
-        self.c.borrow_mut().set_freqs(emp_freqs);
+    fn empirical_freqs(&mut self) {
+        let emp_freqs = self.c.empirical_freqs();
+        self.c.set_freqs(emp_freqs);
     }
 
-    fn opt_parameter(&self, param: usize, start_value: f64) -> Result<SingleValOptResult> {
+    fn opt_parameter(&mut self, param: usize, start_value: f64) -> Result<SingleValOptResult> {
         let optimiser = ParamOptimiser {
-            cost: &self.c,
+            cost: RefCell::new(self.c),
             param,
         };
         let min = f64::EPSILON;
@@ -118,7 +118,7 @@ impl<C: ModelSearchCost + Display> ModelOptimiser<C> {
 }
 
 pub(crate) struct ParamOptimiser<'a, C: ModelSearchCost> {
-    pub(crate) cost: &'a RefCell<C>,
+    pub(crate) cost: RefCell<&'a mut C>,
     pub(crate) param: usize,
 }
 

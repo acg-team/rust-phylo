@@ -42,8 +42,9 @@ fn run_optimisation(
         info!("Iteration: {}", iterations);
 
         prev_cost = final_cost;
-        let model_optimiser = ModelOptimiser::new(topo_opt.base_cost_fn().clone(), freq_opt);
-        topo_opt.set_base_cost_fn_to(&model_optimiser.run()?.cost);
+        let model_optimiser = ModelOptimiser::new(topo_opt.base_cost_fn_mut(), freq_opt);
+        // resulting cost_fn is in base_cost_fn (also returned)
+        model_optimiser.run()?;
 
         // resulting cost_fn is in base_cost_fn
         let o = topo_opt.run_mut().unwrap();

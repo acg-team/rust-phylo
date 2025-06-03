@@ -38,18 +38,16 @@ fn black_box_pip_cost<Model: QMatrix + QMatrixMaker>(
     freq_opt: FrequencyOptimisation,
 ) -> PIPCost<Model> {
     let info = black_box_deterministic_phylo_info(path);
-    let pip_cost = PIPCostBuilder::new(PIPModel::<Model>::new(&[], &[]), info)
+    let mut pip_cost = PIPCostBuilder::new(PIPModel::<Model>::new(&[], &[]), info)
         .build()
         .expect("failed to build pip cost optimiser");
 
     // done for a more 'realistic' setup
-    let model_optimiser = ModelOptimiser::new(pip_cost, freq_opt);
-    black_box(
-        model_optimiser
-            .run()
-            .expect("model optimiser should pass")
-            .cost,
-    )
+    ModelOptimiser::new(&mut pip_cost, freq_opt)
+        .run()
+        .expect("model optimiser should pass");
+
+    black_box(pip_cost)
 }
 
 fn single_spr_cycle<C: TreeSearchCost + Clone + Display + Send>(

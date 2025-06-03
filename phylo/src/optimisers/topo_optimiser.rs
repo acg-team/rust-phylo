@@ -218,6 +218,9 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
     pub fn base_cost_fn(&self) -> &C {
         self.storage.base_cost_fn()
     }
+    pub fn base_cost_fn_mut(&mut self) -> &mut C {
+        self.storage.base_cost_fn_mut()
+    }
 
     pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
         let PhyloOptimisationResultStats {
