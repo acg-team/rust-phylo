@@ -86,6 +86,3 @@ harness = false
 [[bench]]
 name = "helpers"
 harness = false
-[[bench]]
-name = "matrix"
-harness = false
