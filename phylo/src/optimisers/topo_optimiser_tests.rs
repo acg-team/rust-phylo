@@ -87,7 +87,8 @@ fn k80_simple() {
         ]),
         &tree,
     )
-    .unwrap();
+    .unwrap()
+    .into();
     let info = PhyloInfo { msa, tree };
 
     let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
@@ -543,7 +544,7 @@ fn basic_parsimony_tree_search() {
     let tree = tree!("((A:1.0,D:1.0):1.0,(C:1.0,B:1.0):1.0):0.0;");
 
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap().into(),
         tree,
     };
     let cost = BasicParsimonyCost::new(info).unwrap();
@@ -565,7 +566,8 @@ fn dollo_tree_search() {
         ]),
         &tree,
     )
-    .unwrap();
+    .unwrap()
+    .into();
     let info = PhyloInfo { msa, tree };
     let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
     let scoring = ModelScoringBuilder::new(k80)
