@@ -1,5 +1,4 @@
 use crate::alignment::{Alignment, Sequences, MSA};
-use crate::parsimony::costs::{GapCost};
 use crate::parsimony::{
     GapCost, ParsimonyAligner, ParsimonySite, SimpleScoring,
     SiteFlag::{GapExt, GapOpen, NoGap},

@@ -539,7 +539,7 @@ fn basic_parsimony_tree_search() {
     let tree = tree!("((A:1.0,D:1.0):1.0,(C:1.0,B:1.0):1.0):0.0;");
 
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
         tree,
     };
     let cost = BasicParsimonyCost::new(info).unwrap();
@@ -552,7 +552,7 @@ fn basic_parsimony_tree_search() {
 #[test]
 fn dollo_tree_search() {
     let tree = tree!("(((A:1.0,C:1.0)E:2.0,(C:1.0,B:1.0)F:2.0)G:3.0);");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"TTTTTTTTTTTCTATATATA-"),
             record!("B", b"TTTTTTTTTTTATATATAT-A"),

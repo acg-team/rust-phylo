@@ -29,7 +29,7 @@ pub struct ParsimonyAligner<PS: ParsimonyScoring> {
     pub scoring: PS,
 }
 
-impl<PS: ParsimonyScoring + Clone> Aligner<A> for ParsimonyAligner<PS> {
+impl<PS: ParsimonyScoring + Clone, A: Alignment> Aligner<A> for ParsimonyAligner<PS> {
     fn align(&self, seqs: &Sequences, tree: &Tree) -> Result<A> {
         self.align_with_scores(seqs, tree).map(|(a, _)| a)
     }

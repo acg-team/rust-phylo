@@ -4,6 +4,7 @@ use std::fmt::Display;
 use fixedbitset::FixedBitSet;
 use hashbrown::HashSet;
 
+use crate::alignment::Alignment;
 use crate::alphabets::ParsimonySet;
 use crate::likelihood::TreeSearchCost;
 use crate::parsimony::scoring::{GapCost, SimpleScoring};
@@ -15,20 +16,20 @@ use crate::tree::{
 };
 
 #[derive(Debug, Clone)]
-pub struct DolloParsimonyCost<S: ParsimonyScoring> {
-    pub(crate) info: PhyloInfo,
+pub struct DolloParsimonyCost<S: ParsimonyScoring, A: Alignment> {
+    pub(crate) info: PhyloInfo<A>,
     tmp: RefCell<DolloParsimonyInfo>,
     scoring: S,
 }
 
-impl<S: ParsimonyScoring> Display for DolloParsimonyCost<S> {
+impl<S: ParsimonyScoring, A: Alignment> Display for DolloParsimonyCost<S, A> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Dollo parsimony using: \n\t{}", self.scoring)
     }
 }
 
-impl DolloParsimonyCost<SimpleScoring> {
-    pub fn new(info: PhyloInfo) -> Self {
+impl<A: Alignment> DolloParsimonyCost<SimpleScoring, A> {
+    pub fn new(info: PhyloInfo<A>) -> Self {
         let tmp = RefCell::new(DolloParsimonyInfo::new(&info));
         DolloParsimonyCost {
             info,
@@ -38,8 +39,8 @@ impl DolloParsimonyCost<SimpleScoring> {
     }
 }
 
-impl<S: ParsimonyScoring> DolloParsimonyCost<S> {
-    pub fn with_scoring(info: PhyloInfo, scoring: S) -> Self {
+impl<S: ParsimonyScoring, A: Alignment> DolloParsimonyCost<S, A> {
+    pub fn with_scoring(info: PhyloInfo<A>, scoring: S) -> Self {
         let tmp = RefCell::new(DolloParsimonyInfo::new(&info));
         DolloParsimonyCost { info, tmp, scoring }
     }
@@ -143,7 +144,7 @@ impl<S: ParsimonyScoring> DolloParsimonyCost<S> {
     }
 }
 
-impl<S: ParsimonyScoring> TreeSearchCost for DolloParsimonyCost<S> {
+impl<S: ParsimonyScoring, A: Alignment> TreeSearchCost for DolloParsimonyCost<S, A> {
     fn cost(&self) -> f64 {
         -self.score()
     }
@@ -179,7 +180,7 @@ pub struct DolloParsimonyInfo {
 }
 
 impl DolloParsimonyInfo {
-    pub fn new(info: &PhyloInfo) -> Self {
+    pub fn new<A: Alignment>(info: &PhyloInfo<A>) -> Self {
         let node_count = info.tree.len();
         let leaf_count = info.tree.leaves().len();
         let msa_length = info.msa.len();
@@ -192,7 +193,7 @@ impl DolloParsimonyInfo {
             vec![vec![HashSet::with_capacity(leaf_count); msa_length]; node_count];
 
         for leaf in info.tree.leaves() {
-            let seq = info.msa.seqs.record_by_id(&leaf.id).seq().to_vec();
+            let seq = info.msa.seqs().record_by_id(&leaf.id).seq().to_vec();
             let leaf_map = info.msa.leaf_map(&leaf.idx);
             let node_idx = usize::from(leaf.idx);
 
@@ -234,7 +235,7 @@ impl DolloParsimonyInfo {
 mod private_tests {
     use super::*;
 
-    use crate::alignment::{Alignment, Sequences};
+    use crate::alignment::{Alignment, Sequences, MSA};
     use crate::phylo_info::PhyloInfo;
     use crate::{record_wo_desc as record, tree};
 
@@ -250,7 +251,7 @@ mod private_tests {
         let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
         let info = PhyloInfo {
-            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+            msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
             tree,
         };
         let cost = DolloParsimonyCost::new(info);
@@ -274,7 +275,7 @@ mod private_tests {
         let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
         let info = PhyloInfo {
-            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+            msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
             tree,
         };
         let scoring = SimpleScoring::new(1.0, GapCost::new(2.5, 1.0));
@@ -295,7 +296,7 @@ mod private_tests {
         let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
         let info = PhyloInfo {
-            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+            msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
             tree,
         };
 
@@ -318,7 +319,7 @@ mod private_tests {
         let tree = tree!("((A:1.0,B:1.0)I1:1.0,(C:1.0,D:1.0)I4:1.0)I0:0.0;");
 
         let info = PhyloInfo {
-            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+            msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
             tree: tree.clone(),
         };
         let mut cost = DolloParsimonyCost::new(info.clone());
@@ -344,7 +345,7 @@ mod private_tests {
         let tree = tree!("(((D:1,(A:1,C:0.5)I1:0.5)I4:1,B:2)I0:0);");
 
         let info = PhyloInfo {
-            msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+            msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
             tree: tree.clone(),
         };
 
