@@ -41,8 +41,6 @@ pub trait Alignment: Display + Clone + Debug {
     fn len(&self) -> usize;
     fn seq_count(&self) -> usize;
     fn leaf_map(&self, node: &NodeIdx) -> &Mapping;
-    // TODO: in this trait this should not be named compile, just subroot_alignment
-    // bc a implementation can also choose to have it always ready,
     fn compile_subroot(&self, subroot: Option<&NodeIdx>, tree: &Tree) -> Result<Sequences>;
     fn internal_alignments(&self) -> &InternalAlignments;
     fn from_aligned(sequences: Sequences, tree: &Tree) -> Result<Self>;
@@ -436,9 +434,11 @@ impl Alignment for MASA {
         self.leaf_maps.get(node).unwrap()
     }
 
+    /// Assumes that nodes of the tree have unique ids and that the leaf ids match the ids of the
+    /// sequences.
     fn from_aligned(sequences: Sequences, tree: &Tree) -> Result<Self> {
         let msa = MSA::from_aligned(sequences, tree)?;
-        // TODO: are the internal alignments build in the above line conform with adding ancestral seqs?
+        // TODO: do the internal alignments, build in the above line, conform with adding ancestral seqs?
         //       see also from_aligned_with_ancestral
         let asr = ParsimonyIndelPoints {};
         asr.reconstruct_ancestral_seqs(&msa, tree)
@@ -454,6 +454,8 @@ impl AncestralAlignment for MASA {
         &self.ancestral_seqs
     }
 
+    /// Assumes that nodes of the tree have unique ids and that they match the ids of the
+    /// sequences.
     fn from_aligned_with_ancestral(mut all_seqs: Sequences, tree: &Tree) -> Result<MASA> {
         if !all_seqs.aligned {
             bail!("Sequences are not aligned.")

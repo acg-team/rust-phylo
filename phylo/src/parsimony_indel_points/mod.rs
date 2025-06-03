@@ -35,7 +35,7 @@ impl<A: Alignment, AA: AncestralAlignment> AncestralSequenceReconstruction<A, AA
 /// - deletion location is node n such that every leaf in the subtree rooted in n
 ///   is a gap and the parent of n is not a deletion location
 fn get_ancestral_records<A: Alignment>(tree: &Tree, alignment: &A) -> Vec<Record> {
-    // counter[node] keeps track of the sequence index during the procedurally generated mapping for the node
+    // counter[node] keeps track of the sequence index during the procedural generated mapping for the node
     let mut ancestral_seqs = HashMap::new();
     // TODO: i could also have a matrix has_char[node, site] and then
     //       loop over nodes and then sites, which might be faster due to caches

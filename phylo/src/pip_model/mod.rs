@@ -88,6 +88,7 @@ impl<Q: QMatrix + QMatrixMaker> PIPModel<Q> {
     }
 }
 
+// TODO: where is this ever used?
 impl<Q: QMatrix> EvoModel for PIPModel<Q> {
     fn p(&self, time: f64) -> SubstMatrix {
         (self.q().clone() * time).exp()

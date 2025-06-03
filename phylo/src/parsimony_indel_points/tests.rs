@@ -2,13 +2,7 @@ use crate::alignment::{Alignment, AncestralAlignment, Sequences, MASA, MSA};
 use crate::asr::AncestralSequenceReconstruction;
 use crate::parsimony_indel_points::ParsimonyIndelPoints;
 use crate::tree::NodeIdx::{Internal, Leaf};
-use crate::tree::Tree;
 use crate::{align, record, tree};
-
-#[cfg(test)]
-fn test_tree() -> Tree {
-    tree!("((A0:1.0, B1:1.0) I5:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0) I7:1.0) I8:1.0;")
-}
 
 #[cfg(test)]
 fn aligned_seqs_with_ancestors() -> Sequences {
@@ -38,14 +32,14 @@ fn aligned_seqs_with_ancestors_subset(ids: &[&str]) -> Sequences {
 #[test]
 fn asr() {
     // arrange
-    let tree = test_tree();
+    let tree = tree!("((A0:1.0, B1:1.0) I5:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0) I7:1.0) I8:1.0;");
     let aligned_s = aligned_seqs_with_ancestors_subset(&["A0", "B1", "C2", "D3", "E4"]);
     let all_seqs = aligned_seqs_with_ancestors();
     let msa = MSA::from_aligned(aligned_s.clone(), &tree).unwrap();
-    let p_asr = ParsimonyIndelPoints {};
+    let asr = ParsimonyIndelPoints {};
 
     // act
-    let ancestral_msa: MASA = p_asr.reconstruct_ancestral_seqs(&msa, &tree).unwrap();
+    let ancestral_msa: MASA = asr.reconstruct_ancestral_seqs(&msa, &tree).unwrap();
     let ancestral_msa_len = msa.len();
 
     // assert
