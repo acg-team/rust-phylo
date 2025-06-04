@@ -14,8 +14,8 @@ use phylo::tree::Tree;
 mod helpers;
 use crate::helpers::{
     HIV_1, N100_M500, N10_M1000, N10_M10000, N10_M100000, N10_M20000, N10_M200000, N10_M300000,
-    N10_M500, N10_M5000, N10_M50000, N200_M500, N20_M500, N30_M500, N40_M500, N50_M500, N60_M500,
-    N70_M500, N80_M500, N90_M500,
+    N10_M500, N10_M5000, N10_M50000, N200_M500, N20_M500, N300_M500, N30_M500, N400_M500, N40_M500,
+    N50_M500, N60_M500, N70_M500, N80_M500, N90_M500,
 };
 use helpers::{black_box_raw_pip_cost_with_config, SequencePaths};
 use phylo::pip_model::PIPCost;
@@ -99,9 +99,9 @@ fn test_one_shot_increasing_taxa() {
 #[test]
 fn test_one_shot_increasing_taxa_large() {
     let paths = SequencePaths::from([
-        ("60X500", N60_M500),
-        ("70X500", N70_M500),
-        ("80X500", N80_M500),
+        ("50X500", N50_M500),
+        ("100X500", N100_M500),
+        ("200X500", N200_M500),
     ]);
     for (key, path) in paths {
         let data = black_box_raw_pip_cost_with_config::<JC69>(path);
@@ -116,7 +116,7 @@ fn test_one_shot_increasing_taxa_large() {
 
 #[test]
 fn test_one_shot_increasing_taxa_vlarge() {
-    let paths = SequencePaths::from([("90X500", N90_M500), ("100X500", N100_M500)]);
+    let paths = SequencePaths::from([("300X500", N300_M500)]);
     for (key, path) in paths {
         let data = black_box_raw_pip_cost_with_config::<JC69>(path);
         let start = Instant::now();
@@ -130,7 +130,7 @@ fn test_one_shot_increasing_taxa_vlarge() {
 
 #[test]
 fn test_one_shot_increasing_taxa_xlarge() {
-    let paths = SequencePaths::from([("200X500", N200_M500)]);
+    let paths = SequencePaths::from([("400X500", N400_M500)]);
     for (key, path) in paths {
         let data = black_box_raw_pip_cost_with_config::<JC69>(path);
         let start = Instant::now();
