@@ -29,11 +29,11 @@ pub struct PhyloOptimisationResult<C: TreeSearchCost> {
     pub cost: C,
 }
 
-pub struct ModelOptimisationResult<C: ModelSearchCost> {
+pub struct ModelOptimisationResult<'a, C: ModelSearchCost> {
     pub initial_cost: f64,
     pub final_cost: f64,
     pub iterations: usize,
-    pub cost: C,
+    pub cost: &'a mut C,
 }
 
 #[cfg(test)]

@@ -87,7 +87,8 @@ fn k80_simple() {
         ]),
         &tree,
     )
-    .unwrap();
+    .unwrap()
+    .into();
     let info = PhyloInfo { msa, tree };
 
     let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
@@ -272,7 +273,7 @@ fn pip_vs_subst_dna_tree() {
         .unwrap();
 
     let pip = PIPModel::<K80>::new(&[], &[0.5, 0.4, 4.0]);
-    let pip_res = TopologyOptimiser::new(PIPCB::new(pip.clone(), info).build().unwrap())
+    let pip_res = TopologyOptimiser::new_inplace(&PIPCB::new(pip.clone(), info).build().unwrap())
         .run()
         .unwrap();
 
@@ -383,13 +384,9 @@ fn pip_optimise_model_tree() {
     assert!(res.final_cost >= res.initial_cost);
 
     // Optimise model parameters
-    let o = ModelOptimiser::new(
-        PIPCB::new(pip.clone(), start_info.clone()).build().unwrap(),
-        Empirical,
-    )
-    .run()
-    .unwrap();
-    let pip_opt = o.cost.model;
+    let mut c = PIPCB::new(pip.clone(), start_info.clone()).build().unwrap();
+    let o = ModelOptimiser::new(&mut c, Empirical).run().unwrap();
+    let pip_opt = o.cost.model.clone();
 
     assert!(o.final_cost >= o.initial_cost);
     assert!(o.final_cost >= res.final_cost);
@@ -436,15 +433,11 @@ fn wag_vs_phyml_empirical_freqs() {
     let start_info = PIB::new(seq_file.clone()).build().unwrap();
 
     let wag = SubstModel::<WAG>::new(&[], &[]);
-    let o = ModelOptimiser::new(
-        SCB::new(wag.clone(), start_info).build().unwrap(),
-        Empirical,
-    )
-    .run()
-    .unwrap();
+    let mut c = SCB::new(wag.clone(), start_info).build().unwrap();
+    let o = ModelOptimiser::new(&mut c, Empirical).run().unwrap();
 
     assert!(o.final_cost >= o.initial_cost);
-    let wag_opt = o.cost.model;
+    let wag_opt = o.cost.model.clone();
 
     let res = optimise_tree(&seq_file, &tree_file, wag_opt.clone());
     let tree = res.cost.tree();
@@ -472,14 +465,11 @@ fn pip_wag_vs_phyml_empirical_freqs() {
     let start_info = PIB::new(seq_file.clone()).build().unwrap();
     let pip = PIPModel::<WAG>::new(&[], &[1.0, 2.0]);
     // Use empirical frequencies and optimise lambda and mu for PIP
-    let o = ModelOptimiser::new(
-        PIPCB::new(pip.clone(), start_info.clone()).build().unwrap(),
-        Empirical,
-    )
-    .run()
-    .unwrap();
 
-    let pip_opt = o.cost.model;
+    let mut c = PIPCB::new(pip.clone(), start_info.clone()).build().unwrap();
+    let o = ModelOptimiser::new(&mut c, Empirical).run().unwrap();
+
+    let pip_opt = o.cost.model.clone();
     let res = optimise_tree_pip(&seq_file, &tree_file, pip_opt.clone());
 
     // Optimised tree should be better than the starting tree
@@ -543,7 +533,7 @@ fn basic_parsimony_tree_search() {
     let tree = tree!("((A:1.0,D:1.0):1.0,(C:1.0,B:1.0):1.0):0.0;");
 
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap().into(),
         tree,
     };
     let cost = BasicParsimonyCost::new(info).unwrap();
@@ -565,7 +555,8 @@ fn dollo_tree_search() {
         ]),
         &tree,
     )
-    .unwrap();
+    .unwrap()
+    .into();
     let info = PhyloInfo { msa, tree };
     let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
     let scoring = ModelScoringBuilder::new(k80)

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::alignment::{Alignment, Sequences};
 use crate::substitution_models::FreqVector;
 use crate::tree::{NodeIdx, Tree};
@@ -18,7 +20,7 @@ pub use phyloinfo_builder::*;
 #[derive(Debug, Clone)]
 pub struct PhyloInfo {
     /// Multiple sequence alignment
-    pub msa: Alignment,
+    pub msa: Arc<Alignment>,
     /// Phylogenetic tree
     pub tree: Tree,
 }

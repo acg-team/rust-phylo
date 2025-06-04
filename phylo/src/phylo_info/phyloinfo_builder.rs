@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::bail;
 use log::{info, warn};
@@ -179,7 +180,10 @@ impl PhyloInfoBuilder {
                 .align(&sequences, &tree)?
         };
 
-        Ok(PhyloInfo { tree, msa })
+        Ok(PhyloInfo {
+            tree,
+            msa: Arc::new(msa),
+        })
     }
 
     fn read_tree(&self, sequences: &Sequences, tree_file: &PathBuf) -> Result<Tree> {

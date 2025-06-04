@@ -21,9 +21,9 @@ fn likelihood_improves_k80() {
         .unwrap();
     let model = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
 
-    let c = SCB::new(model, info.clone()).build().unwrap();
+    let mut c = SCB::new(model, info.clone()).build().unwrap();
     let unopt_logl = c.cost();
-    let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
+    let o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
     assert!(o.final_cost > unopt_logl);
@@ -44,9 +44,9 @@ fn frequencies_unchanged_k80() {
         .build()
         .unwrap();
     let model = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
-    let c = SCB::new(model.clone(), info).build().unwrap();
+    let mut c = SCB::new(model.clone(), info).build().unwrap();
     let initial_logl = c.cost();
-    let o = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
+    let o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     assert_eq!(initial_logl, o.initial_cost);
@@ -63,9 +63,9 @@ fn parameter_change_k80() {
         .build()
         .unwrap();
     let model = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
-    let c = SCB::new(model.clone(), info).build().unwrap();
+    let mut c = SCB::new(model.clone(), info).build().unwrap();
     let initial_logl = c.cost();
-    let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
+    let o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
     assert_eq!(initial_logl, o.initial_cost);
@@ -82,14 +82,14 @@ fn gtr_on_k80_data() {
         .build()
         .unwrap();
     let model = SubstModel::<GTR>::new(&[0.25, 0.35, 0.3, 0.1], &[0.88, 0.03, 0.00001, 0.07, 0.02]);
-    let c = SCB::new(model.clone(), info.clone()).build().unwrap();
-    let o_gtr = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
+    let mut c = SCB::new(model.clone(), info.clone()).build().unwrap();
+    let o_gtr = ModelOptimiser::new(&mut c, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
 
     let model = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
-    let c = SCB::new(model.clone(), info.clone()).build().unwrap();
-    let o_k80 = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
+    let mut c = SCB::new(model.clone(), info.clone()).build().unwrap();
+    let o_k80 = ModelOptimiser::new(&mut c, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
 
@@ -109,9 +109,9 @@ fn improved_logl_fixed_freqs_template<Q: QMatrix + QMatrixMaker>() {
         .unwrap();
     let model = SubstModel::<Q>::new(&[], &[]);
 
-    let c = SCB::new(model.clone(), info).build().unwrap();
+    let mut c = SCB::new(model.clone(), info).build().unwrap();
     let initial_logl = c.cost();
-    let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
+    let o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
 
@@ -138,9 +138,9 @@ fn improved_logl_empirical_freqs_template<Q: QMatrix + QMatrixMaker>() {
         .unwrap();
     let model = SubstModel::<Q>::new(&[], &[]);
 
-    let c = SCB::new(model.clone(), info).build().unwrap();
+    let mut c = SCB::new(model.clone(), info).build().unwrap();
     let initial_logl = c.cost();
-    let o = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
+    let o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
 
@@ -184,8 +184,8 @@ fn gtr_vs_phyml() {
         &[0.24720, 0.35320, 0.29540, 0.10420],
         &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
     );
-    let c = SCB::new(model, info.clone()).build().unwrap();
-    let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
+    let mut c = SCB::new(model, info.clone()).build().unwrap();
+    let o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
     assert!(o.final_cost > phyml_logl);
@@ -213,15 +213,14 @@ fn k80_vs_phyml() {
     assert_relative_eq!(phyml_logl, -3629.2205979421, epsilon = 1.0e-5);
 
     let model = SubstModel::<K80>::new(&[], &[2.0, 1.0]);
-    let o = ModelOptimiser::new(
-        SCB::new(model, info.clone()).build().unwrap(),
-        FrequencyOptimisation::Fixed,
-    )
-    .run()
-    .unwrap();
+    let mut c = SCB::new(model, info.clone()).build().unwrap();
+    let o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Fixed)
+        .run()
+        .unwrap();
     assert!(o.final_cost > phyml_logl);
 
-    let o2 = ModelOptimiser::new(o.cost.clone(), FrequencyOptimisation::Fixed)
+    let mut o_clone = o.cost.clone();
+    let o2 = ModelOptimiser::new(&mut o_clone, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
     assert_relative_eq!(o2.final_cost, o.final_cost, epsilon = 1e-10);
@@ -238,14 +237,14 @@ fn hky_vs_phyml() {
         .build()
         .unwrap();
     let model = SubstModel::<HKY>::new(&[0.25, 0.25, 0.25, 0.25], &[2.0]);
-    let o = ModelOptimiser::new(
-        SCB::new(model, info.clone()).build().unwrap(),
-        FrequencyOptimisation::Empirical,
-    )
-    .run()
-    .unwrap();
 
-    let o2 = ModelOptimiser::new(o.cost.clone(), FrequencyOptimisation::Empirical)
+    let mut c = SCB::new(model, info.clone()).build().unwrap();
+    let o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Empirical)
+        .run()
+        .unwrap();
+
+    let mut o_cost_clone = o.cost.clone();
+    let o2 = ModelOptimiser::new(&mut o_cost_clone, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     assert_relative_eq!(o2.final_cost, o.final_cost);
@@ -270,12 +269,10 @@ fn frequencies_fixed_opt_gtr() {
         .build()
         .unwrap();
     let model = SubstModel::<GTR>::new(&[0.25, 0.35, 0.3, 0.1], &[1.0; 5]);
-    let o = ModelOptimiser::new(
-        SCB::new(model, info.clone()).build().unwrap(),
-        FrequencyOptimisation::Fixed,
-    )
-    .run()
-    .unwrap();
+    let mut c = SCB::new(model, info.clone()).build().unwrap();
+    let o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Fixed)
+        .run()
+        .unwrap();
     assert_eq!(o.cost.freqs(), &frequencies!(&[0.25, 0.35, 0.3, 0.1]));
     assert_ne!(o.cost.params(), &[1.0; 5]);
     assert_eq!(o.final_cost, o.cost.cost());
@@ -291,10 +288,10 @@ fn frequencies_fixed_protein_template<Q: QMatrix + QMatrixMaker>() {
     .build()
     .unwrap();
     let model = SubstModel::<Q>::new(&[], &[]);
-    let c = SCB::new(model.clone(), info).build().unwrap();
+    let mut c = SCB::new(model.clone(), info).build().unwrap();
 
     let initial_llik = c.cost();
-    let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
+    let o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
     assert_eq!(initial_llik, o.initial_cost);
@@ -320,10 +317,10 @@ fn frequencies_empirical_protein_template<Q: QMatrix + QMatrixMaker>() {
     .build()
     .unwrap();
     let model = SubstModel::<Q>::new(&[], &[]);
-    let c = SCB::new(model.clone(), info).build().unwrap();
+    let mut c = SCB::new(model.clone(), info).build().unwrap();
 
     let initial_llik = c.cost();
-    let o = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
+    let o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     assert_eq!(initial_llik, o.initial_cost);
@@ -348,12 +345,12 @@ fn arpip_example() {
         &[0.25, 0.25, 0.25, 0.25],
         &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
     );
-    let c = PIPCostBuilder::new(pip_gtr.clone(), info.clone())
+    let mut c = PIPCostBuilder::new(pip_gtr.clone(), info.clone())
         .build()
         .unwrap();
     let initial_logl = c.cost();
 
-    let o = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
+    let o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     assert_eq!(o.initial_cost, initial_logl);
@@ -382,12 +379,12 @@ fn pip_propip_example() {
         &[0.25, 0.25, 0.25, 0.25],
         &[14.142_1, 0.1414, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
     );
-    let c = PIPCostBuilder::new(pip_gtr.clone(), info).build().unwrap();
+    let mut c = PIPCostBuilder::new(pip_gtr.clone(), info).build().unwrap();
     let initial_logl = c.cost();
 
     assert_relative_eq!(initial_logl, -1241.99424826303, epsilon = 1e-8); // value from the python script
     assert_relative_eq!(initial_logl, -1241.9944955187807, epsilon = 1e-3); // value from ProPIP
-    let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
+    let o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
     assert_eq!(o.initial_cost, initial_logl);
@@ -408,9 +405,9 @@ fn pip_vs_python_no_gaps() {
 
     let pip_hky = PIPModel::<HKY>::new(&[0.25; 4], &[1.2, 0.45, 1.0]);
 
-    let c = PIPCostBuilder::new(pip_hky, info).build().unwrap();
+    let mut c = PIPCostBuilder::new(pip_hky, info).build().unwrap();
     assert_relative_eq!(c.cost(), -361.18634412281443, epsilon = 1e-7); // value from the python script
-    let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
+    let o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
     let params = o.cost.params();
@@ -433,10 +430,10 @@ fn pip_gtr_optimisation() {
         &[0.24720, 0.35320, 0.29540, 0.10420],
         &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
     );
-    let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
+    let mut c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
 
     let initial_logl = c.cost();
-    let pip_o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
+    let pip_o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
     let pip_gtr = PIPModel::<GTR>::new(pip_o.cost.freqs().as_slice(), pip_o.cost.params());
@@ -462,8 +459,8 @@ fn pip_gtr_vs_gtr_params() {
         &[0.24720, 0.35320, 0.29540, 0.10420],
         &[0.1, 0.1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
     );
-    let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
-    let pip_o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
+    let mut c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
+    let pip_o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
 
@@ -471,8 +468,8 @@ fn pip_gtr_vs_gtr_params() {
         &[0.24720, 0.35320, 0.29540, 0.10420],
         &[1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
     );
-    let c = SCB::new(gtr, info).build().unwrap();
-    let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
+    let mut c = SCB::new(gtr, info).build().unwrap();
+    let o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
     assert_relative_eq!(pip_o.cost.params()[2..], o.cost.params(), epsilon = 1e-2);
@@ -485,9 +482,9 @@ fn pip_protein_example() {
         .build()
         .unwrap();
     let pip = PIPModel::<WAG>::new(&[], &[2.0, 0.1]);
-    let c = PIPCostBuilder::new(pip, info).build().unwrap();
+    let mut c = PIPCostBuilder::new(pip, info).build().unwrap();
     let initial_logl = c.cost();
-    let o = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
+    let o = ModelOptimiser::new(&mut c, FrequencyOptimisation::Empirical)
         .run()
         .unwrap();
     assert!(o.final_cost > initial_logl);
