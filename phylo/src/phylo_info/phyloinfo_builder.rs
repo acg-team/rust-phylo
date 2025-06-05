@@ -120,6 +120,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     /// use std::path::PathBuf;
     /// use phylo::alphabets::protein_alphabet;
     /// use phylo::phylo_info::PhyloInfoBuilder;
+    /// use phylo::alignment::Alignment;
     /// let info = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta")).alphabet(Some(protein_alphabet())).build().unwrap();
     /// assert_eq!(info.msa.alphabet(), &protein_alphabet());
     /// ```
@@ -140,6 +141,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     /// ```
     /// use std::path::PathBuf;
     /// use phylo::phylo_info::PhyloInfoBuilder;
+    /// use phylo::alignment::Alignment;
     /// let info = PhyloInfoBuilder::with_attrs(
     ///     PathBuf::from("./data/sequences_DNA_small.fasta"),
     ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"))
