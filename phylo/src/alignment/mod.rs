@@ -374,6 +374,7 @@ impl Alignment for MASA {
         tree: &Tree,
     ) -> Self {
         let mut alignment = MSA {
+            //
             seqs: seqs.into_gapless(),
             leaf_maps: HashMap::new(),
             internal_alignments,

@@ -7,8 +7,10 @@ use crate::alignment::{
     sequences::Sequences, InternalAlignments, PairwiseAlignment as PA, SeqMaps,
 };
 use crate::alignment::{Alignment, AncestralAlignment, MASA, MSA};
-use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, NUCLEOTIDES};
+use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, GAP, NUCLEOTIDES};
+use crate::asr::AncestralSequenceReconstruction;
 use crate::io::read_sequences;
+use crate::parsimony_indel_points::ParsimonyIndelPoints;
 use crate::tree::{
     NodeIdx::{Internal as I, Leaf as L},
     Tree,
@@ -277,6 +279,31 @@ fn display_unaligned_sequences() {
     assert_eq!(lines, true_lines);
 }
 
+// TODO: perhaps we want the default fmt to be like with msa.compile instead of printing the
+// unaligned seqs.
+// see: https://github.com/acg-team/rust-phylo/issues/62
+#[test]
+fn fmt_alignment() {
+    // arrange
+    let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
+    let sequences =
+        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
+    let msa = MSA::from_aligned(sequences, &tree).unwrap();
+    let true_content_with_gaps = std::fs::read_to_string("./data/sequences_DNA1.fasta").unwrap();
+    let true_content = true_content_with_gaps.replace(GAP as char, "");
+    let mut true_lines = true_content.lines().collect::<Vec<_>>();
+    true_lines.sort();
+
+    // act
+    let s = format!("{}", msa);
+
+    // assert
+    let mut lines = s.lines().collect::<Vec<_>>();
+    lines.sort();
+    assert_eq!(lines.len(), 8);
+    assert_eq!(lines, true_lines);
+}
+
 #[test]
 fn display_alignment() {
     let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
@@ -316,6 +343,40 @@ fn display_ancestral_alignment() {
     lines.sort();
     assert_eq!(lines.len(), 14);
     assert_eq!(lines, true_lines);
+}
+
+#[test]
+fn masa_from_internal_alignment() {
+    // arrange
+    let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
+    let sequences =
+        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
+    let msa = MSA::from_aligned(sequences.clone(), &tree).unwrap();
+    let asr = ParsimonyIndelPoints {};
+    let true_masa: MASA = asr.reconstruct_ancestral_seqs(&msa, &tree).unwrap();
+
+    // act
+    let masa = MASA::from_internal_alignments(&sequences, msa.internal_alignments().clone(), &tree);
+
+    // assert
+    assert_eq!(masa.internal_alignments(), true_masa.internal_alignments());
+    assert_eq!(masa.len(), true_masa.len());
+    assert_eq!(masa.alphabet(), true_masa.alphabet());
+}
+
+#[test]
+fn masa_compile_subroot() {
+    // arrange
+    let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
+    let sequences =
+        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
+    let masa = MASA::from_aligned(sequences.clone(), &tree).unwrap();
+
+    // act
+    let compiled = masa.compile_subroot(None, &tree).unwrap();
+
+    // assert
+    assert_eq!(compiled, sequences);
 }
 
 #[test]

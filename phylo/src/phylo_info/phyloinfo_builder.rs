@@ -367,9 +367,12 @@ fn check_tree_number(trees: &[Tree]) -> Result<()> {
 pub mod private_tests {
     use std::path::PathBuf;
 
-    use crate::{phylo_info::phyloinfo_builder::set_missing_tree_node_ids, tree};
+    use crate::{
+        alignment::Sequences, phylo_info::phyloinfo_builder::set_missing_tree_node_ids,
+        record_wo_desc as record, tree,
+    };
 
-    use super::PhyloInfoBuilder as PIB;
+    use super::{sequence_ids_are_unique, PhyloInfoBuilder as PIB};
 
     #[test]
     fn builder_setters() {
@@ -420,5 +423,42 @@ pub mod private_tests {
         assert!(error
             .to_string()
             .contains("Duplicate id (A1) found in the leaves of the tree."))
+    }
+
+    #[test]
+    fn test_seq_ids_are_uniq() {
+        // arrange
+        let seqs = Sequences::new(vec![
+            record!("on", b"X"),
+            record!("tw", b"X"),
+            record!("th", b"N"),
+            record!("fo", b"N"),
+        ]);
+
+        // act
+        let result = sequence_ids_are_unique(&seqs);
+
+        // assert
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_seq_ids_are_not_uniq() {
+        // arrange
+        let seqs = Sequences::new(vec![
+            record!("on", b"X"),
+            record!("tw", b"X"),
+            record!("on", b"N"),
+            record!("fo", b"N"),
+        ]);
+
+        // act
+        let result = sequence_ids_are_unique(&seqs);
+
+        // assert
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Duplicate record id (on) found in the sequences."));
     }
 }
