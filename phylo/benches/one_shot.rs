@@ -14,8 +14,8 @@ use phylo::tree::Tree;
 mod helpers;
 use crate::helpers::{
     N100_M500, N10_M1000, N10_M10000, N10_M100000, N10_M20000, N10_M200000, N10_M300000, N10_M500,
-    N10_M5000, N10_M50000, N20_M500, N30_M500, N40_M500, N50_M500, N60_M500, N70_M500, N80_M500,
-    N90_M500,
+    N10_M5000, N10_M50000, N200_M500, N20_M500, N30_M500, N40_M500, N50_M500, N60_M500, N70_M500,
+    N80_M500, N90_M500,
 };
 use helpers::{black_box_raw_pip_cost_with_config, SequencePaths};
 
@@ -113,6 +113,20 @@ fn test_one_shot_increasing_taxa_large() {
 #[test]
 fn test_one_shot_increasing_taxa_vlarge() {
     let paths = SequencePaths::from([("90X500", N90_M500), ("100X500", N100_M500)]);
+    for (key, path) in paths {
+        let data = black_box_raw_pip_cost_with_config::<JC69>(path);
+        let start = Instant::now();
+        run_optimisation(data.1, data.0.freq_opt, data.0.max_iters, data.0.epsilon)
+            .expect("Should have run");
+        let duration = start.elapsed();
+        println!("{}", key);
+        println!("{:#?}", duration);
+    }
+}
+
+#[test]
+fn test_one_shot_increasing_taxa_xlarge() {
+    let paths = SequencePaths::from([("200X500", N200_M500)]);
     for (key, path) in paths {
         let data = black_box_raw_pip_cost_with_config::<JC69>(path);
         let start = Instant::now();
