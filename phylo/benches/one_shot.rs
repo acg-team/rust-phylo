@@ -96,12 +96,26 @@ fn test_one_shot_increasing_taxa() {
 }
 
 #[test]
-fn test_one_shot_increasing_taxa_large() {
+fn test_one_shot_increasing_taxa_medium() {
     let paths = SequencePaths::from([
-        ("50X500", N50_M500),
-        ("100X500", N100_M500),
-        ("200X500", N200_M500),
+        ("60X500", N60_M500),
+        ("70X500", N70_M500),
+        ("80X500", N80_M500),
     ]);
+    for (key, path) in paths {
+        let data = black_box_raw_pip_cost_with_config::<JC69>(path);
+        let start = Instant::now();
+        run_optimisation(&data.1, data.0.freq_opt, data.0.max_iters, data.0.epsilon)
+            .expect("Should have run");
+        let duration = start.elapsed();
+        println!("{}", key);
+        println!("{:#?}", duration);
+    }
+}
+
+#[test]
+fn test_one_shot_increasing_taxa_large() {
+    let paths = SequencePaths::from([("90X500", N90_M500), ("100X500", N100_M500)]);
     for (key, path) in paths {
         let data = black_box_raw_pip_cost_with_config::<JC69>(path);
         let start = Instant::now();
