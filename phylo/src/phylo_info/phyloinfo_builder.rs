@@ -208,7 +208,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
             }
         } else if sequences.len() == tree.len() {
             if sequences.aligned {
-                validate_ids_with_ancestros(&tree, &sequences)?;
+                validate_ids_with_ancestors(&tree, &sequences)?;
                 info!("Aligned sequences including ancestral sequences.");
                 AA::from_aligned_with_ancestral(sequences, &tree)
             } else {
@@ -287,7 +287,7 @@ fn sequence_ids_are_unique(sequences: &Sequences) -> Result<()> {
 
 /// Checks that the ids of the tree nodes and the sequences match, bails with an error
 /// otherwise.
-fn validate_ids_with_ancestros(tree: &Tree, sequences: &Sequences) -> Result<()> {
+fn validate_ids_with_ancestors(tree: &Tree, sequences: &Sequences) -> Result<()> {
     let tree_ids: HashSet<String> = HashSet::from_iter(
         tree.preorder()
             .iter()
@@ -372,7 +372,7 @@ pub mod private_tests {
         record_wo_desc as record, tree,
     };
 
-    use super::{sequence_ids_are_unique, PhyloInfoBuilder as PIB};
+    use super::{sequence_ids_are_unique, validate_ids_with_ancestors, PhyloInfoBuilder as PIB};
 
     #[test]
     fn builder_setters() {
@@ -460,5 +460,50 @@ pub mod private_tests {
             .unwrap_err()
             .to_string()
             .contains("Duplicate record id (on) found in the sequences."));
+    }
+
+    #[test]
+    fn not_valid_ids_with_ancestros() {
+        // arrange
+        let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0)I10:1.0):1.0;");
+        let seqs = Sequences::new(vec![
+            record!("A1", b"X"),
+            record!("B1", b"X"),
+            record!("D3", b"X"),
+            record!("E4", b"X"),
+            record!("I1", b"X"),
+            record!("I9", b"X"),
+            record!("I10", b"X"),
+            record!("", b"X"),
+        ]);
+
+        // act
+        let error = validate_ids_with_ancestors(&tree, &seqs).unwrap_err();
+
+        // assert
+        assert!(error.to_string().contains("[\"C2\"]"));
+    }
+
+    #[test]
+    fn valid_ids_with_ancestors() {
+        // arrange
+        let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0)I10:1.0):1.0;");
+        let seqs = Sequences::new(vec![
+            record!("A1", b"X"),
+            record!("B1", b"X"),
+            record!("C2", b"X"),
+            record!("D3", b"X"),
+            record!("E4", b"X"),
+            record!("I1", b"X"),
+            record!("I9", b"X"),
+            record!("I10", b"X"),
+            record!("", b"X"),
+        ]);
+
+        // act
+        let result = validate_ids_with_ancestors(&tree, &seqs);
+
+        // assert
+        assert!(result.is_ok());
     }
 }

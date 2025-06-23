@@ -365,7 +365,7 @@ fn masa_from_internal_alignment() {
 }
 
 #[test]
-fn masa_compile_subroot() {
+fn masa_compile_root() {
     // arrange
     let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
     let sequences =
@@ -377,6 +377,31 @@ fn masa_compile_subroot() {
 
     // assert
     assert_eq!(compiled, sequences);
+}
+
+#[test]
+fn masa_compile_subroot() {
+    // arrange
+    let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
+    let sequences =
+        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
+    let masa = MASA::from_aligned(sequences.clone(), &tree).unwrap();
+    let subroot_id = "C";
+    let true_compiled = Sequences::new(
+        sequences
+            .iter()
+            .filter(|f| f.id() == subroot_id)
+            .cloned()
+            .collect(),
+    );
+
+    // act
+    let compiled = masa
+        .compile_subroot(Some(&tree.idx(subroot_id)), &tree)
+        .unwrap();
+
+    // assert
+    assert_eq!(compiled, true_compiled);
 }
 
 #[test]
