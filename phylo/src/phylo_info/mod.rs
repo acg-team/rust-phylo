@@ -16,15 +16,15 @@ pub use phyloinfo_builder::*;
 /// * Enure encoding matches model.
 /// * Add support for unaligned sequences.
 #[derive(Debug, Clone)]
-pub struct PhyloInfo {
+pub struct PhyloInfo<A: Alignment> {
     /// Multiple sequence alignment
-    pub msa: Alignment,
+    pub msa: A,
     /// Phylogenetic tree
     pub tree: Tree,
 }
 
-impl PhyloInfo {
-    /// Compiles a represenataion of the alignment in a vector of fasta records.
+impl<A: Alignment> PhyloInfo<A> {
+    /// Compiles a representation of the alignment in a vector of fasta records.
     /// The alignment is compiled from the subtree rooted at `subroot`.
     /// If `subroot` is None, the whole alignment is compiled.
     /// Bails if the tree does not contain the subroot or does not match the alignment.
@@ -58,7 +58,7 @@ impl PhyloInfo {
         for &char in alphabet.symbols().iter().chain(alphabet.ambiguous()) {
             let count = self
                 .msa
-                .seqs
+                .seqs()
                 .iter()
                 .map(|rec| rec.seq().iter().filter(|&c| c == &char).count())
                 .sum::<usize>() as f64;

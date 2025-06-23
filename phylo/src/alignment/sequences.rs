@@ -73,6 +73,7 @@ impl Sequences {
         self.s.iter()
     }
 
+    /// Returns the number of sequences
     pub fn len(&self) -> usize {
         self.s.len()
     }

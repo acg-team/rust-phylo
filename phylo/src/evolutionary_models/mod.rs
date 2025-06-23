@@ -12,8 +12,15 @@ pub enum FrequencyOptimisation {
     Fixed,
 }
 
+// TODO: this is the same as QMatrix, just adding the p.
+//       Perhaps instead one could write:
+//          EvoModel: QMatrix + DynClone
+//       Why shouldn't QMatrix also implement p?
 pub trait EvoModel: Display + DynClone {
+    // TODO: add a comment that says whether this should return probs for all chars in the alphabet
+    // including gaps or not? So is this nxn or (n+1)x(n+1)?
     fn p(&self, time: f64) -> SubstMatrix;
+    // same here
     fn q(&self) -> &SubstMatrix;
     fn rate(&self, i: u8, j: u8) -> f64;
     fn params(&self) -> &[f64];

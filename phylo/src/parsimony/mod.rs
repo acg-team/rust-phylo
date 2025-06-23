@@ -1,11 +1,10 @@
 use std::default;
 use std::fmt::{Debug, Display};
 
-use hashbrown::HashMap;
 use log::info;
 use nalgebra::DMatrix;
 
-use crate::alignment::{Aligner, Alignment, InternalMapping, PairwiseAlignment, Sequences};
+use crate::alignment::{Aligner, Alignment, InternalAlignments, PairwiseAlignment, Sequences};
 use crate::alphabets::ParsimonySet;
 use crate::evolutionary_models::EvoModel;
 use crate::tree::{NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
@@ -30,8 +29,8 @@ pub struct ParsimonyAligner<PS: ParsimonyScoring> {
     pub scoring: PS,
 }
 
-impl<PS: ParsimonyScoring + Clone> Aligner for ParsimonyAligner<PS> {
-    fn align(&self, seqs: &Sequences, tree: &Tree) -> Result<Alignment> {
+impl<PS: ParsimonyScoring + Clone, A: Alignment> Aligner<A> for ParsimonyAligner<PS> {
+    fn align(&self, seqs: &Sequences, tree: &Tree) -> Result<A> {
         self.align_with_scores(seqs, tree).map(|(a, _)| a)
     }
 }
@@ -49,20 +48,18 @@ impl<'a, PS: ParsimonyScoring + Clone> ParsimonyAligner<PS> {
         ParsimonyAligner { scoring }
     }
 
-    pub fn align_with_scores(
+    pub fn align_with_scores<A: Alignment>(
         &self,
         seqs: &'a Sequences,
         tree: &'a Tree,
-    ) -> Result<(Alignment, Vec<f64>)> {
+    ) -> Result<(A, Vec<f64>)> {
         info!("Starting the IndelMAP alignment.");
 
-        let order = tree.postorder();
-
         let mut node_info = vec![Vec::<ParsimonySite>::new(); tree.len()];
-        let mut alignments = InternalMapping::with_capacity(tree.internals().len());
+        let mut alignments = InternalAlignments::with_capacity(tree.internals().len());
         let mut scores = vec![0.0; tree.len()];
 
-        for &node_idx in order {
+        for &node_idx in tree.postorder() {
             info!("Processing {}{}.", node_idx, tree.node(&node_idx).id);
             match node_idx {
                 Int(idx) => {
@@ -100,14 +97,8 @@ impl<'a, PS: ParsimonyScoring + Clone> ParsimonyAligner<PS> {
             }
         }
         info!("Finished IndelMAP alignment.");
+        let alignment = A::from_internal_alignments(seqs, alignments, tree);
 
-        let mut alignment = Alignment {
-            seqs: seqs.into_gapless(),
-            leaf_map: HashMap::new(),
-            node_map: alignments,
-        };
-        let leaf_map = alignment.compile_leaf_map(&tree.root, tree).unwrap();
-        alignment.leaf_map = leaf_map;
         Ok((alignment, scores))
     }
 
