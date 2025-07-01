@@ -4,6 +4,7 @@ use itertools::Itertools;
 use log::{debug, info};
 
 use crate::likelihood::TreeSearchCost;
+use crate::optimisers::tree_mover::{MoveCostInfo, TreeMover};
 use crate::optimisers::BranchOptimiser;
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
@@ -29,23 +30,29 @@ impl RegraftCostInfo {
     }
 }
 
-pub struct RegraftOptimiser<'a, C: TreeSearchCost + Clone + Display + Send> {
-    prune_location: &'a NodeIdx,
-    cost_fn: &'a C,
-}
-impl<'a, C: TreeSearchCost + Clone + Display + Send> RegraftOptimiser<'a, C> {
-    pub fn new(cost_fn: &'a C, prune_location: &'a NodeIdx) -> RegraftOptimiser<'a, C> {
-        Self {
-            prune_location,
-            cost_fn,
-        }
+pub struct RegraftOptimiser {}
+
+impl TreeMover for RegraftOptimiser {
+    fn tree_move_at_node<C: TreeSearchCost + Clone + Display + Send>(
+        &self,
+        base_cost: f64,
+        cost: &C,
+        node: &NodeIdx,
+    ) -> Result<Option<MoveCostInfo>> {
+        self.find_max_cost_regraft_for_prune(base_cost, cost, node)
     }
-    pub fn available_regraft_locations(&self) -> impl Iterator<Item = &NodeIdx> + use<'_, C> {
-        let tree = self.cost_fn.tree();
+}
+
+impl RegraftOptimiser {
+    pub fn available_regraft_locations<'a>(
+        &self,
+        tree: &'a Tree,
+        prune_location: &NodeIdx,
+    ) -> impl Iterator<Item = &'a NodeIdx> {
         let all_locations = tree.preorder();
-        let prune_subtrees = tree.preorder_subroot(self.prune_location);
-        let sibling = tree.sibling(self.prune_location).unwrap();
-        let parent = tree.node(self.prune_location).parent.unwrap();
+        let prune_subtrees = tree.preorder_subroot(prune_location);
+        let sibling = tree.sibling(prune_location).unwrap();
+        let parent = tree.node(prune_location).parent.unwrap();
         all_locations.iter().filter(move |&node| {
             *node != sibling
                 && *node != parent
@@ -54,25 +61,26 @@ impl<'a, C: TreeSearchCost + Clone + Display + Send> RegraftOptimiser<'a, C> {
         })
     }
 
-    pub fn find_max_cost_regraft_for_prune(
+    pub fn find_max_cost_regraft_for_prune<C: TreeSearchCost + Clone + Display + Send>(
         &self,
         base_cost: f64,
-    ) -> Result<Option<RegraftCostInfo>> {
-        let tree = self.cost_fn.tree();
-        if tree.children(&tree.root).contains(self.prune_location) {
+        cost: &C,
+        prune_location: &NodeIdx,
+    ) -> Result<Option<MoveCostInfo>> {
+        let tree = cost.tree();
+        if tree.children(&tree.root).contains(prune_location) {
             // due to topology change the current node may have become the direct child of root
             return Ok(None);
         }
 
-        let regraft_locations = self.available_regraft_locations().copied().collect_vec();
+        let regraft_locations = self
+            .available_regraft_locations(tree, prune_location)
+            .copied()
+            .collect_vec();
 
-        info!("Node {:?}: trying to regraft", self.prune_location);
-        let best_regraft = calc_best_regraft_cost(
-            base_cost,
-            *self.prune_location,
-            regraft_locations,
-            self.cost_fn,
-        )?;
+        info!("Node {:?}: trying to regraft", prune_location);
+        let best_regraft =
+            calc_best_regraft_cost(base_cost, *prune_location, regraft_locations, cost)?;
         Ok(Some(best_regraft))
     }
 }
@@ -84,7 +92,7 @@ fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
     prune_location: NodeIdx,
     regraft_locations: Vec<NodeIdx>,
     cost: &C,
-) -> Result<RegraftCostInfo> {
+) -> Result<MoveCostInfo> {
     use rayon::prelude::*;
     let cost_funcs = vec![cost.clone(); regraft_locations.len()];
     regraft_locations
@@ -102,7 +110,7 @@ fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
     prune_location: NodeIdx,
     regraft_locations: Vec<NodeIdx>,
     cost: &C,
-) -> Result<RegraftCostInfo> {
+) -> Result<MoveCostInfo> {
     use rayon::prelude::*;
     // TODO: determine better factor (maybe dynamically)
     const CHUNK_SIZE: usize = 2;
@@ -146,7 +154,7 @@ fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
     /// NOTE: by being recursive these tasks can be stored solely on the stack
     /// using rayon::scope might look simpler but incurrs overhead by having to manage
     /// tasks on the heap
-    fn regraft_recursive<C: TreeSearchCost + Clone + Display + Send>(state: RecursiveForkJoinRegrafter<C>, regraft_locations: &[NodeIdx]) -> Result<RegraftCostInfo> {
+    fn regraft_recursive<C: TreeSearchCost + Clone + Display + Send>(state: RecursiveForkJoinRegrafter<C>, regraft_locations: &[NodeIdx]) -> Result<MoveCostInfo> {
         if regraft_locations.len() == 1 {
             return calc_spr_cost_with_blen_opt(state.prune_location, regraft_locations[0], state.base_cost, state.cost_fn);
         }
@@ -165,7 +173,7 @@ fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
     prune_location: NodeIdx,
     regraft_locations: Vec<NodeIdx>,
     cost: &C,
-) -> Result<RegraftCostInfo> {
+) -> Result<MoveCostInfo> {
     let mut max = None;
     let mut max_cost = f64::MIN;
     for regraft in regraft_locations.into_iter().map(move |regraft| {
@@ -193,7 +201,7 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
     regraft: NodeIdx,
     base_cost: f64,
     mut cost_func: C,
-) -> Result<RegraftCostInfo> {
+) -> Result<MoveCostInfo> {
     let mut new_tree = cost_func.tree().rooted_spr(&prune_location, &regraft)?;
 
     cost_func.update_tree(new_tree.clone(), &[prune_location, regraft]);
@@ -209,9 +217,5 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
         }
     }
     debug!("    Regraft to {:?} w best cost {}.", regraft, move_cost);
-    Ok(RegraftCostInfo {
-        cost: move_cost,
-        regraft,
-        tree: new_tree,
-    })
+    Ok(MoveCostInfo::new(move_cost, new_tree, vec![regraft]))
 }

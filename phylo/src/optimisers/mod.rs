@@ -8,6 +8,8 @@ pub mod topo_optimiser;
 pub use topo_optimiser::*;
 pub mod regraft_optimiser;
 pub use regraft_optimiser::*;
+pub mod tree_mover;
+pub use tree_mover::*;
 
 // Struct for any single value optimisation result, e.g. branch length or evolutionary model parameter value
 pub struct SingleValOptResult {

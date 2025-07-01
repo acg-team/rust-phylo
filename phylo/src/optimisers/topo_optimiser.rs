@@ -4,7 +4,7 @@ use std::num::NonZeroUsize;
 use log::{debug, info};
 
 use crate::likelihood::TreeSearchCost;
-use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult};
+use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult, RegraftOptimiser, TreeMover};
 use crate::Result;
 
 #[derive(Debug, Clone, Copy)]
@@ -37,20 +37,28 @@ impl TopologyOptimiserPredicate {
     }
 }
 
-pub struct TopologyOptimiser<C: TreeSearchCost + Display + Clone + Send> {
+pub struct TopologyOptimiser<C: TreeSearchCost + Display + Clone + Send, TM: TreeMover> {
     pub(crate) predicate: TopologyOptimiserPredicate,
     pub(crate) c: C,
+    pub(crate) tree_mover: TM,
 }
 
-impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
+impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C, RegraftOptimiser> {
     pub fn new(cost: C) -> Self {
         Self {
             predicate: TopologyOptimiserPredicate::GtEpsilon(1e-3),
             c: cost,
+            tree_mover: RegraftOptimiser {},
         }
     }
-    pub fn new_with_pred(cost: C, predicate: TopologyOptimiserPredicate) -> Self {
-        Self { predicate, c: cost }
+}
+impl<C: TreeSearchCost + Clone + Display + Send, TM: TreeMover> TopologyOptimiser<C, TM> {
+    pub fn new_with_pred(cost: C, predicate: TopologyOptimiserPredicate, tree_mover: TM) -> Self {
+        Self {
+            predicate,
+            c: cost,
+            tree_mover,
+        }
     }
 
     pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
@@ -78,7 +86,7 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
 
         // The best move on this iteration might still be worse than the current tree, in which case
         // the search stops.
-        // This means that curr_cost is always hugher than or equel to prev_cost.
+        // This means that curr_cost is always higher than or equal to prev_cost.
         while self.predicate.test(iterations, curr_cost - prev_cost) {
             iterations += 1;
             info!("Iteration: {}, current cost: {}.", iterations, curr_cost);
@@ -90,7 +98,12 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
                 current_prunes.shuffle(rng);
             }
 
-            curr_cost = spr::fold_improving_moves(&mut self.c, curr_cost, &current_prunes)?;
+            curr_cost = spr::fold_improving_moves(
+                &mut self.c,
+                &self.tree_mover,
+                curr_cost,
+                &current_prunes,
+            )?;
 
             // Optimise branch lengths on current tree to match PhyML
             if self.c.blen_optimisation() {
@@ -118,20 +131,22 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
     }
 }
 
+// TODO: why do we have a separate mod here?
 pub mod spr {
     use std::fmt::Display;
 
     use itertools::Itertools;
     use log::info;
 
-    use crate::{likelihood::TreeSearchCost, optimisers::RegraftOptimiser, tree::NodeIdx, Result};
+    use crate::{likelihood::TreeSearchCost, optimisers::TreeMover, tree::NodeIdx, Result};
 
     /// Iterates over `prune_locations` in order and applies the best (improving)
     /// SPR move for each pruneing location in place
     /// # Returns:
     /// - the new cost (or `base_cost` if no improvement was found)
-    pub fn fold_improving_moves<C: TreeSearchCost + Display + Clone + Send>(
+    pub fn fold_improving_moves<C: TreeSearchCost + Display + Clone + Send, TM: TreeMover>(
         cost_fn: &mut C,
+        tree_mover: &TM,
         base_cost: f64,
         prune_locations: &[&NodeIdx],
     ) -> Result<f64> {
@@ -150,25 +165,22 @@ pub mod spr {
             .iter()
             .copied()
             .try_fold(base_cost, |base_cost, prune| -> Result<_> {
-                let regraft_optimiser = RegraftOptimiser::new(cost_fn, prune);
                 let Some(best_regraft_info) =
-                    regraft_optimiser.find_max_cost_regraft_for_prune(base_cost)?
+                    tree_mover.tree_move_at_node(base_cost, cost_fn, prune)?
                 else {
                     return Ok(base_cost);
                 };
 
-                let (best_cost, best_regraft, best_tree) = (
+                let (best_cost, mut dirty_nodes, best_tree) = (
                     best_regraft_info.cost(),
-                    best_regraft_info.regraft(),
+                    best_regraft_info.dirty_nodes().clone(),
                     best_regraft_info.into_tree(),
                 );
 
+                dirty_nodes.push(*prune);
                 if best_cost > base_cost {
-                    cost_fn.update_tree(best_tree, &[*prune, best_regraft]);
-                    info!(
-                        "    Regrafted to {:?}, new cost {}.",
-                        best_regraft, best_cost
-                    );
+                    cost_fn.update_tree(best_tree, &dirty_nodes);
+                    info!("    Moved tree, new cost {}.", best_cost);
                     Ok(best_cost)
                 } else {
                     info!("    No improvement, best cost {}.", best_cost);
