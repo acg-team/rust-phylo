@@ -32,8 +32,8 @@ impl MoveCostInfo {
     }
 }
 
-pub trait TreeMover {
-    fn tree_move_at_location<C: TreeSearchCost + Display + Send + Clone + Display>(
+pub trait TreeMover: Clone {
+    fn tree_move_at_location<C: TreeSearchCost<Self> + Display + Send + Clone + Display>(
         &self,
         base_cost: f64,
         cost: &C,

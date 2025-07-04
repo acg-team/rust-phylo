@@ -14,11 +14,12 @@ use helpers::{
     DNA_EASY_8X1252,
 };
 
-fn run_fixed_iter_topo<C: TreeSearchCost + Clone + Display + Send>(cost: C) -> anyhow::Result<f64> {
+fn run_fixed_iter_topo<C: TreeSearchCost<SprOptimiser> + Clone + Display + Send>(
+    cost: C,
+) -> anyhow::Result<f64> {
     let topo_opt = TopologyOptimiser::new_with_attrs(
         cost,
         TopologyOptimiserPredicate::fixed_iter(NonZero::new(3).unwrap()),
-        SprOptimiser {},
     );
     Ok(topo_opt.run()?.final_cost)
 }
@@ -30,7 +31,7 @@ fn run_simulated_topo_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
 ) {
     let mut bench_group =
         criterion.benchmark_group(format!("SIMULATED-TOPO-OPTIMISER {group_name}"));
-    let mut bench = |id: &str, data: PIPCost<Q>| {
+    let mut bench = |id: &str, data: PIPCost<Q, SprOptimiser>| {
         bench_group.bench_function(id, |bench| {
             bench.iter_batched(
                 // clone because of interior mutability in PIPCost

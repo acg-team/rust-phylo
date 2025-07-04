@@ -10,6 +10,7 @@ use nalgebra::{DMatrix, DVector};
 use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
+use crate::optimisers::{SprOptimiser, TreeMover};
 use crate::parsimony::{CostMatrix, DiagonalZeros, ParsimonyModel, Rounding};
 use crate::phylo_info::PhyloInfo;
 use crate::tree::{
@@ -124,7 +125,7 @@ impl<Q: QMatrix> SubstitutionCostBuilder<Q> {
         SubstitutionCostBuilder { model, info }
     }
 
-    pub fn build(self) -> Result<SubstitutionCost<Q>> {
+    pub fn build(self) -> Result<SubstitutionCost<Q, SprOptimiser>> {
         if self.info.msa.alphabet() != self.model.alphabet() {
             bail!("Alphabet mismatch between model and alignment.");
         }
@@ -134,28 +135,35 @@ impl<Q: QMatrix> SubstitutionCostBuilder<Q> {
             model: self.model,
             info: self.info,
             tmp,
+            tree_mover: SprOptimiser {},
         })
     }
 }
 
 #[derive(Debug)]
-pub struct SubstitutionCost<Q: QMatrix> {
+pub struct SubstitutionCost<Q: QMatrix, TM: TreeMover> {
     pub(crate) model: SubstModel<Q>,
     pub(crate) info: PhyloInfo,
     tmp: RefCell<SubstModelInfo<Q>>,
+    tree_mover: TM,
 }
 
-impl<Q: QMatrix> Clone for SubstitutionCost<Q> {
+impl<Q: QMatrix, TM: TreeMover> Clone for SubstitutionCost<Q, TM> {
     fn clone(&self) -> Self {
         SubstitutionCost {
             model: self.model.clone(),
             info: self.info.clone(),
             tmp: RefCell::new(self.tmp.borrow().clone()),
+            tree_mover: self.tree_mover.clone(),
         }
     }
 }
 
-impl<Q: QMatrix> TreeSearchCost for SubstitutionCost<Q> {
+impl<Q, TM> TreeSearchCost<TM> for SubstitutionCost<Q, TM>
+where
+    Q: QMatrix,
+    TM: TreeMover,
+{
     fn cost(&self) -> f64 {
         self.logl(&self.info)
     }
@@ -176,9 +184,13 @@ impl<Q: QMatrix> TreeSearchCost for SubstitutionCost<Q> {
     fn tree(&self) -> &Tree {
         &self.info.tree
     }
+
+    fn tree_mover(&self) -> &TM {
+        &self.tree_mover
+    }
 }
 
-impl<Q: QMatrix> ModelSearchCost for SubstitutionCost<Q> {
+impl<Q: QMatrix, TM: TreeMover> ModelSearchCost for SubstitutionCost<Q, TM> {
     fn cost(&self) -> f64 {
         self.logl(&self.info)
     }
@@ -206,13 +218,13 @@ impl<Q: QMatrix> ModelSearchCost for SubstitutionCost<Q> {
     }
 }
 
-impl<Q: QMatrix> Display for SubstitutionCost<Q> {
+impl<Q: QMatrix, TM: TreeMover> Display for SubstitutionCost<Q, TM> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.model)
     }
 }
 
-impl<Q: QMatrix> SubstitutionCost<Q> {
+impl<Q: QMatrix, TM: TreeMover> SubstitutionCost<Q, TM> {
     fn logl(&self, info: &PhyloInfo) -> f64 {
         for node_idx in info.tree.postorder() {
             match node_idx {

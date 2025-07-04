@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::marker::PhantomData;
 use std::num::NonZeroUsize;
 
 use log::{debug, info};
@@ -37,31 +38,31 @@ impl TopologyOptimiserPredicate {
     }
 }
 
-pub struct TopologyOptimiser<C: TreeSearchCost + Display + Clone + Send, TM: TreeMover> {
+pub struct TopologyOptimiser<C: TreeSearchCost<TM> + Display + Clone + Send, TM: TreeMover> {
+    phantom: PhantomData<TM>,
     pub(crate) predicate: TopologyOptimiserPredicate,
     pub(crate) c: C,
-    pub(crate) tree_mover: TM,
 }
 
-impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C, SprOptimiser> {
+impl<C: TreeSearchCost<SprOptimiser> + Clone + Display + Send> TopologyOptimiser<C, SprOptimiser> {
     pub fn new(cost: C) -> Self {
         Self {
+            phantom: PhantomData,
             predicate: TopologyOptimiserPredicate::GtEpsilon(1e-3),
             c: cost,
-            tree_mover: SprOptimiser {},
         }
     }
 }
-impl<C: TreeSearchCost + Clone + Display + Send, TM: TreeMover> TopologyOptimiser<C, TM> {
-    pub fn new_with_attrs(cost: C, predicate: TopologyOptimiserPredicate, tree_mover: TM) -> Self {
+impl<C: TreeSearchCost<TM> + Clone + Display + Send, TM: TreeMover> TopologyOptimiser<C, TM> {
+    pub fn new_with_attrs(cost: C, predicate: TopologyOptimiserPredicate) -> Self {
         Self {
+            phantom: PhantomData,
             predicate,
             c: cost,
-            tree_mover,
         }
     }
 
-    pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
+    pub fn run(mut self) -> Result<PhyloOptimisationResult<C, TM>> {
         debug_assert!(self.c.tree().len() > 3);
 
         info!("Optimising tree topology with SPRs.");
@@ -74,7 +75,12 @@ impl<C: TreeSearchCost + Clone + Display + Send, TM: TreeMover> TopologyOptimise
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
 
-        let possible_prunes: Vec<_> = self.tree_mover.move_locations(init_tree).copied().collect();
+        let possible_prunes: Vec<_> = self
+            .c
+            .tree_mover()
+            .move_locations(init_tree)
+            .copied()
+            .collect();
         let current_prunes: Vec<_> = possible_prunes.iter().collect();
         cfg_if::cfg_if! {
         if #[cfg(not(feature = "deterministic"))] {
@@ -84,6 +90,7 @@ impl<C: TreeSearchCost + Clone + Display + Send, TM: TreeMover> TopologyOptimise
         }
         }
 
+        let tree_mover = self.c.tree_mover().clone();
         // The best move on this iteration might still be worse than the current tree, in which case
         // the search stops.
         // This means that curr_cost is always higher than or equal to prev_cost.
@@ -98,12 +105,8 @@ impl<C: TreeSearchCost + Clone + Display + Send, TM: TreeMover> TopologyOptimise
                 current_prunes.shuffle(rng);
             }
 
-            curr_cost = spr::fold_improving_moves(
-                &mut self.c,
-                &self.tree_mover,
-                curr_cost,
-                &current_prunes,
-            )?;
+            curr_cost =
+                spr::fold_improving_moves(&mut self.c, &tree_mover, curr_cost, &current_prunes)?;
 
             // Optimise branch lengths on current tree to match PhyML
             if self.c.blen_optimisation() {
@@ -123,6 +126,7 @@ impl<C: TreeSearchCost + Clone + Display + Send, TM: TreeMover> TopologyOptimise
             curr_cost, iterations
         );
         Ok(PhyloOptimisationResult {
+            phantom: PhantomData,
             initial_cost: init_cost,
             final_cost: curr_cost,
             iterations,
@@ -144,7 +148,7 @@ pub mod spr {
     /// SPR move for each pruning location in place
     /// # Returns:
     /// - the new cost (or `base_cost` if no improvement was found)
-    pub fn fold_improving_moves<C: TreeSearchCost + Display + Clone + Send, TM: TreeMover>(
+    pub fn fold_improving_moves<C: TreeSearchCost<TM> + Display + Clone + Send, TM: TreeMover>(
         cost_fn: &mut C,
         tree_mover: &TM,
         base_cost: f64,

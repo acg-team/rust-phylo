@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
 
 pub mod blen_optimiser;
@@ -8,6 +10,8 @@ pub mod topo_optimiser;
 pub use topo_optimiser::*;
 pub mod spr_optimiser;
 pub use spr_optimiser::*;
+pub mod nni_optimiser;
+pub use nni_optimiser::*;
 pub mod tree_mover;
 pub use tree_mover::*;
 
@@ -19,7 +23,8 @@ pub struct SingleValOptResult {
     pub value: f64,
 }
 
-pub struct PhyloOptimisationResult<C: TreeSearchCost> {
+pub struct PhyloOptimisationResult<C: TreeSearchCost<TM>, TM: TreeMover> {
+    phantom: PhantomData<TM>,
     pub initial_cost: f64,
     pub final_cost: f64,
     pub iterations: usize,
@@ -39,6 +44,9 @@ mod blen_optimiser_tests;
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod model_optimiser_tests;
+#[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
+mod nni_optimiser_tests;
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod topo_optimiser_tests;

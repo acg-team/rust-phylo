@@ -68,6 +68,8 @@ pub struct Tree {
     leaf_ids: Vec<String>,
     pub complete: bool,
     pub n: usize,
+    /// TODO: this is the total sum of blens and not the height of the tree
+    /// so maybe call this magnitude, absolute_value, or total_weight
     pub height: f64,
     pub(crate) dirty: Vec<bool>,
 }

@@ -6,7 +6,7 @@ use crate::alignment::{Alignment, Sequences};
 use crate::evolutionary_models::FrequencyOptimisation::Empirical;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{
-    BranchOptimiser, ModelOptimiser, PhyloOptimisationResult, TopologyOptimiser,
+    BranchOptimiser, ModelOptimiser, PhyloOptimisationResult, SprOptimiser, TopologyOptimiser,
 };
 use crate::parsimony::scoring::ModelScoringBuilder;
 use crate::parsimony::{BasicParsimonyCost, DolloParsimonyCost};
@@ -28,7 +28,7 @@ macro_rules! define_optimise_trees {
                 seq_file: &std::path::Path,
                 _: &std::path::Path,
                 model: $model<Q>,
-            ) -> PhyloOptimisationResult<$cost<Q>> {
+            ) -> PhyloOptimisationResult<$cost<Q, SprOptimiser>, SprOptimiser> {
                 let start_info = PIB::new(seq_file.to_path_buf()).build().unwrap();
                 let cost = $builder::new(model, start_info).build().unwrap();
                 TopologyOptimiser::new(cost).run().unwrap()

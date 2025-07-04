@@ -11,10 +11,11 @@ use crate::optimisers::BranchOptimiser;
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
 
+#[derive(Clone)]
 pub struct SprOptimiser {}
 
 impl TreeMover for SprOptimiser {
-    fn tree_move_at_location<C: TreeSearchCost + Clone + Display + Send>(
+    fn tree_move_at_location<C: TreeSearchCost<Self> + Clone + Display + Send>(
         &self,
         base_cost: f64,
         cost: &C,
@@ -46,7 +47,10 @@ impl SprOptimiser {
         })
     }
 
-    pub fn find_max_cost_regraft_for_prune<C: TreeSearchCost + Clone + Display + Send>(
+    pub fn find_max_cost_regraft_for_prune<
+        C: TreeSearchCost<TM> + Clone + Display + Send,
+        TM: TreeMover,
+    >(
         &self,
         base_cost: f64,
         cost: &C,
@@ -153,7 +157,7 @@ fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
     regraft_recursive(RecursiveForkJoinRegrafter { cost_fn: cost.clone(), prune_location, base_cost }, &regraft_locations)
 }
 } else {
-fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
+fn calc_best_regraft_cost<C: TreeSearchCost<TM> + Clone + Display + Send, TM: TreeMover>(
     base_cost: f64,
     prune_location: NodeIdx,
     regraft_locations: Vec<NodeIdx>,
@@ -181,7 +185,7 @@ fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
 /// if the move doesn't result in improvement over `base_cost`
 /// the blen of the regrafted branch is optimised to check if an
 /// improvement could still be reached
-fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
+fn calc_spr_cost_with_blen_opt<C: TreeSearchCost<TM> + Clone + Display, TM: TreeMover>(
     prune_location: NodeIdx,
     regraft: NodeIdx,
     base_cost: f64,

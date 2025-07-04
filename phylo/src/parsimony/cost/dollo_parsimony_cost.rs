@@ -6,6 +6,7 @@ use hashbrown::HashSet;
 
 use crate::alphabets::ParsimonySet;
 use crate::likelihood::TreeSearchCost;
+use crate::optimisers::{SprOptimiser, TreeMover};
 use crate::parsimony::scoring::{GapCost, SimpleScoring};
 use crate::parsimony::ParsimonyScoring;
 use crate::phylo_info::PhyloInfo;
@@ -15,35 +16,42 @@ use crate::tree::{
 };
 
 #[derive(Debug, Clone)]
-pub struct DolloParsimonyCost<S: ParsimonyScoring> {
+pub struct DolloParsimonyCost<S: ParsimonyScoring, TM: TreeMover> {
     pub(crate) info: PhyloInfo,
     tmp: RefCell<DolloParsimonyInfo>,
     scoring: S,
+    tree_mover: TM,
 }
 
-impl<S: ParsimonyScoring> Display for DolloParsimonyCost<S> {
+impl<S: ParsimonyScoring, TM: TreeMover> Display for DolloParsimonyCost<S, TM> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Dollo parsimony using: \n\t{}", self.scoring)
     }
 }
 
-impl DolloParsimonyCost<SimpleScoring> {
+impl DolloParsimonyCost<SimpleScoring, SprOptimiser> {
     pub fn new(info: PhyloInfo) -> Self {
         let tmp = RefCell::new(DolloParsimonyInfo::new(&info));
         DolloParsimonyCost {
             info,
             tmp,
             scoring: SimpleScoring::new(1.0, GapCost::new(1.0, 1.0)),
+            tree_mover: SprOptimiser {},
         }
     }
 }
-
-impl<S: ParsimonyScoring> DolloParsimonyCost<S> {
+impl<S: ParsimonyScoring> DolloParsimonyCost<S, SprOptimiser> {
     pub fn with_scoring(info: PhyloInfo, scoring: S) -> Self {
         let tmp = RefCell::new(DolloParsimonyInfo::new(&info));
-        DolloParsimonyCost { info, tmp, scoring }
+        DolloParsimonyCost {
+            info,
+            tmp,
+            scoring,
+            tree_mover: SprOptimiser {},
+        }
     }
-
+}
+impl<S: ParsimonyScoring, TM: TreeMover> DolloParsimonyCost<S, TM> {
     fn score(&self) -> f64 {
         for node_idx in self.info.tree.postorder() {
             match node_idx {
@@ -143,7 +151,7 @@ impl<S: ParsimonyScoring> DolloParsimonyCost<S> {
     }
 }
 
-impl<S: ParsimonyScoring> TreeSearchCost for DolloParsimonyCost<S> {
+impl<S: ParsimonyScoring, TM: TreeMover> TreeSearchCost<TM> for DolloParsimonyCost<S, TM> {
     fn cost(&self) -> f64 {
         -self.score()
     }
@@ -165,6 +173,10 @@ impl<S: ParsimonyScoring> TreeSearchCost for DolloParsimonyCost<S> {
 
     fn blen_optimisation(&self) -> bool {
         false
+    }
+
+    fn tree_mover(&self) -> &TM {
+        &self.tree_mover
     }
 }
 
