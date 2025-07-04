@@ -6,8 +6,8 @@ pub mod model_optimiser;
 pub use model_optimiser::*;
 pub mod topo_optimiser;
 pub use topo_optimiser::*;
-pub mod regraft_optimiser;
-pub use regraft_optimiser::*;
+pub mod spr_optimiser;
+pub use spr_optimiser::*;
 pub mod tree_mover;
 pub use tree_mover::*;
 
