@@ -4,7 +4,7 @@ use std::num::NonZeroUsize;
 use log::{debug, info};
 
 use crate::likelihood::TreeSearchCost;
-use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult, RegraftOptimiser, TreeMover};
+use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult, SprOptimiser, TreeMover};
 use crate::Result;
 
 #[derive(Debug, Clone, Copy)]
@@ -43,17 +43,17 @@ pub struct TopologyOptimiser<C: TreeSearchCost + Display + Clone + Send, TM: Tre
     pub(crate) tree_mover: TM,
 }
 
-impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C, RegraftOptimiser> {
+impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C, SprOptimiser> {
     pub fn new(cost: C) -> Self {
         Self {
             predicate: TopologyOptimiserPredicate::GtEpsilon(1e-3),
             c: cost,
-            tree_mover: RegraftOptimiser {},
+            tree_mover: SprOptimiser {},
         }
     }
 }
 impl<C: TreeSearchCost + Clone + Display + Send, TM: TreeMover> TopologyOptimiser<C, TM> {
-    pub fn new_with_pred(cost: C, predicate: TopologyOptimiserPredicate, tree_mover: TM) -> Self {
+    pub fn new_with_attrs(cost: C, predicate: TopologyOptimiserPredicate, tree_mover: TM) -> Self {
         Self {
             predicate,
             c: cost,
@@ -74,7 +74,7 @@ impl<C: TreeSearchCost + Clone + Display + Send, TM: TreeMover> TopologyOptimise
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
 
-        let possible_prunes: Vec<_> = init_tree.find_possible_prune_locations().copied().collect();
+        let possible_prunes: Vec<_> = self.tree_mover.move_locations(init_tree).copied().collect();
         let current_prunes: Vec<_> = possible_prunes.iter().collect();
         cfg_if::cfg_if! {
         if #[cfg(not(feature = "deterministic"))] {
@@ -141,43 +141,42 @@ pub mod spr {
     use crate::{likelihood::TreeSearchCost, optimisers::TreeMover, tree::NodeIdx, Result};
 
     /// Iterates over `prune_locations` in order and applies the best (improving)
-    /// SPR move for each pruneing location in place
+    /// SPR move for each pruning location in place
     /// # Returns:
     /// - the new cost (or `base_cost` if no improvement was found)
     pub fn fold_improving_moves<C: TreeSearchCost + Display + Clone + Send, TM: TreeMover>(
         cost_fn: &mut C,
         tree_mover: &TM,
         base_cost: f64,
-        prune_locations: &[&NodeIdx],
+        move_locations: &[&NodeIdx],
     ) -> Result<f64> {
         debug_assert!(
             {
-                let correct_prune_locations =
-                    cost_fn.tree().find_possible_prune_locations().collect_vec();
-                prune_locations
+                let correct_move_locations =
+                    tree_mover.move_locations(cost_fn.tree()).collect_vec();
+                move_locations
                     .iter()
-                    .all(|prune_location| correct_prune_locations.contains(prune_location))
+                    .all(|prune_location| correct_move_locations.contains(prune_location))
             },
             "all prune locations must be contained in the tree and valid"
         );
 
-        prune_locations
-            .iter()
-            .copied()
-            .try_fold(base_cost, |base_cost, prune| -> Result<_> {
-                let Some(best_regraft_info) =
-                    tree_mover.tree_move_at_node(base_cost, cost_fn, prune)?
+        move_locations.iter().copied().try_fold(
+            base_cost,
+            |base_cost, move_location| -> Result<_> {
+                let Some(move_cost_info) =
+                    tree_mover.tree_move_at_location(base_cost, cost_fn, move_location)?
                 else {
                     return Ok(base_cost);
                 };
 
                 let (best_cost, mut dirty_nodes, best_tree) = (
-                    best_regraft_info.cost(),
-                    best_regraft_info.dirty_nodes().clone(),
-                    best_regraft_info.into_tree(),
+                    move_cost_info.cost(),
+                    move_cost_info.dirty_nodes().clone(),
+                    move_cost_info.into_tree(),
                 );
 
-                dirty_nodes.push(*prune);
+                dirty_nodes.push(*move_location);
                 if best_cost > base_cost {
                     cost_fn.update_tree(best_tree, &dirty_nodes);
                     info!("    Moved tree, new cost {}.", best_cost);
@@ -186,6 +185,7 @@ pub mod spr {
                     info!("    No improvement, best cost {}.", best_cost);
                     Ok(base_cost)
                 }
-            })
+            },
+        )
     }
 }

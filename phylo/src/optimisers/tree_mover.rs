@@ -33,10 +33,14 @@ impl MoveCostInfo {
 }
 
 pub trait TreeMover {
-    fn tree_move_at_node<C: TreeSearchCost + Display + Send + Clone + Display>(
+    fn tree_move_at_location<C: TreeSearchCost + Display + Send + Clone + Display>(
         &self,
         base_cost: f64,
         cost: &C,
         node: &NodeIdx,
     ) -> Result<Option<MoveCostInfo>>;
+
+    // or should we also have the cost here such that it might be more likely that this method and also
+    // the method above actually use the same tree
+    fn move_locations<'a>(&self, tree: &'a Tree) -> impl Iterator<Item = &'a NodeIdx>;
 }

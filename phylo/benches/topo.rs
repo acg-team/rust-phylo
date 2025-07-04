@@ -5,7 +5,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::TreeSearchCost;
-use phylo::optimisers::{RegraftOptimiser, TopologyOptimiser, TopologyOptimiserPredicate};
+use phylo::optimisers::{SprOptimiser, TopologyOptimiser, TopologyOptimiserPredicate};
 use phylo::pip_model::PIPCost;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 mod helpers;
@@ -15,10 +15,10 @@ use helpers::{
 };
 
 fn run_fixed_iter_topo<C: TreeSearchCost + Clone + Display + Send>(cost: C) -> anyhow::Result<f64> {
-    let topo_opt = TopologyOptimiser::new_with_pred(
+    let topo_opt = TopologyOptimiser::new_with_attrs(
         cost,
         TopologyOptimiserPredicate::fixed_iter(NonZero::new(3).unwrap()),
-        RegraftOptimiser {},
+        SprOptimiser {},
     );
     Ok(topo_opt.run()?.final_cost)
 }

@@ -10,6 +10,7 @@ use rand::Rng;
 
 use crate::alignment::Sequences;
 use crate::io::read_newick_from_file;
+use crate::optimisers::{rooted_spr, rooted_spr_unchecked};
 use crate::parsimony::Rounding;
 use crate::tree::{
     argmin_wo_diagonal, build_nj_tree_from_matrix, compute_distance_matrix,
@@ -792,68 +793,68 @@ fn is_subtree() {
 #[test]
 fn spr_siblings() {
     let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-    assert!(tree.rooted_spr(&tree.idx("A"), &tree.idx("B")).is_err());
+    assert!(rooted_spr(&tree, &tree.idx("A"), &tree.idx("B")).is_err());
 }
 
 #[test]
 fn spr_prune_root_or_children() {
     let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-    assert!(tree.rooted_spr(&tree.idx("G"), &tree.idx("B")).is_err());
-    assert!(tree.rooted_spr(&tree.idx("E"), &tree.idx("B")).is_err());
-    assert!(tree.rooted_spr(&tree.idx("F"), &tree.idx("B")).is_err());
+    assert!(rooted_spr(&tree, &tree.idx("G"), &tree.idx("B")).is_err());
+    assert!(rooted_spr(&tree, &tree.idx("E"), &tree.idx("B")).is_err());
+    assert!(rooted_spr(&tree, &tree.idx("F"), &tree.idx("B")).is_err());
 }
 
 #[test]
 #[should_panic]
 fn spr_prune_root_unchecked() {
     let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-    tree.rooted_spr_unchecked(&tree.idx("G"), &tree.idx("B"));
+    rooted_spr_unchecked(&tree, &tree.idx("G"), &tree.idx("B"));
 }
 
 #[test]
 #[should_panic]
 fn spr_prune_root_child_unchecked() {
     let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-    tree.rooted_spr_unchecked(&tree.idx("F"), &tree.idx("B"));
+    rooted_spr_unchecked(&tree, &tree.idx("F"), &tree.idx("B"));
 }
 
 #[test]
 fn spr_regraft_root() {
     let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-    assert!(tree.rooted_spr(&tree.idx("A"), &tree.idx("G")).is_err());
+    assert!(rooted_spr(&tree, &tree.idx("A"), &tree.idx("G")).is_err());
 }
 
 #[test]
 #[should_panic]
 fn spr_regraft_root_unchecked() {
     let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-    tree.rooted_spr_unchecked(&tree.idx("B"), &tree.idx("G"));
+    rooted_spr_unchecked(&tree, &tree.idx("B"), &tree.idx("G"));
 }
 
 #[test]
 fn spr_regraft_subtree() {
     let tree = tree!("((((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3,H:1.0)K:1.0);");
-    assert!(tree.rooted_spr(&tree.idx("E"), &tree.idx("B")).is_err());
+    assert!(rooted_spr(&tree, &tree.idx("E"), &tree.idx("B")).is_err());
 }
 
 #[test]
 #[should_panic]
 fn spr_regraft_subtree_unchecked() {
     let tree = tree!("((((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3,H:1.0)K:1.0);");
-    tree.rooted_spr_unchecked(&tree.idx("E"), &tree.idx("B"));
+    rooted_spr_unchecked(&tree, &tree.idx("E"), &tree.idx("B"));
 }
 
 #[test]
 #[should_panic]
 fn spr_regraft_siblings() {
     let tree = tree!("((((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3,H:1.0)K:1.0);");
-    tree.rooted_spr_unchecked(&tree.idx("A"), &tree.idx("B"));
+    rooted_spr_unchecked(&tree, &tree.idx("A"), &tree.idx("B"));
 }
 
 #[test]
 fn spr_simple_valid() {
     let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-    let new_tree = tree.rooted_spr(&tree.idx("A"), &tree.idx("C")).unwrap();
+    let new_tree = rooted_spr(&tree, &tree.idx("A"), &tree.idx("C")).unwrap();
     assert_eq!(new_tree.len(), tree.len());
     assert_relative_eq!(new_tree.height, tree.height);
     let prune_sib = new_tree.node(&tree.idx("B"));
@@ -882,7 +883,7 @@ fn spr_simple_valid() {
 #[test]
 fn spr_broken() {
     let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
-    let new_tree = tree.rooted_spr(&tree.idx("A"), &tree.idx("C")).unwrap();
+    let new_tree = rooted_spr(&tree, &tree.idx("A"), &tree.idx("C")).unwrap();
     let ng = new_tree.node(&tree.idx("G"));
     assert!([tree.idx("F"), tree.idx("B")].contains(&ng.children[0]));
     assert!([tree.idx("F"), tree.idx("B")].contains(&ng.children[1]));

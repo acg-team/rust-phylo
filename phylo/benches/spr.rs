@@ -5,7 +5,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use itertools::Itertools;
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::TreeSearchCost;
-use phylo::optimisers::{spr, RegraftOptimiser};
+use phylo::optimisers::{spr, SprOptimiser, TreeMover};
 use phylo::pip_model::PIPCost;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 use phylo::tree::NodeIdx;
@@ -18,7 +18,7 @@ use helpers::{
 fn single_spr_cycle<C: TreeSearchCost + Clone + Display + Send>(
     mut cost_fn: C,
     prune_locations: &[&NodeIdx],
-    tree_mover: RegraftOptimiser,
+    tree_mover: SprOptimiser,
 ) -> anyhow::Result<f64> {
     spr::fold_improving_moves(&mut cost_fn, &tree_mover, f64::MIN, prune_locations)
 }
@@ -27,7 +27,7 @@ fn find_best_regraft_for_single_spr_move<C: TreeSearchCost + Clone + Display + S
     cost_fn: C,
     prune_location: &NodeIdx,
 ) -> anyhow::Result<f64> {
-    let regraft_optimiser = RegraftOptimiser {};
+    let regraft_optimiser = SprOptimiser {};
     let best_regraft = regraft_optimiser
         .find_max_cost_regraft_for_prune(f64::MIN, &cost_fn, prune_location)?
         .expect("invalid prune location for benchmarking");
@@ -46,17 +46,17 @@ fn run_single_spr_cycle_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
                 // clone because of interior mutability in PIPCost
                 || data.clone(),
                 |(cost_fn, prune_locations)| {
-                    single_spr_cycle(cost_fn, prune_locations, RegraftOptimiser {})
+                    single_spr_cycle(cost_fn, prune_locations, SprOptimiser {})
                 },
                 criterion::BatchSize::SmallInput,
             );
         });
     };
+    let tree_mover = SprOptimiser {};
     for (key, path) in paths {
         let cost_fn = black_box_pip_cost::<Q>(path, FrequencyOptimisation::Empirical);
-        let prune_locations = cost_fn
-            .tree()
-            .find_possible_prune_locations()
+        let prune_locations = tree_mover
+            .move_locations(cost_fn.tree())
             .copied()
             .collect_vec();
         let prune_locations_ref = prune_locations.iter().collect_vec();
