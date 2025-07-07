@@ -65,8 +65,8 @@ impl NJMat {
                     / (2 * (self.distances.ncols() - 2)) as f64
         };
         (
-            if blen_i < 0.0 { 0.0 } else { blen_i },
-            if blen_j < 0.0 { 0.0 } else { blen_j },
+            if blen_i <= 0.0 { f64::EPSILON } else { blen_i },
+            if blen_j <= 0.0 { f64::EPSILON } else { blen_j },
         )
     }
 

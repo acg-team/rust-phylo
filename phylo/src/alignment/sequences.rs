@@ -1,23 +1,58 @@
+use std::fmt::Display;
+
 use anyhow::bail;
 use bio::io::fasta::Record;
-use nalgebra::DMatrix;
-use std::collections::HashMap;
+use bitvec::vec::BitVec;
 
-use crate::alphabets::{detect_alphabet, Alphabet, GAP};
+use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet, GAP};
 use crate::Result;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Sequences {
     pub(crate) s: Vec<Record>,
     pub(crate) aligned: bool,
     pub(crate) alphabet: Alphabet,
 }
 
+impl PartialEq for Sequences {
+    fn eq(&self, other: &Self) -> bool {
+        self.s.len() == other.s.len()
+            && self.aligned == other.aligned
+            && self.alphabet == other.alphabet
+            && {
+                let mut self_records = self.s.clone();
+                let mut other_records = other.s.clone();
+                self_records.sort_by(|a, b| a.id().cmp(b.id()));
+                other_records.sort_by(|a, b| a.id().cmp(b.id()));
+                self_records == other_records
+            }
+    }
+}
+
+impl Display for Sequences {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for record in &self.s {
+            write!(f, "{}", record)?;
+        }
+        Ok(())
+    }
+}
+
 impl Sequences {
+    fn detect_alphabet(sequences: &[Record]) -> Alphabet {
+        let dna_alphabet = dna_alphabet();
+        for record in sequences.iter() {
+            if !dna_alphabet.is_word(record.seq()) {
+                return protein_alphabet();
+            }
+        }
+        dna_alphabet
+    }
+
     /// Creates a new Sequences object from a vector of bio::io::fasta::Record.
     /// The Sequences object is considered aligned if all sequences have the same length.
     pub fn new(s: Vec<Record>) -> Sequences {
-        let alphabet = detect_alphabet(&s);
+        let alphabet = Self::detect_alphabet(&s);
         Self::with_alphabet(s, alphabet)
     }
 
@@ -74,7 +109,7 @@ impl Sequences {
     }
 
     /// Removes all gaps from the sequences and returns a new Sequences object.
-    pub fn without_gaps(&self) -> Sequences {
+    pub fn into_gapless(&self) -> Sequences {
         let seqs = self
             .s
             .iter()
@@ -91,32 +126,65 @@ impl Sequences {
         Sequences {
             s: seqs,
             aligned: false,
-            alphabet: self.alphabet.clone(),
+            alphabet: *self.alphabet(),
         }
     }
 
-    /// Creates a the character encoding for each given ungapped sequence.
-    /// Used for the likelihood calculation to avoid having to get the character encoding
-    /// from scratch every time the likelihood is optimised.
-    pub(crate) fn generate_leaf_encoding(&self) -> HashMap<String, DMatrix<f64>> {
-        let alphabet = self.alphabet();
-        let mut leaf_encoding = HashMap::with_capacity(self.len());
-        for seq in self.iter() {
-            if seq.seq().is_empty() {
-                leaf_encoding.insert(seq.id().to_string(), DMatrix::zeros(0, 0));
-                continue;
-            }
-            leaf_encoding.insert(
-                seq.id().to_string(),
-                DMatrix::from_columns(
-                    seq.seq()
-                        .iter()
-                        .map(|&c| alphabet.char_encoding(c))
-                        .collect::<Vec<_>>()
-                        .as_slice(),
-                ),
-            );
+    /// Removes all columns that only contain gaps from the sequences.
+    pub fn remove_gap_cols(&mut self) {
+        assert!(
+            self.aligned,
+            "Cannot remove gap columns from unaligned sequences"
+        );
+
+        let mut gap_cols: BitVec = BitVec::repeat(true, self.s[0].seq().len());
+        for rec in &self.s {
+            let seq_gaps = rec.seq().iter().map(|&c| c == GAP).collect::<BitVec>();
+            gap_cols &= seq_gaps;
         }
-        leaf_encoding
+
+        let new_seqs = self.s.iter().map(|rec| {
+            let seq: Vec<u8> = rec
+                .seq()
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| !gap_cols[*i])
+                .map(|(_, c)| *c)
+                .collect();
+            Record::with_attrs(rec.id(), rec.desc(), &seq)
+        });
+        self.s = new_seqs.collect();
+    }
+}
+
+#[cfg(test)]
+mod private_tests {
+    use rstest::rstest;
+
+    use std::path::PathBuf;
+
+    use crate::io::read_sequences;
+
+    use super::*;
+
+    #[rstest]
+    #[case::aligned("./data/sequences_DNA1.fasta")]
+    #[case::unaligned("./data/sequences_DNA2_unaligned.fasta")]
+    #[case::long("./data/sequences_long.fasta")]
+    fn dna_type_test(#[case] input: &str) {
+        let seqs = read_sequences(&PathBuf::from(input)).unwrap();
+        let alphabet = Sequences::detect_alphabet(&seqs);
+        assert_eq!(alphabet, dna_alphabet());
+        assert!(format!("{}", alphabet).contains("DNA"));
+    }
+
+    #[rstest]
+    #[case("./data/sequences_protein1.fasta")]
+    #[case("./data/sequences_protein2.fasta")]
+    fn protein_type_test(#[case] input: &str) {
+        let seqs = read_sequences(&PathBuf::from(input)).unwrap();
+        let alphabet = Sequences::detect_alphabet(&seqs);
+        assert_eq!(alphabet, protein_alphabet());
+        assert!(format!("{}", alphabet).contains("protein"));
     }
 }

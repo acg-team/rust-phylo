@@ -1,18 +1,22 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
+use std::iter;
 use std::marker::PhantomData;
 use std::ops::Mul;
 use std::vec;
 
 use anyhow::bail;
+use hashbrown::HashMap;
+use lazy_static::lazy_static;
+use log::warn;
 use nalgebra::{DMatrix, DVector};
 
 use crate::alignment::Mapping;
+use crate::alphabets::{Alphabet, GAP};
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
 use crate::phylo_info::PhyloInfo;
-use crate::substitution_models::{FreqVector, QMatrix, SubstMatrix};
+use crate::substitution_models::{FreqVector, QMatrix, QMatrixMaker, SubstMatrix};
 use crate::tree::{
     NodeIdx::{self, Internal as Int, Leaf},
     Tree,
@@ -21,6 +25,10 @@ use crate::Result;
 
 // (2.0 * PI).ln() / 2.0;
 pub static SHIFT: f64 = 0.9189385332046727;
+
+lazy_static! {
+    pub static ref MINLOGPROB: f64 = (f64::MIN_POSITIVE).ln();
+}
 
 fn log_factorial_shifted(n: usize) -> f64 {
     // An approximation using Stirling's formula, minus constant log(sqrt(2*PI)).
@@ -34,54 +42,53 @@ pub struct PIPModel<Q: QMatrix> {
     pub(crate) subst_q: Q,
     q: SubstMatrix,
     freqs: FreqVector,
-    index: [usize; 255],
     params: Vec<f64>,
-}
-
-impl<Q: QMatrix + Clone> PIPModel<Q> {
-    fn lambda(&self) -> f64 {
-        self.params[0]
-    }
-    fn mu(&self) -> f64 {
-        self.params[1]
-    }
 }
 
 fn pip_q(q: &mut SubstMatrix, subst_q: &SubstMatrix, mu: f64) {
     let n = subst_q.ncols();
     q.view_mut((0, 0), (n, n)).copy_from(subst_q);
     q.fill_column(n, mu);
-
     for i in 0..(n + 1) {
         q[(i, i)] -= mu;
     }
 }
 
-impl<Q: QMatrix + Clone> EvoModel for PIPModel<Q> {
-    fn new(frequencies: &[f64], params: &[f64]) -> Result<Self>
-    where
-        Self: Sized,
-    {
+impl<Q: QMatrix> PIPModel<Q> {
+    fn lambda(&self) -> f64 {
+        self.params[0]
+    }
+
+    fn mu(&self) -> f64 {
+        self.params[1]
+    }
+}
+
+impl<Q: QMatrix + QMatrixMaker> PIPModel<Q> {
+    pub fn new(frequencies: &[f64], params: &[f64]) -> Self {
+        let mut params = params.to_vec();
         if params.len() < 2 {
-            bail!("Too few values provided for PIP, 2 values required, lambda and mu.");
+            warn!("Too few values provided for PIP, 2 values required, lambda and mu.");
+            warn!("Falling back to default values.");
+            params.extend(iter::repeat_n(1.5, 2 - params.len()));
         }
         let mu = params[1];
 
-        let subst_q = Q::new(frequencies, &params[2..]);
-        let mut index = *subst_q.index();
-        index[b'-' as usize] = subst_q.n();
-        let freqs = subst_q.freqs().clone().insert_row(subst_q.n(), 0.0);
-        let mut q = SubstMatrix::zeros(subst_q.n() + 1, subst_q.n() + 1);
+        let subst_q = Q::create(frequencies, &params[2..]);
+        let n = subst_q.n();
+        let freqs = subst_q.freqs().clone().insert_row(n, 0.0);
+        let mut q = SubstMatrix::zeros(n + 1, n + 1);
         pip_q(&mut q, subst_q.q(), mu);
-        Ok(PIPModel {
+        PIPModel {
             subst_q,
             q,
             freqs,
-            index,
             params: params.to_vec(),
-        })
+        }
     }
+}
 
+impl<Q: QMatrix> EvoModel for PIPModel<Q> {
     fn p(&self, time: f64) -> SubstMatrix {
         (self.q().clone() * time).exp()
     }
@@ -91,21 +98,26 @@ impl<Q: QMatrix + Clone> EvoModel for PIPModel<Q> {
     }
 
     fn rate(&self, i: u8, j: u8) -> f64 {
-        self.q[(self.index[i as usize], self.index[j as usize])]
+        let n = self.subst_q.n();
+        if i == GAP {
+            self.q[(n, 0)]
+        } else if j == GAP {
+            self.q[(0, n)]
+        } else {
+            self.subst_q.rate(i, j)
+        }
     }
 
     fn freqs(&self) -> &FreqVector {
         &self.freqs
     }
 
+    // This assumes correct dimensions to minimise runtime checks
     fn set_freqs(&mut self, pi: FreqVector) {
-        self.freqs = pi.clone().insert_row(self.n() - 1, 0.0);
+        debug_assert!(self.freqs.nrows() - 1 == pi.nrows() || self.freqs.nrows() == pi.nrows());
+        self.freqs = pi.clone().insert_row(pi.nrows(), 0.0);
         self.subst_q.set_freqs(pi.clone());
         pip_q(&mut self.q, self.subst_q.q(), self.params[1]);
-    }
-
-    fn index(&self) -> &[usize; 255] {
-        &self.index
     }
 
     fn params(&self) -> &[f64] {
@@ -132,6 +144,10 @@ impl<Q: QMatrix + Clone> EvoModel for PIPModel<Q> {
     fn n(&self) -> usize {
         self.subst_q.n() + 1
     }
+
+    fn alphabet(&self) -> &Alphabet {
+        self.subst_q.alphabet()
+    }
 }
 
 impl<Q: QMatrix + Display> Display for PIPModel<Q> {
@@ -157,36 +173,41 @@ pub struct PIPModelInfo<Q: QMatrix> {
     valid: Vec<bool>,
     models: Vec<SubstMatrix>,
     models_valid: Vec<bool>,
-    leaf_sequence_info: HashMap<String, DMatrix<f64>>,
+    leaf_seq_info: HashMap<NodeIdx, DMatrix<f64>>,
 }
 
-impl<Q: QMatrix + Clone> PIPModelInfo<Q>
-where
-    PIPModel<Q>: EvoModel,
-{
-    pub fn new(info: &PhyloInfo, model: &PIPModel<Q>) -> Self {
-        let n = model.n();
+impl<Q: QMatrix> PIPModelInfo<Q> {
+    pub fn new(info: &PhyloInfo, model: &PIPModel<Q>) -> Result<Self> {
+        let n = model.q().nrows();
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
-        let mut leaf_seq_info: HashMap<String, DMatrix<f64>> = HashMap::new();
+        let mut leaf_seq_info = HashMap::with_capacity(info.tree.leaves().len());
         for node in info.tree.leaves() {
+            let seq = info.msa.seqs.record_by_id(&node.id).seq().to_vec();
+
             let alignment_map = info.msa.leaf_map(&node.idx);
-            let leaf_encoding = info.msa.leaf_encoding.get(&node.id).unwrap();
             let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(n, msa_length);
+
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
-                    let encoding = leaf_encoding.column(c).insert_row(n - 1, 0.0);
+                    let encoding = info
+                        .msa
+                        .alphabet()
+                        .char_encoding(seq[c])
+                        .clone()
+                        .insert_row(n - 1, 0.0);
+
                     site_info.copy_from(&encoding);
                 } else {
                     site_info.fill_row(n - 1, 1.0);
                 }
                 site_info.scale_mut((1.0) / site_info.sum());
             }
-            leaf_seq_info.insert(node.id.clone(), leaf_seq_w_gaps);
+            leaf_seq_info.insert(node.idx, leaf_seq_w_gaps);
         }
-        PIPModelInfo::<Q> {
+        Ok(PIPModelInfo {
             phantom: PhantomData,
-            ftilde: vec![DMatrix::<f64>::zeros(model.n(), msa_length); node_count],
+            ftilde: vec![DMatrix::<f64>::zeros(n, msa_length); node_count],
             surv_ins_weights: vec![0.0; node_count],
             f: vec![DVector::<f64>::zeros(msa_length); node_count],
             pnu: vec![DVector::<f64>::zeros(msa_length); node_count],
@@ -196,27 +217,27 @@ where
             valid: vec![false; node_count],
             models: vec![SubstMatrix::zeros(n, n); node_count],
             models_valid: vec![false; node_count],
-            leaf_sequence_info: leaf_seq_info,
-        }
+            leaf_seq_info,
+        })
     }
 }
 
-pub struct PIPCostBuilder<Q: QMatrix + Display> {
+pub struct PIPCostBuilder<Q: QMatrix> {
     model: PIPModel<Q>,
     info: PhyloInfo,
 }
 
-impl<Q: QMatrix + Display + Clone> PIPCostBuilder<Q> {
+impl<Q: QMatrix> PIPCostBuilder<Q> {
     pub fn new(model: PIPModel<Q>, info: PhyloInfo) -> Self {
         PIPCostBuilder { model, info }
     }
 
     pub fn build(self) -> Result<PIPCost<Q>> {
-        if self.info.msa.alphabet() != self.model.subst_q.alphabet() {
+        if self.info.msa.alphabet() != self.model.alphabet() {
             bail!("Alphabet mismatch between model and alignment.");
         }
 
-        let tmp = RefCell::new(PIPModelInfo::<Q>::new(&self.info, &self.model));
+        let tmp = RefCell::new(PIPModelInfo::new(&self.info, &self.model).unwrap());
         Ok(PIPCost {
             model: self.model,
             info: self.info,
@@ -226,16 +247,13 @@ impl<Q: QMatrix + Display + Clone> PIPCostBuilder<Q> {
 }
 
 #[derive(Debug, Clone)]
-pub struct PIPCost<Q: QMatrix + Display + 'static> {
+pub struct PIPCost<Q: QMatrix> {
     pub(crate) model: PIPModel<Q>,
     pub(crate) info: PhyloInfo,
     tmp: RefCell<PIPModelInfo<Q>>,
 }
 
-impl<Q: QMatrix + Display + Clone + 'static> TreeSearchCost for PIPCost<Q>
-where
-    PIPModel<Q>: EvoModel,
-{
+impl<Q: QMatrix> TreeSearchCost for PIPCost<Q> {
     fn cost(&self) -> f64 {
         self.logl()
     }
@@ -258,10 +276,7 @@ where
     }
 }
 
-impl<Q: QMatrix + Display + Clone + 'static> ModelSearchCost for PIPCost<Q>
-where
-    PIPModel<Q>: EvoModel,
-{
+impl<Q: QMatrix> ModelSearchCost for PIPCost<Q> {
     fn cost(&self) -> f64 {
         self.logl()
     }
@@ -288,16 +303,13 @@ where
     }
 }
 
-impl<Q: QMatrix + Display + Clone + 'static> Display for PIPCost<Q> {
+impl<Q: QMatrix + Display> Display for PIPCost<Q> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.model)
     }
 }
 
-impl<Q: QMatrix + Display + Clone> PIPCost<Q>
-where
-    PIPModel<Q>: EvoModel,
-{
+impl<Q: QMatrix> PIPCost<Q> {
     fn logl(&self) -> f64 {
         for node_idx in self.info.tree.postorder() {
             match node_idx {
@@ -318,7 +330,22 @@ where
         let root_idx = usize::from(&self.info.tree.root);
         let msa_length = self.info.msa.len();
 
-        tmp.pnu[root_idx].map(|x| x.ln()).sum() + tmp.c0_pnu[root_idx]
+        // In certain scenarios (e.g. a completely unrelated sequence, see data/p105.msa.fa)
+        // individual column probabilities become too close to 0.0 (become subnormal)
+        // and the log likelihood becomes -Inf. This is mathematically reasonable, but during branch
+        // length optimisation BrentOpt cannot handle it and proposes NaN branch lengths.
+        // This is a workaround that sets the probability to the smallest posible positive float,
+        // which is equivalent to restricting the log likelihood to f64::MIN.
+        tmp.pnu[root_idx]
+            .map(|x| {
+                if x == 0.0 || x.is_subnormal() {
+                    *MINLOGPROB
+                } else {
+                    x.ln()
+                }
+            })
+            .sum()
+            + tmp.c0_pnu[root_idx]
             - log_factorial_shifted(msa_length)
     }
 
@@ -380,11 +407,7 @@ where
                 }
             }
 
-            tmp.ftilde[idx] = tmp
-                .leaf_sequence_info
-                .get(tree.node_id(node_idx))
-                .unwrap()
-                .clone();
+            tmp.ftilde[idx] = tmp.leaf_seq_info.get(node_idx).unwrap().clone();
 
             tmp.f[idx] = tmp.ftilde[idx]
                 .tr_mul(self.model.freqs())
@@ -400,6 +423,14 @@ where
         }
     }
 
+    /// Dependent:
+    /// - tmp.pnu of both children
+    /// - tmp.anc of this node
+    /// - tmp.f of this node
+    /// - tmp.surv_ins_weights of this node
+    ///
+    /// Modifies:
+    /// - tmp.pnu of this node
     fn set_pnu(&self, tree: &Tree, node_idx: &NodeIdx) {
         let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
         let idx = usize::from(node_idx);
@@ -413,12 +444,20 @@ where
 
         let mut tmp = self.tmp.borrow_mut();
 
+        // TODO: why clone?
         tmp.pnu[idx] =
             tmp.f[idx].clone().component_mul(&ancestors.column(0)) * tmp.surv_ins_weights[idx];
         tmp.pnu[idx] +=
             ancestors.column(1).component_mul(&x_pnu) + ancestors.column(2).component_mul(&y_pnu);
     }
 
+    /// Dependent:
+    /// - tmp.models for both children
+    /// - tmp.ftilde for both children
+    ///
+    /// Modifies:
+    /// - tmp.ftilde for this node
+    /// - tmp.f for this node
     fn set_ftilde(&self, tree: &Tree, node_idx: &NodeIdx) {
         let children = tree.children(node_idx);
         let idx = usize::from(node_idx);
@@ -442,12 +481,20 @@ where
         }
     }
 
+    /// Dependent:
+    /// - tmp.anc of both children
+    ///
+    /// Modifies:
+    /// - tmp.anc of this node
     fn set_ancestors(&self, tree: &Tree, node_idx: &NodeIdx) {
         let idx = usize::from(node_idx);
         let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
         let mut tmp = self.tmp.borrow_mut();
+
+        // TODO: unnecessary clone of whole matrix
         let x_anc = tmp.anc[children[0]].clone();
         let y_anc = tmp.anc[children[1]].clone();
+
         tmp.anc[idx].set_column(1, &x_anc.column(0));
         tmp.anc[idx].set_column(2, &y_anc.column(0));
         tmp.anc[idx].set_column(0, &(x_anc.column(0) + y_anc.column(0)));
@@ -460,6 +507,14 @@ where
         }
     }
 
+    /// Dependent:
+    /// - blen of both children
+    /// - tmp.c0_f1 of both children
+    /// - tmp.c0_pnu of both children
+    ///
+    /// Modifies:
+    /// - tmp.c0_f1 of this node
+    /// - tmp.c0_pnu of this node
     fn set_c0(&self, tree: &Tree, node_idx: &NodeIdx) {
         let idx = usize::from(node_idx);
         let children: Vec<usize> = tree.children(node_idx).iter().map(usize::from).collect();
