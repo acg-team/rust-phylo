@@ -2,6 +2,16 @@
 name = "phylo"
 version = "0.1.0"
 edition = "2021"
+repository = "https://github.com/acg-team/rust-phylo"
+license = "MIT OR Apache-2.0"
+keywords = ["phylogenetics", "computational biology", "alignment", "MSA", "maximum likelihood"]
+description = "A Rust library for phylogenetic analysis and multiple sequence alignment under maximum likelihood"
+categories = ["science", "science::bioinformatics", "algorithms"]
+exclude = [
+    "phylo/data",
+    ".github/",
+    "*.md",
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
