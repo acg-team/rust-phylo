@@ -5,7 +5,7 @@ use std::num::NonZeroUsize;
 use log::{debug, info};
 
 use crate::likelihood::TreeSearchCost;
-use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult, SprOptimiser, TreeMover};
+use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult, TreeMover};
 use crate::Result;
 
 #[derive(Debug, Clone, Copy)]
@@ -44,7 +44,7 @@ pub struct TopologyOptimiser<C: TreeSearchCost<TM> + Display + Clone + Send, TM:
     pub(crate) c: C,
 }
 
-impl<C: TreeSearchCost<SprOptimiser> + Clone + Display + Send> TopologyOptimiser<C, SprOptimiser> {
+impl<C: TreeSearchCost<TM> + Clone + Display + Send, TM: TreeMover> TopologyOptimiser<C, TM> {
     pub fn new(cost: C) -> Self {
         Self {
             phantom: PhantomData,
@@ -52,9 +52,8 @@ impl<C: TreeSearchCost<SprOptimiser> + Clone + Display + Send> TopologyOptimiser
             c: cost,
         }
     }
-}
-impl<C: TreeSearchCost<TM> + Clone + Display + Send, TM: TreeMover> TopologyOptimiser<C, TM> {
-    pub fn new_with_attrs(cost: C, predicate: TopologyOptimiserPredicate) -> Self {
+
+    pub fn new_with_pred(cost: C, predicate: TopologyOptimiserPredicate) -> Self {
         Self {
             phantom: PhantomData,
             predicate,

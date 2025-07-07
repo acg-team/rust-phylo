@@ -37,10 +37,10 @@ pub trait TreeMover: Clone {
         &self,
         base_cost: f64,
         cost: &C,
-        node: &NodeIdx,
+        node_idx: &NodeIdx,
     ) -> Result<Option<MoveCostInfo>>;
 
-    // or should we also have the cost here such that it might be more likely that this method and also
+    // or should we also use the cost here such that it might be more likely that this method and
     // the method above actually use the same tree
     fn move_locations<'a>(&self, tree: &'a Tree) -> impl Iterator<Item = &'a NodeIdx>;
 }

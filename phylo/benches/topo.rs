@@ -17,7 +17,7 @@ use helpers::{
 fn run_fixed_iter_topo<C: TreeSearchCost<SprOptimiser> + Clone + Display + Send>(
     cost: C,
 ) -> anyhow::Result<f64> {
-    let topo_opt = TopologyOptimiser::new_with_attrs(
+    let topo_opt = TopologyOptimiser::new_with_pred(
         cost,
         TopologyOptimiserPredicate::fixed_iter(NonZero::new(3).unwrap()),
     );

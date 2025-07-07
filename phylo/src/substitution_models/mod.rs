@@ -10,7 +10,7 @@ use nalgebra::{DMatrix, DVector};
 use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
-use crate::optimisers::{SprOptimiser, TreeMover};
+use crate::optimisers::{NniOptimiser, SprOptimiser, TreeMover};
 use crate::parsimony::{CostMatrix, DiagonalZeros, ParsimonyModel, Rounding};
 use crate::phylo_info::PhyloInfo;
 use crate::tree::{
@@ -136,6 +136,20 @@ impl<Q: QMatrix> SubstitutionCostBuilder<Q> {
             info: self.info,
             tmp,
             tree_mover: SprOptimiser {},
+        })
+    }
+
+    pub fn build_with_nni(self) -> Result<SubstitutionCost<Q, NniOptimiser>> {
+        if self.info.msa.alphabet() != self.model.alphabet() {
+            bail!("Alphabet mismatch between model and alignment.");
+        }
+
+        let tmp = RefCell::new(SubstModelInfo::new(&self.info, &self.model).unwrap());
+        Ok(SubstitutionCost {
+            model: self.model,
+            info: self.info,
+            tmp,
+            tree_mover: NniOptimiser {},
         })
     }
 }

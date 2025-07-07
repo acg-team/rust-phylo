@@ -19,9 +19,9 @@ impl TreeMover for SprOptimiser {
         &self,
         base_cost: f64,
         cost: &C,
-        node: &NodeIdx,
+        node_idx: &NodeIdx,
     ) -> Result<Option<MoveCostInfo>> {
-        self.find_max_cost_regraft_for_prune(base_cost, cost, node)
+        self.find_max_cost_regraft_for_prune(base_cost, cost, node_idx)
     }
 
     fn move_locations<'a>(&self, tree: &'a Tree) -> impl Iterator<Item = &'a NodeIdx> {

@@ -267,9 +267,13 @@ fn pip_vs_subst_dna_tree() {
         .build()
         .unwrap();
     let k80 = SubstModel::<K80>::new(&[], &[4.0]);
-    let k80_res = TopologyOptimiser::new(SCB::new(k80.clone(), info.clone()).build().unwrap())
-        .run()
-        .unwrap();
+    let k80_res = TopologyOptimiser::new(
+        SCB::new(k80.clone(), info.clone())
+            .build_with_nni()
+            .unwrap(),
+    )
+    .run()
+    .unwrap();
 
     let pip = PIPModel::<K80>::new(&[], &[0.5, 0.4, 4.0]);
     let pip_res = TopologyOptimiser::new(PIPCB::new(pip.clone(), info).build().unwrap())
