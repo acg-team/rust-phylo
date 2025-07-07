@@ -1,6 +1,4 @@
-use bio::io::fasta::Record;
-
-use crate::alignment::Alignment;
+use crate::alignment::{Alignment, Sequences};
 use crate::substitution_models::FreqVector;
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
@@ -30,8 +28,8 @@ impl PhyloInfo {
     /// The alignment is compiled from the subtree rooted at `subroot`.
     /// If `subroot` is None, the whole alignment is compiled.
     /// Bails if the tree does not contain the subroot or does not match the alignment.
-    pub fn compile_alignment(&self, subroot: Option<&NodeIdx>) -> Result<Vec<Record>> {
-        self.msa.compile(subroot, &self.tree)
+    pub fn compile_alignment(&self, subroot: Option<&NodeIdx>) -> Result<Sequences> {
+        self.msa.compile_subroot(subroot, &self.tree)
     }
 
     /// Returns the empirical frequencies of the symbols in the sequences.
@@ -64,7 +62,7 @@ impl PhyloInfo {
                 .iter()
                 .map(|rec| rec.seq().iter().filter(|&c| c == &char).count())
                 .sum::<usize>() as f64;
-            let mut char_freq = alphabet.char_encoding(char);
+            let mut char_freq = alphabet.char_encoding(char).clone();
             char_freq.scale_mut(1.0 / char_freq.sum());
             freqs += char_freq.scale(count);
         }

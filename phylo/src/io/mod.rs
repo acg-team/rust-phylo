@@ -2,13 +2,13 @@ use std::error::Error;
 use std::fmt;
 use std::fs::{self, File};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::bail;
-use bio::alphabets;
 use bio::io::fasta::{Reader, Record, Writer};
 use log::info;
 
+use crate::alphabets::{protein_alphabet, GAP, POSSIBLE_GAPS};
 use crate::tree::{tree_parser, Tree};
 use crate::Result;
 
@@ -35,21 +35,20 @@ impl Error for DataError {}
 ///
 /// # Example
 /// ```
-/// use phylo::io::read_sequences_from_file;
+/// use phylo::io::read_sequences;
 /// use std::path::PathBuf;
-/// let records = read_sequences_from_file(&PathBuf::from("./data/sequences_DNA_small.fasta")).unwrap();
+/// let records = read_sequences(&PathBuf::from("./data/sequences_DNA_small.fasta")).unwrap();
 /// # assert_eq!(records.len(), 4);
 /// # for rec in records {
 /// #    assert_eq!(rec.seq().len(), 8);
 /// #    assert_eq!(rec.seq(), rec.seq().to_ascii_uppercase());
 /// # }
 /// ```
-pub fn read_sequences_from_file(path: &PathBuf) -> Result<Vec<Record>> {
+pub fn read_sequences(path: &Path) -> Result<Vec<Record>> {
     info!("Reading sequences from file {}.", path.display());
     let reader = Reader::from_file(path)?;
     let mut sequences = Vec::new();
-    let mut alphabet = alphabets::protein::iupac_alphabet();
-    alphabet.insert(b'-');
+
     for result in reader.records() {
         let rec = result?;
         if let Err(e) = rec.check() {
@@ -57,17 +56,30 @@ pub fn read_sequences_from_file(path: &PathBuf) -> Result<Vec<Record>> {
                 message: e.to_string()
             });
         }
-        if !alphabet.is_word(rec.seq()) {
+        let seq: Vec<u8> = rec
+            .seq()
+            .to_ascii_uppercase()
+            .iter()
+            .map(|c| if POSSIBLE_GAPS.contains(c) { GAP } else { *c })
+            .collect();
+
+        if !protein_alphabet().is_word(&seq) {
             bail!(DataError {
-                message: String::from("Invalid genetic sequence encountered.")
+                message: format!(
+                    "Invalid genetic sequence encountered: {}",
+                    String::from_utf8(seq).unwrap()
+                )
             });
         }
-        sequences.push(Record::with_attrs(
-            rec.id(),
-            rec.desc(),
-            &rec.seq().to_ascii_uppercase(),
-        ));
+
+        sequences.push(Record::with_attrs(rec.id(), rec.desc(), &seq));
     }
+    if sequences.is_empty() {
+        bail!(DataError {
+            message: String::from("No sequences found in file")
+        });
+    }
+
     info!("Read sequences successfully.");
     Ok(sequences)
 }

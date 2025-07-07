@@ -10,13 +10,15 @@ use crate::likelihood::ModelSearchCost;
 use crate::optimisers::ModelOptimisationResult;
 use crate::Result;
 
-pub struct ModelOptimiser<C: ModelSearchCost + Display + Clone> {
+use super::SingleValOptResult;
+
+pub struct ModelOptimiser<C: ModelSearchCost + Display> {
     pub(crate) epsilon: f64,
     pub(crate) c: RefCell<C>,
     pub(crate) freq_opt: FrequencyOptimisation,
 }
 
-impl<C: ModelSearchCost + Display + Clone> ModelOptimiser<C> {
+impl<C: ModelSearchCost + Display> ModelOptimiser<C> {
     pub fn new(cost: C, freq_opt: FrequencyOptimisation) -> Self {
         Self {
             epsilon: 1e-3,
@@ -26,76 +28,92 @@ impl<C: ModelSearchCost + Display + Clone> ModelOptimiser<C> {
     }
 
     pub fn run(self) -> Result<ModelOptimisationResult<C>> {
-        let initial_logl = self.c.borrow().cost();
-        info!("Optimising {}.", self.c.borrow());
-        info!("Initial logl: {}.", initial_logl);
+        info!("Optimising the evolutionary model: {}.", self.c.borrow());
 
-        self.opt_frequencies();
-
-        let mut prev_logl = f64::NEG_INFINITY;
-        let mut final_logl = self.c.borrow().cost();
-        info!("Initial logl after frequency optimisation: {}.", final_logl);
-
+        let init_cost = self.c.borrow().cost();
+        info!("Initial cost: {}.", init_cost);
+        let mut curr_cost = init_cost;
+        let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
 
-        let parameters = self.c.borrow().params().to_vec();
-        while final_logl - prev_logl > self.epsilon {
+        match self.freq_opt {
+            FrequencyOptimisation::Empirical => {
+                info!("Setting stationary frequencies to empirical.");
+                self.empirical_freqs();
+                curr_cost = self.c.borrow().cost();
+                info!("Cost after frequency optimisation: {}.", curr_cost);
+            }
+            FrequencyOptimisation::Estimated => {
+                warn!("Stationary frequency estimation not available, falling back on empirical.");
+                self.empirical_freqs();
+                curr_cost = self.c.borrow().cost();
+                info!("Cost after frequency optimisation: {}.", curr_cost);
+            }
+            FrequencyOptimisation::Fixed => {}
+        }
+
+        while (curr_cost - prev_cost) > self.epsilon {
             iterations += 1;
             debug!("Iteration: {}", iterations);
-            prev_logl = final_logl;
-            for (param, value) in parameters.iter().enumerate() {
-                let (value, logl) = self.opt_parameter(param, *value)?;
-                if logl < final_logl {
+            let parameters = self.c.borrow().params().to_vec();
+            prev_cost = curr_cost;
+
+            for (param, start_value) in parameters.iter().enumerate() {
+                debug!(
+                    "Optimising parameter {:?} from value {} with cost {}",
+                    param, start_value, curr_cost
+                );
+                let param_opt = self.opt_parameter(param, *start_value)?;
+                if param_opt.final_cost < curr_cost {
+                    // Parameter will have been reset by the optimiser, set it back to start value
+                    self.c.borrow_mut().set_param(param, *start_value);
                     continue;
                 }
-                self.c.borrow_mut().set_param(param, value);
-                final_logl = logl;
+                self.c.borrow_mut().set_param(param, param_opt.value);
+                curr_cost = param_opt.final_cost;
                 debug!(
-                    "Optimised parameter {:?} to value {} with logl {}",
-                    param, value, final_logl
+                    "Optimised parameter {:?} to value {} with cost {}",
+                    param, param_opt.value, curr_cost
                 );
             }
             debug!("New parameters: {}\n", self.c.borrow());
         }
+
+        debug_assert_eq!(curr_cost, self.c.borrow().cost());
+        info!("Done optimising model parameters.");
         info!(
-            "Final logl: {}, achieved in {} iteration(s).",
-            final_logl, iterations
+            "Final cost: {}, achieved in {} iteration(s).",
+            curr_cost, iterations
         );
         Ok(ModelOptimisationResult::<C> {
-            cost: self.c.into_inner(),
-            initial_logl,
-            final_logl,
+            initial_cost: init_cost,
+            final_cost: curr_cost,
             iterations,
+            cost: self.c.into_inner(),
         })
     }
 
-    fn opt_frequencies(&self) {
-        match self.freq_opt {
-            FrequencyOptimisation::Fixed => {}
-            FrequencyOptimisation::Empirical => {
-                info!("Setting stationary frequencies to empirical.");
-                let emp_freqs = self.c.borrow().empirical_freqs();
-                self.c.borrow_mut().set_freqs(emp_freqs);
-            }
-            FrequencyOptimisation::Estimated => {
-                warn!("Stationary frequency estimation not available, falling back on empirical.");
-                let emp_freqs = self.c.borrow().empirical_freqs();
-                self.c.borrow_mut().set_freqs(emp_freqs);
-            }
-        }
+    fn empirical_freqs(&self) {
+        let emp_freqs = self.c.borrow().empirical_freqs();
+        self.c.borrow_mut().set_freqs(emp_freqs);
     }
 
-    fn opt_parameter(&self, param: usize, start_value: f64) -> Result<(f64, f64)> {
+    fn opt_parameter(&self, param: usize, start_value: f64) -> Result<SingleValOptResult> {
         let optimiser = ParamOptimiser {
             cost: &self.c,
             param,
         };
-        let gss = BrentOpt::new(1e-10, 100.0);
+        let min = f64::EPSILON;
+        let max = start_value * 100.0;
+        let gss = BrentOpt::new(min, max);
         let res = Executor::new(optimiser, gss)
-            .configure(|_| IterState::new().param(start_value))
+            .configure(|_| IterState::new().param(start_value).max_iters(500))
             .run()?;
-        let logl = -res.state().best_cost;
-        Ok((res.state().best_param.unwrap(), logl))
+        let cost = -res.state().best_cost;
+        Ok(SingleValOptResult {
+            value: res.state().best_param.unwrap(),
+            final_cost: cost,
+        })
     }
 }
 

@@ -2,20 +2,40 @@ name: tests on stable
 
 on:
   push:
-    branches:    
-      - "**"
+    branches-ignore:    
+      - "develop"
+  pull_request:
+    branches: [ "develop" ]
   workflow_dispatch:
     
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  skip_check:
+    runs-on: ubuntu-latest
+    # Map a step output to a job output
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          # All of these options are optional, so you can remove them if you are happy with the defaults
+          concurrent_skipping: 'same_content_newer'
+          skip_after_successful_duplicate: 'true'
+          cancel_others: 'true'
+          paths_ignore: '["**/**.yml", "**/data/**"]'
+          do_not_skip: '["workflow_dispatch"]'
+
   check:
     name: cargo check
+    needs: skip_check
+    if: needs.skip_check.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.86.0
       - uses: actions-rs/cargo@v1
         with:
           command: check
@@ -23,6 +43,8 @@ jobs:
 
   test:
     name: cargo test
+    needs: skip_check
+    if: needs.skip_check.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -32,7 +54,7 @@ jobs:
           cargo install cargo2junit
     - name: tests with cargo2junit
       run: |
-        cargo test --manifest-path ./phylo/Cargo.toml -- -Z unstable-options --format json --report-time | cargo2junit > results.xml 
+        cargo test --manifest-path ./phylo/Cargo.toml --features deterministic -- -Z unstable-options --format json --report-time | cargo2junit > results.xml
     - name: Publish test results
       uses: EnricoMi/publish-unit-test-result-action@v2
       if: always()

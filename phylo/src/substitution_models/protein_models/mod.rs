@@ -5,7 +5,7 @@ use log::warn;
 
 use crate::alphabets::{protein_alphabet, Alphabet, AMINOACID_INDEX};
 use crate::frequencies;
-use crate::substitution_models::{FreqVector, QMatrix, SubstMatrix};
+use crate::substitution_models::{FreqVector, QMatrix, QMatrixMaker, SubstMatrix};
 
 pub(crate) mod protein_generics;
 pub(crate) use protein_generics::*;
@@ -49,8 +49,8 @@ macro_rules! define_protein_model {
             exchangeability: SubstMatrix,
             alphabet: Alphabet,
         }
-        impl QMatrix for $name {
-            fn new(freqs: &[f64], _: &[f64]) -> Self {
+        impl QMatrixMaker for $name {
+            fn create(freqs: &[f64], _: &[f64]) -> $name {
                 let freqs = frequencies!(freqs);
                 let freqs = if verify_protein_freqs(&freqs) {
                     freqs
@@ -66,6 +66,8 @@ macro_rules! define_protein_model {
                     alphabet: protein_alphabet().clone(),
                 }
             }
+        }
+        impl QMatrix for $name {
             fn q(&self) -> &SubstMatrix {
                 &self.q
             }
@@ -87,8 +89,8 @@ macro_rules! define_protein_model {
             fn n(&self) -> usize {
                 PROTEIN_N
             }
-            fn index(&self) -> &[usize; 255] {
-                &AMINOACID_INDEX
+            fn rate(&self, i: u8, j: u8) -> f64 {
+                self.q[(AMINOACID_INDEX[i as usize], AMINOACID_INDEX[j as usize])]
             }
             fn alphabet(&self) -> &Alphabet {
                 &self.alphabet
@@ -99,9 +101,9 @@ macro_rules! define_protein_model {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(
                     f,
-                    "{} with [pi = {}]",
+                    "{} with [pi = {:?}]",
                     stringify!($name),
-                    self.freqs.transpose()
+                    self.freqs().as_slice()
                 )
             }
         }
