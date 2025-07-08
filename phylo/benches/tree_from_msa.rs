@@ -9,7 +9,7 @@ use log::info;
 
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::{ModelSearchCost, TreeSearchCost};
-use phylo::optimisers::{ModelOptimiser, TopologyOptimiser};
+use phylo::optimisers::{ModelOptimiser, SprOptimiser, TopologyOptimiser};
 use phylo::pip_model::PIPCost;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 use phylo::tree::Tree;
@@ -24,7 +24,7 @@ use helpers::{
 ///
 /// TODO: expose this as part of the rust-phylo library
 fn run_optimisation(
-    cost: impl TreeSearchCost + ModelSearchCost + Display + Clone + Send,
+    cost: impl TreeSearchCost<SprOptimiser> + ModelSearchCost + Display + Clone + Send,
     freq_opt: FrequencyOptimisation,
     max_iterations: usize,
     epsilon: f64,
@@ -55,7 +55,7 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
     criterion: &mut Criterion,
 ) {
     let mut bench_group = criterion.benchmark_group(group_name);
-    let mut bench = |id: &str, data: (PIPConfig, PIPCost<Q>)| {
+    let mut bench = |id: &str, data: (PIPConfig, PIPCost<Q, SprOptimiser>)| {
         bench_group.bench_function(id, |bench| {
             bench.iter_batched(
                 // clone because of interior mutability in PIPCost
