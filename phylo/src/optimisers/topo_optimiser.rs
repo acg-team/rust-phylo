@@ -53,6 +53,40 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
         Self { predicate, c: cost }
     }
 
+    /// Runs the topology optimisation algorithm on the given cost function.
+    /// The algorithm will iterate until the predicate is satisfied.
+    /// The cost function will be updated in place.
+    ///
+    /// # Panics
+    /// Panics if the tree has less than 4 nodes, as SPRs are not applicable to trees with less than 4 nodes.
+    ///
+    /// # Returns
+    /// A `PhyloOptimisationResult` containing the initial cost, final cost, number of iterations, and the final cost function.
+    /// The final cost function will contain the optimised tree.
+    ///
+    /// # Example
+    /// ```rust
+    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// use std::path::PathBuf;
+    ///
+    /// use phylo::likelihood::TreeSearchCost;
+    /// use phylo::optimisers::TopologyOptimiser;
+    /// use phylo::phylo_info::PhyloInfoBuilder;
+    /// use phylo::substitution_models::{SubstModel, SubstitutionCostBuilder, K80};
+    ///
+    /// let fldr = PathBuf::from("./data/sim/K80");
+    /// let info = PhyloInfoBuilder::with_attrs(fldr.join("K80.fasta"), fldr.join("../tree.newick")).build()?;
+    /// let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
+    /// let c = SubstitutionCostBuilder::new(k80, info).build()?;
+    /// let unopt_cost = c.cost();
+    /// let optimiser = TopologyOptimiser::new(c);
+    /// let result = optimiser.run()?;
+    /// assert_eq!(unopt_cost, result.initial_cost);
+    /// assert!(result.final_cost > result.initial_cost);
+    /// assert!(result.iterations <= 100);
+    /// assert_eq!(result.cost.tree().len(), 9); // The initial tree has 9 nodes, 5 leaves and 4 internal nodes.
+    /// # Ok(()) }
+    /// ```
     pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
         debug_assert!(self.c.tree().len() > 3);
 
