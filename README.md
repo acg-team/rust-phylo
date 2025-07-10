@@ -63,7 +63,7 @@ fn main() -> std::result::Result<(), anyhow::Error> {
     assert_eq!(unopt_cost, result.initial_cost);
     assert!(result.final_cost > result.initial_cost);
     assert!(result.iterations <= 100);
-    assert_eq!(result.cost.tree().len(), 9); // The initial tree has 9 nodes, 5 leaves and 4 internal nodes.
+    assert_eq!(result.cost.tree().len(), 9); // The initial tree has 9 nodes, 5 leaves and 4 internal nodes, and so should the resulting tree.
     Ok(()) 
 }
 ```
