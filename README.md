@@ -4,7 +4,7 @@ A high-performance Rust library for phylogenetic analysis and multiple sequence 
 
 <!-- [![Crates.io](https://img.shields.io/crates/v/phylo.svg)](https://crates.io/crates/phylo)
 [![Documentation](https://docs.rs/phylo/badge.svg)](https://docs.rs/phylo) -->
-[![Licence](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](https://github.com/acg-team/rust-phylo#license)
+[![Licence](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](https://github.com/acg-team/rust-phylo#license) [![CI](https://github.com/acg-team/rust-phylo/actions/workflows/tests.yml/badge.svg)](https://github.com/acg-team/rust-phylo/actions) [![codecov](https://codecov.io/gh/acg-team/rust-phylo/branch/main/graph/badge.svg)](https://codecov.io/gh/acg-team/rust-phylo)
 
 [Current functionality](#current-functionality) • [Getting started](#getting-started) • [Crate features](#crate-features) • [Roadmap](#roadmap) • [Contributing](#contributing) • [Related projects](#related-projects) • [Support](#support) • [Citation](#citation) • [Licence and Attributions](#licence-and-attributions)
 
