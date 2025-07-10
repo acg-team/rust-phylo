@@ -4,9 +4,9 @@ A high-performance Rust library for phylogenetic analysis and multiple sequence 
 
 <!-- [![Crates.io](https://img.shields.io/crates/v/phylo.svg)](https://crates.io/crates/phylo)
 [![Documentation](https://docs.rs/phylo/badge.svg)](https://docs.rs/phylo) -->
-[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](https://github.com/acg-team/rust-phylo#license)
+[![Licence](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](https://github.com/acg-team/rust-phylo#license)
 
-[Current functionality](#current-functionality) • [Getting started](#getting-started) • [Crate features](#crate-features) • [Roadmap](#roadmap) • [Contributing](#contributing) • [Related projects](#related-projects) • [Support](#support) • [Citation](#citation) • [License and Attributions](#license-and-attributions)
+[Current functionality](#current-functionality) • [Getting started](#getting-started) • [Crate features](#crate-features) • [Roadmap](#roadmap) • [Contributing](#contributing) • [Related projects](#related-projects) • [Support](#support) • [Citation](#citation) • [Licence and Attributions](#licence-and-attributions)
 
 ## Current functionality
 
@@ -163,13 +163,13 @@ If you use this library in your research, please consider citing:
 }
 ```
 
-## License and Attributions
+## Licence and Attributions
 
-### License
+### Licence
 
 This project is licensed under either of
-- Apache License, Version 2.0 ([LICENSE-APACHE]( LICENSE-APACHE ) or [www.apache.org/licenses/LICENSE-2.0]( http://www.apache.org/licenses/LICENSE-2.0 )), or
-- MIT License ([LICENSE-MIT]( LICENSE-MIT ) or [opensource.org/licenses/MIT]( http://opensource.org/licenses/MIT ))
+- Apache Licence, Version 2.0 ([LICENSE-APACHE]( LICENSE-APACHE ) or [www.apache.org/licenses/LICENSE-2.0]( http://www.apache.org/licenses/LICENSE-2.0 )), or
+- MIT Licence ([LICENSE-MIT]( LICENSE-MIT ) or [opensource.org/licenses/MIT]( http://opensource.org/licenses/MIT ))
 
 at your option.
 
