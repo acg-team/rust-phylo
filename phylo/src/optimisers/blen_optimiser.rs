@@ -12,6 +12,7 @@ use crate::{Result, MAX_BLEN};
 
 pub struct BranchOptimiser<C: TreeSearchCost + Display + Clone> {
     pub(crate) epsilon: f64,
+    // TODO: RefCell probably not needed here
     pub(crate) c: RefCell<C>,
 }
 
