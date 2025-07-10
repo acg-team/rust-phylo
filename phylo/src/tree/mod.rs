@@ -3,19 +3,16 @@ use std::fmt::{Debug, Display};
 
 use anyhow::bail;
 use approx::relative_eq;
-use bio::alignment::distance::levenshtein;
 use inc_stats::Percentiles;
-use nalgebra::{max, DMatrix};
 
 use crate::alignment::Sequences;
 use crate::parsimony::Rounding;
-use crate::tree::{
-    nj_matrices::{Mat, NJMat},
-    NodeIdx::{Internal as Int, Leaf},
-};
+use crate::tree::NodeIdx::{Internal as Int, Leaf};
 use crate::Result;
 
+pub mod nj_builder;
 mod nj_matrices;
+pub mod tree_builder;
 pub mod tree_parser;
 
 mod tree_node;
@@ -487,91 +484,6 @@ pub fn percentiles_rounded(lengths: &[f64], categories: u32, rounding: &Rounding
         });
     }
     values
-}
-
-fn argmin_wo_diagonal(q: Mat) -> (usize, usize) {
-    debug_assert!(!q.is_empty(), "The input matrix must not be empty.");
-    debug_assert!(
-        q.ncols() > 1 && q.nrows() > 1,
-        "The input matrix should have more than 1 element."
-    );
-    let mut arg_min = vec![];
-    let mut val_min = &f64::MAX;
-    for i in 0..q.nrows() {
-        for j in 0..i {
-            let val = &q[(i, j)];
-            if val < val_min {
-                val_min = val;
-                arg_min = vec![(i, j)];
-            } else if val == val_min {
-                arg_min.push((i, j));
-            }
-        }
-    }
-
-    cfg_if::cfg_if! {
-    if #[cfg(feature = "deterministic")]{
-        arg_min[0]
-    } else {
-        arg_min[rng_len(arg_min.len())]
-    }
-    }
-}
-
-#[cfg(not(feature = "deterministic"))]
-fn rng_len(l: usize) -> usize {
-    rand::random::<usize>() % l
-}
-
-fn build_nj_tree_from_matrix(mut nj_data: NJMat, sequences: &Sequences) -> Result<Tree> {
-    let n = nj_data.distances.ncols();
-    let mut tree = Tree::new(sequences)?;
-    let root_idx = usize::from(&tree.root);
-    for cur_idx in n..=root_idx {
-        let q = nj_data.compute_nj_q();
-        let (i, j) = argmin_wo_diagonal(q);
-        let idx_new = cur_idx;
-        let (blen_i, blen_j) = nj_data.branch_lengths(i, j, cur_idx == root_idx);
-        tree.add_parent(idx_new, &nj_data.idx[i], &nj_data.idx[j], blen_i, blen_j);
-        nj_data = nj_data
-            .add_merge_node(idx_new)
-            .recompute_new_node_distances(i, j)
-            .remove_merged_nodes(i, j);
-    }
-    tree.n = n;
-    tree.complete = true;
-    tree.compute_postorder();
-    tree.compute_preorder();
-    tree.height = tree.nodes.iter().map(|node| node.blen).sum();
-    Ok(tree)
-}
-
-pub fn build_nj_tree(sequences: &Sequences) -> Result<Tree> {
-    let nj_data = compute_distance_matrix(sequences);
-    build_nj_tree_from_matrix(nj_data, sequences)
-}
-
-fn compute_distance_matrix(sequences: &Sequences) -> nj_matrices::NJMat {
-    let nseqs = sequences.len();
-    let mut distances = DMatrix::zeros(nseqs, nseqs);
-    for i in 0..nseqs {
-        for j in (i + 1)..nseqs {
-            let seq_i = sequences.record(i).seq();
-            let seq_j = sequences.record(j).seq();
-            let lev_dist = levenshtein(seq_i, seq_j) as f64;
-            let proportion_diff = f64::min(
-                lev_dist / (max(seq_i.len(), seq_j.len()) as f64),
-                0.75 - f64::EPSILON,
-            );
-            let corrected_dist = -3.0 / 4.0 * (1.0 - 4.0 / 3.0 * proportion_diff).ln();
-            distances[(i, j)] = corrected_dist;
-            distances[(j, i)] = corrected_dist;
-        }
-    }
-    nj_matrices::NJMat {
-        idx: (0..nseqs).map(NodeIdx::Leaf).collect(),
-        distances,
-    }
 }
 
 #[cfg(test)]
