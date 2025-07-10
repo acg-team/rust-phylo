@@ -75,7 +75,7 @@ This crate supports several optional features:
 - `par-regraft`: Enable parallel regrafting operations using Rayon;
 - `par-regraft-chunk`: Enable chunked parallel regrafting;
 - `par-regraft-manual`: Enable manual parallel regrafting control;
-- `deterministic`: Ensure deterministic behavior for reproducible results (required for running tests);
+- `deterministic`: Ensure deterministic behaviour for reproducible results (required for running tests);
 - `precomputed-test-results`: Speed up test runs with precomputed results (for local development).
 
 Enable features in your Cargo.toml:
