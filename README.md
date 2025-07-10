@@ -63,7 +63,7 @@ fn main() -> std::result::Result<(), anyhow::Error> {
     assert_eq!(unopt_cost, result.initial_cost);
     assert!(result.final_cost > result.initial_cost);
     assert!(result.iterations <= 100);
-    assert_eq!(result.cost.tree().len(), 9); // The initial tree has 9 nodes, 5 leaves and 4 internal nodes.
+    assert_eq!(result.cost.tree().len(), 9); // The initial tree has 9 nodes, 5 leaves and 4 internal nodes, and so should the resulting tree.
     Ok(()) 
 }
 ```
@@ -75,7 +75,7 @@ This crate supports several optional features:
 - `par-regraft`: Enable parallel regrafting operations using Rayon;
 - `par-regraft-chunk`: Enable chunked parallel regrafting;
 - `par-regraft-manual`: Enable manual parallel regrafting control;
-- `deterministic`: Ensure deterministic behavior for reproducible results (required for running tests);
+- `deterministic`: Ensure deterministic behaviour for reproducible results (required for running tests);
 - `precomputed-test-results`: Speed up test runs with precomputed results (for local development).
 
 Enable features in your Cargo.toml:
