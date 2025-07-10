@@ -118,7 +118,7 @@ fn test_write_multiple_newick_to_file() {
         .unwrap();
     assert_eq!(
         file_content.trim(),
-        format!("{}\n{}\n{}", newick0, newick1, newick2)
+        format!("{newick0}\n{newick1}\n{newick2}")
     );
 }
 

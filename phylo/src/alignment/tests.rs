@@ -247,7 +247,7 @@ fn input_msa_empty_col() {
 fn display_sequences() {
     let sequences =
         Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
-    let s = format!("{}", sequences);
+    let s = format!("{sequences}");
     let mut lines = s.lines().collect::<Vec<_>>();
     lines.sort();
     assert_eq!(lines.len(), 8);
@@ -263,7 +263,7 @@ fn display_unaligned_sequences() {
     let sequences = Sequences::new(
         read_sequences(&PathBuf::from("./data/sequences_DNA2_unaligned.fasta")).unwrap(),
     );
-    let s = format!("{}", sequences);
+    let s = format!("{sequences}");
     let mut lines = s.lines().collect::<Vec<_>>();
     lines.sort();
     assert_eq!(lines.len(), 8);

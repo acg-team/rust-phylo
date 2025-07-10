@@ -23,7 +23,7 @@ use crate::{record_wo_desc as record, tree};
 macro_rules! define_optimise_trees {
     ($($fn_name:ident: { model = $model:ident, cost = $cost:ident, builder = $builder:ident }),* $(,)?) => {
         $(
-            #[cfg(not(feature = "use-precomputed-test-results"))]
+            #[cfg(not(feature = "precomputed-test-results"))]
             fn $fn_name<Q: QMatrix + Send>(
                 seq_file: &std::path::Path,
                 _: &std::path::Path,
@@ -34,7 +34,7 @@ macro_rules! define_optimise_trees {
                 TopologyOptimiser::new(cost).run().unwrap()
             }
 
-            #[cfg(feature = "use-precomputed-test-results")]
+            #[cfg(feature = "precomputed-test-results")]
             fn $fn_name<Q: QMatrix + Send>(
                 seq_file: &std::path::Path,
                 tree_file: &std::path::Path,

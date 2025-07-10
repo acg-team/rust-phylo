@@ -45,7 +45,7 @@ impl Error for DataError {}
 /// # }
 /// ```
 pub fn read_sequences(path: &Path) -> Result<Vec<Record>> {
-    info!("Reading sequences from file {}.", path.display());
+    info!("Reading sequences from file {}", path.display());
     let reader = Reader::from_file(path)?;
     let mut sequences = Vec::new();
 
@@ -80,7 +80,7 @@ pub fn read_sequences(path: &Path) -> Result<Vec<Record>> {
         });
     }
 
-    info!("Read sequences successfully.");
+    info!("Read sequences successfully");
     Ok(sequences)
 }
 
@@ -118,7 +118,7 @@ pub fn read_sequences(path: &Path) -> Result<Vec<Record>> {
 /// # assert!(remove_file(output_path).is_ok());
 /// ```
 pub fn write_sequences_to_file(sequences: &[Record], path: &PathBuf) -> Result<()> {
-    info!("Writing sequences/MSA to file {}.", path.display());
+    info!("Writing sequences/MSA to file {}", path.display());
     if path.exists() {
         bail!(DataError {
             message: String::from("File already exists")
@@ -128,7 +128,7 @@ pub fn write_sequences_to_file(sequences: &[Record], path: &PathBuf) -> Result<(
     for rec in sequences {
         writer.write_record(rec)?;
     }
-    info!("Finished writing successfully.");
+    info!("Finished writing successfully");
     Ok(())
 }
 
@@ -151,9 +151,9 @@ pub fn write_sequences_to_file(sequences: &[Record], path: &PathBuf) -> Result<(
 /// # assert_eq!(trees[0].leaves().len(), 4);
 /// ```
 pub fn read_newick_from_file(path: &PathBuf) -> Result<Vec<Tree>> {
-    info!("Reading newick trees from file {}.", path.display());
+    info!("Reading newick trees from file {}", path.display());
     let newick = fs::read_to_string(path)?;
-    info!("Read file successfully.");
+    info!("Read file successfully");
     tree_parser::from_newick(&newick)
 }
 
@@ -183,7 +183,7 @@ pub fn read_newick_from_file(path: &PathBuf) -> Result<Vec<Tree>> {
 /// # assert!(remove_file(output_path).is_ok());
 /// ```
 pub fn write_newick_to_file(trees: &[Tree], path: PathBuf) -> Result<()> {
-    info!("Writing newick trees to file {}.", path.display());
+    info!("Writing newick trees to file {}", path.display());
     if path.exists() {
         bail!(DataError {
             message: String::from("File already exists")
@@ -194,7 +194,7 @@ pub fn write_newick_to_file(trees: &[Tree], path: PathBuf) -> Result<()> {
         writer.write_all(tree.to_newick().as_bytes())?;
         writer.write_all(b"\n")?;
     }
-    info!("Finished writing successfully.");
+    info!("Finished writing successfully");
     Ok(())
 }
 
