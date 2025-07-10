@@ -698,7 +698,7 @@ fn test_from_newick_to_newick() {
     let newick1 = "(((A:1.5,B:2.3)E:5.1,(C:3.9,D:4.8)F:6.2)G:7.3);";
     let newick2 = "((A:1,(B:1,C:1)E:2)F:1);";
 
-    let trees = from_newick(format!("{}\n{}\n{}", newick0, newick1, newick2).as_str()).unwrap();
+    let trees = from_newick(format!("{newick0}\n{newick1}\n{newick2}").as_str()).unwrap();
     assert_eq!(trees[0].to_newick(), newick0);
     assert_eq!(trees[1].to_newick(), newick1);
     assert_eq!(trees[2].to_newick(), newick2);

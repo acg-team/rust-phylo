@@ -170,10 +170,10 @@ impl PhyloInfoBuilder {
         };
 
         let msa = if sequences.aligned {
-            info!("Sequences are aligned.");
+            info!("Sequences are aligned");
             Alignment::from_aligned(sequences, &tree)?
         } else {
-            info!("Sequences are not aligned, aligning.");
+            info!("Sequences are not aligned, aligning");
             self.alignment_builder
                 .unwrap_or(Box::new(ParsimonyAligner::default()))
                 .align(&sequences, &tree)?
@@ -197,25 +197,19 @@ impl PhyloInfoBuilder {
         let tip_ids: HashSet<String> = HashSet::from_iter(tree.leaf_ids());
         let sequence_ids: HashSet<String> =
             HashSet::from_iter(sequences.iter().map(|rec| rec.id().to_string()));
-        info!("Checking that tree tip and sequence IDs match.");
+        info!("Checking that tree tip and sequence IDs match");
         let mut missing_tips = sequence_ids.difference(&tip_ids).collect::<Vec<_>>();
         if !missing_tips.is_empty() {
             missing_tips.sort();
             bail!(DataError {
-                message: format!(
-                    "Mismatched IDs found, missing tree tip IDs: {:?}",
-                    missing_tips
-                )
+                message: format!("Mismatched IDs found, missing tree tip IDs: {missing_tips:?}")
             });
         }
         let mut missing_seqs = tip_ids.difference(&sequence_ids).collect::<Vec<_>>();
         if !missing_seqs.is_empty() {
             missing_seqs.sort();
             bail!(DataError {
-                message: format!(
-                    "Mismatched IDs found, missing sequence IDs: {:?}",
-                    missing_seqs
-                )
+                message: format!("Mismatched IDs found, missing sequence IDs: {missing_seqs:?}")
             });
         }
         Ok(())
@@ -226,11 +220,11 @@ impl PhyloInfoBuilder {
     fn check_tree_number(&self, trees: &[Tree]) -> Result<()> {
         if trees.is_empty() {
             bail!(DataError {
-                message: String::from("No trees in the tree file, aborting.")
+                message: String::from("No trees in the tree file, aborting")
             });
         }
         if trees.len() > 1 {
-            warn!("More than one tree in the tree file, only the first tree will be processed.");
+            warn!("More than one tree in the tree file, only the first tree will be processed");
         }
         Ok(())
     }

@@ -51,7 +51,7 @@ impl<P: ParsimonyModel> ModelScoringBuilder<P> {
 
     pub fn build(self) -> Result<ModelScoring<P>> {
         info!(
-            "Setting up the parsimony scoring from the {} model.",
+            "Setting up the parsimony scoring from the {} model",
             self.model
         );
 
@@ -82,10 +82,10 @@ impl<P: ParsimonyModel> ModelScoringBuilder<P> {
             .collect();
 
         info!(
-            "Created scoring matrices from the {} substitution model for {:?} branch lengths.",
-            self.model, times
+            "Created scoring matrices from the {} substitution model for {times:?} branch lengths",
+            self.model
         );
-        debug!("The scoring matrices are: {:?}", costs);
+        debug!("The scoring matrices are: {costs:?}");
         Ok(ModelScoring {
             alphabet: *self.model.alphabet(),
             model: self.model,

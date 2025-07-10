@@ -134,7 +134,7 @@ fn setup_info_empty_tree_file() {
     .build();
     assert_matches!(
         downcast_error::<DataError>(&info).to_string().as_str(),
-        "No trees in the tree file, aborting."
+        "No trees in the tree file, aborting"
     );
 }
 

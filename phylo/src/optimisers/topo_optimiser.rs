@@ -89,12 +89,12 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
     pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
         debug_assert!(self.c.tree().len() > 3);
 
-        info!("Optimising tree topology with SPRs.");
+        info!("Optimising tree topology with SPRs");
         let init_cost = self.c.cost();
         let init_tree = self.c.tree();
 
-        info!("Initial cost: {}.", init_cost);
-        debug!("Initial tree: \n{}", init_tree);
+        info!("Initial cost: {init_cost}");
+        debug!("Initial tree: \n{init_tree}");
         let mut curr_cost = init_cost;
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
@@ -114,7 +114,7 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
         // This means that curr_cost is always hugher than or equel to prev_cost.
         while self.predicate.test(iterations, curr_cost - prev_cost) {
             iterations += 1;
-            info!("Iteration: {}, current cost: {}.", iterations, curr_cost);
+            info!("Iteration: {iterations}, current cost: {curr_cost}");
             prev_cost = curr_cost;
 
             #[cfg(not(feature = "deterministic"))]
@@ -137,11 +137,8 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
         }
 
         debug_assert_eq!(curr_cost, self.c.cost());
-        info!("Done optimising tree topology.");
-        info!(
-            "Final cost: {}, achieved in {} iteration(s).",
-            curr_cost, iterations
-        );
+        info!("Done optimising tree topology");
+        info!("Final cost: {curr_cost}, achieved in {iterations} iteration(s)");
         Ok(PhyloOptimisationResult {
             initial_cost: init_cost,
             final_cost: curr_cost,
@@ -198,13 +195,10 @@ pub mod spr {
 
                 if best_cost > base_cost {
                     cost_fn.update_tree(best_tree, &[*prune, best_regraft]);
-                    info!(
-                        "    Regrafted to {:?}, new cost {}.",
-                        best_regraft, best_cost
-                    );
+                    info!("    Regrafted to {best_regraft:?}, new cost {best_cost}");
                     Ok(best_cost)
                 } else {
-                    info!("    No improvement, best cost {}.", best_cost);
+                    info!("    No improvement, best cost {best_cost}");
                     Ok(base_cost)
                 }
             })

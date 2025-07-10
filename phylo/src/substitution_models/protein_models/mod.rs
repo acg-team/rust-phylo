@@ -76,7 +76,7 @@ macro_rules! define_protein_model {
             }
             fn set_freqs(&mut self, freqs: FreqVector) {
                 if !verify_protein_freqs(&freqs) {
-                    warn!("Invalid protein frequencies provided.");
+                    warn!("Invalid protein frequencies provided");
                     return;
                 }
                 self.freqs = freqs;
