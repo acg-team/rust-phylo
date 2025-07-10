@@ -67,15 +67,14 @@ impl<C: TreeSearchCost + Clone + Display + Send> TopologyOptimiser<C> {
     /// # Example
     /// ```rust
     /// # fn main() -> std::result::Result<(), anyhow::Error> {
-    /// use std::path::PathBuf;
+    /// use std::path::Path;
     ///
     /// use phylo::likelihood::TreeSearchCost;
     /// use phylo::optimisers::TopologyOptimiser;
     /// use phylo::phylo_info::PhyloInfoBuilder;
     /// use phylo::substitution_models::{SubstModel, SubstitutionCostBuilder, K80};
     ///
-    /// let fldr = PathBuf::from("./data/sim/K80");
-    /// let info = PhyloInfoBuilder::with_attrs(fldr.join("K80.fasta"), fldr.join("../tree.newick")).build()?;
+    /// let info = PhyloInfoBuilder::new(Path::new("./data/sim/K80/K80.fasta").to_path_buf()).build()?;
     /// let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
     /// let c = SubstitutionCostBuilder::new(k80, info).build()?;
     /// let unopt_cost = c.cost();
