@@ -101,8 +101,8 @@ This crate is new and in active development at the moment. The basic existing fu
 
 - Simultaneous tree and alignment estimation under the PIP model ([paper]( https://www.pnas.org/doi/10.1073/pnas.1220450110 )); 
 - Maximum likelihood tree search using NNI moves under the TKF92 long indel model ([paper]( https://link.springer.com/article/10.1007/BF00163848 ));
-- Extension to the PIP model that includes long indels (paper in preparation);
-- Ancestral state reconstruction using PIP, TKF92 and IndelMaP ([paper]( https://academic.oup.com/mbe/article/41/7/msae109/7688856 )) 
+- Extension to the PIP model that includes long insertions (manuscript in preparation);
+- Ancestral state reconstruction using PIP ([paper]( https://pubmed.ncbi.nlm.nih.gov/35866991/ )), TKF92 and IndelMaP ([paper]( https://academic.oup.com/mbe/article/41/7/msae109/7688856 ));
 - Randomised starting trees for tree inference;
 - Generalisation of the tree structure for easier use in other crates.
 
