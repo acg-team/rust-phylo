@@ -1,8 +1,7 @@
-use rstest::*;
-
 use std::fs::File;
 use std::io::Read;
 
+use rstest::*;
 use tempfile::tempdir;
 
 use crate::io::{read_sequences, write_newick_to_file, write_sequences_to_file};

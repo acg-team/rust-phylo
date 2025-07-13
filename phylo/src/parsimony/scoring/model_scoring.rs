@@ -177,11 +177,13 @@ mod private_tests {
     use std::fmt::Debug;
 
     use approx::assert_relative_eq;
+    use ordered_float::OrderedFloat;
 
+    use crate::parsimony::{
+        CostMatrix, DiagonalZeros as Z, GapCost, ModelScoringBuilder, ModelScoringBuilder as MCB,
+        ParsimonyModel, ParsimonyScoring, Rounding as R,
+    };
     use crate::substitution_models::*;
-
-    use super::*;
-    use super::{DiagonalZeros as Z, ModelScoringBuilder as MCB, Rounding as R};
 
     const TRUE_COST_MATRIX: [f64; 400] = [
         0.0, 6.0, 6.0, 5.0, 6.0, 6.0, 5.0, 4.0, 7.0, 7.0, 6.0, 5.0, 6.0, 7.0, 5.0, 4.0, 4.0, 9.0,

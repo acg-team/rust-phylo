@@ -1,15 +1,12 @@
-use rstest::rstest;
-
 use approx::assert_relative_eq;
+use rstest::rstest;
 
 use crate::alphabets::{ParsimonySet, AMINOACIDS, NUCLEOTIDES};
 use crate::parsimony::{
     DiagonalZeros as Z, GapCost, ModelScoringBuilder as MCB, ParsimonyScoring, Rounding as R,
     SimpleScoring,
 };
-use crate::substitution_models::{
-    QMatrix, QMatrixMaker, SubstModel, BLOSUM, GTR, HIVB, HKY, JC69, K80, TN93, WAG,
-};
+use crate::substitution_models::*;
 
 #[test]
 fn default_costs() {
