@@ -41,16 +41,10 @@ macro_rules! align {
 }
 
 #[macro_export]
-macro_rules! test_align {
-    (@collect -) => { None };
-    (@collect $l:tt) => { Some($l) };
-    ( $( $e:tt )* ) => {vec![ $( align!(@collect $e), )* ]};
-}
-
-#[macro_export]
 macro_rules! site {
     ($s:literal, $f:expr) => {{
         use $crate::alphabets::ParsimonySet;
+        use $crate::parsimony::ParsimonySite;
         ParsimonySite::new(ParsimonySet::from_slice($s), $f)
     }};
 }
