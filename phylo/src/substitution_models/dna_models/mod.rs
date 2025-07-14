@@ -14,14 +14,14 @@ const EQUAL_FREQS: [f64; DNA_N] = [0.25, 0.25, 0.25, 0.25];
 
 fn set_dna_freqs(freqs: FreqVector) -> FreqVector {
     if freqs.len() < DNA_N {
-        warn!("Too few frequencies provided, using equal.");
+        warn!("Too few frequencies provided, using equal");
         frequencies!(&EQUAL_FREQS)
     } else {
         if freqs.len() > DNA_N {
-            warn!("Too many frequencies provided, using the first {}.", DNA_N);
+            warn!("Too many frequencies provided, using the first {DNA_N}");
         }
         if !relative_eq!(freqs.into_iter().take(DNA_N).sum::<f64>().abs(), 1.0) {
-            warn!("Invalid frequencies provided, using equal.");
+            warn!("Invalid frequencies provided, using equal");
             frequencies!(&EQUAL_FREQS)
         } else {
             FreqVector::from(freqs.rows(0, DNA_N))
@@ -94,12 +94,12 @@ impl QMatrixMaker for K80 {
         let kappa = match params.len().cmp(&1) {
             Ordering::Less => {
                 warn!("Too few values provided for K80, required one value for kappa");
-                warn!("Falling back to default value.");
+                warn!("Falling back to default value");
                 2.0
             }
             Ordering::Greater => {
-                warn!("Too many values provided for K80, required one value for kappa.");
-                warn!("Will only use the first value provided.");
+                warn!("Too many values provided for K80, required one value for kappa");
+                warn!("Will only use the first value provided");
                 params[0]
             }
             Ordering::Equal => params[0],
@@ -187,12 +187,12 @@ impl QMatrixMaker for HKY {
         let kappa = match params.len().cmp(&1) {
             Ordering::Less => {
                 warn!("Too few values provided for HKY, required one value for kappa");
-                warn!("Falling back to default value.");
+                warn!("Falling back to default value");
                 2.0
             }
             Ordering::Greater => {
                 warn!("Too many values provided for HKY, required one value for kappa.");
-                warn!("Will only use the first value provided.");
+                warn!("Will only use the first value provided");
                 params[0]
             }
             Ordering::Equal => params[0],
@@ -294,13 +294,13 @@ impl QMatrixMaker for TN93 {
         let mut params = params.to_vec();
         match params.len().cmp(&3) {
             Ordering::Less => {
-                warn!("Too few values provided for TN93, required 3 values.");
-                warn!("Falling back to default values.");
+                warn!("Too few values provided for TN93, required 3 values");
+                warn!("Falling back to default values");
                 params.extend(iter::repeat_n(1.0, 3 - params.len()));
             }
             Ordering::Greater => {
-                warn!("Too many values provided for TN93, required three values.");
-                warn!("Will only use the first values provided.");
+                warn!("Too many values provided for TN93, required three values");
+                warn!("Will only use the first values provided");
                 params.truncate(3);
             }
             Ordering::Equal => {}
@@ -408,15 +408,15 @@ impl QMatrixMaker for GTR {
         let freqs = set_dna_freqs(frequencies!(freqs));
         let mut params = params.to_vec();
         if params.len() < 5 {
-            warn!("Too few values provided for GTR, required five values.");
-            warn!("Falling back to default values.");
+            warn!("Too few values provided for GTR, required five values");
+            warn!("Falling back to default values");
             params.extend(iter::repeat_n(1.0, 5 - params.len()));
         } else if params.len() > 6 {
-            warn!("Too many values provided for GTR, required five values.");
-            warn!("Will only use the first values provided.");
+            warn!("Too many values provided for GTR, required five values");
+            warn!("Will only use the first values provided");
             params.truncate(5);
         } else if params.len() == 6 {
-            warn!("Allowing all rates to vary for GTR.");
+            warn!("Allowing all rates to vary for GTR");
         }
         let mut q = SubstMatrix::zeros(DNA_N, DNA_N);
         gtr_q(&mut q, &freqs, &params);

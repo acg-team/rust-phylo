@@ -27,8 +27,8 @@ pub enum NodeIdx {
 impl Display for NodeIdx {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Int(idx) => write!(f, "internal node {}", idx),
-            Leaf(idx) => write!(f, "leaf node {}", idx),
+            Int(idx) => write!(f, "internal node {idx}"),
+            Leaf(idx) => write!(f, "leaf node {idx}"),
         }
     }
 }
@@ -36,8 +36,8 @@ impl Display for NodeIdx {
 impl Debug for NodeIdx {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Int(idx) => write!(f, "Int({})", idx),
-            Leaf(idx) => write!(f, "Leaf({})", idx),
+            Int(idx) => write!(f, "Int({idx})"),
+            Leaf(idx) => write!(f, "Leaf({idx})"),
         }
     }
 }

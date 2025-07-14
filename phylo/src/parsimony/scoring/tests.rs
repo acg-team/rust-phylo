@@ -279,7 +279,7 @@ fn display_model_scorings() {
         .build()
         .unwrap();
 
-    let display = format!("{}", cost);
+    let display = format!("{cost}");
     assert!(display.contains("Model-based parsimony scoring"));
     assert!(display.contains("GTR"));
     assert!(display.contains("open: 2.4"));

@@ -12,6 +12,7 @@ use crate::{Result, MAX_BLEN};
 
 pub struct BranchOptimiser<C: TreeSearchCost + Display + Clone> {
     pub(crate) epsilon: f64,
+    // TODO: RefCell probably not needed here
     pub(crate) c: RefCell<C>,
 }
 
@@ -24,11 +25,11 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
     }
 
     pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
-        info!("Optimising branch lengths.");
+        info!("Optimising branch lengths");
         let init_cost = self.c.borrow().cost();
         let mut tree = self.c.borrow().tree().clone();
 
-        info!("Initial cost: {}.", init_cost);
+        info!("Initial cost: {init_cost}");
         let mut curr_cost = init_cost;
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
@@ -36,21 +37,21 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
         let nodes: Vec<NodeIdx> = tree.iter().map(|node| node.idx).collect();
         while (curr_cost - prev_cost) > self.epsilon {
             iterations += 1;
-            info!("Iteration: {}, current cost: {}.", iterations, curr_cost);
+            info!("Iteration: {iterations}, current cost: {curr_cost}");
             prev_cost = curr_cost;
 
             for branch in &nodes {
                 if tree.root == *branch {
                     continue;
                 }
-                debug!("Node {:?}: optimising branch length.", branch);
+                debug!("Node {branch:?}: optimising branch length");
                 let blen_opt = self.optimise_branch(branch)?;
                 if blen_opt.final_cost > curr_cost {
                     curr_cost = blen_opt.final_cost;
                     tree.set_blen(branch, blen_opt.value);
                     debug!(
-                        "    Optimised to {:.5} with cost {:.5}",
-                        blen_opt.value, curr_cost
+                        "    Optimised to {:.5} with cost {curr_cost:.5}",
+                        blen_opt.value
                     );
                 }
                 // The branch length may have changed during the optimisation attempt, so the tree
@@ -61,10 +62,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
 
         debug_assert_eq!(curr_cost, self.c.borrow().cost());
         info!("Done optimising branch lengths.");
-        info!(
-            "Final cost: {}, achieved in {} iteration(s).",
-            curr_cost, iterations
-        );
+        info!("Final cost: {curr_cost}, achieved in {iterations} iteration(s)");
         Ok(PhyloOptimisationResult {
             initial_cost: init_cost,
             final_cost: curr_cost,

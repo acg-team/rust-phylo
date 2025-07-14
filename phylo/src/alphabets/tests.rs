@@ -124,7 +124,7 @@ fn protein_characters() {
 
 fn test_parsimony_set_printing(#[case] input: &[u8], #[case] output: &str) {
     let set = ParsimonySet::from_slice(input);
-    assert_eq!(format!("{}", set), format!("[{}]", output));
+    assert_eq!(format!("{set}"), format!("[{}]", output));
 }
 
 #[test]

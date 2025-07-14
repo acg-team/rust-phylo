@@ -54,7 +54,7 @@ impl<'a, PS: ParsimonyScoring + Clone> ParsimonyAligner<PS> {
         seqs: &'a Sequences,
         tree: &'a Tree,
     ) -> Result<(Alignment, Vec<f64>)> {
-        info!("Starting the IndelMAP alignment.");
+        info!("Starting the IndelMAP alignment");
 
         let order = tree.postorder();
 
@@ -63,7 +63,7 @@ impl<'a, PS: ParsimonyScoring + Clone> ParsimonyAligner<PS> {
         let mut scores = vec![0.0; tree.len()];
 
         for &node_idx in order {
-            info!("Processing {}{}.", node_idx, tree.node(&node_idx).id);
+            info!("Processing {}{}", node_idx, tree.node(&node_idx).id);
             match node_idx {
                 Int(idx) => {
                     let child = tree.children(&node_idx);
@@ -76,13 +76,13 @@ impl<'a, PS: ParsimonyScoring + Clone> ParsimonyAligner<PS> {
                     let y_info = &node_info[usize::from(child[1])];
                     let y_blen = tree.node(&child[1]).blen;
 
-                    info!("Aligning sequences at nodes {} and {}", x_idx, y_idx,);
+                    info!("Aligning sequences at nodes {x_idx} and {y_idx}");
                     let (info, alignment, score) =
                         self.pairwise_align(x_info, x_blen, y_info, y_blen, rng_len);
                     node_info[idx] = info;
                     alignments.insert(node_idx, alignment);
                     scores[idx] = score;
-                    info!("Alignment complete with score {}.\n", score);
+                    info!("Alignment complete with score {score}");
                 }
                 Leaf(idx) => {
                     let pars_sets = seqs
@@ -95,11 +95,11 @@ impl<'a, PS: ParsimonyScoring + Clone> ParsimonyAligner<PS> {
                         .into_iter()
                         .map(|set: &ParsimonySet| ParsimonySite::leaf(set.clone()))
                         .collect();
-                    info!("Processed leaf node.\n");
+                    info!("Processed leaf node");
                 }
             }
         }
-        info!("Finished IndelMAP alignment.");
+        info!("Finished IndelMAP alignment");
 
         let mut alignment = Alignment {
             seqs: seqs.into_gapless(),
