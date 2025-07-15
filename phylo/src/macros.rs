@@ -42,7 +42,7 @@ macro_rules! align {
 
 #[macro_export]
 macro_rules! site {
-    ($s:literal, $f:expr) => {{
+    ($s:expr, $f:expr) => {{
         use $crate::alphabets::ParsimonySet;
         use $crate::parsimony::ParsimonySite;
         ParsimonySite::new(ParsimonySet::from_slice($s), $f)
