@@ -54,7 +54,7 @@ use phylo::substitution_models::{SubstModel, SubstitutionCostBuilder, K80};
 
 fn main() -> std::result::Result<(), anyhow::Error> {
     // Note: This example uses test data from the repository
-    let info = PhyloInfoBuilder::new(Path::new("./data/sim/K80/K80.fasta").to_path_buf()).build()?;
+    let info = PhyloInfoBuilder::new(Path::new("./examples/data/K80.fasta").to_path_buf()).build()?;
     let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
     let c = SubstitutionCostBuilder::new(k80, info).build()?;
     let unopt_cost = c.cost();

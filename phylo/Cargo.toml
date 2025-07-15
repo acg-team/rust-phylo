@@ -8,10 +8,12 @@ keywords = ["phylogenetics", "computational biology", "alignment", "MSA", "maxim
 description = "A Rust library for phylogenetic analysis and multiple sequence alignment under maximum likelihood"
 categories = ["science", "science::bioinformatics", "algorithms"]
 exclude = [
-    "phylo/data",
+    "data/",
     ".github/",
-    "*.md",
+    "benches/",
+    "target/",
 ]
+
 rust-version = "1.82.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

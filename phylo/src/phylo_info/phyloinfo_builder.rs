@@ -30,7 +30,7 @@ impl PhyloInfoBuilder {
     /// ```
     /// use std::path::PathBuf;
     /// use phylo::phylo_info::PhyloInfoBuilder;
-    /// let builder = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta"));
+    /// let builder = PhyloInfoBuilder::new(PathBuf::from("./examples/data/sequences_DNA_small.fasta"));
     /// ```
     pub fn new(sequence_file: PathBuf) -> PhyloInfoBuilder {
         PhyloInfoBuilder {
@@ -52,8 +52,8 @@ impl PhyloInfoBuilder {
     /// use std::path::PathBuf;
     /// use phylo::phylo_info::PhyloInfoBuilder;
     /// let builder = PhyloInfoBuilder::with_attrs(
-    ///     PathBuf::from("./data/sequences_DNA_small.fasta"),
-    ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"));
+    ///     PathBuf::from("./examples/data/sequences_DNA_small.fasta"),
+    ///     PathBuf::from("./examples/data/tree_diff_branch_lengths_2.newick"));
     /// ```
     pub fn with_attrs(sequence_file: PathBuf, tree_file: PathBuf) -> PhyloInfoBuilder {
         PhyloInfoBuilder {
@@ -62,24 +62,6 @@ impl PhyloInfoBuilder {
             alignment_builder: None,
             alphabet: None,
         }
-    }
-
-    /// Sets the sequence file path for the PhyloInfoBuilder struct.
-    /// Returns the PhyloInfoBuilder struct with the sequence file path set.
-    ///
-    /// # Arguments
-    /// * `path` - File path to the sequence fasta file.
-    ///
-    /// # Example
-    /// ```
-    /// use std::path::PathBuf;
-    /// use phylo::phylo_info::PhyloInfoBuilder;
-    /// let builder = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta"))
-    ///    .sequence_file(PathBuf::from("./data/sequences_DNA_small.fasta"));
-    /// ```
-    pub fn sequence_file(mut self, path: PathBuf) -> PhyloInfoBuilder {
-        self.sequence_file = path;
-        self
     }
 
     /// Sets the tree file path for the PhyloInfoBuilder struct.
@@ -92,8 +74,8 @@ impl PhyloInfoBuilder {
     /// ```
     /// use std::path::PathBuf;
     /// use phylo::phylo_info::PhyloInfoBuilder;
-    /// let builder = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta"))
-    ///   .tree_file(Some(PathBuf::from("./data/tree_diff_branch_lengths_2.newick")));
+    /// let builder = PhyloInfoBuilder::new(PathBuf::from("./examples/data/sequences_DNA_small.fasta"))
+    ///   .tree_file(Some(PathBuf::from("./examples/data/tree_diff_branch_lengths_2.newick")));
     /// ```
     pub fn tree_file(mut self, path: Option<PathBuf>) -> PhyloInfoBuilder {
         self.tree_file = path;
@@ -111,7 +93,7 @@ impl PhyloInfoBuilder {
     /// use std::path::PathBuf;
     /// use phylo::alphabets::protein_alphabet;
     /// use phylo::phylo_info::PhyloInfoBuilder;
-    /// let info = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta")).alphabet(Some(protein_alphabet())).build().unwrap();
+    /// let info = PhyloInfoBuilder::new(PathBuf::from("./examples/data/sequences_DNA_small.fasta")).alphabet(Some(protein_alphabet())).build().unwrap();
     /// assert_eq!(info.msa.alphabet(), &protein_alphabet());
     /// ```
     pub fn alphabet(mut self, alphabet: Option<Alphabet>) -> PhyloInfoBuilder {
@@ -132,8 +114,8 @@ impl PhyloInfoBuilder {
     /// use std::path::PathBuf;
     /// use phylo::phylo_info::PhyloInfoBuilder;
     /// let info = PhyloInfoBuilder::with_attrs(
-    ///     PathBuf::from("./data/sequences_DNA_small.fasta"),
-    ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"))
+    ///     PathBuf::from("./examples/data/sequences_DNA_small.fasta"),
+    ///     PathBuf::from("./examples/data/tree_diff_branch_lengths_2.newick"))
     ///     .build()
     ///     .unwrap();
     /// assert_eq!(info.msa.len(), 8);
@@ -240,15 +222,10 @@ pub mod private_tests {
     #[test]
     fn builder_setters() {
         let fasta1 = PathBuf::from("./data/sequences_DNA_small.fasta");
-        let fasta2 = PathBuf::from("./data/sequences_DNA1.fasta");
         let newick = PathBuf::from("./data/tree_diff_branch_lengths_2.newick");
 
         let builder = PIB::new(fasta1.clone());
         assert_eq!(builder.sequence_file, fasta1);
-        let builder = builder.sequence_file(fasta2.clone());
-        assert_ne!(builder.sequence_file, fasta1);
-        assert_eq!(builder.sequence_file, fasta2);
-
         assert_eq!(builder.tree_file, None);
         let builder = builder.tree_file(Some(newick.clone()));
         assert_eq!(builder.tree_file, Some(newick));

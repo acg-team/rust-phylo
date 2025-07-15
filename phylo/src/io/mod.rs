@@ -37,7 +37,7 @@ impl Error for DataError {}
 /// ```
 /// use phylo::io::read_sequences;
 /// use std::path::PathBuf;
-/// let records = read_sequences(&PathBuf::from("./data/sequences_DNA_small.fasta")).unwrap();
+/// let records = read_sequences(&PathBuf::from("./examples/data/sequences_DNA_small.fasta")).unwrap();
 /// # assert_eq!(records.len(), 4);
 /// # for rec in records {
 /// #    assert_eq!(rec.seq().len(), 8);
@@ -106,7 +106,7 @@ pub fn read_sequences(path: &Path) -> Result<Vec<Record>> {
 ///    Record::with_attrs("seq1", None, b"ATGC"),
 ///    Record::with_attrs("seq2", None, b"CGTA"),
 /// ];
-/// let output_path = PathBuf::from("./data/doctest_tmp_output.fasta");
+/// let output_path = PathBuf::from("./examples/data/doctest_tmp_output.fasta");
 /// write_sequences_to_file(&sequences, &output_path).unwrap();
 /// # let mut file_content = String::new();
 /// # File::open(output_path.clone())
@@ -146,7 +146,7 @@ pub fn write_sequences_to_file(sequences: &[Record], path: &PathBuf) -> Result<(
 /// ```
 /// use phylo::io::read_newick_from_file;
 /// use std::path::PathBuf;
-/// let trees = read_newick_from_file(&PathBuf::from("./data/tree.newick")).unwrap();
+/// let trees = read_newick_from_file(&PathBuf::from("./examples/data/tree.newick")).unwrap();
 /// # assert_eq!(trees.len(), 1);
 /// # assert_eq!(trees[0].leaves().len(), 4);
 /// ```
@@ -174,7 +174,7 @@ pub fn read_newick_from_file(path: &PathBuf) -> Result<Vec<Tree>> {
 /// use phylo::tree::Tree;
 /// use phylo::io::write_newick_to_file;
 ///
-/// let output_path = PathBuf::from("./data/doctest_tmp_output.newick");
+/// let output_path = PathBuf::from("./examples/data/doctest_tmp_output.newick");
 /// let trees = from_newick("((A:1.0,B:2.0):1,(D:1.0,E:2.0):1):0.0;").unwrap();
 /// write_newick_to_file(&trees, output_path.clone()).unwrap();
 /// # let mut file_content = String::new();
