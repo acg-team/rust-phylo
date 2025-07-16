@@ -8,7 +8,7 @@ pub use phyloinfo_builder::*;
 
 /// The PhyloInfo struct contains all the information needed for phylogenetic inference.
 ///
-/// The struct can be built using the PhyloInfoBuilder from at least a fasta sequnce file.
+/// The struct can be built using the PhyloInfoBuilder from at least a fasta sequence file.
 /// At the moment the sequences need to be aligned.
 /// The struct also holds the leaf sequence character encodings.
 ///

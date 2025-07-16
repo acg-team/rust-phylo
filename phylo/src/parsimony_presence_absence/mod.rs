@@ -4,16 +4,16 @@ use crate::alphabets::GAP;
 use crate::asr::AncestralSequenceReconstruction;
 use crate::tree::NodeIdx::{Internal, Leaf};
 use crate::tree::{NodeIdx, Tree};
-use crate::{aligned_seq, record, Result};
+use crate::{aligned_seq, record};
 use bio::io::fasta::Record;
 use hashbrown::HashMap;
 
-pub struct ParsimonyIndelPoints {}
+pub struct ParsimonyPresenceAbsence {}
 
 impl<A: Alignment, AA: AncestralAlignment> AncestralSequenceReconstruction<A, AA>
-    for ParsimonyIndelPoints
+    for ParsimonyPresenceAbsence
 {
-    fn reconstruct_ancestral_seqs(&self, alignment: &A, tree: &Tree) -> Result<AA> {
+    fn reconstruct_ancestral_seqs_unchecked(&self, alignment: &A, tree: &Tree) -> AA {
         let mut aligned_leaf_records = Vec::new();
         for leaf in tree.leaves() {
             let unaligned_record = alignment.seqs().record_by_id(&leaf.id);
@@ -26,7 +26,7 @@ impl<A: Alignment, AA: AncestralAlignment> AncestralSequenceReconstruction<A, AA
         }
         aligned_leaf_records.append(&mut get_ancestral_records(tree, alignment));
         let all_seqs = Sequences::new(aligned_leaf_records);
-        AA::from_aligned_with_ancestral(all_seqs, tree)
+        AA::from_aligned_with_ancestral_unchecked(all_seqs, tree)
     }
 }
 
