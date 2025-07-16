@@ -21,17 +21,19 @@ impl TreeBuilder for NJBuilder {
     fn build_tree(&self, sequences: &Sequences) -> Result<Tree> {
         //Convert this to self if using methods also add distance function argument
         let nj_data = self.compute_distance_matrix(sequences);
+        //Still mix of associated functions and methods, maybe standardize this?
         NJBuilder::build_nj_tree_from_matrix(nj_data, sequences)
     }
 }
 
 impl NJBuilder {
-    //May change this to return Self instead so unwrap is uneeded?
-    pub(crate) fn new(temperature: f64, distance_function: Option<DistanceFunction>) -> Result<Self> {
-        // Should allow for default distance function or specified
+    // Return Self instead so unwrap is uneeded, also since both are Options
+    pub(crate) fn new(temperature: Option<f64>, distance_function: Option<DistanceFunction>) -> Result<Self> {
+        // Should allow for default distance function and temperature or specified
+        let temperature = temperature.unwrap_or(0.00);
         let distance_function = distance_function.unwrap_or(levenshtein);
         Ok(Self {
-            temperature,
+            temperature: temperature,
             distance_function: distance_function,
         })
     }
@@ -153,7 +155,7 @@ mod private_tests {
             record!("E4", b"CC"),
         ]);
         //For now, may instantiate NJBuilder instance every time
-        let builder = NJBuilder::new(0.00, None).unwrap();
+        let builder = NJBuilder::new(None, None).unwrap();
         let mat = builder.compute_distance_matrix(&sequences);
         let true_mat = dmatrix![
         0.0, 26.728641210756745, 26.728641210756745, 26.728641210756745, 0.8239592165010822;
@@ -173,7 +175,7 @@ mod private_tests {
             record!("D3", b"CAAAAAAAAAAAAAAAAAAA"),
         ]);
         //For now, may instantiate NJBuilder instance every time
-        let builder = NJBuilder::new(0.0, None).unwrap();
+        let builder = NJBuilder::new(None, None).unwrap();
         let mat = builder.compute_distance_matrix(&sequences);
         let true_mat = dmatrix![
         0.0, 0.0, 0.2326161962278796, 0.051744653615213576;
