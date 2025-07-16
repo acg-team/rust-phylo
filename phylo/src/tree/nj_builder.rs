@@ -5,31 +5,34 @@ use crate::tree::{
 
 use crate::alignment::Sequences;
 use crate::Result;
-//use bio::utils::text::TextSlice;
 use crate::tree::tree_builder::TreeBuilder;
 use bio::alignment::distance::levenshtein;
 use nalgebra::{max, DMatrix};
 
+// Made this into a type so that it can be changed easily if TextSlice changes, might be a better solution out there
+type DistanceFunction = fn(&[u8], &[u8]) -> u32;
+
 pub struct NJBuilder {
     temperature: f64,
-    //distance_function: fn(TextSlice<'_>, TextSlice<'_>) -> u32,
+    distance_function: DistanceFunction, //This is the same type as TextSlice for bio, just explicitly defines since TextSlice is private, Option
 }
 
 impl TreeBuilder for NJBuilder {
     fn build_tree(&self, sequences: &Sequences) -> Result<Tree> {
         //Convert this to self if using methods also add distance function argument
-        let nj_data = NJBuilder::compute_distance_matrix(sequences);
+        let nj_data = self.compute_distance_matrix(sequences);
         NJBuilder::build_nj_tree_from_matrix(nj_data, sequences)
     }
 }
-//Text Slice is private from bio package so may want to rethink strategy for implementing distance functions
-//distance_function: fn(TextSlice<'_>, TextSlice<'_>) -> u32
+
 impl NJBuilder {
-    //Copied over the NJ_builder functionality from mod.rs
-    pub(crate) fn new(temperature: f64) -> Result<Self> {
+    //May change this to return Self instead so unwrap is uneeded?
+    pub(crate) fn new(temperature: f64, distance_function: Option<DistanceFunction>) -> Result<Self> {
+        // Should allow for default distance function or specified
+        let distance_function = distance_function.unwrap_or(levenshtein);
         Ok(Self {
             temperature,
-            // distance_function,
+            distance_function: distance_function,
         })
     }
 
@@ -91,16 +94,16 @@ impl NJBuilder {
     }
     //Converted this to method instead of associated function, we can decide which to use
 
-    fn compute_distance_matrix(sequences: &Sequences) -> NJMat {
+    fn compute_distance_matrix(&self ,sequences: &Sequences) -> NJMat {
         let nseqs = sequences.len();
         let mut distances = DMatrix::zeros(nseqs, nseqs);
         for i in 0..nseqs {
             for j in (i + 1)..nseqs {
                 let seq_i = sequences.record(i).seq();
                 let seq_j = sequences.record(j).seq();
-                let lev_dist = levenshtein(seq_i, seq_j) as f64;
+                let dist = (self.distance_function)(seq_i, seq_j) as f64;
                 let proportion_diff = f64::min(
-                    lev_dist / (max(seq_i.len(), seq_j.len()) as f64),
+                    dist / (max(seq_i.len(), seq_j.len()) as f64),
                     0.75 - f64::EPSILON,
                 );
                 let corrected_dist = -3.0 / 4.0 * (1.0 - 4.0 / 3.0 * proportion_diff).ln();
@@ -150,7 +153,8 @@ mod private_tests {
             record!("E4", b"CC"),
         ]);
         //For now, may instantiate NJBuilder instance every time
-        let mat = NJBuilder::compute_distance_matrix(&sequences);
+        let builder = NJBuilder::new(0.00, None).unwrap();
+        let mat = builder.compute_distance_matrix(&sequences);
         let true_mat = dmatrix![
         0.0, 26.728641210756745, 26.728641210756745, 26.728641210756745, 0.8239592165010822;
         26.728641210756745, 0.0, 0.8239592165010822, 0.0, 26.728641210756745;
@@ -169,7 +173,8 @@ mod private_tests {
             record!("D3", b"CAAAAAAAAAAAAAAAAAAA"),
         ]);
         //For now, may instantiate NJBuilder instance every time
-        let mat = NJBuilder::compute_distance_matrix(&sequences);
+        let builder = NJBuilder::new(0.0, None).unwrap();
+        let mat = builder.compute_distance_matrix(&sequences);
         let true_mat = dmatrix![
         0.0, 0.0, 0.2326161962278796, 0.051744653615213576;
         0.0, 0.0, 0.2326161962278796, 0.051744653615213576;

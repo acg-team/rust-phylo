@@ -165,7 +165,7 @@ impl PhyloInfoBuilder {
             Some(tree_file) => self.read_tree(&sequences, tree_file)?,
             None => {
                 info!("Building NJ tree from sequences");
-                let tree_builder = NJBuilder::new(0.00)?;
+                let tree_builder = NJBuilder::new(0.00, None)?;
                 tree_builder.build_tree(&sequences)?
                 // This will also work for now
                 //NJBuilder::build_nj_tree(&sequences)?
