@@ -4,8 +4,8 @@ use crate::tree::{
 };
 
 use crate::alignment::Sequences;
-use crate::Result;
 use crate::tree::tree_builder::TreeBuilder;
+use crate::Result;
 use bio::alignment::distance::levenshtein;
 use nalgebra::{max, DMatrix};
 
@@ -27,7 +27,10 @@ impl TreeBuilder for NJBuilder {
 
 impl NJBuilder {
     //May change this to return Self instead so unwrap is uneeded?
-    pub(crate) fn new(temperature: f64, distance_function: Option<DistanceFunction>) -> Result<Self> {
+    pub(crate) fn new(
+        temperature: f64,
+        distance_function: Option<DistanceFunction>,
+    ) -> Result<Self> {
         // Should allow for default distance function or specified
         let distance_function = distance_function.unwrap_or(levenshtein);
         Ok(Self {
@@ -94,7 +97,7 @@ impl NJBuilder {
     }
     //Converted this to method instead of associated function, we can decide which to use
 
-    fn compute_distance_matrix(&self ,sequences: &Sequences) -> NJMat {
+    fn compute_distance_matrix(&self, sequences: &Sequences) -> NJMat {
         let nseqs = sequences.len();
         let mut distances = DMatrix::zeros(nseqs, nseqs);
         for i in 0..nseqs {
