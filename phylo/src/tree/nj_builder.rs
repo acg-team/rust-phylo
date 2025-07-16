@@ -4,8 +4,8 @@ use crate::tree::{
 };
 
 use crate::alignment::Sequences;
-use crate::Result;
 use crate::tree::tree_builder::TreeBuilder;
+use crate::Result;
 use bio::alignment::distance::levenshtein;
 use nalgebra::{max, DMatrix};
 
@@ -27,7 +27,7 @@ impl TreeBuilder for NJBuilder {
 }
 
 impl NJBuilder {
-    // Return Self instead so unwrap is uneeded, also since both are Options
+    // Returning Result in congruence with other functions and instantiators, must use unwrap
     pub(crate) fn new(temperature: Option<f64>, distance_function: Option<DistanceFunction>) -> Result<Self> {
         // Should allow for default distance function and temperature or specified
         let temperature = temperature.unwrap_or(0.00);
@@ -96,7 +96,7 @@ impl NJBuilder {
     }
     //Converted this to method instead of associated function, we can decide which to use
 
-    fn compute_distance_matrix(&self ,sequences: &Sequences) -> NJMat {
+    fn compute_distance_matrix(&self, sequences: &Sequences) -> NJMat {
         let nseqs = sequences.len();
         let mut distances = DMatrix::zeros(nseqs, nseqs);
         for i in 0..nseqs {
