@@ -11,7 +11,7 @@ use lazy_static::lazy_static;
 use log::warn;
 use nalgebra::{DMatrix, DVector};
 
-use crate::alignment::Mapping;
+use crate::alignment::{Alignment, Mapping};
 use crate::alphabets::{Alphabet, GAP};
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
@@ -88,6 +88,7 @@ impl<Q: QMatrix + QMatrixMaker> PIPModel<Q> {
     }
 }
 
+// TODO: where is this ever used?
 impl<Q: QMatrix> EvoModel for PIPModel<Q> {
     fn p(&self, time: f64) -> SubstMatrix {
         (self.q().clone() * time).exp()
@@ -177,17 +178,15 @@ pub struct PIPModelInfo<Q: QMatrix> {
 }
 
 impl<Q: QMatrix> PIPModelInfo<Q> {
-    pub fn new(info: &PhyloInfo, model: &PIPModel<Q>) -> Result<Self> {
+    pub fn new<M: Alignment>(info: &PhyloInfo<M>, model: &PIPModel<Q>) -> Result<Self> {
         let n = model.q().nrows();
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
         let mut leaf_seq_info = HashMap::with_capacity(info.tree.leaves().len());
         for node in info.tree.leaves() {
-            let seq = info.msa.seqs.record_by_id(&node.id).seq().to_vec();
-
+            let seq = info.msa.seqs().record_by_id(&node.id).seq().to_vec();
             let alignment_map = info.msa.leaf_map(&node.idx);
             let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(n, msa_length);
-
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {
                 if let Some(c) = alignment_map[i] {
                     let encoding = info
@@ -196,7 +195,6 @@ impl<Q: QMatrix> PIPModelInfo<Q> {
                         .char_encoding(seq[c])
                         .clone()
                         .insert_row(n - 1, 0.0);
-
                     site_info.copy_from(&encoding);
                 } else {
                     site_info.fill_row(n - 1, 1.0);
@@ -222,17 +220,17 @@ impl<Q: QMatrix> PIPModelInfo<Q> {
     }
 }
 
-pub struct PIPCostBuilder<Q: QMatrix> {
+pub struct PIPCostBuilder<Q: QMatrix, A: Alignment> {
     model: PIPModel<Q>,
-    info: PhyloInfo,
+    info: PhyloInfo<A>,
 }
 
-impl<Q: QMatrix> PIPCostBuilder<Q> {
-    pub fn new(model: PIPModel<Q>, info: PhyloInfo) -> Self {
+impl<Q: QMatrix, A: Alignment> PIPCostBuilder<Q, A> {
+    pub fn new(model: PIPModel<Q>, info: PhyloInfo<A>) -> Self {
         PIPCostBuilder { model, info }
     }
 
-    pub fn build(self) -> Result<PIPCost<Q>> {
+    pub fn build(self) -> Result<PIPCost<Q, A>> {
         if self.info.msa.alphabet() != self.model.alphabet() {
             bail!("Alphabet mismatch between model and alignment.");
         }
@@ -247,13 +245,13 @@ impl<Q: QMatrix> PIPCostBuilder<Q> {
 }
 
 #[derive(Debug, Clone)]
-pub struct PIPCost<Q: QMatrix> {
+pub struct PIPCost<Q: QMatrix, A: Alignment> {
     pub(crate) model: PIPModel<Q>,
-    pub(crate) info: PhyloInfo,
+    pub(crate) info: PhyloInfo<A>,
     tmp: RefCell<PIPModelInfo<Q>>,
 }
 
-impl<Q: QMatrix> TreeSearchCost for PIPCost<Q> {
+impl<Q: QMatrix, A: Alignment> TreeSearchCost for PIPCost<Q, A> {
     fn cost(&self) -> f64 {
         self.logl()
     }
@@ -276,7 +274,7 @@ impl<Q: QMatrix> TreeSearchCost for PIPCost<Q> {
     }
 }
 
-impl<Q: QMatrix> ModelSearchCost for PIPCost<Q> {
+impl<Q: QMatrix, M: Alignment> ModelSearchCost for PIPCost<Q, M> {
     fn cost(&self) -> f64 {
         self.logl()
     }
@@ -303,13 +301,13 @@ impl<Q: QMatrix> ModelSearchCost for PIPCost<Q> {
     }
 }
 
-impl<Q: QMatrix + Display> Display for PIPCost<Q> {
+impl<Q: QMatrix + Display, M: Alignment> Display for PIPCost<Q, M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.model)
     }
 }
 
-impl<Q: QMatrix> PIPCost<Q> {
+impl<Q: QMatrix, M: Alignment> PIPCost<Q, M> {
     fn logl(&self) -> f64 {
         for node_idx in self.info.tree.postorder() {
             match node_idx {
@@ -334,7 +332,7 @@ impl<Q: QMatrix> PIPCost<Q> {
         // individual column probabilities become too close to 0.0 (become subnormal)
         // and the log likelihood becomes -Inf. This is mathematically reasonable, but during branch
         // length optimisation BrentOpt cannot handle it and proposes NaN branch lengths.
-        // This is a workaround that sets the probability to the smallest posible positive float,
+        // This is a workaround that sets the probability to the smallest possible positive float,
         // which is equivalent to restricting the log likelihood to f64::MIN.
         tmp.pnu[root_idx]
             .map(|x| {
@@ -536,7 +534,7 @@ impl<Q: QMatrix> PIPCost<Q> {
 
     fn survival_insertion_weight(lambda: f64, mu: f64, b: f64) -> f64 {
         // A function equal to old
-        // nu * insertion_probability(tree_length, b, mu) * survival_probablitily(mu, b)
+        // nu * insertion_probability(tree_length, b, mu) * survival_probability(mu, b)
         lambda / mu * (1.0 - (-b * mu).exp())
     }
 }
