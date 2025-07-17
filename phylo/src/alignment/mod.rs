@@ -1,13 +1,12 @@
 use std::fmt::{Debug, Display};
 
 use anyhow::bail;
-use hashbrown::{HashMap, HashSet};
-use log::info;
+use hashbrown::HashMap;
 
 use crate::alphabets::Alphabet;
 use crate::asr::AncestralSequenceReconstruction;
-use crate::io::DataError;
 use crate::parsimony_presence_absence::ParsimonyPresenceAbsence;
+use crate::phylo_info::{validate_ids_with_ancestors, validate_taxa_ids};
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::{align, aligned_seq, record, Result};
 
@@ -48,7 +47,7 @@ pub trait Alignment: Display + Clone + Debug {
         if !sequences.aligned {
             bail!("Sequences are not aligned.")
         }
-        sequence_ids_are_unique(&sequences)?;
+        sequences.ids_are_unique()?;
         validate_taxa_ids(tree, &sequences)?;
         sequences.remove_gap_cols();
         Ok(Self::from_aligned_unchecked(sequences, tree))
@@ -63,7 +62,7 @@ pub trait AncestralAlignment: Alignment {
         if !all_seqs.aligned {
             bail!("Sequences are not aligned.")
         }
-        sequence_ids_are_unique(&all_seqs)?;
+        all_seqs.ids_are_unique()?;
         validate_ids_with_ancestors(tree, &all_seqs)?;
         all_seqs.remove_gap_cols();
         Ok(Self::from_aligned_with_ancestral_unchecked(all_seqs, tree))
@@ -261,68 +260,6 @@ impl Alignment for MSA {
             idx_to_id,
         }
     }
-}
-
-pub(crate) fn sequence_ids_are_unique(sequences: &Sequences) -> Result<()> {
-    let mut seen = HashSet::new();
-    for record in sequences.iter() {
-        let id = record.id();
-        if !seen.insert(id) {
-            bail!("Duplicate record id ({}) found in the sequences.", id);
-        }
-    }
-    Ok(())
-}
-
-/// Checks that the ids of the tree leaves and the sequences match, bails with an error otherwise.
-pub(crate) fn validate_taxa_ids(tree: &Tree, sequences: &Sequences) -> Result<()> {
-    let tip_ids: HashSet<String> = HashSet::from_iter(tree.leaf_ids());
-    let sequence_ids: HashSet<String> =
-        HashSet::from_iter(sequences.iter().map(|rec| rec.id().to_string()));
-    info!("Checking that tree tip and sequence IDs match.");
-    let mut missing_tips = sequence_ids.difference(&tip_ids).collect::<Vec<_>>();
-    if !missing_tips.is_empty() {
-        missing_tips.sort();
-        bail!(DataError {
-            message: format!("Mismatched IDs found, missing tree tip IDs: {missing_tips:?}")
-        });
-    }
-    let mut missing_seqs = tip_ids.difference(&sequence_ids).collect::<Vec<_>>();
-    if !missing_seqs.is_empty() {
-        missing_seqs.sort();
-        bail!(DataError {
-            message: format!("Mismatched IDs found, missing sequence IDs: {missing_seqs:?}")
-        });
-    }
-    Ok(())
-}
-
-/// Checks that the ids of the tree nodes and the sequences match, bails with an error
-/// otherwise.
-pub(crate) fn validate_ids_with_ancestors(tree: &Tree, sequences: &Sequences) -> Result<()> {
-    let tree_ids: HashSet<String> = HashSet::from_iter(
-        tree.preorder()
-            .iter()
-            .map(|node_idx| tree.node_id(node_idx).to_string()),
-    );
-    let sequence_ids: HashSet<String> =
-        HashSet::from_iter(sequences.iter().map(|rec| rec.id().to_string()));
-    info!("Checking that tree and sequence IDs match.");
-    let mut missing_nodes = sequence_ids.difference(&tree_ids).collect::<Vec<_>>();
-    if !missing_nodes.is_empty() {
-        missing_nodes.sort();
-        bail!(DataError {
-            message: format!("Mismatched IDs found, missing tree IDs: {missing_nodes:?}")
-        });
-    }
-    let mut missing_seqs = tree_ids.difference(&sequence_ids).collect::<Vec<_>>();
-    if !missing_seqs.is_empty() {
-        missing_seqs.sort();
-        bail!(DataError {
-            message: format!("Mismatched IDs found, missing sequence IDs: {missing_seqs:?}")
-        });
-    }
-    Ok(())
 }
 
 #[derive(Debug, Clone)]

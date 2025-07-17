@@ -667,53 +667,53 @@ fn pip_likelihood_protein_example() {
 #[test]
 fn designation() {
     let model = PIPModel::<JC69>::new(&[], &[]);
-    assert!(format!("{}", model).contains("PIP"));
-    assert!(format!("{}", model).contains("lambda = 1.5"));
-    assert!(format!("{}", model).contains("mu = 1.5"));
-    assert!(format!("{}", model).contains("JC69"));
+    assert!(format!("{model}").contains("PIP"));
+    assert!(format!("{model}").contains("lambda = 1.5"));
+    assert!(format!("{model}").contains("mu = 1.5"));
+    assert!(format!("{model}").contains("JC69"));
 
     let model = PIPModel::<JC69>::new(&[], &[2.0, 1.0]);
-    assert!(format!("{}", model).contains("PIP"));
-    assert!(format!("{}", model).contains("lambda = 2.0"));
-    assert!(format!("{}", model).contains("mu = 1.0"));
-    assert!(format!("{}", model).contains("JC69"));
+    assert!(format!("{model}").contains("PIP"));
+    assert!(format!("{model}").contains("lambda = 2.0"));
+    assert!(format!("{model}").contains("mu = 1.0"));
+    assert!(format!("{model}").contains("JC69"));
 
     let model = PIPModel::<K80>::new(&[], &[2.0, 5.0, 1.3]);
-    assert!(format!("{}", model).contains("PIP"));
-    assert!(format!("{}", model).contains("lambda = 2.0"));
-    assert!(format!("{}", model).contains("mu = 5.0"));
-    assert!(format!("{}", model).contains("K80"));
-    assert!(format!("{}", model).contains("kappa = 1.3"));
+    assert!(format!("{model}").contains("PIP"));
+    assert!(format!("{model}").contains("lambda = 2.0"));
+    assert!(format!("{model}").contains("mu = 5.0"));
+    assert!(format!("{model}").contains("K80"));
+    assert!(format!("{model}").contains("kappa = 1.3"));
 
     let model = PIPModel::<HKY>::new(&[], &[2.0, 5.0, 2.5]);
-    assert!(format!("{}", model).contains("PIP"));
-    assert!(format!("{}", model).contains("lambda = 2.0"));
-    assert!(format!("{}", model).contains("mu = 5.0"));
-    assert!(format!("{}", model).contains("HKY"));
-    assert!(format!("{}", model).contains("kappa = 2.5"));
+    assert!(format!("{model}").contains("PIP"));
+    assert!(format!("{model}").contains("lambda = 2.0"));
+    assert!(format!("{model}").contains("mu = 5.0"));
+    assert!(format!("{model}").contains("HKY"));
+    assert!(format!("{model}").contains("kappa = 2.5"));
 
     let model = PIPModel::<TN93>::new(&[], &[2.5, 0.3, 0.1]);
-    assert!(format!("{}", model).contains("PIP"));
-    assert!(format!("{}", model).contains("lambda = 2.5"));
-    assert!(format!("{}", model).contains("mu = 0.3"));
-    assert!(format!("{}", model).contains("TN93"));
-    assert!(format!("{}", model).contains("0.1"));
-    assert!(format!("{}", model).contains("1.0"));
+    assert!(format!("{model}").contains("PIP"));
+    assert!(format!("{model}").contains("lambda = 2.5"));
+    assert!(format!("{model}").contains("mu = 0.3"));
+    assert!(format!("{model}").contains("TN93"));
+    assert!(format!("{model}").contains("0.1"));
+    assert!(format!("{model}").contains("1.0"));
 
     let model = PIPModel::<GTR>::new(&[], &[1.4, 1.7]);
-    assert!(format!("{}", model).contains("GTR"));
+    assert!(format!("{model}").contains("GTR"));
 
     let model = PIPModel::<WAG>::new(&[], &[2.0, 1.0]);
-    assert!(format!("{}", model).contains("PIP"));
-    assert!(format!("{}", model).contains("WAG"));
+    assert!(format!("{model}").contains("PIP"));
+    assert!(format!("{model}").contains("WAG"));
 
     let model = PIPModel::<HIVB>::new(&[], &[2.0, 1.0]);
-    assert!(format!("{}", model).contains("PIP"));
-    assert!(format!("{}", model).contains("HIVB"));
+    assert!(format!("{model}").contains("PIP"));
+    assert!(format!("{model}").contains("HIVB"));
 
     let model = PIPModel::<BLOSUM>::new(&[], &[2.0, 1.0]);
-    assert!(format!("{}", model).contains("PIP"));
-    assert!(format!("{}", model).contains("BLOSUM"));
+    assert!(format!("{model}").contains("PIP"));
+    assert!(format!("{model}").contains("BLOSUM"));
 }
 
 #[test]

@@ -30,8 +30,8 @@ pub enum NodeIdx {
 impl Display for NodeIdx {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Int(idx) => write!(f, "internal node {}", idx),
-            Leaf(idx) => write!(f, "leaf node {}", idx),
+            Int(idx) => write!(f, "internal node {idx}"),
+            Leaf(idx) => write!(f, "leaf node {idx}"),
         }
     }
 }
@@ -39,8 +39,8 @@ impl Display for NodeIdx {
 impl Debug for NodeIdx {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Int(idx) => write!(f, "Int({})", idx),
-            Leaf(idx) => write!(f, "Leaf({})", idx),
+            Int(idx) => write!(f, "Int({idx})"),
+            Leaf(idx) => write!(f, "Leaf({idx})"),
         }
     }
 }
@@ -470,19 +470,19 @@ impl Tree {
             .filter(|&x| matches!(x.idx, Int(_)))
             .collect()
     }
-}
 
-pub(crate) fn node_ids_are_unique(tree: &Tree) -> Result<()> {
-    let mut seen = HashSet::new();
-    for node_idx in tree.postorder() {
-        if !seen.insert(tree.node_id(node_idx)) {
-            bail!(
-                "Node ID '{}' is not unique in the tree.",
-                tree.node_id(node_idx)
-            );
+    pub(crate) fn node_ids_are_unique(&self) -> Result<()> {
+        let mut seen = HashSet::new();
+        for node_idx in self.postorder() {
+            if !seen.insert(self.node_id(node_idx)) {
+                bail!(
+                    "Node ID '{}' is not unique in the tree.",
+                    self.node_id(node_idx)
+                );
+            }
         }
+        Ok(())
     }
-    Ok(())
 }
 
 pub fn percentiles(lengths: &[f64], categories: u32) -> Vec<f64> {

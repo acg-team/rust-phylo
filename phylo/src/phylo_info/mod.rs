@@ -111,8 +111,8 @@ impl<A: Alignment> PhyloInfo<A> {
     /// use phylo::phylo_info::PhyloInfoBuilder;
     /// use phylo::substitution_models::FreqVector;
     /// let info = PhyloInfoBuilder::with_attrs(
-    ///     PathBuf::from("./data/sequences_DNA1.fasta"),
-    ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"))
+    ///     PathBuf::from("./examples/data/sequences_DNA1.fasta"),
+    ///     PathBuf::from("./examples/data/tree_diff_branch_lengths_2.newick"))
     /// .build()
     /// .unwrap();
     /// let freqs = info.freqs();

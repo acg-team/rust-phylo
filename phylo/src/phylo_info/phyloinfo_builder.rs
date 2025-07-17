@@ -35,7 +35,7 @@ impl PhyloInfoBuilder<MSA, MASA> {
     /// ```
     /// use std::path::PathBuf;
     /// use phylo::phylo_info::PhyloInfoBuilder;
-    /// let builder = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta"));
+    /// let builder = PhyloInfoBuilder::new(PathBuf::from("./examples/data/sequences_DNA_small.fasta"));
     /// ```
     pub fn new(sequence_file: PathBuf) -> PhyloInfoBuilder<MSA, MASA> {
         PhyloInfoBuilder {
@@ -58,8 +58,8 @@ impl PhyloInfoBuilder<MSA, MASA> {
     /// use std::path::PathBuf;
     /// use phylo::phylo_info::PhyloInfoBuilder;
     /// let builder = PhyloInfoBuilder::with_attrs(
-    ///     PathBuf::from("./data/sequences_DNA_small.fasta"),
-    ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"));
+    ///     PathBuf::from("./examples/data/sequences_DNA_small.fasta"),
+    ///     PathBuf::from("./examples/data/tree_diff_branch_lengths_2.newick"));
     /// ```
     pub fn with_attrs(sequence_file: PathBuf, tree_file: PathBuf) -> PhyloInfoBuilder<MSA, MASA> {
         PhyloInfoBuilder {
@@ -73,24 +73,6 @@ impl PhyloInfoBuilder<MSA, MASA> {
 }
 
 impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
-    /// Sets the sequence file path for the PhyloInfoBuilder struct.
-    /// Returns the PhyloInfoBuilder struct with the sequence file path set.
-    ///
-    /// # Arguments
-    /// * `path` - File path to the sequence fasta file.
-    ///
-    /// # Example
-    /// ```
-    /// use std::path::PathBuf;
-    /// use phylo::phylo_info::PhyloInfoBuilder;
-    /// let builder = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta"))
-    ///    .sequence_file(PathBuf::from("./data/sequences_DNA_small.fasta"));
-    /// ```
-    pub fn sequence_file(mut self, path: PathBuf) -> PhyloInfoBuilder<A, AA> {
-        self.sequence_file = path;
-        self
-    }
-
     /// Sets the tree file path for the PhyloInfoBuilder struct.
     /// Returns the PhyloInfoBuilder struct with the tree file path set.
     ///
@@ -101,8 +83,8 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     /// ```
     /// use std::path::PathBuf;
     /// use phylo::phylo_info::PhyloInfoBuilder;
-    /// let builder = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta"))
-    ///   .tree_file(Some(PathBuf::from("./data/tree_diff_branch_lengths_2.newick")));
+    /// let builder = PhyloInfoBuilder::new(PathBuf::from("./examples/data/sequences_DNA_small.fasta"))
+    ///   .tree_file(Some(PathBuf::from("./examples/data/tree_diff_branch_lengths_2.newick")));
     /// ```
     pub fn tree_file(mut self, path: Option<PathBuf>) -> PhyloInfoBuilder<A, AA> {
         self.tree_file = path;
@@ -120,8 +102,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     /// use std::path::PathBuf;
     /// use phylo::alphabets::protein_alphabet;
     /// use phylo::phylo_info::PhyloInfoBuilder;
-    /// use phylo::alignment::Alignment;
-    /// let info = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta")).alphabet(Some(protein_alphabet())).build().unwrap();
+    /// let info = PhyloInfoBuilder::new(PathBuf::from("./examples/data/sequences_DNA_small.fasta")).alphabet(Some(protein_alphabet())).build().unwrap();
     /// assert_eq!(info.msa.alphabet(), &protein_alphabet());
     /// ```
     pub fn alphabet(mut self, alphabet: Option<Alphabet>) -> PhyloInfoBuilder<A, AA> {
@@ -143,8 +124,8 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     /// use phylo::phylo_info::PhyloInfoBuilder;
     /// use phylo::alignment::Alignment;
     /// let info = PhyloInfoBuilder::with_attrs(
-    ///     PathBuf::from("./data/sequences_DNA_small.fasta"),
-    ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"))
+    ///     PathBuf::from("./examples/data/sequences_DNA_small.fasta"),
+    ///     PathBuf::from("./examples/data/tree_diff_branch_lengths_2.newick"))
     ///     .build()
     ///     .unwrap();
     /// assert_eq!(info.msa.len(), 8);
@@ -155,7 +136,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     pub fn build(self) -> Result<PhyloInfo<A>> {
         let sequences = self.read_sequences()?;
         let tree = match &self.tree_file {
-            Some(tree_file) => read_tree(tree_file)?,
+            Some(tree_file) => self.read_tree(tree_file)?,
             None => {
                 info!("Building NJ tree from sequences");
                 build_nj_tree(&sequences)?
@@ -176,7 +157,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     pub fn build_with_ancestors(self) -> Result<PhyloInfo<AA>> {
         let sequences = self.read_sequences()?;
         let mut tree = match &self.tree_file {
-            Some(tree_file) => read_tree(tree_file)?,
+            Some(tree_file) => self.read_tree(tree_file)?,
             None => {
                 info!("Building NJ tree from sequences");
                 build_nj_tree(&sequences)?
@@ -234,6 +215,30 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
         info!("{} sequence(s) read successfully", sequences.len());
         Ok(sequences)
     }
+
+    /// Checks that there is at least one tree in the vector, bails with an error otherwise.
+    /// Prints a warning if there is more than one tree because only the first tree will be processed.
+    fn check_tree_number(&self, trees: &[Tree]) -> Result<()> {
+        if trees.is_empty() {
+            bail!(DataError {
+                message: String::from("No trees in the tree file, aborting")
+            });
+        }
+        if trees.len() > 1 {
+            warn!("More than one tree in the tree file, only the first tree will be processed");
+        }
+        Ok(())
+    }
+
+    /// Reads trees from the provided tree file and returns the first tree
+    fn read_tree(&self, tree_file: &PathBuf) -> Result<Tree> {
+        info!("Reading trees from file {}", tree_file.display());
+        let mut trees = io::read_newick_from_file(tree_file)?;
+        info!("{} tree(s) read successfully", trees.len());
+        self.check_tree_number(&trees)?;
+        let tree = trees.remove(0);
+        Ok(tree)
+    }
 }
 
 /// Sets missing ids and bails if there are duplicates among the node ids that were already set.
@@ -251,31 +256,59 @@ fn set_missing_tree_node_ids(tree: &Tree) -> Result<Tree> {
             }
             tree_with_all_ids.nodes[usize::from(node_idx)].id = new_id;
         } else if !seen_user_set_ids.insert(id.to_string()) {
-            bail!("Duplicate id ({}) found in the leaves of the tree.", id);
+            bail!("Duplicate id ({id}) found in the leaves of the tree.");
         }
     }
     Ok(tree_with_all_ids)
 }
-/// Reads the tree and checks if the tree node ids match the sequences ids
-fn read_tree(tree_file: &PathBuf) -> Result<Tree> {
-    info!("Reading trees from file {}", tree_file.display());
-    let mut trees = io::read_newick_from_file(tree_file)?;
-    info!("{} tree(s) read successfully", trees.len());
-    check_tree_number(&trees)?;
-    let tree = trees.remove(0);
-    Ok(tree)
-}
 
-/// Checks that there is at least one tree in the vector, bails with an error otherwise.
-/// Prints a warning if there is more than one tree because only the first tree will be processed.
-fn check_tree_number(trees: &[Tree]) -> Result<()> {
-    if trees.is_empty() {
+/// Checks that the ids of the tree leaves and the sequences match, bails with an error otherwise.
+pub(crate) fn validate_taxa_ids(tree: &Tree, sequences: &Sequences) -> Result<()> {
+    let tip_ids: HashSet<String> = HashSet::from_iter(tree.leaf_ids());
+    let sequence_ids: HashSet<String> =
+        HashSet::from_iter(sequences.iter().map(|rec| rec.id().to_string()));
+    info!("Checking that tree tip and sequence IDs match.");
+    let mut missing_tips = sequence_ids.difference(&tip_ids).collect::<Vec<_>>();
+    if !missing_tips.is_empty() {
+        missing_tips.sort();
         bail!(DataError {
-            message: String::from("No trees in the tree file, aborting.")
+            message: format!("Mismatched IDs found, missing tree tip IDs: {missing_tips:?}")
         });
     }
-    if trees.len() > 1 {
-        warn!("More than one tree in the tree file, only the first tree will be processed.");
+    let mut missing_seqs = tip_ids.difference(&sequence_ids).collect::<Vec<_>>();
+    if !missing_seqs.is_empty() {
+        missing_seqs.sort();
+        bail!(DataError {
+            message: format!("Mismatched IDs found, missing sequence IDs: {missing_seqs:?}")
+        });
+    }
+    Ok(())
+}
+
+/// Checks that the ids of the tree nodes and the sequences match, bails with an error
+/// otherwise.
+pub(crate) fn validate_ids_with_ancestors(tree: &Tree, sequences: &Sequences) -> Result<()> {
+    let tree_ids: HashSet<String> = HashSet::from_iter(
+        tree.preorder()
+            .iter()
+            .map(|node_idx| tree.node_id(node_idx).to_string()),
+    );
+    let sequence_ids: HashSet<String> =
+        HashSet::from_iter(sequences.iter().map(|rec| rec.id().to_string()));
+    info!("Checking that tree and sequence IDs match.");
+    let mut missing_nodes = sequence_ids.difference(&tree_ids).collect::<Vec<_>>();
+    if !missing_nodes.is_empty() {
+        missing_nodes.sort();
+        bail!(DataError {
+            message: format!("Mismatched IDs found, missing tree IDs: {missing_nodes:?}")
+        });
+    }
+    let mut missing_seqs = tree_ids.difference(&sequence_ids).collect::<Vec<_>>();
+    if !missing_seqs.is_empty() {
+        missing_seqs.sort();
+        bail!(DataError {
+            message: format!("Mismatched IDs found, missing sequence IDs: {missing_seqs:?}")
+        });
     }
     Ok(())
 }
@@ -286,23 +319,21 @@ pub mod private_tests {
     use std::path::PathBuf;
 
     use crate::{
-        alignment::{sequence_ids_are_unique, validate_ids_with_ancestors, Sequences},
-        phylo_info::phyloinfo_builder::{set_missing_tree_node_ids, PhyloInfoBuilder as PIB},
+        alignment::Sequences,
+        phylo_info::{
+            phyloinfo_builder::{set_missing_tree_node_ids, PhyloInfoBuilder as PIB},
+            validate_ids_with_ancestors,
+        },
         record_wo_desc as record, tree,
     };
 
     #[test]
     fn builder_setters() {
         let fasta1 = PathBuf::from("./data/sequences_DNA_small.fasta");
-        let fasta2 = PathBuf::from("./data/sequences_DNA1.fasta");
         let newick = PathBuf::from("./data/tree_diff_branch_lengths_2.newick");
 
         let builder = PIB::new(fasta1.clone());
         assert_eq!(builder.sequence_file, fasta1);
-        let builder = builder.sequence_file(fasta2.clone());
-        assert_ne!(builder.sequence_file, fasta1);
-        assert_eq!(builder.sequence_file, fasta2);
-
         assert_eq!(builder.tree_file, None);
         let builder = builder.tree_file(Some(newick.clone()));
         assert_eq!(builder.tree_file, Some(newick));
@@ -353,7 +384,7 @@ pub mod private_tests {
         ]);
 
         // act
-        let result = sequence_ids_are_unique(&seqs);
+        let result = seqs.ids_are_unique();
 
         // assert
         assert!(result.is_ok());
@@ -370,7 +401,7 @@ pub mod private_tests {
         ]);
 
         // act
-        let result = sequence_ids_are_unique(&seqs);
+        let result = seqs.ids_are_unique();
 
         // assert
         assert!(result

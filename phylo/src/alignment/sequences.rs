@@ -3,6 +3,7 @@ use std::fmt::Display;
 use anyhow::bail;
 use bio::io::fasta::Record;
 use bitvec::vec::BitVec;
+use hashbrown::HashSet;
 
 use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet, GAP};
 use crate::Result;
@@ -155,6 +156,17 @@ impl Sequences {
             Record::with_attrs(rec.id(), rec.desc(), &seq)
         });
         self.s = new_seqs.collect();
+    }
+
+    pub(crate) fn ids_are_unique(&self) -> Result<()> {
+        let mut seen = HashSet::new();
+        for record in self.iter() {
+            let id = record.id();
+            if !seen.insert(id) {
+                bail!("Duplicate record id ({}) found in the sequences.", id);
+            }
+        }
+        Ok(())
     }
 }
 

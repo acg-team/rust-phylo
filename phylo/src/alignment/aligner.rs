@@ -4,14 +4,14 @@ use crate::alignment::{Alignment, Sequences};
 use crate::tree::Tree;
 use crate::Result;
 
-use super::{sequence_ids_are_unique, validate_taxa_ids};
+use crate::phylo_info::validate_taxa_ids;
 
 pub trait Aligner<A: Alignment> {
     fn align(&self, seqs: &Sequences, tree: &Tree) -> Result<A> {
         if seqs.aligned {
             bail!("Sequences must not be aligned.");
         }
-        sequence_ids_are_unique(seqs)?;
+        seqs.ids_are_unique()?;
         validate_taxa_ids(tree, seqs)?;
         Ok(self.align_unchecked(seqs, tree))
     }

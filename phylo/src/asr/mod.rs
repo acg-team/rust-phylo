@@ -1,7 +1,9 @@
 use anyhow::bail;
 
-use crate::alignment::{sequence_ids_are_unique, validate_taxa_ids, Alignment, AncestralAlignment};
-use crate::tree::{node_ids_are_unique, Tree};
+use crate::alignment::{Alignment, AncestralAlignment};
+use crate::phylo_info::validate_taxa_ids;
+
+use crate::tree::Tree;
 use crate::Result;
 
 pub trait AncestralSequenceReconstruction<A: Alignment, AA: AncestralAlignment> {
@@ -13,8 +15,8 @@ pub trait AncestralSequenceReconstruction<A: Alignment, AA: AncestralAlignment> 
                 tree.n
             );
         }
-        node_ids_are_unique(&tree)?;
-        sequence_ids_are_unique(leaf_alignment.seqs())?;
+        tree.node_ids_are_unique()?;
+        leaf_alignment.seqs().ids_are_unique()?;
         validate_taxa_ids(tree, leaf_alignment.seqs())?;
 
         Ok(self.reconstruct_ancestral_seqs_unchecked(leaf_alignment, tree))

@@ -110,7 +110,7 @@ fn dna_jc69_correct() {
 fn dna_j69_params() {
     let jc69 = SubstModel::<JC69>::new(&[0.1, 0.4, 0.75, 1.5], &[0.1, 0.4, 0.75, 1.5]);
     assert_relative_eq!(jc69.freqs(), &frequencies!(&[0.25, 0.25, 0.25, 0.25]));
-    assert_eq!(format!("{}", jc69), format!("JC69"));
+    assert_eq!(format!("{jc69}"), format!("JC69"));
 }
 
 #[test]
@@ -157,7 +157,7 @@ fn protein_infinity_p() {
 fn dna_k80_params() {
     let k80 = SubstModel::<K80>::new(&[0.1, 0.4, 0.75, 1.5], &[0.1, 0.4, 0.75, 1.5]);
     assert_relative_eq!(k80.freqs(), &frequencies!(&[0.25, 0.25, 0.25, 0.25]));
-    assert_eq!(format!("{}", k80), format!("K80 with [kappa = {:.5}]", 0.1));
+    assert_eq!(format!("{k80}"), format!("K80 with [kappa = {:.5}]", 0.1));
 }
 
 #[test]
@@ -453,7 +453,7 @@ fn designation() {
 
 #[cfg(test)]
 fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo<MSA> {
-    let tree = tree!(format!("((A0:{},B1:{}):1.0);", blen_i, blen_j).as_str());
+    let tree = tree!(format!("((A0:{blen_i},B1:{blen_j}):1.0);").as_str());
     let msa = MSA::from_aligned(
         Sequences::new(vec![record!("A0", b"A"), record!("B1", b"A")]),
         &tree,

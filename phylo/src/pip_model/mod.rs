@@ -68,8 +68,8 @@ impl<Q: QMatrix + QMatrixMaker> PIPModel<Q> {
     pub fn new(frequencies: &[f64], params: &[f64]) -> Self {
         let mut params = params.to_vec();
         if params.len() < 2 {
-            warn!("Too few values provided for PIP, 2 values required, lambda and mu.");
-            warn!("Falling back to default values.");
+            warn!("Too few values provided for PIP, 2 values required, lambda and mu");
+            warn!("Falling back to default values");
             params.extend(iter::repeat_n(1.5, 2 - params.len()));
         }
         let mu = params[1];

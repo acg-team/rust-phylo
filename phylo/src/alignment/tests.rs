@@ -7,11 +7,9 @@ use crate::alignment::{
     sequences::Sequences, InternalAlignments, PairwiseAlignment as PA, SeqMaps,
 };
 use crate::alignment::{Alignment, AncestralAlignment, MASA, MSA};
-use crate::alphabets::{
-    dna_alphabet, protein_alphabet, AMINOACIDS, GAP, NUCLEOTIDES, NUCLEOTIDE_INDEX,
-};
+use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, GAP, NUCLEOTIDES};
 use crate::io::read_sequences;
-use crate::phylo_info::{self, PhyloInfo};
+use crate::phylo_info::PhyloInfo;
 use crate::tree::{
     NodeIdx::{Internal as I, Leaf as L},
     Tree,
@@ -264,7 +262,7 @@ fn input_msa_empty_col() {
 fn display_sequences() {
     let sequences =
         Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
-    let s = format!("{}", sequences);
+    let s = format!("{sequences}");
     let mut lines = s.lines().collect::<Vec<_>>();
     lines.sort();
     assert_eq!(lines.len(), 8);
@@ -280,7 +278,7 @@ fn display_unaligned_sequences() {
     let sequences = Sequences::new(
         read_sequences(&PathBuf::from("./data/sequences_DNA2_unaligned.fasta")).unwrap(),
     );
-    let s = format!("{}", sequences);
+    let s = format!("{sequences}");
     let mut lines = s.lines().collect::<Vec<_>>();
     lines.sort();
     assert_eq!(lines.len(), 8);
@@ -307,7 +305,7 @@ fn fmt_alignment() {
     true_lines.sort();
 
     // act
-    let s = format!("{}", msa);
+    let s = format!("{msa}");
 
     // assert
     let mut lines = s.lines().collect::<Vec<_>>();
@@ -323,7 +321,7 @@ fn display_alignment() {
         Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
     let msa = MSA::from_aligned(sequences, &tree).unwrap();
 
-    let s = format!("{}", msa);
+    let s = format!("{msa}");
     let mut lines = s.lines().collect::<Vec<_>>();
     lines.sort();
     assert_eq!(lines.len(), 8);
@@ -348,7 +346,7 @@ fn display_ancestral_alignment() {
     true_lines.sort();
 
     // act
-    let lines = format!("{}", msa);
+    let lines = format!("{msa}");
 
     // assert
     let mut lines = lines.lines().collect::<Vec<_>>();
