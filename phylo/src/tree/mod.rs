@@ -472,6 +472,19 @@ impl Tree {
     }
 }
 
+pub(crate) fn node_ids_are_unique(tree: &Tree) -> Result<()> {
+    let mut seen = HashSet::new();
+    for node_idx in tree.postorder() {
+        if !seen.insert(tree.node_id(node_idx)) {
+            bail!(
+                "Node ID '{}' is not unique in the tree.",
+                tree.node_id(node_idx)
+            );
+        }
+    }
+    Ok(())
+}
+
 pub fn percentiles(lengths: &[f64], categories: u32) -> Vec<f64> {
     percentiles_rounded(lengths, categories, &Rounding::none())
 }

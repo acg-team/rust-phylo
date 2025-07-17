@@ -7,10 +7,11 @@ use crate::alignment::{
     sequences::Sequences, InternalAlignments, PairwiseAlignment as PA, SeqMaps,
 };
 use crate::alignment::{Alignment, AncestralAlignment, MASA, MSA};
-use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, GAP, NUCLEOTIDES};
-use crate::asr::AncestralSequenceReconstruction;
+use crate::alphabets::{
+    dna_alphabet, protein_alphabet, AMINOACIDS, GAP, NUCLEOTIDES, NUCLEOTIDE_INDEX,
+};
 use crate::io::read_sequences;
-use crate::parsimony_indel_points::ParsimonyIndelPoints;
+use crate::phylo_info::{self, PhyloInfo};
 use crate::tree::{
     NodeIdx::{Internal as I, Leaf as L},
     Tree,
@@ -160,13 +161,13 @@ fn build_from_aligned_sequences() {
     let msa = MSA::from_aligned(aligned_seqs.clone(), &tree).unwrap();
 
     assert_eq!(*msa.internal_alignments(), node_map);
-    // TODO: also check if they have the same size, or also add method that retrieves all leaf_maps at once to the trait
-    for (leaf, map) in &leaf_map {
-        assert_eq!(msa.leaf_map(leaf), map);
-    }
+    assert_eq!(msa.leaf_maps, leaf_map);
     assert_eq!(msa.seqs, unaligned_seqs);
     assert_eq!(msa.len(), 5);
-    assert_eq!(msa.compile(&tree).unwrap(), aligned_seqs);
+    assert_eq!(
+        PhyloInfo { msa, tree }.compile_alignment(None).unwrap(),
+        aligned_seqs
+    );
 }
 
 #[test]
@@ -192,7 +193,10 @@ fn compile_msa_root() {
             .choose_multiple(&mut thread_rng(), 5),
     );
     let msa = MSA::from_aligned(aligned_seqs.clone(), &tree).unwrap();
-    assert_eq!(msa.compile(&tree).unwrap(), aligned_seqs);
+    assert_eq!(
+        PhyloInfo { msa, tree }.compile_alignment(None).unwrap(),
+        aligned_seqs
+    );
 }
 
 #[test]
@@ -200,8 +204,11 @@ fn compile_msa_int1() {
     let tree = test_tree();
     let aligned_seqs = test_alignment(&["A0", "B1", "C2", "D3", "E4"]);
     let msa = MSA::from_aligned(aligned_seqs, &tree).unwrap();
+    let node_idx = tree.idx("I5");
     assert_eq!(
-        msa.compile_subroot(Some(&tree.idx("I5")), &tree).unwrap(),
+        PhyloInfo { msa, tree }
+            .compile_alignment(Some(&node_idx))
+            .unwrap(),
         test_alignment(&["A0", "B1"]),
     );
 }
@@ -213,12 +220,15 @@ fn compile_msa_int2() {
     let msa = MSA::from_aligned(aligned_seqs, &tree).unwrap();
     let d3 = test_alignment(&["D3"]).s.pop().unwrap();
     let e4 = test_alignment(&["E4"]).s.pop().unwrap();
+    let node_idx = tree.idx("I6");
     let data = Sequences::new(vec![
         record!(d3.id(), d3.desc(), b"-A-"),
         record!(e4.id(), e4.desc(), b"AAA"),
     ]);
     assert_eq!(
-        msa.compile_subroot(Some(&tree.idx("I6")), &tree).unwrap(),
+        PhyloInfo { msa, tree }
+            .compile_alignment(Some(&node_idx))
+            .unwrap(),
         data
     );
 }
@@ -229,9 +239,11 @@ fn compile_msa_leaf() {
     let aligned_seqs = test_alignment(&["A0", "B1", "C2", "D3", "E4"]);
     let unaligned_seqs = aligned_seqs.clone().into_gapless();
     let msa = MSA::from_aligned(aligned_seqs.clone(), &tree).unwrap();
-    for leaf_id in tree.leaf_ids() {
+    let phylo_info = PhyloInfo { msa, tree };
+    for leaf_id in phylo_info.tree.leaf_ids() {
         assert_eq!(
-            msa.compile_subroot(Some(&tree.idx(&leaf_id)), &tree)
+            phylo_info
+                .compile_alignment(Some(&phylo_info.tree.idx(&leaf_id)))
                 .unwrap(),
             Sequences::new(vec![unaligned_seqs.record_by_id(&leaf_id).clone()])
         );
@@ -311,7 +323,7 @@ fn display_alignment() {
         Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
     let msa = MSA::from_aligned(sequences, &tree).unwrap();
 
-    let s = format!("{}", msa.compile(&tree).unwrap());
+    let s = format!("{}", msa);
     let mut lines = s.lines().collect::<Vec<_>>();
     lines.sort();
     assert_eq!(lines.len(), 8);
@@ -346,34 +358,16 @@ fn display_ancestral_alignment() {
 }
 
 #[test]
-fn masa_from_internal_alignment() {
-    // arrange
-    let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
-    let sequences =
-        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
-    let msa = MSA::from_aligned(sequences.clone(), &tree).unwrap();
-    let asr = ParsimonyIndelPoints {};
-    let true_masa: MASA = asr.reconstruct_ancestral_seqs(&msa, &tree).unwrap();
-
-    // act
-    let masa = MASA::from_internal_alignments(&sequences, msa.internal_alignments().clone(), &tree);
-
-    // assert
-    assert_eq!(masa.internal_alignments(), true_masa.internal_alignments());
-    assert_eq!(masa.len(), true_masa.len());
-    assert_eq!(masa.alphabet(), true_masa.alphabet());
-}
-
-#[test]
 fn masa_compile_root() {
     // arrange
     let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
     let sequences =
         Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
     let masa = MASA::from_aligned(sequences.clone(), &tree).unwrap();
+    let phylo_info = PhyloInfo { msa: masa, tree };
 
     // act
-    let compiled = masa.compile_subroot(None, &tree).unwrap();
+    let compiled = phylo_info.compile_alignment(None).unwrap();
 
     // assert
     assert_eq!(compiled, sequences);
@@ -394,11 +388,13 @@ fn masa_compile_subroot() {
             .cloned()
             .collect(),
     );
+    let phylo_info = PhyloInfo { msa: masa, tree };
 
     // act
-    let compiled = masa
-        .compile_subroot(Some(&tree.idx(subroot_id)), &tree)
+    let compiled = phylo_info
+        .compile_alignment(Some(&phylo_info.tree.idx(subroot_id)))
         .unwrap();
+    let true_compiled = true_compiled.into_gapless();
 
     // assert
     assert_eq!(compiled, true_compiled);

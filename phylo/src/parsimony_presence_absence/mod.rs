@@ -42,7 +42,7 @@ fn get_ancestral_records<A: Alignment>(tree: &Tree, alignment: &A) -> Vec<Record
     //       see https://github.com/acg-team/rust-phylo/pull/48/files#r2046683347
     for site in 0..alignment.len() {
         // upward pass
-        let has_char = get_has_char(alignment, tree, site);
+        let has_char = non_empty_clades(alignment, tree, site);
         // downward pass
         elongate_seqs(tree, &mut ancestral_seqs, site, has_char);
     }
@@ -89,7 +89,7 @@ fn elongate_seqs(
 }
 
 /// Returns a vector V with V[n] = true iff there is a leaf in the subtree rooted in node n that is not a gap.
-fn get_has_char<A: Alignment>(leaf_alignment: &A, tree: &Tree, site: usize) -> Vec<bool> {
+fn non_empty_clades<A: Alignment>(leaf_alignment: &A, tree: &Tree, site: usize) -> Vec<bool> {
     let mut has_char = vec![false; tree.len()];
     for node_idx in tree.postorder() {
         match node_idx {

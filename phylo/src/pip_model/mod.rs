@@ -245,13 +245,13 @@ impl<Q: QMatrix, A: Alignment> PIPCostBuilder<Q, A> {
 }
 
 #[derive(Debug, Clone)]
-pub struct PIPCost<Q: QMatrix, M: Alignment> {
+pub struct PIPCost<Q: QMatrix, A: Alignment> {
     pub(crate) model: PIPModel<Q>,
-    pub(crate) info: PhyloInfo<M>,
+    pub(crate) info: PhyloInfo<A>,
     tmp: RefCell<PIPModelInfo<Q>>,
 }
 
-impl<Q: QMatrix, M: Alignment> TreeSearchCost for PIPCost<Q, M> {
+impl<Q: QMatrix, A: Alignment> TreeSearchCost for PIPCost<Q, A> {
     fn cost(&self) -> f64 {
         self.logl()
     }

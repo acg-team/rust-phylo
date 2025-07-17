@@ -32,7 +32,7 @@ impl PartialEq for Sequences {
 impl Display for Sequences {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for record in &self.s {
-            write!(f, "{}", record)?;
+            write!(f, "{record}")?;
         }
         Ok(())
     }
@@ -94,7 +94,7 @@ impl Sequences {
         self.s
             .iter()
             .find(|r| r.id() == id)
-            .unwrap_or_else(|| panic!("Sequence with id {} not found", id))
+            .unwrap_or_else(|| panic!("Sequence with id {id} not found"))
     }
 
     pub fn try_record_by_id(&self, id: &str) -> Result<&Record> {
@@ -176,7 +176,7 @@ mod private_tests {
         let seqs = read_sequences(&PathBuf::from(input)).unwrap();
         let alphabet = Sequences::detect_alphabet(&seqs);
         assert_eq!(alphabet, dna_alphabet());
-        assert!(format!("{}", alphabet).contains("DNA"));
+        assert!(format!("{alphabet}").contains("DNA"));
     }
 
     #[rstest]
@@ -186,6 +186,6 @@ mod private_tests {
         let seqs = read_sequences(&PathBuf::from(input)).unwrap();
         let alphabet = Sequences::detect_alphabet(&seqs);
         assert_eq!(alphabet, protein_alphabet());
-        assert!(format!("{}", alphabet).contains("protein"));
+        assert!(format!("{alphabet}").contains("protein"));
     }
 }

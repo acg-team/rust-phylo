@@ -406,7 +406,7 @@ fn build_ancestral_alignment_from_aligned_leaf_seqs() {
 }
 
 #[test]
-fn build_ancestral_alignment_from_aligned_leaf_seqs_missmatched_ids() {
+fn build_ancestral_alignment_from_aligned_leaf_seqs_mismatched_ids() {
     // arrange
     let fldr = PathBuf::from("./data");
     let builder = PIB::with_attrs(
@@ -443,7 +443,7 @@ fn build_ancestral_alignment_from_unaligned_leaf_seqs() {
 }
 
 #[test]
-fn build_ancestral_alignment_from_unaligned_leaf_seqs_missmatched_ids() {
+fn build_ancestral_alignment_from_unaligned_leaf_seqs_mismatched_ids() {
     // arrange
     let fldr = PathBuf::from("./data");
     let builder = PIB::with_attrs(
@@ -480,7 +480,7 @@ fn build_ancestral_alignment_from_aligned_seqs() {
 }
 
 #[test]
-fn build_ancestral_alignment_from_aligned_seqs_missmatched_ids() {
+fn build_ancestral_alignment_from_aligned_seqs_mismatched_ids() {
     // arrange
     let fldr = PathBuf::from("./data");
     let builder = PIB::with_attrs(
@@ -510,5 +510,5 @@ fn build_ancestral_alignment_from_unaligned_seqs() {
 
     // assert
     let error_msg = res_info.unwrap_err().to_string();
-    assert!(error_msg.contains("Building an ancestral alignment from unaligned sequences (including ancestral_sequencess) is not supported"));
+    assert!(error_msg.contains("Building an ancestral alignment from unaligned sequences (including ancestral_sequences) is not supported"));
 }

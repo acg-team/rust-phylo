@@ -64,7 +64,7 @@ fn align_two_on_tree() {
     let scoring = SimpleScoring::new(mismatch, gap);
 
     let aligner = ParsimonyAligner::new(scoring);
-    let (alignment, score): (MSA, _) = aligner.align_with_scores(&seqs, &tree).unwrap();
+    let (alignment, score): (MSA, _) = aligner.align_with_scores(&seqs, &tree);
 
     assert_eq!(score[Into::<usize>::into(tree.root)], 3.5);
     let alignment = &alignment.internal_alignments()[&tree.root];
@@ -157,7 +157,7 @@ fn align_four_on_tree() {
     let scoring = SimpleScoring::new(mismatch, gap);
 
     let aligner = ParsimonyAligner::new(scoring);
-    let (alignment, score): (MSA, _) = aligner.align_with_scores(&seqs, &tree).unwrap();
+    let (alignment, score): (MSA, _) = aligner.align_with_scores(&seqs, &tree);
     // first cherry
     let idx = &tree.by_id("A").parent.unwrap();
     assert_eq!(score[usize::from(idx)], 3.5);

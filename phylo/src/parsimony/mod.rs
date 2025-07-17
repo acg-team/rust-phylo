@@ -1,14 +1,16 @@
 use std::default;
 use std::fmt::{Debug, Display};
 
+use bio::io::fasta::Record;
 use log::info;
 use nalgebra::DMatrix;
 
+use crate::aligned_seq;
 use crate::alignment::{Aligner, Alignment, InternalAlignments, PairwiseAlignment, Sequences};
 use crate::alphabets::ParsimonySet;
 use crate::evolutionary_models::EvoModel;
+use crate::phylo_info::PhyloInfo;
 use crate::tree::{NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
-use crate::Result;
 
 pub mod cost;
 pub use cost::*;
@@ -30,8 +32,8 @@ pub struct ParsimonyAligner<PS: ParsimonyScoring> {
 }
 
 impl<PS: ParsimonyScoring + Clone, A: Alignment> Aligner<A> for ParsimonyAligner<PS> {
-    fn align(&self, seqs: &Sequences, tree: &Tree) -> Result<A> {
-        self.align_with_scores(seqs, tree).map(|(a, _)| a)
+    fn align_unchecked(&self, seqs: &Sequences, tree: &Tree) -> A {
+        self.align_with_scores(seqs, tree).0
     }
 }
 
@@ -52,7 +54,7 @@ impl<'a, PS: ParsimonyScoring + Clone> ParsimonyAligner<PS> {
         &self,
         seqs: &'a Sequences,
         tree: &'a Tree,
-    ) -> Result<(A, Vec<f64>)> {
+    ) -> (A, Vec<f64>) {
         info!("Starting the IndelMAP alignment.");
 
         let mut node_info = vec![Vec::<ParsimonySite>::new(); tree.len()];
@@ -97,9 +99,26 @@ impl<'a, PS: ParsimonyScoring + Clone> ParsimonyAligner<PS> {
             }
         }
         info!("Finished IndelMAP alignment.");
-        let alignment = A::from_internal_alignments(seqs, alignments, tree);
 
-        Ok((alignment, scores))
+        // TODO: to avoid having a fn new() for the trait alignment (where we would have to pass the
+        // seqs, internal alignments, and leaf_maps, and possibly the tree), we instead get the aligned Sequences
+        // and then create the alignment from it. This discards the internal alignments and
+        // rebuilds them when calling `from_aligned`, which might not be ideal.
+        let leaf_maps = PhyloInfo::<A>::compile_leaf_map(&tree.root, &alignments, seqs, tree);
+        let aligned_seqs = Sequences::with_alphabet(
+            leaf_maps
+                .iter()
+                .map(|(idx, map)| {
+                    let rec = seqs.record_by_id(tree.node_id(idx));
+                    let aligned_seq = aligned_seq!(map, rec.seq());
+                    Record::with_attrs(rec.id(), rec.desc(), &aligned_seq)
+                })
+                .collect(),
+            *seqs.alphabet(),
+        );
+        let alignment = A::from_aligned_unchecked(aligned_seqs, tree);
+
+        (alignment, scores)
     }
 
     fn pairwise_align(

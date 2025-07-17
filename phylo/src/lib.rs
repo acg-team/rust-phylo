@@ -10,7 +10,7 @@ pub mod io;
 pub mod likelihood;
 pub mod optimisers;
 pub mod parsimony;
-pub mod parsimony_indel_points;
+pub mod parsimony_presence_absence;
 pub mod phylo_info;
 pub mod pip_model;
 pub mod substitution_models;
