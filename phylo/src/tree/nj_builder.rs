@@ -1,3 +1,6 @@
+use core::panic;
+use std::default;
+
 use crate::tree::{
     nj_matrices::{Mat, NJMat},
     NodeIdx, Tree,
@@ -13,33 +16,43 @@ use nalgebra::{max, DMatrix};
 type DistanceFunction = fn(&[u8], &[u8]) -> u32;
 
 pub struct NJBuilder {
-    temperature: f64,
+    temperature: Option<f64>,
     distance_function: DistanceFunction, //This is the same type as TextSlice for bio, just explicitly defines since TextSlice is private, Option
 }
 
 impl TreeBuilder for NJBuilder {
     fn build_tree(&self, sequences: &Sequences) -> Result<Tree> {
-        //Convert this to self if using methods also add distance function argument
         let nj_data = self.compute_distance_matrix(sequences);
-        //Still mix of associated functions and methods, maybe standardize this?
-        NJBuilder::build_nj_tree_from_matrix(nj_data, sequences)
+        // Now returns from a method rather than associated function, for use of temperature instantiated value
+        self.build_nj_tree_from_matrix(nj_data, sequences)
+    }
+}
+
+impl default::Default for NJBuilder {
+    fn default() -> Self {
+        NJBuilder {
+            temperature: None,
+            distance_function: levenshtein,
+        }
     }
 }
 
 impl NJBuilder {
-    // Returning Result in congruence with other functions and instantiators, must use unwrap
-    pub(crate) fn new<T, D>(temperature: T, distance_function: D) -> Result<Self>
+    // With the way we are using Option makes sense to use Into to allow for passing
+    pub(crate) fn new<T, D>(temperature: T, distance_function: D) -> Self
     where
         T: Into<Option<f64>>,
         D: Into<Option<DistanceFunction>>,
     {
-        // Should allow for default distance function and temperature or specified
-        let temperature = temperature.into().unwrap_or(0.00);
+        // Add checking of unwrap for default when not None is passed in? Warning to user
+        // None temperature should be allowed, or if float, add stochastic
+        let temperature = temperature.into();
+        // Default is levenshtein
         let distance_function = distance_function.into().unwrap_or(levenshtein);
-        Ok(Self {
+        Self {
             temperature: temperature,
             distance_function: distance_function,
-        })
+        }
     }
 
     fn argmin_wo_diagonal(q: Mat) -> (usize, usize) {
@@ -76,20 +89,25 @@ impl NJBuilder {
         rand::random::<usize>() % l
     }
 
-    fn build_nj_tree_from_matrix(mut nj_data: NJMat, sequences: &Sequences) -> Result<Tree> {
+    fn build_nj_tree_from_matrix(&self, mut nj_data: NJMat, sequences: &Sequences) -> Result<Tree> {
         let n = nj_data.distances.ncols();
         let mut tree = Tree::new(sequences)?;
         let root_idx = usize::from(&tree.root);
-        for cur_idx in n..=root_idx {
-            let q = nj_data.compute_nj_q();
-            let (i, j) = NJBuilder::argmin_wo_diagonal(q);
-            let idx_new = cur_idx;
-            let (blen_i, blen_j) = nj_data.branch_lengths(i, j, cur_idx == root_idx);
-            tree.add_parent(idx_new, &nj_data.idx[i], &nj_data.idx[j], blen_i, blen_j);
-            nj_data = nj_data
-                .add_merge_node(idx_new)
-                .recompute_new_node_distances(i, j)
-                .remove_merged_nodes(i, j);
+        //Wrapped in temperature check for now, can implement stochastic better in future
+        if self.temperature == None {
+            for cur_idx in n..=root_idx {
+                let q = nj_data.compute_nj_q();
+                let (i, j) = NJBuilder::argmin_wo_diagonal(q);
+                let idx_new = cur_idx;
+                let (blen_i, blen_j) = nj_data.branch_lengths(i, j, cur_idx == root_idx);
+                tree.add_parent(idx_new, &nj_data.idx[i], &nj_data.idx[j], blen_i, blen_j);
+                nj_data = nj_data
+                    .add_merge_node(idx_new)
+                    .recompute_new_node_distances(i, j)
+                    .remove_merged_nodes(i, j);
+            }
+        } else {
+            panic!("Temperature not implemented");
         }
         tree.n = n;
         tree.complete = true;
@@ -127,7 +145,7 @@ impl NJBuilder {
 #[cfg(test)]
 mod private_tests {
     //From test.rs in tree, so we can use macros
-    use crate::record_wo_desc as record;
+    use crate::{record_wo_desc as record};
     use nalgebra::{dmatrix, DMatrix};
 
     use super::*;
@@ -145,7 +163,7 @@ mod private_tests {
     #[test]
     #[should_panic]
     fn test_argmin_fail() {
-        //For now, may instantiate NJBuilder instance every time
+        //Instantiate NJBuilder instance every time
         NJBuilder::argmin_wo_diagonal(DMatrix::<f64>::from_vec(1, 1, vec![0.0]));
     }
 
@@ -159,8 +177,8 @@ mod private_tests {
             record!("E4", b"CC"),
         ]);
         //For now, may instantiate NJBuilder instance every time
-        let builder = NJBuilder::new(None, None).unwrap();
-        let mat = builder.compute_distance_matrix(&sequences);
+        let nj_builder = NJBuilder::default();
+        let mat = nj_builder.compute_distance_matrix(&sequences);
         let true_mat = dmatrix![
         0.0, 26.728641210756745, 26.728641210756745, 26.728641210756745, 0.8239592165010822;
         26.728641210756745, 0.0, 0.8239592165010822, 0.0, 26.728641210756745;
@@ -179,8 +197,8 @@ mod private_tests {
             record!("D3", b"CAAAAAAAAAAAAAAAAAAA"),
         ]);
         //For now, may instantiate NJBuilder instance every time
-        let builder = NJBuilder::new(None, None).unwrap();
-        let mat = builder.compute_distance_matrix(&sequences);
+        let nj_builder = NJBuilder::default();
+        let mat = nj_builder.compute_distance_matrix(&sequences);
         let true_mat = dmatrix![
         0.0, 0.0, 0.2326161962278796, 0.051744653615213576;
         0.0, 0.0, 0.2326161962278796, 0.051744653615213576;
@@ -206,8 +224,9 @@ mod private_tests {
             record!("C", b""),
             record!("D", b""),
         ]);
-        //For now, may instantiate NJBuilder instance every time
-        let tree = NJBuilder::build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
+        // Instantiate NJBuilder instance every time
+        let nj_builder = NJBuilder::default();
+        let tree = nj_builder.build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
         assert_eq!(tree.by_id("A").blen, 1.0);
         assert_eq!(tree.by_id("B").blen, 3.0);
         assert_eq!(tree.by_id("C").blen, 2.0);
@@ -238,8 +257,9 @@ mod private_tests {
             record!("C2", b""),
             record!("D3", b""),
         ]);
-        //For now, may instantiate NJBuilder instance every time
-        let tree = NJBuilder::build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
+        // Instantiate NJBuilder instance every time
+        let nj_builder = NJBuilder::default();
+        let tree = nj_builder.build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
         assert_eq!(tree.len(), 7);
         assert_eq!(tree.postorder.len(), 7);
         assert!(is_unique(&tree.postorder));
@@ -266,8 +286,8 @@ mod private_tests {
             record!("d", b""),
             record!("e", b""),
         ]);
-        //For now, may instantiate NJBuilder instance every time
-        let tree = NJBuilder::build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
+        let nj_builder = NJBuilder::default();
+        let tree = nj_builder.build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
         assert_eq!(tree.by_id("a").blen, 2.0);
         assert_eq!(tree.by_id("b").blen, 3.0);
         assert_eq!(tree.by_id("c").blen, 4.0);
@@ -301,8 +321,8 @@ mod private_tests {
             record!("D3", b""),
             record!("E4", b""),
         ]);
-        //For now, may instantiate NJBuilder instance every time
-        let nj_tree = NJBuilder::build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
+        let nj_builder = NJBuilder::default();
+        let nj_tree = nj_builder.build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
         let nodes = vec![
             Node::new_leaf(0, Some(I(5)), 2.0, "A0".to_string()),
             Node::new_leaf(1, Some(I(5)), 3.0, "B1".to_string()),
@@ -334,8 +354,8 @@ mod private_tests {
             record!("C2", b""),
             record!("D3", b""),
         ]);
-        //For now, may instantiate NJBuilder instance every time
-        let nj_tree = NJBuilder::build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
+        let nj_builder = NJBuilder::default();
+        let nj_tree = nj_builder.build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
         let nodes = vec![
             Node::new_leaf(0, Some(I(4)), 1.0, "A0".to_string()),
             Node::new_leaf(1, Some(I(4)), 3.0, "B1".to_string()),

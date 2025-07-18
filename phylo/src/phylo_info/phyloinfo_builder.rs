@@ -16,6 +16,7 @@ pub struct PhyloInfoBuilder {
     sequence_file: PathBuf,
     tree_file: Option<PathBuf>,
     alignment_builder: Option<Box<dyn Aligner>>,
+    tree_builder: Option<Box<dyn TreeBuilder>>,
     alphabet: Option<Alphabet>,
 }
 
@@ -37,6 +38,7 @@ impl PhyloInfoBuilder {
             sequence_file,
             tree_file: None,
             alignment_builder: None,
+            tree_builder: None,
             alphabet: None,
         }
     }
@@ -60,6 +62,7 @@ impl PhyloInfoBuilder {
             sequence_file,
             tree_file: Some(tree_file),
             alignment_builder: None,
+            tree_builder: None,
             alphabet: None,
         }
     }
@@ -165,10 +168,11 @@ impl PhyloInfoBuilder {
             Some(tree_file) => self.read_tree(&sequences, tree_file)?,
             None => {
                 info!("Building NJ tree from sequences");
-                let tree_builder = NJBuilder::new(0.00, None)?;
-                tree_builder.build_tree(&sequences)?
-                // This will also work for now
-                //NJBuilder::build_nj_tree(&sequences)?
+                // Decide between default or new() usage, edit in future push
+                let _ = NJBuilder::new(None, None);
+                self.tree_builder
+                    .unwrap_or(Box::new(NJBuilder::default()))
+                    .build_tree(&sequences)?
             }
         };
 
