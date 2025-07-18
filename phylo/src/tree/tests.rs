@@ -994,11 +994,11 @@ fn rf_distance_to_itself() {
 #[test]
 fn rf_distance_against_raxml() {
     let folder = Path::new("./data/phyml_protein_example");
-    let tree_orig = &read_newick_from_file(&folder.join("example_tree.newick")).unwrap()[0];
-    let tree_phyml = &read_newick_from_file(&folder.join("phyml_nogap.newick")).unwrap()[0];
+    let tree_orig = &read_newick_from_file(folder.join("example_tree.newick")).unwrap()[0];
+    let tree_phyml = &read_newick_from_file(folder.join("phyml_nogap.newick")).unwrap()[0];
 
-    let tree = &read_newick_from_file(&folder.join("test_tree_1.newick")).unwrap()[0];
-    let tree_from_nj = &read_newick_from_file(&folder.join("test_tree_2.newick")).unwrap()[0];
+    let tree = &read_newick_from_file(folder.join("test_tree_1.newick")).unwrap()[0];
+    let tree_from_nj = &read_newick_from_file(folder.join("test_tree_2.newick")).unwrap()[0];
     assert_eq!(tree_orig.robinson_foulds(tree_phyml), 4);
     assert_eq!(tree_orig.robinson_foulds(tree), 4);
     assert_eq!(tree_orig.robinson_foulds(tree_from_nj), 4);

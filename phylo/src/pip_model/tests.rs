@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use approx::assert_relative_eq;
 use nalgebra::{DMatrix, DVector};
@@ -539,8 +539,8 @@ fn pip_hky_likelihood_example_2() {
 #[test]
 fn pip_likelihood_huelsenbeck_example() {
     let info = PIB::with_attrs(
-        PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
-        PathBuf::from("./data/Huelsenbeck_example.newick"),
+        "./data/Huelsenbeck_example_long_DNA.fasta",
+        "./data/Huelsenbeck_example.newick",
     )
     .build()
     .unwrap();
@@ -568,8 +568,8 @@ fn pip_likelihood_huelsenbeck_example() {
 #[test]
 fn pip_likelihood_huelsenbeck_example_model_comp() {
     let info = PIB::with_attrs(
-        PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
-        PathBuf::from("./data/Huelsenbeck_example.newick"),
+        "./data/Huelsenbeck_example_long_DNA.fasta",
+        "./data/Huelsenbeck_example.newick",
     )
     .build()
     .unwrap();
@@ -585,8 +585,8 @@ fn pip_likelihood_huelsenbeck_example_model_comp() {
 #[test]
 fn pip_likelihood_huelsenbeck_example_reroot() {
     let phylo = PIB::with_attrs(
-        PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
-        PathBuf::from("./data/Huelsenbeck_example.newick"),
+        "./data/Huelsenbeck_example_long_DNA.fasta",
+        "./data/Huelsenbeck_example.newick",
     )
     .build()
     .unwrap();
@@ -595,8 +595,8 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
         &[0.5, 0.25, 1.25453, 1.07461, 1.0, 1.14689, 1.53244, 1.47031],
     );
     let phylo_rerooted = PIB::with_attrs(
-        PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
-        PathBuf::from("./data/Huelsenbeck_example_reroot.newick"),
+        "./data/Huelsenbeck_example_long_DNA.fasta",
+        "./data/Huelsenbeck_example_reroot.newick",
     )
     .build()
     .unwrap();
@@ -610,8 +610,8 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
 #[test]
 fn pip_likelihood_protein_example() {
     let info = PIB::with_attrs(
-        PathBuf::from("./data/phyml_protein_example/seqs.fasta"),
-        PathBuf::from("./data/phyml_protein_example/example_tree.newick"),
+        "./data/phyml_protein_example/seqs.fasta",
+        "./data/phyml_protein_example/example_tree.newick",
     )
     .build()
     .unwrap();
@@ -801,7 +801,7 @@ fn protein_avg_rate() {
 fn logl_not_inf_for_empty_col() {
     let tree = tree!("((A0:1.0, B1:1.0) I5:1.0,(C2:1.0,(D3:1.0, E4:1.0) I6:1.0) I7:1.0) I8:1.0;");
     let msa = Alignment::from_aligned(
-        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_empty_col.fasta")).unwrap()),
+        Sequences::new(read_sequences("./data/sequences_empty_col.fasta").unwrap()),
         &tree,
     )
     .unwrap();
