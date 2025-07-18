@@ -9,13 +9,14 @@ use crate::alphabets::Alphabet;
 use crate::io::{self, DataError};
 use crate::parsimony::ParsimonyAligner;
 use crate::phylo_info::PhyloInfo;
-use crate::tree::{build_nj_tree, Tree};
+use crate::tree::{nj_builder::NJBuilder, tree_builder::TreeBuilder, Tree};
 use crate::Result;
 
 pub struct PhyloInfoBuilder {
     sequence_file: PathBuf,
     tree_file: Option<PathBuf>,
     alignment_builder: Option<Box<dyn Aligner>>,
+    tree_builder: Option<Box<dyn TreeBuilder>>,
     alphabet: Option<Alphabet>,
 }
 
@@ -37,6 +38,7 @@ impl PhyloInfoBuilder {
             sequence_file,
             tree_file: None,
             alignment_builder: None,
+            tree_builder: None,
             alphabet: None,
         }
     }
@@ -60,6 +62,7 @@ impl PhyloInfoBuilder {
             sequence_file,
             tree_file: Some(tree_file),
             alignment_builder: None,
+            tree_builder: None,
             alphabet: None,
         }
     }
@@ -147,7 +150,11 @@ impl PhyloInfoBuilder {
             Some(tree_file) => self.read_tree(&sequences, tree_file)?,
             None => {
                 info!("Building NJ tree from sequences");
-                build_nj_tree(&sequences)?
+                // Decide between default or new() usage, edit in future push
+                let _ = NJBuilder::new(None, None);
+                self.tree_builder
+                    .unwrap_or(Box::new(NJBuilder::default()))
+                    .build_tree(&sequences)?
             }
         };
 
