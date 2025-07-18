@@ -159,10 +159,7 @@ impl PhyloInfoBuilder {
     }
 
     fn read_tree(&self, sequences: &Sequences, tree_file: impl AsRef<Path>) -> Result<Tree> {
-        info!(
-            "Reading trees from file {}",
-            tree_file.as_ref().to_path_buf().display()
-        );
+        info!("Reading trees from file {}", tree_file.as_ref().display());
         let mut trees = io::read_newick_from_file(tree_file)?;
         info!("{} tree(s) read successfully", trees.len());
         self.check_tree_number(&trees)?;

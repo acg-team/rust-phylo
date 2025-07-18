@@ -148,10 +148,7 @@ pub fn write_sequences_to_file(sequences: &[Record], path: impl AsRef<Path>) -> 
 /// # assert_eq!(trees[0].leaves().len(), 4);
 /// ```
 pub fn read_newick_from_file(path: impl AsRef<Path>) -> Result<Vec<Tree>> {
-    info!(
-        "Reading newick trees from file {}",
-        path.as_ref().to_path_buf().display()
-    );
+    info!("Reading newick trees from file {}", path.as_ref().display());
     let newick = fs::read_to_string(path)?;
     info!("Read file successfully");
     tree_parser::from_newick(&newick)
