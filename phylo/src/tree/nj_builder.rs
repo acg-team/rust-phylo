@@ -145,7 +145,7 @@ impl NJBuilder {
 #[cfg(test)]
 mod private_tests {
     //From test.rs in tree, so we can use macros
-    use crate::{record_wo_desc as record};
+    use crate::record_wo_desc as record;
     use nalgebra::{dmatrix, DMatrix};
 
     use super::*;
@@ -226,7 +226,9 @@ mod private_tests {
         ]);
         // Instantiate NJBuilder instance every time
         let nj_builder = NJBuilder::default();
-        let tree = nj_builder.build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
+        let tree = nj_builder
+            .build_nj_tree_from_matrix(nj_distances, &sequences)
+            .unwrap();
         assert_eq!(tree.by_id("A").blen, 1.0);
         assert_eq!(tree.by_id("B").blen, 3.0);
         assert_eq!(tree.by_id("C").blen, 2.0);
@@ -259,7 +261,9 @@ mod private_tests {
         ]);
         // Instantiate NJBuilder instance every time
         let nj_builder = NJBuilder::default();
-        let tree = nj_builder.build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
+        let tree = nj_builder
+            .build_nj_tree_from_matrix(nj_distances, &sequences)
+            .unwrap();
         assert_eq!(tree.len(), 7);
         assert_eq!(tree.postorder.len(), 7);
         assert!(is_unique(&tree.postorder));
@@ -287,7 +291,9 @@ mod private_tests {
             record!("e", b""),
         ]);
         let nj_builder = NJBuilder::default();
-        let tree = nj_builder.build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
+        let tree = nj_builder
+            .build_nj_tree_from_matrix(nj_distances, &sequences)
+            .unwrap();
         assert_eq!(tree.by_id("a").blen, 2.0);
         assert_eq!(tree.by_id("b").blen, 3.0);
         assert_eq!(tree.by_id("c").blen, 4.0);
@@ -322,7 +328,9 @@ mod private_tests {
             record!("E4", b""),
         ]);
         let nj_builder = NJBuilder::default();
-        let nj_tree = nj_builder.build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
+        let nj_tree = nj_builder
+            .build_nj_tree_from_matrix(nj_distances, &sequences)
+            .unwrap();
         let nodes = vec![
             Node::new_leaf(0, Some(I(5)), 2.0, "A0".to_string()),
             Node::new_leaf(1, Some(I(5)), 3.0, "B1".to_string()),
@@ -355,7 +363,9 @@ mod private_tests {
             record!("D3", b""),
         ]);
         let nj_builder = NJBuilder::default();
-        let nj_tree = nj_builder.build_nj_tree_from_matrix(nj_distances, &sequences).unwrap();
+        let nj_tree = nj_builder
+            .build_nj_tree_from_matrix(nj_distances, &sequences)
+            .unwrap();
         let nodes = vec![
             Node::new_leaf(0, Some(I(4)), 1.0, "A0".to_string()),
             Node::new_leaf(1, Some(I(4)), 3.0, "B1".to_string()),
