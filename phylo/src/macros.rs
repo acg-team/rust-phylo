@@ -1,27 +1,76 @@
+/// Create a FASTA record without a description.
+///
+/// This macro creates a FASTA record using the re-exported `Record` type from the `bio` crate.
+/// No additional imports are required.
+///
+/// # Examples
+/// ```
+/// # use phylo::record_wo_desc;
+/// let record = record_wo_desc!("seq1", b"ATCG");
+/// assert_eq!(record.id(), "seq1");
+/// assert_eq!(record.desc(), None);
+/// ```
 #[macro_export]
 macro_rules! record_wo_desc {
-    ($e1:expr,$e2:expr) => {{
-        use bio::io::fasta::Record;
-        Record::with_attrs($e1, None, $e2)
+    ($id:expr, $seq:expr) => {{
+        use $crate::Record;
+        Record::with_attrs($id, None, $seq)
     }};
 }
 
+/// Create a FASTA record with an optional description.
+///
+/// This macro creates a FASTA record using the re-exported `Record` type from the `bio` crate.
+/// No additional imports are required.
+///
+/// # Examples
+/// ```
+/// # use phylo::record;
+/// let record = record!("seq1", Some("A sequence"), b"ATCG");
+/// assert_eq!(record.id(), "seq1");
+/// assert_eq!(record.desc(), Some("A sequence"));
+///
+/// let record = record!("seq2", None, b"TTTT");
+/// assert_eq!(record.desc(), None);
+/// ```
 #[macro_export]
 macro_rules! record {
-    ($e1:expr,$e2:expr,$e3:expr) => {{
-        use bio::io::fasta::Record;
-        Record::with_attrs($e1, $e2, $e3)
+    ($id:expr, $desc:expr, $seq:expr) => {{
+        use $crate::Record;
+        Record::with_attrs($id, $desc, $seq)
     }};
 }
 
+/// Create a tree from a Newick string.
+///
+/// # Examples
+/// ```
+/// # use phylo::tree;
+/// let tree = tree!("(A,B);");
+/// assert_eq!(tree.leaves().len(), 2);
+/// let tree = tree!("((A,B),(C,D));");
+/// assert_eq!(tree.leaves().len(), 4);
+/// ```
 #[macro_export]
 macro_rules! tree {
-    ($e:expr) => {{
+    ($newick:expr) => {{
         use $crate::tree::tree_parser::from_newick;
-        from_newick($e).unwrap().pop().unwrap()
+        from_newick($newick).unwrap().pop().unwrap()
     }};
 }
 
+/// Align a sequence, returning a vector of indices for non-gap characters.
+///
+/// # Examples
+/// ```
+/// # use phylo::align;
+/// let aligned = align!(b"01-2");
+/// assert_eq!(aligned, vec![Some(0), Some(1), None, Some(2)]);
+/// let aligned = align!(b"0--1");
+/// assert_eq!(aligned, vec![Some(0), None, None, Some(1)]);
+/// let aligned = align!(b"012-");
+/// assert_eq!(aligned, vec![Some(0), Some(1), Some(2), None]);
+/// ```
 #[macro_export]
 macro_rules! align {
     ($e:expr) => {{
@@ -40,7 +89,17 @@ macro_rules! align {
     }};
 }
 
+/// Create a parsimony site from a sequence and site flag.
+///
+/// **Note:** This macro is intended for internal use within this crate only.
+/// The API is not guaranteed to be stable across versions.
+///
+/// # Examples
+/// ```ignore
+/// let site = site!(b"ATCG", SiteFlag::NoGap);
+/// ```
 #[macro_export]
+#[doc(hidden)] // Hide from public documentation
 macro_rules! site {
     ($s:expr, $f:expr) => {{
         use $crate::alphabets::ParsimonySet;
@@ -52,10 +111,11 @@ macro_rules! site {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 pub mod tests {
-    use bio::io::fasta::Record;
-
-    use crate::parsimony::{ParsimonySite, SiteFlag};
-    use crate::tree::Tree;
+    use crate::{
+        parsimony::{ParsimonySite, SiteFlag},
+        tree::Tree,
+        Record,
+    };
 
     #[test]
     fn test_record_macro() {

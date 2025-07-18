@@ -2,6 +2,9 @@
 
 use anyhow::Error;
 
+// Re-export commonly used types for convenience with macros
+pub use bio::io::fasta::Record;
+
 pub mod alignment;
 pub mod alphabets;
 pub mod evolutionary_models;
