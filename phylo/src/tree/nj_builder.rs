@@ -28,7 +28,10 @@ impl TreeBuilder for NJBuilder {
 
 impl NJBuilder {
     // Returning Result in congruence with other functions and instantiators, must use unwrap
-    pub(crate) fn new(temperature: Option<f64>, distance_function: Option<DistanceFunction>) -> Result<Self> {
+    pub(crate) fn new(
+        temperature: Option<f64>,
+        distance_function: Option<DistanceFunction>,
+    ) -> Result<Self> {
         // Should allow for default distance function and temperature or specified
         let temperature = temperature.unwrap_or(0.00);
         let distance_function = distance_function.unwrap_or(levenshtein);
