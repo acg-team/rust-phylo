@@ -6,23 +6,16 @@ A high-performance Rust library for phylogenetic analysis and multiple sequence 
 [![Documentation](https://docs.rs/phylo/badge.svg)](https://docs.rs/phylo) -->
 [![Licence](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](https://github.com/acg-team/rust-phylo#license) [![CI](https://github.com/acg-team/rust-phylo/actions/workflows/tests.yml/badge.svg)](https://github.com/acg-team/rust-phylo/actions) [![codecov](https://codecov.io/gh/acg-team/rust-phylo/branch/main/graph/badge.svg)](https://codecov.io/gh/acg-team/rust-phylo)
 
-[Current functionality](#current-functionality) • [Getting started](#getting-started) • [Crate features](#crate-features) • [Roadmap](#roadmap) • [Contributing](#contributing) • [Related projects](#related-projects) • [Support](#support) • [Citation](#citation) • [Licence and Attributions](#licence-and-attributions)
+[Current Functionality](#current-functionality) • [Getting Started](#getting-started) • [Crate Features](#crate-features) • [Roadmap](#roadmap) • [Contributing](#contributing) • [Related Projects](#related-projects) • [Support](#support) • [Citation](#citation) • [Licence and Attributions](#licence-and-attributions)
 
-## Current functionality
+## Current Functionality
 
 - **Maximum Likelihood Phylogenetic Analysis**: Efficient implementation of phylogenetic tree inference using SPR moves using likelihood or parsimony cost functions;
 - **Multiple Sequence Alignment (MSA)**: Support for Multiple Sequence Alignment using the IndelMaP algorithm ([paper]( https://academic.oup.com/mbe/article/41/7/msae109/7688856 ), [python implementation]( https://github.com/acg-team/indelMaP ));
 - **Sequence Evolution Models**: Support for various DNA (JC69, K80, TN93, HKY, GTR) and protein (WAG, HIVB, BLOSUM62) substitution models as well as the Poisson Indel Process (PIP) ([paper]( https://www.pnas.org/doi/10.1073/pnas.1220450110 )) model;
 - **High Performance**: Optimised tree search with optional parallel processing capabilities.
 
-## Getting started
-
-<!-- Add this to your `Cargo.toml`:
-
-```toml
-[dependencies]
-phylo = "0.1.0"
-``` -->
+## Getting Started
 
 **Note**: This crate is not yet published on crates.io. To use it directly from GitHub, add this to your `Cargo.toml`:
 
@@ -68,7 +61,7 @@ fn main() -> std::result::Result<(), anyhow::Error> {
 }
 ```
 
-## Crate features
+## Crate Features
 
 This crate supports several optional features:
 
@@ -114,27 +107,11 @@ This is a new library that is currently in active development. Contributions are
 
 **API Stability**: As this crate is in active development, the API may change between versions until we reach 1.0. We'll follow semantic versioning and document breaking changes in release notes.
 
-### Running Tests
+### New Contributors
 
-To run the test suite, you'll need to enable the `deterministic` feature:
+Please read our [contributor guide]( CONTRIBUTING.md )!
 
-```bash
-cargo test --features deterministic
-```
-
-For faster test runs during development, you can also use:
-
-```bash
-cargo test --features "deterministic,precomputed-test-results"
-```
-
-### Submitting Changes
-
-When you submit a pull request, it will be automatically tested with GitHub Actions. In addition to running the tests, GitHub Actions runs clippy and rustfmt on each PR.
-
-We recommend reading [Rust crate guidelines]( https://rust-lang.github.io/api-guidelines/about.html ) to make sure your contribution is up to scratch!
-
-### Current contributors:
+### Current Contributors:
 
 - Jūlija Pečerska ([GitHub]( https://github.com/junniest ), [email]( mailto:julija.pecerska@zhaw.ch ));
 - Mattes Mrzik ([GitHub]( https://github.com/MattesMrzik ), [email]( mailto:mattes.mrzik@zhaw.ch ));
@@ -142,7 +119,7 @@ We recommend reading [Rust crate guidelines]( https://rust-lang.github.io/api-gu
 - Merlin Maggi ([GitHub]( https://github.com/merlinio2000 ));
 - Luca Müller ([GitHub]( https://github.com/lucasperception )).
 
-## Related projects
+## Related Projects
 
 - [JATI (joint alignment tree inference)]( https://github.com/acg-team/JATI )
 
@@ -173,7 +150,7 @@ This project is licensed under either of
 
 at your option.
 
-### Benchmarking datasets
+### Benchmarking Datasets
 
 Datasets for benchmarking were taken from:
 - Zhou, Xiaofan (2017). Single-gene alignments. figshare. Dataset. [Link]( https://doi.org/10.6084/m9.figshare.5477749.v1 );
