@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display};
-use std::path::PathBuf;
+use std::path::Path;
 
 use approx::assert_relative_eq;
 use assert_matches::assert_matches;
@@ -63,7 +63,7 @@ fn empirical_frequencies() {
 
 #[test]
 fn setup_info_correct_unaligned() {
-    let fldr = PathBuf::from("./data");
+    let fldr = Path::new("./data");
     let res_info = PIB::with_attrs(
         fldr.join("sequences_DNA2_unaligned.fasta"),
         fldr.join("tree_diff_branch_lengths_2.newick"),
@@ -74,7 +74,7 @@ fn setup_info_correct_unaligned() {
 
 #[test]
 fn setup_info_mismatched_ids_missing_tips() {
-    let fldr = PathBuf::from("./data");
+    let fldr = Path::new("./data");
     let info = PIB::with_attrs(
         fldr.join("sequences_DNA2_unaligned.fasta"),
         fldr.join("tree_diff_branch_lengths_1.newick"),
@@ -86,7 +86,7 @@ fn setup_info_mismatched_ids_missing_tips() {
 
 #[test]
 fn setup_info_mismatched_ids_missing_sequences() {
-    let fldr = PathBuf::from("./data");
+    let fldr = Path::new("./data");
     let info = PIB::with_attrs(
         fldr.join("sequences_DNA2_unaligned.fasta"),
         fldr.join("tree_diff_branch_lengths_3.newick"),
@@ -98,7 +98,7 @@ fn setup_info_mismatched_ids_missing_sequences() {
 
 #[test]
 fn setup_info_missing_sequence_file() {
-    let fldr = PathBuf::from("./data");
+    let fldr = Path::new("./data");
     let info = PIB::with_attrs(
         fldr.join("sequences_DNA_nonexistent.fasta"),
         fldr.join("tree_diff_branch_lengths_1.newick"),
@@ -112,7 +112,7 @@ fn setup_info_missing_sequence_file() {
 
 #[test]
 fn setup_info_empty_sequence_file() {
-    let fldr = PathBuf::from("./data");
+    let fldr = Path::new("./data");
     let info = PIB::with_attrs(
         fldr.join("sequences_empty.fasta"),
         fldr.join("tree_diff_branch_lengths_1.newick"),
@@ -126,7 +126,7 @@ fn setup_info_empty_sequence_file() {
 
 #[test]
 fn setup_info_empty_tree_file() {
-    let fldr = PathBuf::from("./data");
+    let fldr = Path::new("./data");
     let info = PIB::with_attrs(
         fldr.join("sequences_DNA2_unaligned.fasta"),
         fldr.join("tree_empty.newick"),
@@ -140,7 +140,7 @@ fn setup_info_empty_tree_file() {
 
 #[test]
 fn setup_info_malformed_tree_file() {
-    let fldr = PathBuf::from("./data");
+    let fldr = Path::new("./data");
     let info = PIB::with_attrs(
         fldr.join("sequences_DNA2_unaligned.fasta"),
         fldr.join("tree_malformed.newick"),
@@ -153,7 +153,7 @@ fn setup_info_malformed_tree_file() {
 
 #[test]
 fn setup_info_multiple_trees() {
-    let fldr = PathBuf::from("./data");
+    let fldr = Path::new("./data");
     let res_info = PIB::with_attrs(
         fldr.join("sequences_DNA1.fasta"),
         fldr.join("tree_multiple.newick"),
@@ -166,7 +166,7 @@ fn setup_info_multiple_trees() {
 
 #[test]
 fn setup_unaligned() {
-    let fldr = PathBuf::from("./data");
+    let fldr = Path::new("./data");
     let info = PIB::with_attrs(
         fldr.join("sequences_DNA2_unaligned.fasta"),
         fldr.join("tree_diff_branch_lengths_2.newick"),
@@ -177,7 +177,7 @@ fn setup_unaligned() {
 
 #[test]
 fn setup_aligned_msa() {
-    let fldr = PathBuf::from("./data");
+    let fldr = Path::new("./data");
     let info = PIB::with_attrs(
         fldr.join("sequences_DNA1.fasta"),
         fldr.join("tree_diff_branch_lengths_2.newick"),
@@ -189,15 +189,14 @@ fn setup_aligned_msa() {
         assert!(!rec.seq().is_empty());
         assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
     });
-    let sequences =
-        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
+    let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta").unwrap());
     let aligned_sequences = info.compile_alignment(None).unwrap();
     assert_eq!(aligned_sequences, sequences);
 }
 
 #[test]
 fn correct_setup_when_sequences_empty() {
-    let fldr = PathBuf::from("./data");
+    let fldr = Path::new("./data");
     let info = PIB::with_attrs(
         fldr.join("sequences_some_empty.fasta"),
         fldr.join("tree_diff_branch_lengths_2.newick"),
@@ -209,7 +208,7 @@ fn correct_setup_when_sequences_empty() {
         assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
     });
     let sequences =
-        Sequences::new(read_sequences(&fldr.join("sequences_some_empty.fasta")).unwrap());
+        Sequences::new(read_sequences(fldr.join("sequences_some_empty.fasta")).unwrap());
     let aligned_sequences = info.compile_alignment(None).unwrap();
     assert_eq!(aligned_sequences, sequences);
 }
@@ -217,8 +216,8 @@ fn correct_setup_when_sequences_empty() {
 #[test]
 fn check_phyloinfo_creation_tree_no_seqs() {
     let info = PIB::with_attrs(
-        PathBuf::from("./data/sequences_empty.fasta"),
-        PathBuf::from("./data/tree_diff_branch_lengths_1.newick"),
+        Path::new("./data/sequences_empty.fasta"),
+        Path::new("./data/tree_diff_branch_lengths_1.newick"),
     )
     .build();
     assert!(info.is_err());
@@ -227,8 +226,8 @@ fn check_phyloinfo_creation_tree_no_seqs() {
 #[test]
 fn check_phyloinfo_creation_newick_mismatch_ids() {
     let info = PIB::with_attrs(
-        PathBuf::from("./data/sequences_protein1.fasta"),
-        PathBuf::from("./data/tree_diff_branch_lengths_1.newick"),
+        Path::new("./data/sequences_protein1.fasta"),
+        Path::new("./data/tree_diff_branch_lengths_1.newick"),
     )
     .build();
     assert!(info.is_err());
@@ -355,11 +354,11 @@ fn empirical_frequencies_no_aas() {
 #[test]
 fn force_protein_alphabet() {
     // If data is severely subsampled it might look like DNA even though it's really protein
-    let fldr = PathBuf::from("./data");
+    let fldr = Path::new("./data");
     let info = PIB::new(fldr.join("p226.msa.fa")).build().unwrap();
     assert_eq!(info.msa.alphabet(), &dna_alphabet());
 
-    let fldr = PathBuf::from("./data");
+    let fldr = Path::new("./data");
     let info = PIB::new(fldr.join("p226.msa.fa"))
         .alphabet(Some(protein_alphabet()))
         .build()
