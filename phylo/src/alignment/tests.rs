@@ -1,12 +1,8 @@
-use std::path::PathBuf;
-
 use rand::seq::IteratorRandom;
 use rand::thread_rng;
 
-use crate::alignment::{
-    sequences::Sequences, InternalAlignments, PairwiseAlignment as PA, SeqMaps,
-};
 use crate::alignment::{Alignment, AncestralAlignment, MASA, MSA};
+use crate::alignment::{InternalAlignments, PairwiseAlignment as PA, SeqMaps, Sequences};
 use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, NUCLEOTIDES};
 use crate::io::read_sequences;
 use crate::phylo_info::PhyloInfo;
@@ -269,8 +265,7 @@ fn compile_msa_leaf() {
 #[test]
 fn input_msa_empty_col() {
     let tree = test_tree();
-    let sequences =
-        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_empty_col.fasta")).unwrap());
+    let sequences = Sequences::new(read_sequences("./data/sequences_empty_col.fasta").unwrap());
     let msa = MSA::from_aligned(sequences, &tree).unwrap();
     assert_eq!(msa.len(), 40 - 1);
     assert_eq!(msa.seq_count(), 5);
@@ -278,8 +273,7 @@ fn input_msa_empty_col() {
 
 #[test]
 fn display_sequences() {
-    let sequences =
-        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
+    let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta").unwrap());
     let s = format!("{sequences}");
     let mut lines = s.lines().collect::<Vec<_>>();
     lines.sort();
@@ -293,9 +287,8 @@ fn display_sequences() {
 
 #[test]
 fn display_unaligned_sequences() {
-    let sequences = Sequences::new(
-        read_sequences(&PathBuf::from("./data/sequences_DNA2_unaligned.fasta")).unwrap(),
-    );
+    let sequences =
+        Sequences::new(read_sequences("./data/sequences_DNA2_unaligned.fasta").unwrap());
     let s = format!("{sequences}");
     let mut lines = s.lines().collect::<Vec<_>>();
     lines.sort();
@@ -311,8 +304,7 @@ fn display_unaligned_sequences() {
 fn fmt_alignment() {
     // arrange
     let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
-    let sequences =
-        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
+    let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta").unwrap());
     let msa = MSA::from_aligned(sequences, &tree).unwrap();
     let true_content = std::fs::read_to_string("./data/sequences_DNA1.fasta").unwrap();
     let mut true_lines = true_content.lines().collect::<Vec<_>>();
@@ -331,8 +323,7 @@ fn fmt_alignment() {
 #[test]
 fn display_alignment() {
     let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
-    let sequences =
-        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
+    let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta").unwrap());
     let msa = MSA::from_aligned(sequences, &tree).unwrap();
 
     let s = format!("{msa}");
@@ -351,9 +342,8 @@ fn display_alignment() {
 fn display_ancestral_alignment() {
     // arrange
     let tree = tree!("((C:0.1,D:0.2)I01:0.3,(A:0.4,B:0.5)I02:0.6)Root;");
-    let sequences = Sequences::new(
-        read_sequences(&PathBuf::from("./data/sequences_DNA1_with_ancestors.fasta")).unwrap(),
-    );
+    let sequences =
+        Sequences::new(read_sequences("./data/sequences_DNA1_with_ancestors.fasta").unwrap());
     let msa = MASA::from_aligned_with_ancestral(sequences, &tree).unwrap();
     let true_lines = std::fs::read_to_string("./data/sequences_DNA1_with_ancestors.fasta").unwrap();
     let mut true_lines = true_lines.lines().collect::<Vec<_>>();
@@ -373,8 +363,7 @@ fn display_ancestral_alignment() {
 fn masa_compile_root() {
     // arrange
     let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
-    let sequences =
-        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
+    let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta").unwrap());
     let masa = MASA::from_aligned(sequences.clone(), &tree).unwrap();
     let phylo_info = PhyloInfo { msa: masa, tree };
 
@@ -389,8 +378,7 @@ fn masa_compile_root() {
 fn masa_compile_subroot() {
     // arrange
     let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
-    let sequences =
-        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
+    let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta").unwrap());
     let masa = MASA::from_aligned(sequences.clone(), &tree).unwrap();
     let subroot_id = "C";
     let mut true_compiled = Sequences::new(
