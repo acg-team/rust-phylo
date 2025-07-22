@@ -83,7 +83,8 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     /// # Example
     /// ```
     /// use phylo::phylo_info::PhyloInfoBuilder;
-    /// let builder = PhyloInfoBuilder::new("./examples/data/sequences_DNA_small.fasta")
+    /// use phylo::alignment::{MSA, MASA};
+    /// let builder = PhyloInfoBuilder::<MSA, MASA>::new("./examples/data/sequences_DNA_small.fasta")
     ///   .tree_file(Some("./examples/data/tree_diff_branch_lengths_2.newick"));
     /// ```
     pub fn tree_file(mut self, path: Option<impl AsRef<Path>>) -> PhyloInfoBuilder<A, AA> {
@@ -97,7 +98,8 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     /// ```
     /// use phylo::alphabets::protein_alphabet;
     /// use phylo::phylo_info::PhyloInfoBuilder;
-    /// let info = PhyloInfoBuilder::new("./examples/data/sequences_DNA_small.fasta").alphabet(Some(protein_alphabet())).build().unwrap();
+    /// use phylo::alignment::{Alignment, MSA, MASA};
+    /// let info = PhyloInfoBuilder::<MSA, MASA>::new("./examples/data/sequences_DNA_small.fasta").alphabet(Some(protein_alphabet())).build().unwrap();
     /// assert_eq!(info.msa.alphabet(), &protein_alphabet());
     /// ```
     pub fn alphabet(mut self, alphabet: Option<Alphabet>) -> PhyloInfoBuilder<A, AA> {

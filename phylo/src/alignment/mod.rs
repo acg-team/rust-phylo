@@ -214,6 +214,7 @@ impl Alignment for MSA {
     /// # use bio::io::fasta::Record;
     /// use phylo::alignment::{MSA, Alignment};
     /// use phylo::alignment::Sequences;
+    /// use phylo::phylo_info::PhyloInfo;
     /// use phylo::{record, tree};
     /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
     /// let seqs = Sequences::new(vec![
@@ -222,7 +223,8 @@ impl Alignment for MSA {
     ///     record!("C2", Some("C2 sequence"), b"AA--"),
     /// ]);
     /// let msa = MSA::from_aligned(seqs.clone(), &tree).unwrap();
-    /// let aligned_seqs = msa.compile(&tree).unwrap();
+    /// let phylo_info = PhyloInfo { msa, tree };
+    /// let aligned_seqs = phylo_info.compile_alignment(None).unwrap();
     /// assert_eq!(aligned_seqs, seqs);
     /// ```
     fn from_aligned_unchecked(seqs: Sequences, tree: &Tree) -> MSA {
