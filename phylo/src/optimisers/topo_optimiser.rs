@@ -210,7 +210,7 @@ pub mod spr {
                 dirty_nodes.push(*move_location);
                 if best_cost > base_cost {
                     cost_fn.update_tree(best_tree, &dirty_nodes);
-                    info!("    Moved tree, new cost {}", best_cost);
+                    info!("    Moved tree, new cost {best_cost}");
                     Ok(best_cost)
                 } else {
                     info!("    No improvement, best cost {best_cost}");

@@ -2,6 +2,7 @@ use crate::optimisers::TreeMover;
 use crate::substitution_models::FreqVector;
 use crate::tree::{NodeIdx, Tree};
 
+pub trait TreeSearchCost<TM: TreeMover> {
     // The optimisers will maximise the cost, so if the cost should be minimised instead, it should be negated.
     // The likelihood or the log-likelihood are maximised, the parsimony score is minimised.
     fn cost(&self) -> f64;

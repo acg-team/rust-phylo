@@ -28,7 +28,7 @@ impl TreeMover for NniOptimiser {
     {
         let mut max_cost_info = None;
         let mut max_cost = f64::MIN;
-        println!("running nnis at {}, base_cost = {}", node_idx, base_cost);
+        println!("running nnis at {node_idx}, base_cost = {base_cost}");
         for child_idx in &cost.tree().node(node_idx).children {
             // TODO: is this cost.clone() really the way to go?
             let move_cost_info =
@@ -69,10 +69,7 @@ fn calc_nni_cost_with_blen_opt<C: TreeSearchCost<TM> + Clone + Display, TM: Tree
     // if that is not the case. do we run this somewhere is (if the move is good in itself (even
     // without blen opti))
     if cost_fn.blen_optimisation() && move_cost <= base_cost {
-        println!(
-            "      found a nni move, doing blen opti now, cost {}",
-            move_cost
-        );
+        println!("      found a nni move, doing blen opti now, cost {move_cost}");
         let mut o = BranchOptimiser::new(cost_fn);
         let blen_opt = o.optimise_branch(node_idx)?;
         if blen_opt.final_cost > move_cost {
