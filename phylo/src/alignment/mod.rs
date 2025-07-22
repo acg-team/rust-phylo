@@ -6,7 +6,9 @@ use hashbrown::HashMap;
 use crate::alphabets::Alphabet;
 use crate::asr::AncestralSequenceReconstruction;
 use crate::parsimony_presence_absence::ParsimonyPresenceAbsence;
-use crate::phylo_info::{validate_ids_with_ancestors, validate_taxa_ids};
+use crate::phylo_info::{
+    set_missing_tree_node_ids, validate_ids_with_ancestors, validate_taxa_ids,
+};
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::{align, aligned_seq, record, Result};
 
@@ -80,13 +82,14 @@ pub struct MSA {
 
 impl Display for MSA {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut aligned_records = Vec::with_capacity(self.seqs.len());
         for (node_idx, seq_map) in &self.leaf_maps {
             let id = &self.idx_to_id[usize::from(node_idx)];
             let record = self.seqs.record_by_id(id);
             let aligned_seq = aligned_seq!(seq_map, record.seq());
-            write!(f, "{}", record!(id, record.desc(), &aligned_seq))?;
+            aligned_records.push(record!(id, record.desc(), &aligned_seq));
         }
-        write!(f, "{}", self.seqs)
+        write!(f, "{}", Sequences::new(aligned_records))
     }
 }
 
@@ -323,6 +326,7 @@ impl Alignment for MASA {
     }
 
     fn from_aligned(sequences: Sequences, tree: &Tree) -> Result<Self> {
+        let tree = &set_missing_tree_node_ids(tree)?;
         let msa = MSA::from_aligned(sequences, tree)?;
         // TODO: do the internal alignments, build in the above line, conform with adding ancestral seqs?
         //       see also from_aligned_with_ancestral

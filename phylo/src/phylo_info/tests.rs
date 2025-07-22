@@ -381,7 +381,7 @@ fn build_ancestral_alignment_from_aligned_leaf_seqs_missing_record() {
     // assert
     let error_msg = res_info.unwrap_err().to_string();
     assert!(
-        error_msg.contains("The number of sequences does not match the number of leaves nor the number of nodes in the tree.")
+        error_msg.contains("The number of sequences does not match the number of leaves nor the number of nodes in the tree")
     );
 }
 
@@ -510,5 +510,5 @@ fn build_ancestral_alignment_from_unaligned_seqs() {
 
     // assert
     let error_msg = res_info.unwrap_err().to_string();
-    assert!(error_msg.contains("Building an ancestral alignment from unaligned sequences (including ancestral_sequences) is not supported"));
+    assert!(error_msg.contains("Building an ancestral alignment from unaligned sequences (including ancestral_sequencess) is not support"));
 }

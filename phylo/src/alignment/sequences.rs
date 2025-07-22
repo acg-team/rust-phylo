@@ -87,10 +87,6 @@ impl Sequences {
         &self.s[idx]
     }
 
-    pub fn record_mut(&mut self, idx: usize) -> &mut Record {
-        &mut self.s[idx]
-    }
-
     pub fn record_by_id(&self, id: &str) -> &Record {
         self.s
             .iter()
@@ -176,7 +172,7 @@ mod private_tests {
 
     use std::path::PathBuf;
 
-    use crate::io::read_sequences;
+    use crate::{io::read_sequences, record_wo_desc as record};
 
     use super::*;
 
@@ -199,5 +195,42 @@ mod private_tests {
         let alphabet = Sequences::detect_alphabet(&seqs);
         assert_eq!(alphabet, protein_alphabet());
         assert!(format!("{alphabet}").contains("protein"));
+    }
+
+    #[test]
+    fn test_seq_ids_are_uniq() {
+        // arrange
+        let seqs = Sequences::new(vec![
+            record!("on", b"X"),
+            record!("tw", b"X"),
+            record!("th", b"N"),
+            record!("fo", b"N"),
+        ]);
+
+        // act
+        let result = seqs.ids_are_unique();
+
+        // assert
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_seq_ids_are_not_uniq() {
+        // arrange
+        let seqs = Sequences::new(vec![
+            record!("on", b"X"),
+            record!("tw", b"X"),
+            record!("on", b"N"),
+            record!("fo", b"N"),
+        ]);
+
+        // act
+        let result = seqs.ids_are_unique();
+
+        // assert
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Duplicate record id (on) found in the sequences."));
     }
 }

@@ -551,7 +551,7 @@ fn basic_parsimony_tree_search() {
 
 #[test]
 fn dollo_tree_search() {
-    let tree = tree!("(((A:1.0,C:1.0)E:2.0,(C:1.0,B:1.0)F:2.0)G:3.0);");
+    let tree = tree!("(((A:1.0,C:1.0)E:2.0,(D:1.0,B:1.0)F:2.0)G:3.0);");
     let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"TTTTTTTTTTTCTATATATA-"),

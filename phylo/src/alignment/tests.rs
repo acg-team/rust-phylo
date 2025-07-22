@@ -7,7 +7,7 @@ use crate::alignment::{
     sequences::Sequences, InternalAlignments, PairwiseAlignment as PA, SeqMaps,
 };
 use crate::alignment::{Alignment, AncestralAlignment, MASA, MSA};
-use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, GAP, NUCLEOTIDES};
+use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, NUCLEOTIDES};
 use crate::io::read_sequences;
 use crate::phylo_info::PhyloInfo;
 use crate::tree::{
@@ -151,6 +151,24 @@ fn sequences_into_gapless() {
 }
 
 #[test]
+fn test_try_record_by_id() {
+    let sequences = Sequences::new(vec![
+        record!("A0", Some("A0 sequence"), b"AAAAAA"),
+        record!("B1", Some("B1 sequence"), b"---A-A"),
+    ]);
+    let rec = sequences.try_record_by_id("A0").unwrap();
+    assert_eq!(rec.id(), "A0");
+    assert_eq!(rec.seq(), b"AAAAAA");
+
+    let err = sequences.try_record_by_id("ZZ");
+    assert!(err.is_err());
+    assert!(err
+        .unwrap_err()
+        .to_string()
+        .contains("Sequence with id ZZ not found"));
+}
+
+#[test]
 fn build_from_aligned_sequences() {
     let tree = test_tree();
     let aligned_seqs = test_alignment(&["A0", "B1", "C2", "D3", "E4"]);
@@ -289,9 +307,6 @@ fn display_unaligned_sequences() {
     assert_eq!(lines, true_lines);
 }
 
-// TODO: perhaps we want the default fmt to be like with msa.compile instead of printing the
-// unaligned seqs.
-// see: https://github.com/acg-team/rust-phylo/issues/62
 #[test]
 fn fmt_alignment() {
     // arrange
@@ -299,8 +314,7 @@ fn fmt_alignment() {
     let sequences =
         Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
     let msa = MSA::from_aligned(sequences, &tree).unwrap();
-    let true_content_with_gaps = std::fs::read_to_string("./data/sequences_DNA1.fasta").unwrap();
-    let true_content = true_content_with_gaps.replace(GAP as char, "");
+    let true_content = std::fs::read_to_string("./data/sequences_DNA1.fasta").unwrap();
     let mut true_lines = true_content.lines().collect::<Vec<_>>();
     true_lines.sort();
 
@@ -379,20 +393,20 @@ fn masa_compile_subroot() {
         Sequences::new(read_sequences(&PathBuf::from("./data/sequences_DNA1.fasta")).unwrap());
     let masa = MASA::from_aligned(sequences.clone(), &tree).unwrap();
     let subroot_id = "C";
-    let true_compiled = Sequences::new(
+    let mut true_compiled = Sequences::new(
         sequences
             .iter()
             .filter(|f| f.id() == subroot_id)
             .cloned()
             .collect(),
     );
+    true_compiled.remove_gap_cols();
     let phylo_info = PhyloInfo { msa: masa, tree };
 
     // act
     let compiled = phylo_info
         .compile_alignment(Some(&phylo_info.tree.idx(subroot_id)))
         .unwrap();
-    let true_compiled = true_compiled.into_gapless();
 
     // assert
     assert_eq!(compiled, true_compiled);

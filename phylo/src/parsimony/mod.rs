@@ -102,10 +102,9 @@ impl<'a, PS: ParsimonyScoring + Clone> ParsimonyAligner<PS> {
         }
         info!("Finished IndelMAP alignment");
 
-        // TODO: to avoid having a fn new() for the trait alignment (where we would have to pass the
-        // seqs, internal alignments, and leaf_maps, and possibly the tree), we instead get the aligned Sequences
-        // and then create the alignment from it. This discards the internal alignments and
-        // rebuilds them when calling `from_aligned`, which might not be ideal.
+        // TODO: to avoid having a fn new(tree, seqs, internal_alignments, leaf_maps) for the Alignment trait,
+        // we instead get the aligned Sequences and then create the alignment from it. This discards the internal
+        // alignments and rebuilds them when calling `from_aligned`, which might not be ideal.
         let leaf_maps = PhyloInfo::<A>::compile_leaf_map(&tree.root, &alignments, seqs, tree);
         let aligned_seqs = Sequences::with_alphabet(
             leaf_maps

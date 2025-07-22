@@ -188,7 +188,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
                 bail!("Building an ancestral alignment from unaligned sequences (including ancestral_sequencess) is not supported");
             }
         } else {
-            bail!("The number of sequences does not match the number of leaves nor the number of nodes in the tree.");
+            bail!("The number of sequences does not match the number of leaves nor the number of nodes in the tree");
         }?;
 
         Ok(PhyloInfo { tree, msa })
@@ -216,6 +216,8 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
         Ok(sequences)
     }
 
+    // TODO: this could be a function like set_missing_tree_node_ids below, or the
+    // set_missing_tree_node_ids could be a method, what do we want?
     /// Checks that there is at least one tree in the vector, bails with an error otherwise.
     /// Prints a warning if there is more than one tree because only the first tree will be processed.
     fn check_tree_number(&self, trees: &[Tree]) -> Result<()> {
@@ -242,7 +244,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
 }
 
 /// Sets missing ids and bails if there are duplicates among the node ids that were already set.
-fn set_missing_tree_node_ids(tree: &Tree) -> Result<Tree> {
+pub(crate) fn set_missing_tree_node_ids(tree: &Tree) -> Result<Tree> {
     let mut tree_with_all_ids = tree.clone();
     let mut seen_user_set_ids = HashSet::new();
     let mut count = 0;
@@ -371,43 +373,6 @@ pub mod private_tests {
         assert!(error
             .to_string()
             .contains("Duplicate id (A1) found in the leaves of the tree."))
-    }
-
-    #[test]
-    fn test_seq_ids_are_uniq() {
-        // arrange
-        let seqs = Sequences::new(vec![
-            record!("on", b"X"),
-            record!("tw", b"X"),
-            record!("th", b"N"),
-            record!("fo", b"N"),
-        ]);
-
-        // act
-        let result = seqs.ids_are_unique();
-
-        // assert
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_seq_ids_are_not_uniq() {
-        // arrange
-        let seqs = Sequences::new(vec![
-            record!("on", b"X"),
-            record!("tw", b"X"),
-            record!("on", b"N"),
-            record!("fo", b"N"),
-        ]);
-
-        // act
-        let result = seqs.ids_are_unique();
-
-        // assert
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Duplicate record id (on) found in the sequences."));
     }
 
     #[test]
