@@ -23,27 +23,27 @@ use crate::{record_wo_desc as record, tree};
 macro_rules! define_optimise_trees {
     ($($fn_name:ident: { model = $model:ident, cost = $cost:ident, builder = $builder:ident }),* $(,)?) => {
         $(
-            #[cfg(not(feature = "use-precomputed-test-results"))]
+            #[cfg(not(feature = "precomputed-test-results"))]
             fn $fn_name<Q: QMatrix + Send>(
                 seq_file: &std::path::Path,
                 _: &std::path::Path,
                 model: $model<Q>,
             ) -> PhyloOptimisationResult<$cost<Q, SprOptimiser>, SprOptimiser> {
-                let start_info = PIB::new(seq_file.to_path_buf()).build().unwrap();
+                let start_info = PIB::new(seq_file).build().unwrap();
                 let cost = $builder::new(model, start_info).build().unwrap();
                 TopologyOptimiser::new(cost).run().unwrap()
             }
 
-            #[cfg(feature = "use-precomputed-test-results")]
+            #[cfg(feature = "precomputed-test-results")]
             fn $fn_name<Q: QMatrix + Send>(
                 seq_file: &std::path::Path,
                 tree_file: &std::path::Path,
                 model: $model<Q>,
             ) -> PhyloOptimisationResult<$cost<Q>> {
-                let start_info = PIB::new(seq_file.to_path_buf()).build().unwrap();
+                let start_info = PIB::new(seq_file).build().unwrap();
 
                 if let Ok(precomputed) =
-                    PIB::with_attrs(seq_file.to_path_buf(), tree_file.to_path_buf()).build()
+                    PIB::with_attrs(seq_file, tree_file).build()
                 {
                     let initial_cost = $builder::new(model.clone(), start_info).build().unwrap();
                     let final_cost = $builder::new(model, precomputed.clone()).build().unwrap();
@@ -59,7 +59,7 @@ macro_rules! define_optimise_trees {
                     let res = TopologyOptimiser::new(cost).run().unwrap();
                     assert!(crate::io::write_newick_to_file(
                         &[res.cost.tree().clone()],
-                        tree_file.to_path_buf()
+                        tree_file
                     )
                     .is_ok());
                     res

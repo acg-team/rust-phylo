@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use approx::assert_relative_eq;
 use nalgebra::{DMatrix, DVector};
@@ -539,8 +539,8 @@ fn pip_hky_likelihood_example_2() {
 #[test]
 fn pip_likelihood_huelsenbeck_example() {
     let info = PIB::with_attrs(
-        PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
-        PathBuf::from("./data/Huelsenbeck_example.newick"),
+        "./data/Huelsenbeck_example_long_DNA.fasta",
+        "./data/Huelsenbeck_example.newick",
     )
     .build()
     .unwrap();
@@ -568,8 +568,8 @@ fn pip_likelihood_huelsenbeck_example() {
 #[test]
 fn pip_likelihood_huelsenbeck_example_model_comp() {
     let info = PIB::with_attrs(
-        PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
-        PathBuf::from("./data/Huelsenbeck_example.newick"),
+        "./data/Huelsenbeck_example_long_DNA.fasta",
+        "./data/Huelsenbeck_example.newick",
     )
     .build()
     .unwrap();
@@ -585,8 +585,8 @@ fn pip_likelihood_huelsenbeck_example_model_comp() {
 #[test]
 fn pip_likelihood_huelsenbeck_example_reroot() {
     let phylo = PIB::with_attrs(
-        PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
-        PathBuf::from("./data/Huelsenbeck_example.newick"),
+        "./data/Huelsenbeck_example_long_DNA.fasta",
+        "./data/Huelsenbeck_example.newick",
     )
     .build()
     .unwrap();
@@ -595,8 +595,8 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
         &[0.5, 0.25, 1.25453, 1.07461, 1.0, 1.14689, 1.53244, 1.47031],
     );
     let phylo_rerooted = PIB::with_attrs(
-        PathBuf::from("./data/Huelsenbeck_example_long_DNA.fasta"),
-        PathBuf::from("./data/Huelsenbeck_example_reroot.newick"),
+        "./data/Huelsenbeck_example_long_DNA.fasta",
+        "./data/Huelsenbeck_example_reroot.newick",
     )
     .build()
     .unwrap();
@@ -610,8 +610,8 @@ fn pip_likelihood_huelsenbeck_example_reroot() {
 #[test]
 fn pip_likelihood_protein_example() {
     let info = PIB::with_attrs(
-        PathBuf::from("./data/phyml_protein_example/seqs.fasta"),
-        PathBuf::from("./data/phyml_protein_example/example_tree.newick"),
+        "./data/phyml_protein_example/seqs.fasta",
+        "./data/phyml_protein_example/example_tree.newick",
     )
     .build()
     .unwrap();
@@ -667,53 +667,53 @@ fn pip_likelihood_protein_example() {
 #[test]
 fn designation() {
     let model = PIPModel::<JC69>::new(&[], &[]);
-    assert!(format!("{}", model).contains("PIP"));
-    assert!(format!("{}", model).contains("lambda = 1.5"));
-    assert!(format!("{}", model).contains("mu = 1.5"));
-    assert!(format!("{}", model).contains("JC69"));
+    assert!(format!("{model}").contains("PIP"));
+    assert!(format!("{model}").contains("lambda = 1.5"));
+    assert!(format!("{model}").contains("mu = 1.5"));
+    assert!(format!("{model}").contains("JC69"));
 
     let model = PIPModel::<JC69>::new(&[], &[2.0, 1.0]);
-    assert!(format!("{}", model).contains("PIP"));
-    assert!(format!("{}", model).contains("lambda = 2.0"));
-    assert!(format!("{}", model).contains("mu = 1.0"));
-    assert!(format!("{}", model).contains("JC69"));
+    assert!(format!("{model}").contains("PIP"));
+    assert!(format!("{model}").contains("lambda = 2.0"));
+    assert!(format!("{model}").contains("mu = 1.0"));
+    assert!(format!("{model}").contains("JC69"));
 
     let model = PIPModel::<K80>::new(&[], &[2.0, 5.0, 1.3]);
-    assert!(format!("{}", model).contains("PIP"));
-    assert!(format!("{}", model).contains("lambda = 2.0"));
-    assert!(format!("{}", model).contains("mu = 5.0"));
-    assert!(format!("{}", model).contains("K80"));
-    assert!(format!("{}", model).contains("kappa = 1.3"));
+    assert!(format!("{model}").contains("PIP"));
+    assert!(format!("{model}").contains("lambda = 2.0"));
+    assert!(format!("{model}").contains("mu = 5.0"));
+    assert!(format!("{model}").contains("K80"));
+    assert!(format!("{model}").contains("kappa = 1.3"));
 
     let model = PIPModel::<HKY>::new(&[], &[2.0, 5.0, 2.5]);
-    assert!(format!("{}", model).contains("PIP"));
-    assert!(format!("{}", model).contains("lambda = 2.0"));
-    assert!(format!("{}", model).contains("mu = 5.0"));
-    assert!(format!("{}", model).contains("HKY"));
-    assert!(format!("{}", model).contains("kappa = 2.5"));
+    assert!(format!("{model}").contains("PIP"));
+    assert!(format!("{model}").contains("lambda = 2.0"));
+    assert!(format!("{model}").contains("mu = 5.0"));
+    assert!(format!("{model}").contains("HKY"));
+    assert!(format!("{model}").contains("kappa = 2.5"));
 
     let model = PIPModel::<TN93>::new(&[], &[2.5, 0.3, 0.1]);
-    assert!(format!("{}", model).contains("PIP"));
-    assert!(format!("{}", model).contains("lambda = 2.5"));
-    assert!(format!("{}", model).contains("mu = 0.3"));
-    assert!(format!("{}", model).contains("TN93"));
-    assert!(format!("{}", model).contains("0.1"));
-    assert!(format!("{}", model).contains("1.0"));
+    assert!(format!("{model}").contains("PIP"));
+    assert!(format!("{model}").contains("lambda = 2.5"));
+    assert!(format!("{model}").contains("mu = 0.3"));
+    assert!(format!("{model}").contains("TN93"));
+    assert!(format!("{model}").contains("0.1"));
+    assert!(format!("{model}").contains("1.0"));
 
     let model = PIPModel::<GTR>::new(&[], &[1.4, 1.7]);
-    assert!(format!("{}", model).contains("GTR"));
+    assert!(format!("{model}").contains("GTR"));
 
     let model = PIPModel::<WAG>::new(&[], &[2.0, 1.0]);
-    assert!(format!("{}", model).contains("PIP"));
-    assert!(format!("{}", model).contains("WAG"));
+    assert!(format!("{model}").contains("PIP"));
+    assert!(format!("{model}").contains("WAG"));
 
     let model = PIPModel::<HIVB>::new(&[], &[2.0, 1.0]);
-    assert!(format!("{}", model).contains("PIP"));
-    assert!(format!("{}", model).contains("HIVB"));
+    assert!(format!("{model}").contains("PIP"));
+    assert!(format!("{model}").contains("HIVB"));
 
     let model = PIPModel::<BLOSUM>::new(&[], &[2.0, 1.0]);
-    assert!(format!("{}", model).contains("PIP"));
-    assert!(format!("{}", model).contains("BLOSUM"));
+    assert!(format!("{model}").contains("PIP"));
+    assert!(format!("{model}").contains("BLOSUM"));
 }
 
 #[test]
@@ -801,7 +801,7 @@ fn protein_avg_rate() {
 fn logl_not_inf_for_empty_col() {
     let tree = tree!("((A0:1.0, B1:1.0) I5:1.0,(C2:1.0,(D3:1.0, E4:1.0) I6:1.0) I7:1.0) I8:1.0;");
     let msa = Alignment::from_aligned(
-        Sequences::new(read_sequences(&PathBuf::from("./data/sequences_empty_col.fasta")).unwrap()),
+        Sequences::new(read_sequences("./data/sequences_empty_col.fasta").unwrap()),
         &tree,
     )
     .unwrap();

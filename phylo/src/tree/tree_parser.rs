@@ -28,7 +28,7 @@ impl fmt::Display for ParsingError {
 }
 
 pub fn from_newick(newick: &str) -> Result<Vec<Tree>> {
-    info!("Parsing newick trees.");
+    info!("Parsing newick trees");
     let mut trees = Vec::new();
     let newick_tree_res = NewickParser::parse(Rule::newick, newick);
     if newick_tree_res.is_err() {
@@ -56,7 +56,7 @@ pub fn from_newick(newick: &str) -> Result<Vec<Tree>> {
         }
         _ => unimplemented!(),
     }
-    info!("Finished parsing newick trees successfully.");
+    info!("Finished parsing newick trees successfully");
     Ok(trees)
 }
 
@@ -108,7 +108,7 @@ impl Tree {
         &mut self,
         tree_rule: Pair<Rule>,
     ) -> stdResult<(), Box<PestError<Rule>>> {
-        warn!("Found unrooted tree, will root at the trifurcation.");
+        warn!("Found unrooted tree, will root at the trifurcation");
         let mut node_idx = 0;
         let mut parent_stack = Vec::<usize>::new();
         let mut children: Vec<NodeIdx> = Vec::new();

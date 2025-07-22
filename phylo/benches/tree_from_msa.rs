@@ -36,7 +36,7 @@ fn run_optimisation(
     let mut iterations = 0;
     while final_cost - prev_cost > epsilon && iterations < max_iterations {
         iterations += 1;
-        info!("Iteration: {}", iterations);
+        info!("Iteration: {iterations}");
 
         prev_cost = final_cost;
         let model_optimiser = ModelOptimiser::new(cost, freq_opt);

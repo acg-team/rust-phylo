@@ -699,7 +699,7 @@ fn test_from_newick_to_newick() {
     let newick1 = "(((A:1.5,B:2.3)E:5.1,(C:3.9,D:4.8)F:6.2)G:7.3);";
     let newick2 = "((A:1,(B:1,C:1)E:2)F:1);";
 
-    let trees = from_newick(format!("{}\n{}\n{}", newick0, newick1, newick2).as_str()).unwrap();
+    let trees = from_newick(format!("{newick0}\n{newick1}\n{newick2}").as_str()).unwrap();
     assert_eq!(trees[0].to_newick(), newick0);
     assert_eq!(trees[1].to_newick(), newick1);
     assert_eq!(trees[2].to_newick(), newick2);
@@ -995,11 +995,11 @@ fn rf_distance_to_itself() {
 #[test]
 fn rf_distance_against_raxml() {
     let folder = Path::new("./data/phyml_protein_example");
-    let tree_orig = &read_newick_from_file(&folder.join("example_tree.newick")).unwrap()[0];
-    let tree_phyml = &read_newick_from_file(&folder.join("phyml_nogap.newick")).unwrap()[0];
+    let tree_orig = &read_newick_from_file(folder.join("example_tree.newick")).unwrap()[0];
+    let tree_phyml = &read_newick_from_file(folder.join("phyml_nogap.newick")).unwrap()[0];
 
-    let tree = &read_newick_from_file(&folder.join("test_tree_1.newick")).unwrap()[0];
-    let tree_from_nj = &read_newick_from_file(&folder.join("test_tree_2.newick")).unwrap()[0];
+    let tree = &read_newick_from_file(folder.join("test_tree_1.newick")).unwrap()[0];
+    let tree_from_nj = &read_newick_from_file(folder.join("test_tree_2.newick")).unwrap()[0];
     assert_eq!(tree_orig.robinson_foulds(tree_phyml), 4);
     assert_eq!(tree_orig.robinson_foulds(tree), 4);
     assert_eq!(tree_orig.robinson_foulds(tree_from_nj), 4);

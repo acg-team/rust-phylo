@@ -67,7 +67,7 @@ impl SprOptimiser {
             .copied()
             .collect_vec();
 
-        info!("Node {:?}: trying to regraft", prune_location);
+        info!("Node {prune_location:?}: trying to regraft");
         let best_regraft =
             calc_best_regraft_cost(base_cost, *prune_location, regraft_locations, cost)?;
         Ok(Some(best_regraft))
@@ -205,7 +205,7 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost<TM> + Clone + Display, TM: Tree
             new_tree.set_blen(&regraft, blen_opt.value);
         }
     }
-    debug!("    Regraft to {:?} w best cost {}.", regraft, move_cost);
+    debug!("    Regraft to {regraft:?} w best cost {move_cost}");
     Ok(MoveCostInfo::new(move_cost, new_tree, vec![regraft]))
 }
 

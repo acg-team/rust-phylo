@@ -61,15 +61,46 @@ impl<C: TreeSearchCost<TM> + Clone + Display + Send, TM: TreeMover> TopologyOpti
         }
     }
 
+    /// Runs the topology optimisation algorithm on the given cost function.
+    /// The algorithm will iterate until the predicate is satisfied.
+    /// The cost function will be updated in place.
+    ///
+    /// # Panics
+    /// Panics if the tree has less than 4 nodes, as SPRs are not applicable to trees with less than 4 nodes.
+    ///
+    /// # Returns
+    /// A `PhyloOptimisationResult` containing the initial cost, final cost, number of iterations, and the final cost function.
+    /// The final cost function will contain the optimised tree.
+    ///
+    /// # Example
+    /// ```rust
+    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// use phylo::likelihood::TreeSearchCost;
+    /// use phylo::optimisers::TopologyOptimiser;
+    /// use phylo::phylo_info::PhyloInfoBuilder;
+    /// use phylo::substitution_models::{SubstModel, SubstitutionCostBuilder, K80};
+    ///
+    /// let info = PhyloInfoBuilder::new("./examples/data/K80.fasta").build()?;
+    /// let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
+    /// let c = SubstitutionCostBuilder::new(k80, info).build()?;
+    /// let unopt_cost = c.cost();
+    /// let optimiser = TopologyOptimiser::new(c);
+    /// let result = optimiser.run()?;
+    /// assert_eq!(unopt_cost, result.initial_cost);
+    /// assert!(result.final_cost > result.initial_cost);
+    /// assert!(result.iterations <= 100);
+    /// assert_eq!(result.cost.tree().len(), 9); // The initial tree has 9 nodes, 5 leaves and 4 internal nodes.
+    /// # Ok(()) }
+    /// ```
     pub fn run(mut self) -> Result<PhyloOptimisationResult<C, TM>> {
         debug_assert!(self.c.tree().len() > 3);
 
-        info!("Optimising tree topology with SPRs.");
+        info!("Optimising tree topology with SPRs");
         let init_cost = self.c.cost();
         let init_tree = self.c.tree();
 
-        info!("Initial cost: {}.", init_cost);
-        debug!("Initial tree: \n{}", init_tree);
+        info!("Initial cost: {init_cost}");
+        debug!("Initial tree: \n{init_tree}");
         let mut curr_cost = init_cost;
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
@@ -95,7 +126,7 @@ impl<C: TreeSearchCost<TM> + Clone + Display + Send, TM: TreeMover> TopologyOpti
         // This means that curr_cost is always higher than or equal to prev_cost.
         while self.predicate.test(iterations, curr_cost - prev_cost) {
             iterations += 1;
-            info!("Iteration: {}, current cost: {}.", iterations, curr_cost);
+            info!("Iteration: {iterations}, current cost: {curr_cost}");
             prev_cost = curr_cost;
 
             #[cfg(not(feature = "deterministic"))]
@@ -119,11 +150,8 @@ impl<C: TreeSearchCost<TM> + Clone + Display + Send, TM: TreeMover> TopologyOpti
         }
 
         debug_assert_eq!(curr_cost, self.c.cost());
-        info!("Done optimising tree topology.");
-        info!(
-            "Final cost: {}, achieved in {} iteration(s).",
-            curr_cost, iterations
-        );
+        info!("Done optimising tree topology");
+        info!("Final cost: {curr_cost}, achieved in {iterations} iteration(s)");
         Ok(PhyloOptimisationResult {
             phantom: PhantomData,
             initial_cost: init_cost,
@@ -182,10 +210,10 @@ pub mod spr {
                 dirty_nodes.push(*move_location);
                 if best_cost > base_cost {
                     cost_fn.update_tree(best_tree, &dirty_nodes);
-                    info!("    Moved tree, new cost {}.", best_cost);
+                    info!("    Moved tree, new cost {}", best_cost);
                     Ok(best_cost)
                 } else {
-                    info!("    No improvement, best cost {}.", best_cost);
+                    info!("    No improvement, best cost {best_cost}");
                     Ok(base_cost)
                 }
             },

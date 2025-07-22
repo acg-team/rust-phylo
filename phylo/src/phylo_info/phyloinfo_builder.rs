@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::bail;
 use log::{info, warn};
@@ -28,13 +28,12 @@ impl PhyloInfoBuilder {
     ///
     /// # Example
     /// ```
-    /// use std::path::PathBuf;
     /// use phylo::phylo_info::PhyloInfoBuilder;
-    /// let builder = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta"));
+    /// let builder = PhyloInfoBuilder::new("./examples/data/sequences_DNA_small.fasta");
     /// ```
-    pub fn new(sequence_file: PathBuf) -> PhyloInfoBuilder {
+    pub fn new(sequence_file: impl AsRef<Path>) -> PhyloInfoBuilder {
         PhyloInfoBuilder {
-            sequence_file,
+            sequence_file: sequence_file.as_ref().to_path_buf(),
             tree_file: None,
             alignment_builder: None,
             alphabet: None,
@@ -49,39 +48,23 @@ impl PhyloInfoBuilder {
     ///
     /// # Example
     /// ```
-    /// use std::path::PathBuf;
     /// use phylo::phylo_info::PhyloInfoBuilder;
     /// let builder = PhyloInfoBuilder::with_attrs(
-    ///     PathBuf::from("./data/sequences_DNA_small.fasta"),
-    ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"));
+    ///     "./examples/data/sequences_DNA_small.fasta",
+    ///     "./examples/data/tree_diff_branch_lengths_2.newick");
     /// ```
-    pub fn with_attrs(sequence_file: PathBuf, tree_file: PathBuf) -> PhyloInfoBuilder {
+    pub fn with_attrs(
+        sequence_file: impl AsRef<Path>,
+        tree_file: impl AsRef<Path>,
+    ) -> PhyloInfoBuilder {
         PhyloInfoBuilder {
-            sequence_file,
-            tree_file: Some(tree_file),
+            sequence_file: sequence_file.as_ref().to_path_buf(),
+            tree_file: Some(tree_file.as_ref().to_path_buf()),
             alignment_builder: None,
             alphabet: None,
         }
     }
 
-    /// Sets the sequence file path for the PhyloInfoBuilder struct.
-    /// Returns the PhyloInfoBuilder struct with the sequence file path set.
-    ///
-    /// # Arguments
-    /// * `path` - File path to the sequence fasta file.
-    ///
-    /// # Example
-    /// ```
-    /// use std::path::PathBuf;
-    /// use phylo::phylo_info::PhyloInfoBuilder;
-    /// let builder = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta"))
-    ///    .sequence_file(PathBuf::from("./data/sequences_DNA_small.fasta"));
-    /// ```
-    pub fn sequence_file(mut self, path: PathBuf) -> PhyloInfoBuilder {
-        self.sequence_file = path;
-        self
-    }
-
     /// Sets the tree file path for the PhyloInfoBuilder struct.
     /// Returns the PhyloInfoBuilder struct with the tree file path set.
     ///
@@ -90,28 +73,22 @@ impl PhyloInfoBuilder {
     ///
     /// # Example
     /// ```
-    /// use std::path::PathBuf;
     /// use phylo::phylo_info::PhyloInfoBuilder;
-    /// let builder = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta"))
-    ///   .tree_file(Some(PathBuf::from("./data/tree_diff_branch_lengths_2.newick")));
+    /// let builder = PhyloInfoBuilder::new("./examples/data/sequences_DNA_small.fasta")
+    ///   .tree_file(Some("./examples/data/tree_diff_branch_lengths_2.newick"));
     /// ```
-    pub fn tree_file(mut self, path: Option<PathBuf>) -> PhyloInfoBuilder {
-        self.tree_file = path;
+    pub fn tree_file(mut self, path: Option<impl AsRef<Path>>) -> PhyloInfoBuilder {
+        self.tree_file = path.map(|p| p.as_ref().to_path_buf());
         self
     }
 
-    /// Sets the tree file path for the PhyloInfoBuilder struct.
-    /// Returns the PhyloInfoBuilder struct with the tree file path set.
-    ///
-    /// # Arguments
-    /// * `path` - File path to the tree newick file.
+    /// TODO: fix docstring
     ///
     /// # Example
     /// ```
-    /// use std::path::PathBuf;
     /// use phylo::alphabets::protein_alphabet;
     /// use phylo::phylo_info::PhyloInfoBuilder;
-    /// let info = PhyloInfoBuilder::new(PathBuf::from("./data/sequences_DNA_small.fasta")).alphabet(Some(protein_alphabet())).build().unwrap();
+    /// let info = PhyloInfoBuilder::new("./examples/data/sequences_DNA_small.fasta").alphabet(Some(protein_alphabet())).build().unwrap();
     /// assert_eq!(info.msa.alphabet(), &protein_alphabet());
     /// ```
     pub fn alphabet(mut self, alphabet: Option<Alphabet>) -> PhyloInfoBuilder {
@@ -129,11 +106,10 @@ impl PhyloInfoBuilder {
     ///
     /// # Example
     /// ```
-    /// use std::path::PathBuf;
     /// use phylo::phylo_info::PhyloInfoBuilder;
     /// let info = PhyloInfoBuilder::with_attrs(
-    ///     PathBuf::from("./data/sequences_DNA_small.fasta"),
-    ///     PathBuf::from("./data/tree_diff_branch_lengths_2.newick"))
+    ///     "./examples/data/sequences_DNA_small.fasta",
+    ///     "./examples/data/tree_diff_branch_lengths_2.newick")
     ///     .build()
     ///     .unwrap();
     /// assert_eq!(info.msa.len(), 8);
@@ -170,10 +146,10 @@ impl PhyloInfoBuilder {
         };
 
         let msa = if sequences.aligned {
-            info!("Sequences are aligned.");
+            info!("Sequences are aligned");
             Alignment::from_aligned(sequences, &tree)?
         } else {
-            info!("Sequences are not aligned, aligning.");
+            info!("Sequences are not aligned, aligning");
             self.alignment_builder
                 .unwrap_or(Box::new(ParsimonyAligner::default()))
                 .align(&sequences, &tree)?
@@ -182,8 +158,8 @@ impl PhyloInfoBuilder {
         Ok(PhyloInfo { tree, msa })
     }
 
-    fn read_tree(&self, sequences: &Sequences, tree_file: &PathBuf) -> Result<Tree> {
-        info!("Reading trees from file {}", tree_file.display());
+    fn read_tree(&self, sequences: &Sequences, tree_file: impl AsRef<Path>) -> Result<Tree> {
+        info!("Reading trees from file {}", tree_file.as_ref().display());
         let mut trees = io::read_newick_from_file(tree_file)?;
         info!("{} tree(s) read successfully", trees.len());
         self.check_tree_number(&trees)?;
@@ -197,25 +173,19 @@ impl PhyloInfoBuilder {
         let tip_ids: HashSet<String> = HashSet::from_iter(tree.leaf_ids());
         let sequence_ids: HashSet<String> =
             HashSet::from_iter(sequences.iter().map(|rec| rec.id().to_string()));
-        info!("Checking that tree tip and sequence IDs match.");
+        info!("Checking that tree tip and sequence IDs match");
         let mut missing_tips = sequence_ids.difference(&tip_ids).collect::<Vec<_>>();
         if !missing_tips.is_empty() {
             missing_tips.sort();
             bail!(DataError {
-                message: format!(
-                    "Mismatched IDs found, missing tree tip IDs: {:?}",
-                    missing_tips
-                )
+                message: format!("Mismatched IDs found, missing tree tip IDs: {missing_tips:?}")
             });
         }
         let mut missing_seqs = tip_ids.difference(&sequence_ids).collect::<Vec<_>>();
         if !missing_seqs.is_empty() {
             missing_seqs.sort();
             bail!(DataError {
-                message: format!(
-                    "Mismatched IDs found, missing sequence IDs: {:?}",
-                    missing_seqs
-                )
+                message: format!("Mismatched IDs found, missing sequence IDs: {missing_seqs:?}")
             });
         }
         Ok(())
@@ -226,11 +196,11 @@ impl PhyloInfoBuilder {
     fn check_tree_number(&self, trees: &[Tree]) -> Result<()> {
         if trees.is_empty() {
             bail!(DataError {
-                message: String::from("No trees in the tree file, aborting.")
+                message: String::from("No trees in the tree file, aborting")
             });
         }
         if trees.len() > 1 {
-            warn!("More than one tree in the tree file, only the first tree will be processed.");
+            warn!("More than one tree in the tree file, only the first tree will be processed");
         }
         Ok(())
     }
@@ -239,26 +209,23 @@ impl PhyloInfoBuilder {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 pub mod private_tests {
-    use std::path::PathBuf;
+    use std::path::Path;
 
     use super::PhyloInfoBuilder as PIB;
 
     #[test]
     fn builder_setters() {
-        let fasta1 = PathBuf::from("./data/sequences_DNA_small.fasta");
-        let fasta2 = PathBuf::from("./data/sequences_DNA1.fasta");
-        let newick = PathBuf::from("./data/tree_diff_branch_lengths_2.newick");
+        let fasta_path = "./examples/data/sequences_DNA_small.fasta";
+        let newick_path = "./examples/data/tree_diff_branch_lengths_2.newick";
 
-        let builder = PIB::new(fasta1.clone());
-        assert_eq!(builder.sequence_file, fasta1);
-        let builder = builder.sequence_file(fasta2.clone());
-        assert_ne!(builder.sequence_file, fasta1);
-        assert_eq!(builder.sequence_file, fasta2);
-
+        let builder = PIB::new(fasta_path);
+        assert_eq!(builder.sequence_file, Path::new(fasta_path));
         assert_eq!(builder.tree_file, None);
-        let builder = builder.tree_file(Some(newick.clone()));
-        assert_eq!(builder.tree_file, Some(newick));
-        let builder = builder.tree_file(None);
+        let builder = builder.tree_file(Some(newick_path));
+        builder.tree_file.as_ref().expect("Tree file should be set");
+
+        assert_eq!(builder.tree_file.as_ref().unwrap(), Path::new(newick_path));
+        let builder = builder.tree_file(None::<&str>);
         assert_eq!(builder.tree_file, None);
     }
 }

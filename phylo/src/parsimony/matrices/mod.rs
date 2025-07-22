@@ -56,29 +56,29 @@ pub(crate) struct ParsimonyAlignmentMatrices<'a> {
 
 impl fmt::Display for ParsimonyAlignmentMatrices<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "S.M").unwrap();
+        writeln!(f, "S.M")?;
         for row in &self.score.m {
-            writeln!(f, "{:?}", row).unwrap();
+            writeln!(f, "{row:?}")?;
         }
-        writeln!(f, "S.X").unwrap();
+        writeln!(f, "S.X")?;
         for row in &self.score.x {
-            writeln!(f, "{:?}", row).unwrap();
+            writeln!(f, "{row:?}")?;
         }
-        writeln!(f, "S.Y").unwrap();
+        writeln!(f, "S.Y")?;
         for row in &self.score.y {
-            writeln!(f, "{:?}", row).unwrap();
+            writeln!(f, "{row:?}")?;
         }
-        writeln!(f, "T.M").unwrap();
+        writeln!(f, "T.M")?;
         for row in &self.trace.m {
-            writeln!(f, "{:?}", row).unwrap();
+            writeln!(f, "{row:?}")?;
         }
-        writeln!(f, "T.X").unwrap();
+        writeln!(f, "T.X")?;
         for row in &self.trace.x {
-            writeln!(f, "{:?}", row).unwrap();
+            writeln!(f, "{row:?}")?;
         }
-        writeln!(f, "T.Y").unwrap();
+        writeln!(f, "T.Y")?;
         for row in &self.trace.y {
-            writeln!(f, "{:?}", row).unwrap();
+            writeln!(f, "{row:?}")?;
         }
         Ok(())
     }
