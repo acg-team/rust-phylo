@@ -6,7 +6,7 @@ use crate::alignment::{Alignment, Sequences};
 use crate::evolutionary_models::FrequencyOptimisation::Empirical;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{
-    BranchOptimiser, ModelOptimiser, PhyloOptimisationResult, TopologyOptimiser,
+    BranchOptimiser, ModelOptimiser, PhyloOptimisationResult, SprOptimiser, TopologyOptimiser,
 };
 use crate::parsimony::scoring::ModelScoringBuilder;
 use crate::parsimony::{BasicParsimonyCost, DolloParsimonyCost};
@@ -28,7 +28,7 @@ macro_rules! define_optimise_trees {
                 seq_file: &std::path::Path,
                 _: &std::path::Path,
                 model: $model<Q>,
-            ) -> PhyloOptimisationResult<$cost<Q>> {
+            ) -> PhyloOptimisationResult<$cost<Q, SprOptimiser>, SprOptimiser> {
                 let start_info = PIB::new(seq_file).build().unwrap();
                 let cost = $builder::new(model, start_info).build().unwrap();
                 TopologyOptimiser::new(cost).run().unwrap()
@@ -267,9 +267,13 @@ fn pip_vs_subst_dna_tree() {
         .build()
         .unwrap();
     let k80 = SubstModel::<K80>::new(&[], &[4.0]);
-    let k80_res = TopologyOptimiser::new(SCB::new(k80.clone(), info.clone()).build().unwrap())
-        .run()
-        .unwrap();
+    let k80_res = TopologyOptimiser::new(
+        SCB::new(k80.clone(), info.clone())
+            .build_with_nni()
+            .unwrap(),
+    )
+    .run()
+    .unwrap();
 
     let pip = PIPModel::<K80>::new(&[], &[0.5, 0.4, 4.0]);
     let pip_res = TopologyOptimiser::new(PIPCB::new(pip.clone(), info).build().unwrap())
