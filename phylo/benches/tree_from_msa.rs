@@ -3,7 +3,6 @@ use std::result::Result::Ok;
 use std::time::Duration;
 
 use anyhow::Result;
-
 use criterion::{criterion_group, criterion_main, Criterion};
 use log::info;
 
@@ -13,6 +12,7 @@ use phylo::optimisers::{ModelOptimiser, TopologyOptimiser};
 use phylo::pip_model::PIPCost;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 use phylo::tree::Tree;
+
 mod helpers;
 use helpers::{
     black_box_raw_pip_cost_with_config, PIPConfig, SequencePaths, AA_EASY_12X73, AA_EASY_6X97,

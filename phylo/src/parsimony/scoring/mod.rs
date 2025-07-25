@@ -3,12 +3,12 @@ use std::ops::Mul;
 
 use dyn_clone::DynClone;
 
+use crate::alphabets::ParsimonySet;
+
 pub mod model_scoring;
 pub use model_scoring::*;
 pub mod simple_scoring;
 pub use simple_scoring::*;
-
-use crate::alphabets::ParsimonySet;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GapCost {

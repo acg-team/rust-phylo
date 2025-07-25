@@ -1,9 +1,5 @@
 use crate::alignment::Sequences;
-
-use crate::parsimony::{
-    GapCost, ParsimonyAligner, ParsimonySite, SimpleScoring,
-    SiteFlag::{GapExt, GapOpen, NoGap},
-};
+use crate::parsimony::{GapCost, ParsimonyAligner, ParsimonySite, SimpleScoring, SiteFlag::*};
 use crate::{record_wo_desc as rec, site, test_align as align, tree};
 
 #[test]

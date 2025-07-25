@@ -7,10 +7,8 @@ use log::{debug, info, warn};
 
 use crate::evolutionary_models::FrequencyOptimisation;
 use crate::likelihood::ModelSearchCost;
-use crate::optimisers::ModelOptimisationResult;
+use crate::optimisers::{ModelOptimisationResult, SingleValOptResult};
 use crate::Result;
-
-use super::SingleValOptResult;
 
 pub struct ModelOptimiser<C: ModelSearchCost + Display> {
     pub(crate) epsilon: f64,

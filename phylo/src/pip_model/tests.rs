@@ -13,7 +13,6 @@ use crate::pip_model::{PIPCostBuilder as PIPB, PIPModel, PIPModelInfo};
 use crate::substitution_models::{
     dna_models::*, protein_models::*, FreqVector, QMatrix, QMatrixMaker, SubstMatrix, SubstModel,
 };
-
 use crate::{frequencies, record_wo_desc as record, tree};
 
 const UNNORMALIZED_PIP_HKY_Q: [f64; 25] = [

@@ -1,5 +1,5 @@
-use std::ops::{BitAnd, BitOr, Sub};
-use std::{fmt::Display, ops::Deref};
+use std::fmt::Display;
+use std::ops::{BitAnd, BitOr, Deref, Sub};
 
 use hashbrown::{hash_set::IntoIter, HashSet};
 use itertools::join;

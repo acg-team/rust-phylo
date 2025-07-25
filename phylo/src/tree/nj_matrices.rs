@@ -1,6 +1,8 @@
-use crate::tree::NodeIdx::{self, Internal as Int};
-use nalgebra::{max, min, DMatrix};
 use std::fmt::{Display, Formatter, Result};
+
+use nalgebra::{max, min, DMatrix};
+
+use crate::tree::NodeIdx::{self, Internal as Int};
 
 pub(super) type Mat = DMatrix<f64>;
 

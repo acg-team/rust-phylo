@@ -1,9 +1,7 @@
 use std::fmt::Display;
 
-use crate::{
-    alphabets::ParsimonySet,
-    parsimony::{GapCost, ParsimonyScoring},
-};
+use crate::alphabets::ParsimonySet;
+use crate::parsimony::{GapCost, ParsimonyScoring};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SimpleScoring {

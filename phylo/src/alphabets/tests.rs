@@ -1,10 +1,10 @@
+use bio::io::fasta::Record;
 use rstest::*;
 
-use bio::io::fasta::Record;
-
-use crate::alphabets::{dna_alphabet, protein_alphabet, ParsimonySet};
-
-use super::{AMB_AMINOACIDS, AMB_NUCLEOTIDES, AMINOACIDS, NUCLEOTIDES};
+use crate::alphabets::{
+    dna_alphabet, protein_alphabet, ParsimonySet, AMB_AMINOACIDS, AMB_NUCLEOTIDES, AMINOACIDS,
+    NUCLEOTIDES,
+};
 
 #[test]
 fn parsimony_set_iters() {

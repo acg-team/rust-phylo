@@ -3,7 +3,7 @@ use std::{fmt, iter::zip};
 use crate::alignment::{Mapping, PairwiseAlignment};
 use crate::alphabets::ParsimonySet;
 use crate::parsimony::{
-    Direction::{self, GapInX, GapInY, Matc},
+    Direction::{self, *},
     ParsimonyScoring, ParsimonySite,
     SiteFlag::{self, *},
 };
