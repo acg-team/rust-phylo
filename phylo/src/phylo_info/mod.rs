@@ -42,14 +42,15 @@ impl PhyloInfo {
     /// use phylo::frequencies;
     /// use phylo::phylo_info::PhyloInfoBuilder;
     /// use phylo::substitution_models::FreqVector;
+    /// # fn main() -> std::result::Result<(), anyhow::Error> {
     /// let info = PhyloInfoBuilder::with_attrs(
     ///     "./examples/data/sequences_DNA1.fasta",
     ///     "./examples/data/tree_diff_branch_lengths_2.newick")
-    /// .build()
-    /// .unwrap();
+    /// .build()?;
     /// let freqs = info.freqs();
     /// assert_eq!(freqs, frequencies!(&[1.25, 2.25, 4.25, 1.25]).scale(1.0 / 9.0));
     /// assert_eq!(freqs.sum(), 1.0);
+    /// # Ok(()) }
     /// ```
     pub fn freqs(&self) -> FreqVector {
         let alphabet = self.msa.alphabet();

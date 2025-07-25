@@ -36,12 +36,14 @@ impl Error for DataError {}
 /// # Example
 /// ```
 /// use phylo::io::read_sequences;
-/// let records = read_sequences("./examples/data/sequences_DNA_small.fasta").unwrap();
-/// # assert_eq!(records.len(), 4);
-/// # for rec in records {
-/// #    assert_eq!(rec.seq().len(), 8);
-/// #    assert_eq!(rec.seq(), rec.seq().to_ascii_uppercase());
-/// # }
+/// # fn main() -> std::result::Result<(), anyhow::Error> {
+/// let records = read_sequences("./examples/data/sequences_DNA_small.fasta")?;
+/// assert_eq!(records.len(), 4);
+/// for rec in records {
+///    assert_eq!(rec.seq().len(), 8);
+///    assert_eq!(rec.seq(), rec.seq().to_ascii_uppercase());
+/// }
+/// # Ok(()) }
 /// ```
 pub fn read_sequences(path: impl AsRef<Path> + Debug) -> Result<Vec<Record>> {
     info!("Reading sequences from file {}", path.as_ref().display());
@@ -100,20 +102,20 @@ pub fn read_sequences(path: impl AsRef<Path> + Debug) -> Result<Vec<Record>> {
 ///
 /// use bio::io::fasta::Record;
 /// use phylo::io::write_sequences_to_file;
+/// # fn main() -> std::result::Result<(), anyhow::Error> {
 /// let sequences = vec![
 ///    Record::with_attrs("seq1", None, b"ATGC"),
 ///    Record::with_attrs("seq2", None, b"CGTA"),
 /// ];
 /// let output_path = "./examples/data/doctest_tmp_output.fasta";
-/// write_sequences_to_file(&sequences, output_path).unwrap();
+/// write_sequences_to_file(&sequences, output_path)?;
 /// # let mut file_content = String::new();
-/// # File::open(output_path)
-/// #   .unwrap()
-/// #   .read_to_string(&mut file_content)
-/// #   .unwrap();
+/// # File::open(output_path)?
+/// #   .read_to_string(&mut file_content)?;
 /// # let expected_output = ">seq1\nATGC\n>seq2\nCGTA\n";
 /// # assert_eq!(file_content, expected_output);
 /// # assert!(remove_file(output_path).is_ok());
+/// # Ok(()) }
 /// ```
 pub fn write_sequences_to_file(sequences: &[Record], path: impl AsRef<Path>) -> Result<()> {
     info!("Writing sequences/MSA to file {}", path.as_ref().display());
@@ -143,9 +145,11 @@ pub fn write_sequences_to_file(sequences: &[Record], path: impl AsRef<Path>) -> 
 /// # Example
 /// ```
 /// use phylo::io::read_newick_from_file;
-/// let trees = read_newick_from_file("./examples/data/tree.newick").unwrap();
-/// # assert_eq!(trees.len(), 1);
-/// # assert_eq!(trees[0].leaves().len(), 4);
+/// # fn main() -> std::result::Result<(), anyhow::Error> {
+/// let trees = read_newick_from_file("./examples/data/tree.newick")?;
+/// assert_eq!(trees.len(), 1);
+/// assert_eq!(trees[0].leaves().len(), 4);
+/// # Ok(()) }
 /// ```
 pub fn read_newick_from_file(path: impl AsRef<Path>) -> Result<Vec<Tree>> {
     info!("Reading newick trees from file {}", path.as_ref().display());
@@ -169,13 +173,15 @@ pub fn read_newick_from_file(path: impl AsRef<Path>) -> Result<Vec<Tree>> {
 /// use phylo::tree::Tree;
 /// use phylo::io::write_newick_to_file;
 ///
+/// # fn main() -> std::result::Result<(), anyhow::Error> {
 /// let output_path = "./examples/data/doctest_tmp_output.newick";
-/// let trees = from_newick("((A:1.0,B:2.0):1,(D:1.0,E:2.0):1):0.0;").unwrap();
-/// write_newick_to_file(&trees, output_path).unwrap();
+/// let trees = from_newick("((A:1.0,B:2.0):1,(D:1.0,E:2.0):1):0.0;")?;
+/// write_newick_to_file(&trees, output_path)?;
 /// # let mut file_content = String::new();
-/// # File::open(output_path).unwrap().read_to_string(&mut file_content).unwrap();
+/// # File::open(output_path)?.read_to_string(&mut file_content)?;
 /// # assert_eq!(file_content.trim(), "(((A:1,B:2):1,(D:1,E:2):1):0);");
 /// # assert!(remove_file(output_path).is_ok());
+/// # Ok(()) }
 /// ```
 pub fn write_newick_to_file(trees: &[Tree], path: impl AsRef<Path>) -> Result<()> {
     info!("Writing newick trees to file {}", path.as_ref().display());
