@@ -3,6 +3,7 @@ use std::fmt::Display;
 use anyhow::bail;
 use bio::io::fasta::Record;
 use bitvec::vec::BitVec;
+use hashbrown::HashSet;
 
 use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet, GAP};
 use crate::Result;
@@ -73,6 +74,7 @@ impl Sequences {
         self.s.iter()
     }
 
+    /// Returns the number of sequences
     pub fn len(&self) -> usize {
         self.s.len()
     }
@@ -83,10 +85,6 @@ impl Sequences {
 
     pub fn record(&self, idx: usize) -> &Record {
         &self.s[idx]
-    }
-
-    pub fn record_mut(&mut self, idx: usize) -> &mut Record {
-        &mut self.s[idx]
     }
 
     pub fn record_by_id(&self, id: &str) -> &Record {
@@ -155,13 +153,24 @@ impl Sequences {
         });
         self.s = new_seqs.collect();
     }
+
+    pub(crate) fn ids_are_unique(&self) -> Result<()> {
+        let mut seen = HashSet::new();
+        for record in self.iter() {
+            let id = record.id();
+            if !seen.insert(id) {
+                bail!("Duplicate record id ({}) found in the sequences.", id);
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod private_tests {
     use rstest::rstest;
 
-    use crate::io::read_sequences;
+    use crate::{io::read_sequences, record_wo_desc as record};
 
     use super::*;
 
@@ -184,5 +193,42 @@ mod private_tests {
         let alphabet = Sequences::detect_alphabet(&seqs);
         assert_eq!(alphabet, protein_alphabet());
         assert!(format!("{alphabet}").contains("protein"));
+    }
+
+    #[test]
+    fn test_seq_ids_are_uniq() {
+        // arrange
+        let seqs = Sequences::new(vec![
+            record!("on", b"X"),
+            record!("tw", b"X"),
+            record!("th", b"N"),
+            record!("fo", b"N"),
+        ]);
+
+        // act
+        let result = seqs.ids_are_unique();
+
+        // assert
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_seq_ids_are_not_uniq() {
+        // arrange
+        let seqs = Sequences::new(vec![
+            record!("on", b"X"),
+            record!("tw", b"X"),
+            record!("on", b"N"),
+            record!("fo", b"N"),
+        ]);
+
+        // act
+        let result = seqs.ids_are_unique();
+
+        // assert
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Duplicate record id (on) found in the sequences."));
     }
 }

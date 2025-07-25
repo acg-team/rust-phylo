@@ -1,5 +1,4 @@
-use crate::alignment::Sequences;
-
+use crate::alignment::{Alignment, Sequences, MSA};
 use crate::parsimony::{
     GapCost, ParsimonyAligner, ParsimonySite, SimpleScoring,
     SiteFlag::{GapExt, GapOpen, NoGap},
@@ -65,10 +64,10 @@ fn align_two_on_tree() {
     let scoring = SimpleScoring::new(mismatch, gap);
 
     let aligner = ParsimonyAligner::new(scoring);
-    let (alignment, score) = aligner.align_with_scores(&seqs, &tree).unwrap();
+    let (alignment, score): (MSA, _) = aligner.align_with_scores(&seqs, &tree);
 
     assert_eq!(score[Into::<usize>::into(tree.root)], 3.5);
-    let alignment = &alignment.node_map[&tree.root];
+    let alignment = &alignment.internal_alignments()[&tree.root];
     assert_eq!(alignment.map_x.len(), 4);
     assert_eq!(alignment.map_y.len(), 4);
 }
@@ -158,25 +157,26 @@ fn align_four_on_tree() {
     let scoring = SimpleScoring::new(mismatch, gap);
 
     let aligner = ParsimonyAligner::new(scoring);
-    let (alignment, score) = aligner.align_with_scores(&seqs, &tree).unwrap();
+    let (alignment, score): (MSA, _) = aligner.align_with_scores(&seqs, &tree);
     // first cherry
     let idx = &tree.by_id("A").parent.unwrap();
     assert_eq!(score[usize::from(idx)], 3.5);
-    assert_eq!(alignment.node_map[idx].map_x.len(), 4);
+    assert_eq!(alignment.internal_alignments()[idx].map_x.len(), 4);
 
     // second cherry
     let idx = &tree.by_id("C").parent.unwrap();
     assert_eq!(score[usize::from(idx)], 2.0);
-    assert_eq!(alignment.node_map[idx].map_x.len(), 2);
+    assert_eq!(alignment.internal_alignments()[idx].map_x.len(), 2);
 
     // root, three possible alignments
     let idx = &tree.root;
     assert!(score[usize::from(idx)] == 1.0 || score[usize::from(idx)] == 2.0);
     if score[2] == 1.0 {
-        assert_eq!(alignment.node_map[idx].map_x.len(), 4);
+        assert_eq!(alignment.internal_alignments()[idx].map_x.len(), 4);
     } else {
         assert!(
-            alignment.node_map[idx].map_x.len() == 4 || alignment.node_map[idx].map_x.len() == 5
+            alignment.internal_alignments()[idx].map_x.len() == 4
+                || alignment.internal_alignments()[idx].map_x.len() == 5
         );
     }
 }

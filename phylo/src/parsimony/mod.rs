@@ -1,15 +1,16 @@
 use std::default;
 use std::fmt::{Debug, Display};
 
-use hashbrown::HashMap;
+use bio::io::fasta::Record;
 use log::info;
 use nalgebra::DMatrix;
 
-use crate::alignment::{Aligner, Alignment, InternalMapping, PairwiseAlignment, Sequences};
+use crate::aligned_seq;
+use crate::alignment::{Aligner, Alignment, InternalAlignments, PairwiseAlignment, Sequences};
 use crate::alphabets::ParsimonySet;
 use crate::evolutionary_models::EvoModel;
+use crate::phylo_info::PhyloInfo;
 use crate::tree::{NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
-use crate::Result;
 
 pub mod cost;
 pub use cost::*;
@@ -30,9 +31,9 @@ pub struct ParsimonyAligner<PS: ParsimonyScoring> {
     pub scoring: PS,
 }
 
-impl<PS: ParsimonyScoring + Clone> Aligner for ParsimonyAligner<PS> {
-    fn align(&self, seqs: &Sequences, tree: &Tree) -> Result<Alignment> {
-        self.align_with_scores(seqs, tree).map(|(a, _)| a)
+impl<PS: ParsimonyScoring + Clone, A: Alignment> Aligner<A> for ParsimonyAligner<PS> {
+    fn align_unchecked(&self, seqs: &Sequences, tree: &Tree) -> A {
+        self.align_with_scores(seqs, tree).0
     }
 }
 
@@ -49,17 +50,17 @@ impl<'a, PS: ParsimonyScoring + Clone> ParsimonyAligner<PS> {
         ParsimonyAligner { scoring }
     }
 
-    pub fn align_with_scores(
+    pub fn align_with_scores<A: Alignment>(
         &self,
         seqs: &'a Sequences,
         tree: &'a Tree,
-    ) -> Result<(Alignment, Vec<f64>)> {
+    ) -> (A, Vec<f64>) {
         info!("Starting the IndelMAP alignment");
 
         let order = tree.postorder();
 
         let mut node_info = vec![Vec::<ParsimonySite>::new(); tree.len()];
-        let mut alignments = InternalMapping::with_capacity(tree.internals().len());
+        let mut alignments = InternalAlignments::with_capacity(tree.internals().len());
         let mut scores = vec![0.0; tree.len()];
 
         for &node_idx in order {
@@ -101,14 +102,24 @@ impl<'a, PS: ParsimonyScoring + Clone> ParsimonyAligner<PS> {
         }
         info!("Finished IndelMAP alignment");
 
-        let mut alignment = Alignment {
-            seqs: seqs.into_gapless(),
-            leaf_map: HashMap::new(),
-            node_map: alignments,
-        };
-        let leaf_map = alignment.compile_leaf_map(&tree.root, tree).unwrap();
-        alignment.leaf_map = leaf_map;
-        Ok((alignment, scores))
+        // TODO: to avoid having a fn new(tree, seqs, internal_alignments, leaf_maps) for the Alignment trait,
+        // we instead get the aligned Sequences and then create the alignment from it. This discards the internal
+        // alignments and rebuilds them when calling `from_aligned`, which might not be ideal.
+        let leaf_maps = PhyloInfo::<A>::compile_leaf_map(&tree.root, &alignments, seqs, tree);
+        let aligned_seqs = Sequences::with_alphabet(
+            leaf_maps
+                .iter()
+                .map(|(idx, map)| {
+                    let rec = seqs.record_by_id(tree.node_id(idx));
+                    let aligned_seq = aligned_seq!(map, rec.seq());
+                    Record::with_attrs(rec.id(), rec.desc(), &aligned_seq)
+                })
+                .collect(),
+            *seqs.alphabet(),
+        );
+        let alignment = A::from_aligned_unchecked(aligned_seqs, tree);
+
+        (alignment, scores)
     }
 
     fn pairwise_align(

@@ -3,6 +3,7 @@ use std::fmt::Display;
 
 use anyhow::Ok;
 
+use crate::alignment::Alignment;
 use crate::alphabets::ParsimonySet;
 use crate::likelihood::TreeSearchCost;
 use crate::phylo_info::PhyloInfo;
@@ -13,19 +14,19 @@ use crate::tree::{
 use crate::Result;
 
 #[derive(Debug, Clone)]
-pub struct BasicParsimonyCost {
-    info: PhyloInfo,
+pub struct BasicParsimonyCost<A: Alignment> {
+    info: PhyloInfo<A>,
     tmp: RefCell<BasicParsimonyInfo>,
 }
 
-impl Display for BasicParsimonyCost {
+impl<A: Alignment> Display for BasicParsimonyCost<A> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Basic parsimony cost, match = 0.0, mismatch = 1.0.")
     }
 }
 
-impl BasicParsimonyCost {
-    pub fn new(info: PhyloInfo) -> Result<Self> {
+impl<A: Alignment> BasicParsimonyCost<A> {
+    pub fn new(info: PhyloInfo<A>) -> Result<Self> {
         let tmp = RefCell::new(BasicParsimonyInfo::new(&info));
         Ok(BasicParsimonyCost { info, tmp })
     }
@@ -91,7 +92,7 @@ impl BasicParsimonyCost {
     }
 }
 
-impl TreeSearchCost for BasicParsimonyCost {
+impl<A: Alignment> TreeSearchCost for BasicParsimonyCost<A> {
     fn cost(&self) -> f64 {
         -self.score()
     }
@@ -120,13 +121,13 @@ pub struct BasicParsimonyInfo {
 }
 
 impl BasicParsimonyInfo {
-    pub fn new(info: &PhyloInfo) -> Self {
+    pub fn new<A: Alignment>(info: &PhyloInfo<A>) -> Self {
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
 
         let mut node_info = vec![Vec::<ParsimonySet>::new(); node_count];
         for node in info.tree.leaves() {
-            let seq = info.msa.seqs.record_by_id(&node.id).seq().to_vec();
+            let seq = info.msa.seqs().record_by_id(&node.id).seq().to_vec();
             let leaf_map = info.msa.leaf_map(&node.idx);
 
             let mut leaf_seq_w_gaps: Vec<ParsimonySet> = Vec::with_capacity(msa_length);
@@ -154,7 +155,7 @@ impl BasicParsimonyInfo {
 mod private_tests {
     use super::*;
 
-    use crate::alignment::{Alignment, Sequences};
+    use crate::alignment::{Alignment, Sequences, MSA};
     use crate::phylo_info::PhyloInfo;
     use crate::{record_wo_desc as record, tree};
 
@@ -169,7 +170,7 @@ mod private_tests {
         let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
         let info = PhyloInfo {
-            msa: Alignment::from_aligned(seqs, &tree).unwrap(),
+            msa: MSA::from_aligned(seqs, &tree).unwrap(),
             tree,
         };
         let cost = BasicParsimonyCost::new(info).unwrap();

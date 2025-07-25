@@ -7,6 +7,7 @@ use anyhow::Result;
 use criterion::{criterion_group, criterion_main, Criterion};
 use log::info;
 
+use phylo::alignment::MSA;
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::{ModelSearchCost, TreeSearchCost};
 use phylo::optimisers::{ModelOptimiser, TopologyOptimiser};
@@ -55,7 +56,7 @@ fn run_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
     criterion: &mut Criterion,
 ) {
     let mut bench_group = criterion.benchmark_group(group_name);
-    let mut bench = |id: &str, data: (PIPConfig, PIPCost<Q>)| {
+    let mut bench = |id: &str, data: (PIPConfig, PIPCost<Q, MSA>)| {
         bench_group.bench_function(id, |bench| {
             bench.iter_batched(
                 // clone because of interior mutability in PIPCost

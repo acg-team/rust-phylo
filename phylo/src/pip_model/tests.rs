@@ -3,7 +3,7 @@ use std::path::Path;
 use approx::assert_relative_eq;
 use nalgebra::{DMatrix, DVector};
 
-use crate::alignment::{Alignment, Sequences};
+use crate::alignment::{Alignment, Sequences, MSA};
 use crate::alphabets::{protein_alphabet, AMINOACIDS as aas, GAP, NUCLEOTIDES as nucls};
 use crate::evolutionary_models::EvoModel;
 use crate::io::read_sequences;
@@ -274,9 +274,9 @@ fn pip_p_example_matrix() {
 }
 
 #[cfg(test)]
-fn setup_example_phylo_info() -> PhyloInfo {
+fn setup_example_phylo_info() -> PhyloInfo<MSA> {
     let tree = tree!("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"-A--"),
             record!("B", b"CA--"),
@@ -512,9 +512,9 @@ fn pip_hky_likelihood_example_final() {
 }
 
 #[cfg(test)]
-fn setup_example_phylo_info_2() -> PhyloInfo {
+fn setup_example_phylo_info_2() -> PhyloInfo<MSA> {
     let tree = tree!("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"--A--"),
             record!("B", b"-CA--"),
@@ -728,12 +728,12 @@ fn pip_logl_correct_w_diff_info() {
     ]);
 
     let info1 = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree1).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree1).unwrap(),
         tree: tree1,
     };
 
     let info2 = PhyloInfo {
-        msa: Alignment::from_aligned(seqs, &tree2).unwrap(),
+        msa: MSA::from_aligned(seqs, &tree2).unwrap(),
         tree: tree2,
     };
 
@@ -800,7 +800,7 @@ fn protein_avg_rate() {
 #[test]
 fn logl_not_inf_for_empty_col() {
     let tree = tree!("((A0:1.0, B1:1.0) I5:1.0,(C2:1.0,(D3:1.0, E4:1.0) I6:1.0) I7:1.0) I8:1.0;");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(read_sequences("./data/sequences_empty_col.fasta").unwrap()),
         &tree,
     )
@@ -831,7 +831,7 @@ fn blen_leading_to_small_probs() {
 #[test]
 fn blen_leading_to_minusinf() {
     let tree = tree!("((284811:0.0000000000000002,(284593:0.1,(237561:0.3,(284812:0.3,(284813:400.9,284591:0.2):40000000000000.2):0.05):0.1):0.04):0);");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::with_alphabet(
             vec![
                 record!("284813", b"-"),

@@ -4,7 +4,7 @@ use std::path::Path;
 use approx::assert_relative_eq;
 use assert_matches::assert_matches;
 
-use crate::alignment::{Alignment, Sequences};
+use crate::alignment::{Alignment, AncestralAlignment, Sequences, MSA};
 use crate::alphabets::{dna_alphabet, protein_alphabet};
 use crate::io::{read_sequences, DataError};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
@@ -14,7 +14,7 @@ use crate::{frequencies, record_wo_desc as record, tree};
 
 #[cfg(test)]
 fn downcast_error<T: Display + Debug + Send + Sync + 'static>(
-    result: &Result<PhyloInfo, anyhow::Error>,
+    result: &Result<PhyloInfo<impl Alignment>, anyhow::Error>,
 ) -> &T {
     (result.as_ref().unwrap_err()).downcast_ref::<T>().unwrap()
 }
@@ -22,7 +22,7 @@ fn downcast_error<T: Display + Debug + Send + Sync + 'static>(
 #[test]
 fn empirical_frequencies_easy() {
     let tree = tree!("(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"AAAAA"),
             record!("B", b"CCCCC"),
@@ -41,7 +41,7 @@ fn empirical_frequencies_easy() {
 #[test]
 fn empirical_frequencies() {
     let tree = tree!("(((A:2.0,B:2.0):0.3,C:2.0):0.4,D:2.0);");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"TT"),
             record!("B", b"CA"),
@@ -185,7 +185,7 @@ fn setup_aligned_msa() {
     .build()
     .unwrap();
     assert_eq!(info.msa.len(), 5);
-    info.msa.seqs.iter().for_each(|rec| {
+    info.msa.seqs().iter().for_each(|rec| {
         assert!(!rec.seq().is_empty());
         assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
     });
@@ -204,7 +204,7 @@ fn correct_setup_when_sequences_empty() {
     .build()
     .unwrap();
     assert_eq!(info.msa.len(), 1);
-    info.msa.seqs.iter().for_each(|rec| {
+    info.msa.seqs().iter().for_each(|rec| {
         assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
     });
     let sequences =
@@ -236,7 +236,7 @@ fn check_phyloinfo_creation_newick_mismatch_ids() {
 #[test]
 fn check_empirical_frequencies() {
     let tree = tree!("((((A:2,B:2):1,C:2):1,D:2):0);");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"AAAAC"),
             record!("B", b"TTTCC"),
@@ -255,7 +255,7 @@ fn check_empirical_frequencies() {
 #[test]
 fn empirical_frequencies_no_ambigs() {
     let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("one", b"CCCCCCCC"),
             record!("two", b"AAAAAAAA"),
@@ -272,7 +272,7 @@ fn empirical_frequencies_no_ambigs() {
 #[test]
 fn empirical_frequencies_ambig_x() {
     let tree = tree!("((on:2,tw:2):1,(th:1,fo:1):2);");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("on", b"XXXXXXXX"),
             record!("tw", b"XXXXXXXX"),
@@ -289,7 +289,7 @@ fn empirical_frequencies_ambig_x() {
 #[test]
 fn empirical_frequencies_ambig_n() {
     let tree = tree!("(((on:2,tw:2):1,th:1):4,fo:1);");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("on", b"AAAAAAAAAA"),
             record!("tw", b"XXXXXXXXXX"),
@@ -310,7 +310,7 @@ fn empirical_frequencies_ambig_n() {
 #[test]
 fn empirical_frequencies_ambig_other() {
     let tree = tree!("(A:2,B:2):1.0;");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"VVVVVVVVVV"),
             record!("B", b"TTTTVVVTVV"),
@@ -325,7 +325,7 @@ fn empirical_frequencies_ambig_other() {
     };
     assert_relative_eq!(info.freqs(), frequencies!(&[0.25; 4]), epsilon = 1e-6);
 
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"SSSSSSSSSSSSSSSSSSSS"),
             record!("B", b"WWWWWWWWWWWWWWWWWWWW"),
@@ -340,8 +340,7 @@ fn empirical_frequencies_ambig_other() {
 #[test]
 fn empirical_frequencies_no_aas() {
     let tree = tree!("A:1.0;");
-    let msa =
-        Alignment::from_aligned(Sequences::new(vec![record!("A", b"BBBBBBBBB")]), &tree).unwrap();
+    let msa = MSA::from_aligned(Sequences::new(vec![record!("A", b"BBBBBBBBB")]), &tree).unwrap();
 
     let info = PhyloInfo { tree, msa };
     assert_relative_eq!(
@@ -364,4 +363,151 @@ fn force_protein_alphabet() {
         .build()
         .unwrap();
     assert_eq!(info.msa.alphabet(), &protein_alphabet());
+}
+
+#[test]
+fn build_ancestral_alignment_from_aligned_leaf_seqs_missing_record() {
+    // arrange
+    let fldr = Path::new("./data");
+    let builder = PIB::with_attrs(
+        fldr.join("sequences_DNA1_missing_record.fasta"),
+        fldr.join("tree_diff_branch_lengths_2.newick"),
+    );
+
+    // act
+    let res_info = builder.build_with_ancestors();
+
+    // assert
+    let error_msg = res_info.unwrap_err().to_string();
+    assert!(
+        error_msg.contains("The number of sequences does not match the number of leaves nor the number of nodes in the tree")
+    );
+}
+
+#[test]
+fn build_ancestral_alignment_from_aligned_leaf_seqs() {
+    // arrange
+    let fldr = Path::new("./data");
+    let builder = PIB::with_attrs(
+        fldr.join("sequences_DNA1.fasta"),
+        fldr.join("tree_diff_branch_lengths_2.newick"),
+    );
+
+    // act
+    let res_info = builder.build_with_ancestors();
+
+    // assert
+    assert!(res_info.is_ok());
+    let info = res_info.unwrap();
+    assert_eq!(info.msa.seq_count(), 4);
+    assert_eq!(info.msa.ancestral_seqs().s.len(), 3);
+    assert_eq!(info.tree.len(), 7);
+}
+
+#[test]
+fn build_ancestral_alignment_from_aligned_leaf_seqs_mismatched_ids() {
+    // arrange
+    let fldr = Path::new("./data");
+    let builder = PIB::with_attrs(
+        fldr.join("sequences_DNA1_missmatched_id.fasta"),
+        fldr.join("tree_diff_branch_lengths_2.newick"),
+    );
+
+    // act
+    let res_info = builder.build_with_ancestors();
+
+    // assert
+    let error_msg = res_info.unwrap_err().to_string();
+    assert!(error_msg.contains("missing tree tip IDs: [\"Z\"]"));
+}
+
+#[test]
+fn build_ancestral_alignment_from_unaligned_leaf_seqs() {
+    // arrange
+    let fldr = Path::new("./data");
+    let builder = PIB::with_attrs(
+        fldr.join("sequences_DNA2_unaligned.fasta"),
+        fldr.join("tree_diff_branch_lengths_2.newick"),
+    );
+
+    // act
+    let res_info = builder.build_with_ancestors();
+
+    // assert
+    assert!(res_info.is_ok());
+    let info = res_info.unwrap();
+    assert_eq!(info.msa.seq_count(), 4);
+    assert_eq!(info.msa.ancestral_seqs().s.len(), 3);
+    assert_eq!(info.tree.len(), 7);
+}
+
+#[test]
+fn build_ancestral_alignment_from_unaligned_leaf_seqs_mismatched_ids() {
+    // arrange
+    let fldr = Path::new("./data");
+    let builder = PIB::with_attrs(
+        fldr.join("sequences_DNA2_unaligned_missmatched_id.fasta"),
+        fldr.join("tree_diff_branch_lengths_2.newick"),
+    );
+
+    // act
+    let res_info = builder.build_with_ancestors();
+
+    // assert
+    let error_msg = res_info.unwrap_err().to_string();
+    assert!(error_msg.contains("missing tree tip IDs: [\"Z\"]"));
+}
+
+#[test]
+fn build_ancestral_alignment_from_aligned_seqs() {
+    // arrange
+    let fldr = Path::new("./data");
+    let builder = PIB::with_attrs(
+        fldr.join("sequences_DNA1_with_ancestors.fasta"),
+        fldr.join("tree_diff_branch_lengths_2_with_ancestral_ids.newick"),
+    );
+
+    // act
+    let res_info = builder.build_with_ancestors();
+
+    // assert
+    assert!(res_info.is_ok());
+    let info = res_info.unwrap();
+    assert_eq!(info.msa.seq_count(), 4);
+    assert_eq!(info.msa.ancestral_seqs().s.len(), 3);
+    assert_eq!(info.tree.len(), 7);
+}
+
+#[test]
+fn build_ancestral_alignment_from_aligned_seqs_mismatched_ids() {
+    // arrange
+    let fldr = Path::new("./data");
+    let builder = PIB::with_attrs(
+        fldr.join("sequences_DNA1_with_ancestors_missmatched_id.fasta"),
+        fldr.join("tree_diff_branch_lengths_2_with_ancestral_ids.newick"),
+    );
+
+    // act
+    let res_info = builder.build_with_ancestors();
+
+    // assert
+    let error_msg = res_info.unwrap_err().to_string();
+    assert!(error_msg.contains("missing tree IDs: [\"Z\"]"));
+}
+
+#[test]
+fn build_ancestral_alignment_from_unaligned_seqs() {
+    // arrange
+    let fldr = Path::new("./data");
+    let builder = PIB::with_attrs(
+        fldr.join("sequences_DNA2_unaligned_with_ancestors.fasta"),
+        fldr.join("tree_diff_branch_lengths_2_with_ancestral_ids.newick"),
+    );
+
+    // act
+    let res_info = builder.build_with_ancestors();
+
+    // assert
+    let error_msg = res_info.unwrap_err().to_string();
+    assert!(error_msg.contains("Building an ancestral alignment from unaligned sequences (including ancestral_sequencess) is not support"));
 }

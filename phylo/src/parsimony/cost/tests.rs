@@ -1,4 +1,4 @@
-use crate::alignment::{Alignment, Sequences};
+use crate::alignment::{Alignment, Sequences, MSA};
 use crate::likelihood::TreeSearchCost;
 use crate::parsimony::scoring::{GapCost, ModelScoringBuilder, SimpleScoring};
 use crate::parsimony::{BasicParsimonyCost, DolloParsimonyCost};
@@ -17,7 +17,7 @@ fn basic_parsimony_cost() {
     let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
         tree,
     };
     let cost = BasicParsimonyCost::new(info).unwrap();
@@ -25,7 +25,7 @@ fn basic_parsimony_cost() {
 
     let tree2 = tree!("((A:1.0,C:1.0):1.0,(B:1.0,D:1.0):1.0):0.0;");
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree2).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree2).unwrap(),
         tree: tree2,
     };
     let cost = BasicParsimonyCost::new(info).unwrap();
@@ -33,7 +33,7 @@ fn basic_parsimony_cost() {
 
     let tree3 = tree!("((A:1.0,D:1.0):1.0,(C:1.0,B:1.0):1.0):0.0;");
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree3).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree3).unwrap(),
         tree: tree3,
     };
     let cost = BasicParsimonyCost::new(info).unwrap();
@@ -51,7 +51,7 @@ fn basic_parsimony_cost_tree_update() {
     let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
         tree: tree.clone(),
     };
     let mut cost = BasicParsimonyCost::new(info).unwrap();
@@ -71,7 +71,7 @@ fn basic_parsimony_reroot() {
     let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
         tree,
     };
     let cost = BasicParsimonyCost::new(info).unwrap();
@@ -80,7 +80,7 @@ fn basic_parsimony_reroot() {
     let tree_reroot = tree!("(((D:1,(B:1,A:0.5):0.5):1,C:2):0);");
 
     let info_reroot = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree_reroot).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree_reroot).unwrap(),
         tree: tree_reroot,
     };
     let cost_reroot = BasicParsimonyCost::new(info_reroot).unwrap();
@@ -99,7 +99,7 @@ fn basic_parsimony_cost_gaps() {
     let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
         tree,
     };
     let cost = BasicParsimonyCost::new(info).unwrap();
@@ -118,7 +118,7 @@ fn dollo_parsimony_cost_nogaps() {
     let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
         tree,
     };
     let scoring = SimpleScoring::new(1.0, GapCost::new(1.0, 1.0));
@@ -127,7 +127,7 @@ fn dollo_parsimony_cost_nogaps() {
 
     let tree2 = tree!("((A:1.0,C:1.0):1.0,(B:1.0,D:1.0):1.0):0.0;");
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree2).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree2).unwrap(),
         tree: tree2,
     };
     let cost = DolloParsimonyCost::with_scoring(info, scoring.clone());
@@ -135,7 +135,7 @@ fn dollo_parsimony_cost_nogaps() {
 
     let tree3 = tree!("((A:1.0,D:1.0):1.0,(C:1.0,B:1.0):1.0):0.0;");
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree3).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree3).unwrap(),
         tree: tree3,
     };
     let cost = DolloParsimonyCost::with_scoring(info, scoring);
@@ -153,7 +153,7 @@ fn dollo_parsimony_reroot_simple() {
     let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
         tree,
     };
     let scoring = SimpleScoring::new(1.0, GapCost::new(1.0, 1.0));
@@ -163,7 +163,7 @@ fn dollo_parsimony_reroot_simple() {
     let tree_reroot = tree!("(((D:1,(B:1,A:0.5):0.5):1,C:2):0);");
 
     let info_reroot = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree_reroot).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree_reroot).unwrap(),
         tree: tree_reroot,
     };
     let cost_reroot = DolloParsimonyCost::with_scoring(info_reroot, scoring);
@@ -182,7 +182,7 @@ fn dollo_parsimony_cost_gaps() {
     ]);
     let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
         tree,
     };
     let scoring = SimpleScoring::new(1.0, GapCost::new(1.0, 1.0));
@@ -201,7 +201,7 @@ fn dollo_parsimony_cost_tree_update() {
     ]);
     let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
         tree: tree.clone(),
     };
     let scoring = SimpleScoring::new(1.0, GapCost::new(2.0, 1.0));
@@ -222,7 +222,7 @@ fn dollo_parsimony_cost_deletions() {
     let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
 
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
         tree,
     };
     let scoring = SimpleScoring::new(1.0, GapCost::new(2.0, 1.0));
@@ -243,7 +243,7 @@ fn dollo_parsimony_cost_low_insertion() {
     let tree = tree!("(((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):1.0,(E:1.0,F:1.0):1.0):0.0;");
 
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
         tree,
     };
     let scoring = SimpleScoring::new(1.0, GapCost::new(1.0, 1.0));
@@ -261,7 +261,7 @@ fn dollo_parsimony_display() {
     ]);
     let tree = tree!("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0):0.0;");
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
         tree,
     };
     let scoring = SimpleScoring::new(1.0, GapCost::new(2.4, 2.4));

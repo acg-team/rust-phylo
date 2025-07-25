@@ -41,6 +41,19 @@ macro_rules! align {
 }
 
 #[macro_export]
+macro_rules! aligned_seq {
+    ($vec:expr, $seq:expr) => {{
+        use $crate::alphabets::GAP;
+        $vec.iter()
+            .map(|&opt| match opt {
+                Some(i) => $seq[i],
+                None => GAP,
+            })
+            .collect::<Vec<u8>>()
+    }};
+}
+
+#[macro_export]
 macro_rules! test_align {
     (@collect -) => { None };
     (@collect $l:tt) => { Some($l) };
