@@ -1,4 +1,3 @@
-use core::panic;
 use std::default;
 
 use crate::tree::{
@@ -10,6 +9,7 @@ use crate::alignment::Sequences;
 use crate::tree::tree_builder::TreeBuilder;
 use crate::Result;
 use bio::alignment::distance::levenshtein;
+use log::debug;
 use nalgebra::{max, DMatrix};
 
 // Made this into a type so that it can be changed easily if TextSlice changes, might be a better solution out there
@@ -39,28 +39,80 @@ impl default::Default for NJBuilder {
 
 impl NJBuilder {
     // With the way we are using Option makes sense to use Into to allow for passing
-    pub(crate) fn new<T, D>(temperature: T, distance_function: D) -> Self
+    pub(crate) fn new<T>(temperature: T, distance_function: Option<DistanceFunction>) -> Self
     where
         T: Into<Option<f64>>,
-        D: Into<Option<DistanceFunction>>,
     {
         // Add checking of unwrap for default when not None is passed in? Warning to user
         // None temperature should be allowed, or if float, add stochastic
         let temperature = temperature.into();
+        if let Some(t) = temperature {
+            assert!(
+                (0.0..=1.0).contains(&t),
+                "Temperature must be between 0.0 and 1.0 inclusive"
+            );
+        }
         // Default is levenshtein
-        let distance_function = distance_function.into().unwrap_or(levenshtein);
+        let distance_function = distance_function.unwrap_or(levenshtein);
         Self {
-            temperature: temperature,
-            distance_function: distance_function,
+            temperature,
+            distance_function,
         }
     }
 
+    fn softmax_branch(&self, q: Mat) -> (usize, usize) {
+        debug_assert!(!q.is_empty(), "The input matrix must not be empty.");
+        debug_assert!(
+            q.ncols() > 1 && q.nrows() > 1,
+            "The input matrix should have more than 1 element."
+        );
+        debug_assert!(q.ncols() == q.nrows(), "The input matrix should be square.");
+        // Test better outputs of computer_nj_q() as this affects this...
+        // Based on nj_correct test case, negative distances are here. Otherwise, multiplying by negative 1 should correctly make large distances very small, and small distances, still small, or large if negative
+        let mut exp_mat = q.scale(-1.0);
+        // e^i on all elements of matrix
+        exp_mat = exp_mat.lower_triangle().map(|i| i.exp());
+        // With large matrices/numbers there is a slight discrepancy due to floating point numbers, greater than 1
+        let exp_sum = exp_mat.lower_triangle().sum() - exp_mat.diagonal().sum();
+        // This is softmax, on each value e^i/sum(i..n)(e^i)
+        exp_mat = exp_mat.unscale(exp_sum);
+        // This can occasionally be greater than 1 due to handling of large numbers and floating points
+        debug!(
+            "Probability L Triangle Sum: {}",
+            exp_mat.lower_triangle().sum() - exp_mat.diagonal().sum()
+        );
+
+        // Use temperature with uniform value to calculate probability
+        let uniform: f64 = 1.0 / (((q.nrows().pow(2) - q.nrows()) / 2) as f64);
+        // Temperature probabilities, temp=0.0 means uniform, temp=1.0 means softmax of distances
+        exp_mat = exp_mat.lower_triangle().map(|i| {
+            ((1.0 - self.temperature.unwrap()) * uniform) + (self.temperature.unwrap() * i)
+        });
+
+        // This is our criterion for choosing, can use random seed because iteration is deterministic
+        let branch_choice: f64 = rand::random();
+        let mut prob_sum = 0.0;
+        for i in 1..q.nrows() {
+            for j in 0..i {
+                let val = exp_mat[(i, j)];
+                prob_sum += val;
+                if prob_sum > branch_choice {
+                    return (i, j);
+                }
+            }
+        }
+        // Change? default, warning, fallback to argmin, this should never happen based on probability contraints.
+        panic!("No return from softmax branch");
+    }
+
+    // This is the original implementation, to be used with temperature None
     fn argmin_wo_diagonal(q: Mat) -> (usize, usize) {
         debug_assert!(!q.is_empty(), "The input matrix must not be empty.");
         debug_assert!(
             q.ncols() > 1 && q.nrows() > 1,
             "The input matrix should have more than 1 element."
         );
+        debug_assert!(q.ncols() == q.nrows(), "The input matrix should be square.");
         let mut arg_min = vec![];
         let mut val_min = &f64::MAX;
         for i in 0..q.nrows() {
@@ -94,20 +146,20 @@ impl NJBuilder {
         let mut tree = Tree::new(sequences)?;
         let root_idx = usize::from(&tree.root);
         //Wrapped in temperature check for now, can implement stochastic better in future
-        if self.temperature == None {
-            for cur_idx in n..=root_idx {
-                let q = nj_data.compute_nj_q();
-                let (i, j) = NJBuilder::argmin_wo_diagonal(q);
-                let idx_new = cur_idx;
-                let (blen_i, blen_j) = nj_data.branch_lengths(i, j, cur_idx == root_idx);
-                tree.add_parent(idx_new, &nj_data.idx[i], &nj_data.idx[j], blen_i, blen_j);
-                nj_data = nj_data
-                    .add_merge_node(idx_new)
-                    .recompute_new_node_distances(i, j)
-                    .remove_merged_nodes(i, j);
-            }
-        } else {
-            panic!("Temperature not implemented");
+        for cur_idx in n..=root_idx {
+            let q = nj_data.compute_nj_q();
+            // This is where we choose our next branch, if temperature exists softmax, if not argmin, default behavior
+            let (i, j) = match self.temperature {
+                Some(_) => self.softmax_branch(q),
+                _ => NJBuilder::argmin_wo_diagonal(q),
+            };
+            let idx_new = cur_idx;
+            let (blen_i, blen_j) = nj_data.branch_lengths(i, j, cur_idx == root_idx);
+            tree.add_parent(idx_new, &nj_data.idx[i], &nj_data.idx[j], blen_i, blen_j);
+            nj_data = nj_data
+                .add_merge_node(idx_new)
+                .recompute_new_node_distances(i, j)
+                .remove_merged_nodes(i, j);
         }
         tree.n = n;
         tree.complete = true;
@@ -379,4 +431,89 @@ mod private_tests {
         assert_eq!(nj_tree.root, I(6));
         assert_eq!(nj_tree.nodes, nodes);
     }
+
+    #[test]
+    fn nj_builder_correct_creation() {
+        let _nj_builder = NJBuilder::default();
+        let _nj_builder = NJBuilder::new(None, None);
+        // Have to wrap distance function in Some, because otherwise Into has to be implemented for DistanceFunction type
+        let _nj_builder = NJBuilder::new(0.00, Some(levenshtein));
+        let _nj_builder = NJBuilder::new(1.00, None);
+    }
+
+    #[test]
+    #[should_panic]
+    fn nj_builder_panic_creation() {
+        //temperature over 1.0
+        let _nj_builder = NJBuilder::new(2.0, None);
+    }
+
+    // Rethink adding these tests, would need random seed to work
+    // #[test]
+    // fn nj_builder_uniform() {
+    //     // Stolen from nj_correct test
+    //     let nj_distances = NJMat {
+    //         idx: (0..4).map(NodeIdx::Leaf).collect(),
+    //         distances: dmatrix![
+    //                 0.0, 4.0, 5.0, 10.0;
+    //                 4.0, 0.0, 7.0, 12.0;
+    //                 5.0, 7.0, 0.0, 9.0;
+    //                 10.0, 12.0, 9.0, 0.0],
+    //     };
+    //     let sequences = Sequences::new(vec![
+    //         record!("A0", b""),
+    //         record!("B1", b""),
+    //         record!("C2", b""),
+    //         record!("D3", b""),
+    //     ]);
+    //     let nj_builder = NJBuilder::new(0.0, None);
+    //     let nj_tree = nj_builder
+    //         .build_nj_tree_from_matrix(nj_distances, &sequences)
+    //         .unwrap();
+    //     let nodes = vec![
+    //         Node::new_leaf(0, Some(I(4)), 1.0, "A0".to_string()),
+    //         Node::new_leaf(1, Some(I(4)), 3.0, "B1".to_string()),
+    //         Node::new_leaf(2, Some(I(5)), 2.0, "C2".to_string()),
+    //         Node::new_leaf(3, Some(I(5)), 7.0, "D3".to_string()),
+    //         Node::new_internal(4, Some(I(6)), vec![L(0), L(1)], 1.0, "".to_string()),
+    //         Node::new_internal(5, Some(I(6)), vec![L(3), L(2)], 1.0, "".to_string()),
+    //         Node::new_internal(6, None, vec![I(4), I(5)], 0.0, "".to_string()),
+    //     ];
+    //     assert_eq!(nj_tree.root, I(6));
+    //     assert_eq!(nj_tree.nodes, nodes);
+    // }
+
+    // #[test]
+    // fn nj_builder_softmax() {
+    //     // Stolen from nj_correct test
+    //     let nj_distances = NJMat {
+    //         idx: (0..4).map(NodeIdx::Leaf).collect(),
+    //         distances: dmatrix![
+    //                 0.0, 4.0, 5.0, 10.0;
+    //                 4.0, 0.0, 7.0, 12.0;
+    //                 5.0, 7.0, 0.0, 9.0;
+    //                 10.0, 12.0, 9.0, 0.0],
+    //     };
+    //     let sequences = Sequences::new(vec![
+    //         record!("A0", b""),
+    //         record!("B1", b""),
+    //         record!("C2", b""),
+    //         record!("D3", b""),
+    //     ]);
+    //     let nj_builder = NJBuilder::new(1.0, None);
+    //     let nj_tree = nj_builder
+    //         .build_nj_tree_from_matrix(nj_distances, &sequences)
+    //         .unwrap();
+    //     let nodes = vec![
+    //         Node::new_leaf(0, Some(I(4)), 1.0, "A0".to_string()),
+    //         Node::new_leaf(1, Some(I(4)), 3.0, "B1".to_string()),
+    //         Node::new_leaf(2, Some(I(5)), 2.0, "C2".to_string()),
+    //         Node::new_leaf(3, Some(I(5)), 7.0, "D3".to_string()),
+    //         Node::new_internal(4, Some(I(6)), vec![L(0), L(1)], 1.0, "".to_string()),
+    //         Node::new_internal(5, Some(I(6)), vec![L(3), L(2)], 1.0, "".to_string()),
+    //         Node::new_internal(6, None, vec![I(4), I(5)], 0.0, "".to_string()),
+    //     ];
+    //     assert_eq!(nj_tree.root, I(6));
+    //     assert_eq!(nj_tree.nodes, nodes);
+    // }
 }
