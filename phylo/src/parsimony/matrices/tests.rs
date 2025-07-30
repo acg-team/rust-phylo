@@ -1,6 +1,6 @@
 use approx::assert_relative_eq;
 
-use crate::parsimony::matrices::Direction::{GapInX, GapInY, Matc};
+use crate::parsimony::matrices::Direction::*;
 use crate::parsimony::scoring::{GapCost as GC, ModelScoringBuilder as MCB, SimpleScoring};
 use crate::parsimony::{ParsimonyAlignmentMatrices as PAM, SiteFlag::*};
 use crate::substitution_models::{SubstModel, K80};

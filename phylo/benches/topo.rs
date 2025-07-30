@@ -8,6 +8,7 @@ use phylo::likelihood::TreeSearchCost;
 use phylo::optimisers::{TopologyOptimiser, TopologyOptimiserPredicate};
 use phylo::pip_model::PIPCost;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
+
 mod helpers;
 use helpers::{
     black_box_pip_cost, SequencePaths, AA_EASY_12X73, AA_EASY_6X97, DNA_EASY_5X1000,

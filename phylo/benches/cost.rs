@@ -1,10 +1,10 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use phylo::{
-    evolutionary_models::FrequencyOptimisation,
-    likelihood::ModelSearchCost,
-    pip_model::PIPCost,
-    substitution_models::{QMatrix, QMatrixMaker, JC69, WAG},
-};
+
+use phylo::evolutionary_models::FrequencyOptimisation;
+use phylo::likelihood::ModelSearchCost;
+use phylo::pip_model::PIPCost;
+use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
+
 mod helpers;
 use helpers::{
     black_box_pip_cost, SequencePaths, AA_EASY_12X73, AA_EASY_14X165, AA_EASY_27X632,
