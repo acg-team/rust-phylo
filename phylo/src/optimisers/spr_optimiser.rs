@@ -85,7 +85,7 @@ impl SprOptimiser {
 
 cfg_if::cfg_if! {
 if #[cfg(feature="par-regraft")] {
-fn calc_best_regraft_cost<C: TreeSearchCost<MO> + Clone + Display + Send, MO: MoveOptimiser>(
+fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
     base_cost: f64,
     prune_location: NodeIdx,
     regraft_locations: Vec<NodeIdx>,
@@ -103,7 +103,7 @@ fn calc_best_regraft_cost<C: TreeSearchCost<MO> + Clone + Display + Send, MO: Mo
 }
 } else if #[cfg(feature="par-regraft-chunk")] {
 /// NOTE: seems to be faster than full on parallel for few taxa
-fn calc_best_regraft_cost<C: TreeSearchCost<MO> + Clone + Display + Send, MO: MoveOptimiser>(
+fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
     base_cost: f64,
     prune_location: NodeIdx,
     regraft_locations: Vec<NodeIdx>,
@@ -137,7 +137,7 @@ fn calc_best_regraft_cost<C: TreeSearchCost<MO> + Clone + Display + Send, MO: Mo
         .try_reduce_with(|left, right| Ok(if left.cost() > right.cost() {left} else {right})).expect("at least one regraft location")
 }
 } else if #[cfg(feature="par-regraft-manual")] {
-fn calc_best_regraft_cost<C: TreeSearchCost<MO> + Clone + Display + Send, MO: MoveOptimiser>(
+fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
     base_cost: f64,
     prune_location: NodeIdx,
     regraft_locations: Vec<NodeIdx>,
