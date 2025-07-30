@@ -1,11 +1,18 @@
 use std::fmt::Display;
-use std::marker::PhantomData;
 use std::num::NonZeroUsize;
 
+use itertools::Itertools;
 use log::{debug, info};
 
 use crate::likelihood::TreeSearchCost;
-use crate::optimisers::{BranchOptimiser, PhyloOptimisationResult, TreeMover};
+use crate::optimisers::{
+    BranchOptimiser, MoveOptimiser, NniOptimiser, PhyloOptimisationResult, SprOptimiser,
+};
+use crate::parsimony::scoring::ParsimonyScoring;
+use crate::parsimony::{BasicParsimonyCost, DolloParsimonyCost};
+use crate::pip_model::PIPCost;
+use crate::substitution_models::{QMatrix, SubstitutionCost};
+use crate::tree::NodeIdx;
 use crate::Result;
 
 #[derive(Debug, Clone, Copy)]
@@ -38,26 +45,49 @@ impl TopologyOptimiserPredicate {
     }
 }
 
-pub struct TopologyOptimiser<C: TreeSearchCost<TM> + Display + Clone + Send, TM: TreeMover> {
-    phantom: PhantomData<TM>,
+/// The `Compatible` trait is used to ensure that the cost and move optimiser passed to
+/// [`TopologyOptimiser::new`] are compatible.
+pub trait Compatible<MO: MoveOptimiser> {}
+
+// TODO: or to we want to place those in respective files?
+impl<Q: QMatrix> Compatible<SprOptimiser> for PIPCost<Q> {}
+impl<Q: QMatrix> Compatible<NniOptimiser> for PIPCost<Q> {}
+impl<Q: QMatrix> Compatible<SprOptimiser> for SubstitutionCost<Q> {}
+impl<Q: QMatrix> Compatible<NniOptimiser> for SubstitutionCost<Q> {}
+impl<S: ParsimonyScoring> Compatible<SprOptimiser> for DolloParsimonyCost<S> {}
+impl<S: ParsimonyScoring> Compatible<NniOptimiser> for DolloParsimonyCost<S> {}
+impl Compatible<SprOptimiser> for BasicParsimonyCost {}
+impl Compatible<NniOptimiser> for BasicParsimonyCost {}
+
+pub struct TopologyOptimiser<MO, C>
+where
+    MO: MoveOptimiser,
+    C: TreeSearchCost + Display + Clone + Send + Compatible<MO>,
+{
     pub(crate) predicate: TopologyOptimiserPredicate,
+
+    pub(crate) move_opti: MO,
     pub(crate) c: C,
 }
 
-impl<C: TreeSearchCost<TM> + Clone + Display + Send, TM: TreeMover> TopologyOptimiser<C, TM> {
-    pub fn new(cost: C) -> Self {
+impl<MO, C> TopologyOptimiser<MO, C>
+where
+    MO: MoveOptimiser,
+    C: TreeSearchCost + Display + Clone + Send + Compatible<MO>,
+{
+    pub fn new(cost: C, move_opti: MO) -> Self {
         Self {
-            phantom: PhantomData,
             predicate: TopologyOptimiserPredicate::GtEpsilon(1e-3),
+            move_opti,
             c: cost,
         }
     }
 
-    pub fn new_with_pred(cost: C, predicate: TopologyOptimiserPredicate) -> Self {
+    pub fn new_with_pred(cost: C, move_opti: MO, predicate: TopologyOptimiserPredicate) -> Self {
         Self {
-            phantom: PhantomData,
-            predicate,
             c: cost,
+            move_opti,
+            predicate,
         }
     }
 
@@ -92,7 +122,7 @@ impl<C: TreeSearchCost<TM> + Clone + Display + Send, TM: TreeMover> TopologyOpti
     /// assert_eq!(result.cost.tree().len(), 9); // The initial tree has 9 nodes, 5 leaves and 4 internal nodes.
     /// # Ok(()) }
     /// ```
-    pub fn run(mut self) -> Result<PhyloOptimisationResult<C, TM>> {
+    pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
         debug_assert!(self.c.tree().len() > 3);
 
         info!("Optimising tree topology with SPRs");
@@ -105,12 +135,7 @@ impl<C: TreeSearchCost<TM> + Clone + Display + Send, TM: TreeMover> TopologyOpti
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
 
-        let possible_prunes: Vec<_> = self
-            .c
-            .tree_mover()
-            .move_locations(init_tree)
-            .copied()
-            .collect();
+        let possible_prunes: Vec<_> = self.move_opti.move_locations(&self.c).copied().collect();
         let current_prunes: Vec<_> = possible_prunes.iter().collect();
         cfg_if::cfg_if! {
         if #[cfg(not(feature = "deterministic"))] {
@@ -120,7 +145,7 @@ impl<C: TreeSearchCost<TM> + Clone + Display + Send, TM: TreeMover> TopologyOpti
         }
         }
 
-        let tree_mover = self.c.tree_mover().clone();
+        let move_opti = self.move_opti.clone();
         // The best move on this iteration might still be worse than the current tree, in which case
         // the search stops.
         // This means that curr_cost is always higher than or equal to prev_cost.
@@ -136,7 +161,7 @@ impl<C: TreeSearchCost<TM> + Clone + Display + Send, TM: TreeMover> TopologyOpti
             }
 
             curr_cost =
-                spr::fold_improving_moves(&mut self.c, &tree_mover, curr_cost, &current_prunes)?;
+                Self::fold_improving_moves(&mut self.c, &move_opti, curr_cost, &current_prunes)?;
 
             // Optimise branch lengths on current tree to match PhyML
             if self.c.blen_optimisation() {
@@ -153,38 +178,26 @@ impl<C: TreeSearchCost<TM> + Clone + Display + Send, TM: TreeMover> TopologyOpti
         info!("Done optimising tree topology");
         info!("Final cost: {curr_cost}, achieved in {iterations} iteration(s)");
         Ok(PhyloOptimisationResult {
-            phantom: PhantomData,
             initial_cost: init_cost,
             final_cost: curr_cost,
             iterations,
             cost: self.c,
         })
     }
-}
-
-// TODO: why do we have a separate mod here?
-pub mod spr {
-    use std::fmt::Display;
-
-    use itertools::Itertools;
-    use log::info;
-
-    use crate::{likelihood::TreeSearchCost, optimisers::TreeMover, tree::NodeIdx, Result};
 
     /// Iterates over `prune_locations` in order and applies the best (improving)
-    /// SPR move for each pruning location in place
+    /// tree move for each pruning location in place
     /// # Returns:
     /// - the new cost (or `base_cost` if no improvement was found)
-    pub fn fold_improving_moves<C: TreeSearchCost<TM> + Display + Clone + Send, TM: TreeMover>(
+    pub fn fold_improving_moves(
         cost_fn: &mut C,
-        tree_mover: &TM,
+        move_opti: &MO,
         base_cost: f64,
         move_locations: &[&NodeIdx],
     ) -> Result<f64> {
         debug_assert!(
             {
-                let correct_move_locations =
-                    tree_mover.move_locations(cost_fn.tree()).collect_vec();
+                let correct_move_locations = move_opti.move_locations(cost_fn).collect_vec();
                 move_locations
                     .iter()
                     .all(|prune_location| correct_move_locations.contains(prune_location))
@@ -196,7 +209,7 @@ pub mod spr {
             base_cost,
             |base_cost, move_location| -> Result<_> {
                 let Some(move_cost_info) =
-                    tree_mover.tree_move_at_location(base_cost, cost_fn, move_location)?
+                    move_opti.best_move_at_location(base_cost, cost_fn, move_location)?
                 else {
                     return Ok(base_cost);
                 };
@@ -210,7 +223,7 @@ pub mod spr {
                 dirty_nodes.push(*move_location);
                 if best_cost > base_cost {
                     cost_fn.update_tree(best_tree, &dirty_nodes);
-                    info!("    Moved tree, new cost {best_cost}");
+                    info!("    {move_opti} move applied, new cost {best_cost}");
                     Ok(best_cost)
                 } else {
                     info!("    No improvement, best cost {best_cost}");

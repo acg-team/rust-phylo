@@ -5,7 +5,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::TreeSearchCost;
-use phylo::optimisers::{SprOptimiser, TopologyOptimiser, TopologyOptimiserPredicate};
+use phylo::optimisers::{Compatible, SprOptimiser, TopologyOptimiser, TopologyOptimiserPredicate};
 use phylo::pip_model::PIPCost;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 mod helpers;
@@ -14,11 +14,12 @@ use helpers::{
     DNA_EASY_8X1252,
 };
 
-fn run_fixed_iter_topo<C: TreeSearchCost<SprOptimiser> + Clone + Display + Send>(
+fn run_fixed_iter_topo<C: TreeSearchCost + Clone + Display + Send + Compatible<SprOptimiser>>(
     cost: C,
 ) -> anyhow::Result<f64> {
     let topo_opt = TopologyOptimiser::new_with_pred(
         cost,
+        SprOptimiser {},
         TopologyOptimiserPredicate::fixed_iter(NonZero::new(3).unwrap()),
     );
     Ok(topo_opt.run()?.final_cost)
@@ -31,7 +32,7 @@ fn run_simulated_topo_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
 ) {
     let mut bench_group =
         criterion.benchmark_group(format!("SIMULATED-TOPO-OPTIMISER {group_name}"));
-    let mut bench = |id: &str, data: PIPCost<Q, SprOptimiser>| {
+    let mut bench = |id: &str, data: PIPCost<Q>| {
         bench_group.bench_function(id, |bench| {
             bench.iter_batched(
                 // clone because of interior mutability in PIPCost

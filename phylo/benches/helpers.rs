@@ -6,7 +6,7 @@ use std::{collections::HashMap, hint::black_box, path::PathBuf, time::Duration};
 use criterion::Criterion;
 use phylo::{
     evolutionary_models::FrequencyOptimisation,
-    optimisers::{ModelOptimiser, SprOptimiser},
+    optimisers::ModelOptimiser,
     phylo_info::{PhyloInfo, PhyloInfoBuilder},
     pip_model::{PIPCost, PIPCostBuilder, PIPModel},
     substitution_models::{QMatrix, QMatrixMaker},
@@ -51,7 +51,7 @@ pub fn black_box_deterministic_phylo_info(seq_file: impl Into<PathBuf>) -> Phylo
 pub fn black_box_pip_cost<Model: QMatrix + QMatrixMaker>(
     path: impl Into<PathBuf>,
     freq_opt: FrequencyOptimisation,
-) -> PIPCost<Model, SprOptimiser> {
+) -> PIPCost<Model> {
     let info = black_box_deterministic_phylo_info(path);
     let pip_cost = PIPCostBuilder::new(PIPModel::<Model>::new(&[], &[]), info)
         .build()
@@ -77,7 +77,7 @@ pub struct PIPConfig {
 }
 pub fn black_box_raw_pip_cost_with_config<Model: QMatrix + QMatrixMaker>(
     seq_path: impl Into<PathBuf>,
-) -> (PIPConfig, PIPCost<Model, SprOptimiser>) {
+) -> (PIPConfig, PIPCost<Model>) {
     let info = black_box_deterministic_phylo_info(seq_path);
 
     let cfg = black_box(PIPConfig {

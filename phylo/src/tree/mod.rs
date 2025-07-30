@@ -68,9 +68,8 @@ pub struct Tree {
     leaf_ids: Vec<String>,
     pub complete: bool,
     pub n: usize,
-    /// TODO: this is the total sum of blens and not the height of the tree
-    /// so maybe call this magnitude, absolute_value, or total_weight
-    pub height: f64,
+    /// The sum of all branch lengths of the tree.
+    pub magnitude: f64,
     pub(crate) dirty: Vec<bool>,
 }
 
@@ -99,7 +98,7 @@ impl Tree {
                 )],
                 complete: true,
                 n: 1,
-                height: 0.0,
+                magnitude: 0.0,
                 leaf_ids: vec![sequences.record(0).id().to_string()],
                 dirty: vec![false],
             })
@@ -114,7 +113,7 @@ impl Tree {
                     .collect(),
                 complete: false,
                 n,
-                height: 0.0,
+                magnitude: 0.0,
                 leaf_ids: sequences.iter().map(|seq| seq.id().to_string()).collect(),
                 dirty: vec![false; 2 * n - 1],
             })
@@ -344,7 +343,7 @@ impl Tree {
         debug_assert!(blen >= 0.0);
         let idx = usize::from(node_idx);
         let old_blen = self.nodes[idx].blen;
-        self.height += blen - old_blen;
+        self.magnitude += blen - old_blen;
         self.nodes[idx].blen = blen;
         self.dirty[idx] = true;
     }
@@ -442,7 +441,7 @@ fn build_nj_tree_from_matrix(mut nj_data: NJMat, sequences: &Sequences) -> Resul
     tree.complete = true;
     tree.compute_postorder();
     tree.compute_preorder();
-    tree.height = tree.nodes.iter().map(|node| node.blen).sum();
+    tree.magnitude = tree.nodes.iter().map(|node| node.blen).sum();
     Ok(tree)
 }
 

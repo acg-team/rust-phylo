@@ -69,7 +69,7 @@ impl Tree {
             preorder: Vec::new(),
             complete: false,
             n: 0,
-            height: 0.0,
+            magnitude: 0.0,
             leaf_ids: Vec::new(),
             dirty: Vec::new(),
         }
@@ -100,7 +100,7 @@ impl Tree {
         self.complete = true;
         self.compute_postorder();
         self.compute_preorder();
-        self.height = self.nodes.iter().map(|n| n.blen).sum();
+        self.magnitude = self.nodes.iter().map(|n| n.blen).sum();
         self.dirty = vec![false; self.n * 2 - 1];
     }
 

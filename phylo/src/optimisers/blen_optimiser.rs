@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::fmt::Display;
-use std::marker::PhantomData;
 
 use argmin::core::{CostFunction, Executor, IterState, State};
 use argmin::solver::brent::BrentOpt;
@@ -11,25 +10,21 @@ use crate::optimisers::{PhyloOptimisationResult, SingleValOptResult};
 use crate::tree::NodeIdx;
 use crate::{Result, MAX_BLEN};
 
-use super::TreeMover;
-
-pub struct BranchOptimiser<C: TreeSearchCost<TM> + Display + Clone, TM: TreeMover> {
-    phantom: PhantomData<TM>,
+pub struct BranchOptimiser<C: TreeSearchCost + Display + Clone> {
     pub(crate) epsilon: f64,
     // TODO: RefCell probably not needed here
     pub(crate) c: RefCell<C>,
 }
 
-impl<C: TreeSearchCost<TM> + Clone + Display, TM: TreeMover> BranchOptimiser<C, TM> {
+impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
     pub fn new(cost: C) -> Self {
         Self {
-            phantom: PhantomData,
             epsilon: 1e-3,
             c: RefCell::new(cost),
         }
     }
 
-    pub fn run(mut self) -> Result<PhyloOptimisationResult<C, TM>> {
+    pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
         info!("Optimising branch lengths");
         let init_cost = self.c.borrow().cost();
         let mut tree = self.c.borrow().tree().clone();
@@ -69,7 +64,6 @@ impl<C: TreeSearchCost<TM> + Clone + Display, TM: TreeMover> BranchOptimiser<C, 
         info!("Done optimising branch lengths.");
         info!("Final cost: {curr_cost}, achieved in {iterations} iteration(s)");
         Ok(PhyloOptimisationResult {
-            phantom: PhantomData,
             initial_cost: init_cost,
             final_cost: curr_cost,
             iterations,
@@ -78,7 +72,7 @@ impl<C: TreeSearchCost<TM> + Clone + Display, TM: TreeMover> BranchOptimiser<C, 
     }
 }
 
-impl<C: TreeSearchCost<TM> + Clone + Display, TM: TreeMover> BranchOptimiser<C, TM> {
+impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
     pub(crate) fn optimise_branch(&mut self, branch: &NodeIdx) -> Result<SingleValOptResult> {
         let start_blen = self.c.borrow().tree().node(branch).blen;
         let (min, max) = if start_blen == 0.0 {
@@ -87,7 +81,6 @@ impl<C: TreeSearchCost<TM> + Clone + Display, TM: TreeMover> BranchOptimiser<C, 
             (start_blen * 0.1, MAX_BLEN.min(start_blen * 10.0))
         };
         let optimiser = SingleBranchOptimiser {
-            phantom: PhantomData,
             cost: &mut self.c,
             branch: *branch,
         };
@@ -103,13 +96,12 @@ impl<C: TreeSearchCost<TM> + Clone + Display, TM: TreeMover> BranchOptimiser<C, 
     }
 }
 
-pub(crate) struct SingleBranchOptimiser<'a, C: TreeSearchCost<TM>, TM: TreeMover> {
-    phantom: PhantomData<TM>,
+pub(crate) struct SingleBranchOptimiser<'a, C: TreeSearchCost> {
     pub(crate) cost: &'a RefCell<C>,
     pub(crate) branch: NodeIdx,
 }
 
-impl<C: TreeSearchCost<TM>, TM: TreeMover> CostFunction for SingleBranchOptimiser<'_, C, TM> {
+impl<C: TreeSearchCost> CostFunction for SingleBranchOptimiser<'_, C> {
     type Param = f64;
     type Output = f64;
 

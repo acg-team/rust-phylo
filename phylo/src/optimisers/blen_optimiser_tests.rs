@@ -30,9 +30,9 @@ fn branch_opt_likelihood_increase_pip() {
 
     let new_info = o.cost.info.clone();
 
-    assert_ne!(new_info.tree.height, info.tree.height);
+    assert_ne!(new_info.tree.magnitude, info.tree.magnitude);
     assert_relative_eq!(
-        new_info.tree.height,
+        new_info.tree.magnitude,
         new_info.tree.iter().map(|n| n.blen).sum(),
         epsilon = 1e-4
     );
@@ -54,7 +54,7 @@ fn branch_opt_likelihood_increase_gtr() {
         .unwrap();
 
     assert!(o.final_cost > o.initial_cost);
-    assert_ne!(o.cost.tree().height, info.tree.height);
+    assert_ne!(o.cost.tree().magnitude, info.tree.magnitude);
 
     let c = SCB::new(gtr, o.cost.info.clone()).build().unwrap();
     assert_eq!(o.cost.cost(), o.final_cost);
@@ -74,7 +74,7 @@ fn branch_optimiser_against_phyml() {
     assert!(o.final_cost > o.initial_cost);
 
     let result_tree = o.cost.tree();
-    assert_ne!(result_tree.height, info.tree.height);
+    assert_ne!(result_tree.magnitude, info.tree.magnitude);
     assert_relative_eq!(o.final_cost, -4086.56102, epsilon = 1e-4);
     let phyml_tree = tree!("((Gorilla:0.06683711,(Orangutan:0.21859880,Gibbon:0.31145586):0.06570906):0.03853171,Human:0.05356244,Chimpanzee:0.05417982);");
     for node in result_tree.leaves() {
@@ -91,7 +91,7 @@ fn branch_optimiser_against_phyml() {
             epsilon = 1e-4
         );
     }
-    assert_relative_eq!(result_tree.height, phyml_tree.height, epsilon = 1e-4);
+    assert_relative_eq!(result_tree.magnitude, phyml_tree.magnitude, epsilon = 1e-4);
 
     let c = SCB::new(model, o.cost.info.clone()).build().unwrap();
     assert_eq!(o.cost.cost(), o.final_cost);

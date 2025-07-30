@@ -5,7 +5,6 @@ use anyhow::Ok;
 
 use crate::alphabets::ParsimonySet;
 use crate::likelihood::TreeSearchCost;
-use crate::optimisers::{SprOptimiser, TreeMover};
 use crate::phylo_info::PhyloInfo;
 use crate::tree::{
     NodeIdx::{self, Internal, Leaf},
@@ -14,30 +13,25 @@ use crate::tree::{
 use crate::Result;
 
 #[derive(Debug, Clone)]
-pub struct BasicParsimonyCost<TM: TreeMover> {
+pub struct BasicParsimonyCost {
     info: PhyloInfo,
     tmp: RefCell<BasicParsimonyInfo>,
-    tree_mover: TM,
 }
 
-impl<TM: TreeMover> Display for BasicParsimonyCost<TM> {
+impl Display for BasicParsimonyCost {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Basic parsimony cost, match = 0.0, mismatch = 1.0.")
     }
 }
 
-impl BasicParsimonyCost<SprOptimiser> {
+impl BasicParsimonyCost {
     pub fn new(info: PhyloInfo) -> Result<Self> {
         let tmp = RefCell::new(BasicParsimonyInfo::new(&info));
-        Ok(BasicParsimonyCost {
-            info,
-            tmp,
-            tree_mover: SprOptimiser {},
-        })
+        Ok(BasicParsimonyCost { info, tmp })
     }
 }
 
-impl<TM: TreeMover> BasicParsimonyCost<TM> {
+impl BasicParsimonyCost {
     fn score(&self) -> f64 {
         for node_idx in self.info.tree.postorder() {
             match node_idx {
@@ -99,7 +93,7 @@ impl<TM: TreeMover> BasicParsimonyCost<TM> {
     }
 }
 
-impl<TM: TreeMover> TreeSearchCost<TM> for BasicParsimonyCost<TM> {
+impl TreeSearchCost for BasicParsimonyCost {
     fn cost(&self) -> f64 {
         -self.score()
     }
@@ -117,10 +111,6 @@ impl<TM: TreeMover> TreeSearchCost<TM> for BasicParsimonyCost<TM> {
 
     fn tree(&self) -> &Tree {
         &self.info.tree
-    }
-
-    fn tree_mover(&self) -> &TM {
-        &self.tree_mover
     }
 }
 

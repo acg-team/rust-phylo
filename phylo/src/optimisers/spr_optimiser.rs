@@ -1,12 +1,12 @@
-use anyhow::bail;
-use approx::relative_eq;
 use std::fmt::Display;
 
+use anyhow::bail;
+use approx::relative_eq;
 use itertools::Itertools;
 use log::{debug, info};
 
 use crate::likelihood::TreeSearchCost;
-use crate::optimisers::tree_mover::{MoveCostInfo, TreeMover};
+use crate::optimisers::tree_mover::{MoveCostInfo, MoveOptimiser};
 use crate::optimisers::BranchOptimiser;
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
@@ -14,8 +14,18 @@ use crate::Result;
 #[derive(Clone)]
 pub struct SprOptimiser {}
 
-impl TreeMover for SprOptimiser {
-    fn tree_move_at_location<C: TreeSearchCost<Self> + Clone + Display + Send>(
+impl MoveOptimiser for SprOptimiser {
+    fn move_locations<'a, C: TreeSearchCost + Display + Send + Clone + Display>(
+        &self,
+        cost: &'a C,
+    ) -> impl Iterator<Item = &'a NodeIdx> {
+        cost.tree()
+            .preorder()
+            .iter()
+            .filter(|&n| *n != cost.tree().root)
+    }
+
+    fn best_move_at_location<C: TreeSearchCost + Clone + Display + Send>(
         &self,
         base_cost: f64,
         cost: &C,
@@ -23,14 +33,16 @@ impl TreeMover for SprOptimiser {
     ) -> Result<Option<MoveCostInfo>> {
         self.find_max_cost_regraft_for_prune(base_cost, cost, node_idx)
     }
+}
 
-    fn move_locations<'a>(&self, tree: &'a Tree) -> impl Iterator<Item = &'a NodeIdx> {
-        tree.preorder().iter().filter(|&n| *n != tree.root)
+impl Display for SprOptimiser {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SPR")
     }
 }
 
 impl SprOptimiser {
-    pub fn available_regraft_locations<'a>(
+    fn available_regraft_locations<'a>(
         &self,
         tree: &'a Tree,
         prune_location: &NodeIdx,
@@ -47,10 +59,7 @@ impl SprOptimiser {
         })
     }
 
-    pub fn find_max_cost_regraft_for_prune<
-        C: TreeSearchCost<TM> + Clone + Display + Send,
-        TM: TreeMover,
-    >(
+    fn find_max_cost_regraft_for_prune<C: TreeSearchCost + Clone + Display + Send>(
         &self,
         base_cost: f64,
         cost: &C,
@@ -76,7 +85,7 @@ impl SprOptimiser {
 
 cfg_if::cfg_if! {
 if #[cfg(feature="par-regraft")] {
-fn calc_best_regraft_cost<C: TreeSearchCost<TM> + Clone + Display + Send, TM: TreeMover>(
+fn calc_best_regraft_cost<C: TreeSearchCost<MO> + Clone + Display + Send, MO: MoveOptimiser>(
     base_cost: f64,
     prune_location: NodeIdx,
     regraft_locations: Vec<NodeIdx>,
@@ -94,7 +103,7 @@ fn calc_best_regraft_cost<C: TreeSearchCost<TM> + Clone + Display + Send, TM: Tr
 }
 } else if #[cfg(feature="par-regraft-chunk")] {
 /// NOTE: seems to be faster than full on parallel for few taxa
-fn calc_best_regraft_cost<C: TreeSearchCost<TM> + Clone + Display + Send, TM: TreeMover>(
+fn calc_best_regraft_cost<C: TreeSearchCost<MO> + Clone + Display + Send, MO: MoveOptimiser>(
     base_cost: f64,
     prune_location: NodeIdx,
     regraft_locations: Vec<NodeIdx>,
@@ -128,7 +137,7 @@ fn calc_best_regraft_cost<C: TreeSearchCost<TM> + Clone + Display + Send, TM: Tr
         .try_reduce_with(|left, right| Ok(if left.cost() > right.cost() {left} else {right})).expect("at least one regraft location")
 }
 } else if #[cfg(feature="par-regraft-manual")] {
-fn calc_best_regraft_cost<C: TreeSearchCost<TM> + Clone + Display + Send, TM: TreeMover>(
+fn calc_best_regraft_cost<C: TreeSearchCost<MO> + Clone + Display + Send, MO: MoveOptimiser>(
     base_cost: f64,
     prune_location: NodeIdx,
     regraft_locations: Vec<NodeIdx>,
@@ -157,7 +166,7 @@ fn calc_best_regraft_cost<C: TreeSearchCost<TM> + Clone + Display + Send, TM: Tr
     regraft_recursive(RecursiveForkJoinRegrafter { cost_fn: cost.clone(), prune_location, base_cost }, &regraft_locations)
 }
 } else {
-fn calc_best_regraft_cost<C: TreeSearchCost<TM> + Clone + Display + Send, TM: TreeMover>(
+fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
     base_cost: f64,
     prune_location: NodeIdx,
     regraft_locations: Vec<NodeIdx>,
@@ -185,7 +194,7 @@ fn calc_best_regraft_cost<C: TreeSearchCost<TM> + Clone + Display + Send, TM: Tr
 /// if the move doesn't result in improvement over `base_cost`
 /// the blen of the regrafted branch is optimised to check if an
 /// improvement could still be reached
-fn calc_spr_cost_with_blen_opt<C: TreeSearchCost<TM> + Clone + Display, TM: TreeMover>(
+fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
     prune_location: NodeIdx,
     regraft: NodeIdx,
     base_cost: f64,
@@ -209,7 +218,7 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost<TM> + Clone + Display, TM: Tree
     Ok(MoveCostInfo::new(move_cost, new_tree, vec![regraft]))
 }
 
-pub fn rooted_spr(tree: &Tree, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Result<Tree> {
+fn rooted_spr(tree: &Tree, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Result<Tree> {
     // Prune and regraft nodes must be different
     if prune_idx == regraft_idx {
         bail!("Prune and regraft nodes must be different.");
@@ -239,13 +248,7 @@ pub fn rooted_spr(tree: &Tree, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Re
     Ok(rooted_spr_unchecked(tree, prune_idx, regraft_idx))
 }
 
-// TODO: alternatively to making this pub(crate) the tests can be moved to the bottom of this
-// module
-pub(crate) fn rooted_spr_unchecked(
-    tree: &Tree,
-    prune_idx: &NodeIdx,
-    regraft_idx: &NodeIdx,
-) -> Tree {
+fn rooted_spr_unchecked(tree: &Tree, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Tree {
     let prune = tree.node(prune_idx);
     let prune_sib = tree.node(&tree.sibling(&prune.idx).unwrap());
     let prune_par = tree.node(&prune.parent.unwrap());
@@ -299,7 +302,7 @@ pub(crate) fn rooted_spr_unchecked(
 
     // Tree height should not have changed
     debug_assert!(relative_eq!(
-        new_tree.height,
+        new_tree.magnitude,
         new_tree.nodes.iter().map(|node| node.blen).sum(),
         epsilon = 1e-10
     ));
@@ -308,4 +311,122 @@ pub(crate) fn rooted_spr_unchecked(
     new_tree.compute_preorder();
     debug_assert_eq!(new_tree.postorder().len(), tree.postorder().len());
     new_tree
+}
+
+#[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
+pub mod private_spr_tests {
+    use approx::assert_relative_eq;
+
+    use crate::optimisers::spr_optimiser::{rooted_spr, rooted_spr_unchecked};
+    use crate::tree;
+
+    #[test]
+    fn spr_siblings() {
+        let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
+        assert!(rooted_spr(&tree, &tree.idx("A"), &tree.idx("B")).is_err());
+    }
+
+    #[test]
+    fn spr_prune_root_or_children() {
+        let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
+        assert!(rooted_spr(&tree, &tree.idx("G"), &tree.idx("B")).is_err());
+        assert!(rooted_spr(&tree, &tree.idx("E"), &tree.idx("B")).is_err());
+        assert!(rooted_spr(&tree, &tree.idx("F"), &tree.idx("B")).is_err());
+    }
+
+    #[test]
+    #[should_panic]
+    fn spr_prune_root_unchecked() {
+        let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
+        rooted_spr_unchecked(&tree, &tree.idx("G"), &tree.idx("B"));
+    }
+
+    #[test]
+    #[should_panic]
+    fn spr_prune_root_child_unchecked() {
+        let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
+        rooted_spr_unchecked(&tree, &tree.idx("F"), &tree.idx("B"));
+    }
+
+    #[test]
+    fn spr_regraft_root() {
+        let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
+        assert!(rooted_spr(&tree, &tree.idx("A"), &tree.idx("G")).is_err());
+    }
+
+    #[test]
+    #[should_panic]
+    fn spr_regraft_root_unchecked() {
+        let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
+        rooted_spr_unchecked(&tree, &tree.idx("B"), &tree.idx("G"));
+    }
+
+    #[test]
+    fn spr_regraft_subtree() {
+        let tree = tree!("((((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3,H:1.0)K:1.0);");
+        assert!(rooted_spr(&tree, &tree.idx("E"), &tree.idx("B")).is_err());
+    }
+
+    #[test]
+    #[should_panic]
+    fn spr_regraft_subtree_unchecked() {
+        let tree = tree!("((((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3,H:1.0)K:1.0);");
+        rooted_spr_unchecked(&tree, &tree.idx("E"), &tree.idx("B"));
+    }
+
+    #[test]
+    #[should_panic]
+    fn spr_regraft_siblings() {
+        let tree = tree!("((((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3,H:1.0)K:1.0);");
+        rooted_spr_unchecked(&tree, &tree.idx("A"), &tree.idx("B"));
+    }
+
+    #[test]
+    fn spr_simple_valid() {
+        let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
+        let new_tree = rooted_spr(&tree, &tree.idx("A"), &tree.idx("C")).unwrap();
+        assert_eq!(new_tree.len(), tree.len());
+        assert_relative_eq!(new_tree.magnitude, tree.magnitude);
+        let prune_sib = new_tree.node(&tree.idx("B"));
+        assert_eq!(prune_sib.blen, 6.1);
+        assert_eq!(prune_sib.parent, Some(tree.idx("G")));
+        let prune_gpar = new_tree.node(&tree.idx("G"));
+        assert!([tree.idx("F"), tree.idx("B")].contains(&prune_gpar.children[0]));
+        assert!([tree.idx("B"), tree.idx("F")].contains(&prune_gpar.children[1]));
+        assert_eq!(prune_gpar.blen, 7.3);
+        let regraft_par = new_tree.node(&tree.idx("F"));
+        assert_eq!(regraft_par.blen, 6.2);
+        assert!([tree.idx("E"), tree.idx("D")].contains(&regraft_par.children[0]));
+        assert!([tree.idx("E"), tree.idx("D")].contains(&regraft_par.children[1]));
+        let prune = new_tree.node(&tree.idx("A"));
+        assert_eq!(prune.blen, 1.0);
+        assert_eq!(prune.parent, Some(tree.idx("E")));
+        let prune_par = new_tree.node(&tree.idx("E"));
+        assert_eq!(prune_par.blen, 1.5);
+        assert!([tree.idx("A"), tree.idx("C")].contains(&prune_par.children[0]));
+        assert!([tree.idx("A"), tree.idx("C")].contains(&prune_par.children[1]));
+        let regraft_sib = new_tree.node(&tree.idx("D"));
+        assert_eq!(regraft_sib.blen, 4.0);
+        assert_eq!(regraft_sib.parent, Some(tree.idx("F")));
+    }
+
+    #[test]
+    fn spr_broken() {
+        let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
+        let new_tree = rooted_spr(&tree, &tree.idx("A"), &tree.idx("C")).unwrap();
+        let ng = new_tree.node(&tree.idx("G"));
+        assert!([tree.idx("F"), tree.idx("B")].contains(&ng.children[0]));
+        assert!([tree.idx("F"), tree.idx("B")].contains(&ng.children[1]));
+        let nf = new_tree.node(&tree.idx("F"));
+        assert!([tree.idx("E"), tree.idx("D")].contains(&nf.children[0]));
+        assert!([tree.idx("E"), tree.idx("D")].contains(&nf.children[1]));
+        assert_eq!(nf.parent, Some(tree.idx("G")));
+        let ne = new_tree.node(&tree.idx("E"));
+        assert!([tree.idx("A"), tree.idx("C")].contains(&ne.children[0]));
+        assert!([tree.idx("A"), tree.idx("C")].contains(&ne.children[1]));
+        assert_eq!(ne.parent, Some(tree.idx("F")));
+        assert_eq!(new_tree.len(), tree.len());
+        assert_relative_eq!(new_tree.magnitude, tree.magnitude);
+    }
 }

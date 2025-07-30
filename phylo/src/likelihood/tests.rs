@@ -5,7 +5,6 @@ use crate::alignment::{Alignment, Sequences};
 use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet};
 use crate::io::read_sequences;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
-use crate::optimisers::{SprOptimiser, TreeMover};
 use crate::phylo_info::PhyloInfo;
 use crate::pip_model::{PIPCost, PIPCostBuilder as PIPCB, PIPModel};
 use crate::substitution_models::{
@@ -15,7 +14,7 @@ use crate::substitution_models::{
 use crate::tree;
 
 #[cfg(test)]
-fn search_costs_equal_template<C: ModelSearchCost + TreeSearchCost<TM>, TM: TreeMover>(cost: C) {
+fn search_costs_equal_template<C: ModelSearchCost + TreeSearchCost>(cost: C) {
     assert_eq!(ModelSearchCost::cost(&cost), TreeSearchCost::cost(&cost));
 }
 
@@ -24,7 +23,7 @@ fn test_subst_model<Q: QMatrix + QMatrixMaker>(
     alpha: Alphabet,
     freqs: &[f64],
     params: &[f64],
-) -> SubstitutionCost<Q, SprOptimiser> {
+) -> SubstitutionCost<Q> {
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
 
     let fldr = Path::new("./data");
@@ -75,7 +74,7 @@ fn test_pip_model<Q: QMatrix + QMatrixMaker>(
     alpha: Alphabet,
     freqs: &[f64],
     params: &[f64],
-) -> PIPCost<Q, SprOptimiser> {
+) -> PIPCost<Q> {
     // https://molevolworkshop.github.io/faculty/huelsenbeck/pdf/WoodsHoleHandout.pdf
 
     let fldr = Path::new("./data");

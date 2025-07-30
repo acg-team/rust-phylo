@@ -15,7 +15,6 @@ use crate::alignment::Mapping;
 use crate::alphabets::{Alphabet, GAP};
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
-use crate::optimisers::{SprOptimiser, TreeMover};
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{FreqVector, QMatrix, QMatrixMaker, SubstMatrix};
 use crate::tree::{
@@ -233,7 +232,7 @@ impl<Q: QMatrix> PIPCostBuilder<Q> {
         PIPCostBuilder { model, info }
     }
 
-    pub fn build(self) -> Result<PIPCost<Q, SprOptimiser>> {
+    pub fn build(self) -> Result<PIPCost<Q>> {
         if self.info.msa.alphabet() != self.model.alphabet() {
             bail!("Alphabet mismatch between model and alignment.");
         }
@@ -243,20 +242,18 @@ impl<Q: QMatrix> PIPCostBuilder<Q> {
             model: self.model,
             info: self.info,
             tmp,
-            tree_mover: SprOptimiser {},
         })
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct PIPCost<Q: QMatrix, TM: TreeMover> {
+pub struct PIPCost<Q: QMatrix> {
     pub(crate) model: PIPModel<Q>,
     pub(crate) info: PhyloInfo,
     tmp: RefCell<PIPModelInfo<Q>>,
-    tree_mover: TM,
 }
 
-impl<Q: QMatrix, TM: TreeMover> TreeSearchCost<TM> for PIPCost<Q, TM> {
+impl<Q: QMatrix> TreeSearchCost for PIPCost<Q> {
     fn cost(&self) -> f64 {
         self.logl()
     }
@@ -277,18 +274,9 @@ impl<Q: QMatrix, TM: TreeMover> TreeSearchCost<TM> for PIPCost<Q, TM> {
     fn tree(&self) -> &Tree {
         &self.info.tree
     }
-    // to avoid having the treemover as field of the cost
-    // i can just return a new instance here
-    // like below.
-    // then in the topo optimiser i can just call this method once to get the treemover
-    // before the epoch for training are started
-    //
-    fn tree_mover(&self) -> &TM {
-        &self.tree_mover
-    }
 }
 
-impl<Q: QMatrix, TM: TreeMover> ModelSearchCost for PIPCost<Q, TM> {
+impl<Q: QMatrix> ModelSearchCost for PIPCost<Q> {
     fn cost(&self) -> f64 {
         self.logl()
     }
@@ -315,13 +303,13 @@ impl<Q: QMatrix, TM: TreeMover> ModelSearchCost for PIPCost<Q, TM> {
     }
 }
 
-impl<Q: QMatrix + Display, TM: TreeMover> Display for PIPCost<Q, TM> {
+impl<Q: QMatrix + Display> Display for PIPCost<Q> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.model)
     }
 }
 
-impl<Q: QMatrix, TM: TreeMover> PIPCost<Q, TM> {
+impl<Q: QMatrix> PIPCost<Q> {
     fn logl(&self) -> f64 {
         for node_idx in self.info.tree.postorder() {
             match node_idx {
