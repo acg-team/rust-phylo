@@ -57,7 +57,7 @@ macro_rules! define_optimise_trees {
                     }
                 } else {
                     let cost = $builder::new(model.clone(), start_info).build().unwrap();
-                    let res = TopologyOptimiser::new(cost).run().unwrap();
+                    let res = TopologyOptimiser::new(cost, SprOptimiser{}).run().unwrap();
                     assert!(crate::io::write_newick_to_file(
                         &[res.cost.tree().clone()],
                         tree_file
@@ -268,10 +268,9 @@ fn pip_vs_subst_dna_tree() {
         .build()
         .unwrap();
     let k80 = SubstModel::<K80>::new(&[], &[4.0]);
-    let nni_mover = NniOptimiser {};
     let k80_res = TopologyOptimiser::new(
         SCB::new(k80.clone(), info.clone()).build().unwrap(),
-        nni_mover,
+        SprOptimiser {},
     )
     .run()
     .unwrap();

@@ -67,6 +67,7 @@ pub struct Tree {
     preorder: Vec<NodeIdx>,
     leaf_ids: Vec<String>,
     pub complete: bool,
+    /// The number of leaves in the tree.
     pub n: usize,
     /// The sum of all branch lengths of the tree.
     pub magnitude: f64,
@@ -208,6 +209,7 @@ impl Tree {
         &mut self.nodes[usize::from(node_idx)]
     }
 
+    /// Returns the number of nodes in the tree.
     pub fn len(&self) -> usize {
         self.nodes.len()
     }
