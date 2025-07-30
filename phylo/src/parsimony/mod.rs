@@ -8,7 +8,10 @@ use nalgebra::DMatrix;
 use crate::alignment::{Aligner, Alignment, InternalMapping, PairwiseAlignment, Sequences};
 use crate::alphabets::ParsimonySet;
 use crate::evolutionary_models::EvoModel;
-use crate::tree::{NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
+use crate::tree::{
+    NodeIdx::{Internal as Int, Leaf},
+    Tree,
+};
 use crate::Result;
 
 pub mod cost;

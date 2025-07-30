@@ -152,7 +152,10 @@ pub mod spr {
     use itertools::Itertools;
     use log::info;
 
-    use crate::{likelihood::TreeSearchCost, optimisers::RegraftOptimiser, tree::NodeIdx, Result};
+    use crate::likelihood::TreeSearchCost;
+    use crate::optimisers::RegraftOptimiser;
+    use crate::tree::NodeIdx;
+    use crate::Result;
 
     /// Iterates over `prune_locations` in order and applies the best (improving)
     /// SPR move for each pruneing location in place
