@@ -10,8 +10,8 @@ pub mod spr_optimiser;
 pub use spr_optimiser::*;
 pub mod nni_optimiser;
 pub use nni_optimiser::*;
-pub mod tree_mover;
-pub use tree_mover::*;
+pub mod move_optimiser;
+pub use move_optimiser::*;
 
 // Struct for any single value optimisation result, e.g. branch length or evolutionary model parameter value
 pub struct SingleValOptResult {

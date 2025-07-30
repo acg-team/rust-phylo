@@ -6,7 +6,7 @@ use itertools::Itertools;
 use log::{debug, info};
 
 use crate::likelihood::TreeSearchCost;
-use crate::optimisers::tree_mover::{MoveCostInfo, MoveOptimiser};
+use crate::optimisers::move_optimiser::{MoveCostInfo, MoveOptimiser};
 use crate::optimisers::BranchOptimiser;
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
