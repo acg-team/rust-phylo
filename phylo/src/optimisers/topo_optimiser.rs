@@ -202,7 +202,7 @@ where
                     .iter()
                     .all(|prune_location| correct_move_locations.contains(prune_location))
             },
-            "all prune locations must be contained in the tree and valid"
+            "all move locations must be contained in the tree and valid"
         );
 
         move_locations.iter().copied().try_fold(

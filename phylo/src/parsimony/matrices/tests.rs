@@ -1,10 +1,10 @@
 use approx::assert_relative_eq;
 
-use crate::parsimony::matrices::Direction::{GapInX, GapInY, Matc};
+use crate::parsimony::matrices::Direction::*;
 use crate::parsimony::scoring::{GapCost as GC, ModelScoringBuilder as MCB, SimpleScoring};
-use crate::parsimony::{ParsimonyAlignmentMatrices as PAM, ParsimonySite, SiteFlag::*};
+use crate::parsimony::{ParsimonyAlignmentMatrices as PAM, SiteFlag::*};
 use crate::substitution_models::{SubstModel, K80};
-use crate::{site, test_align as align};
+use crate::{align, site};
 
 #[test]
 fn fill_matrix() {
@@ -150,8 +150,8 @@ fn traceback_correct() {
     let (node_info, alignment, score) = pars_mats.traceback();
     assert_eq!(node_info[0], site!(b"CA", NoGap));
     assert_eq!(node_info[1], site!(b"C", NoGap));
-    assert_eq!(alignment.map_x, align!(0 1));
-    assert_eq!(alignment.map_y, align!(0 1));
+    assert_eq!(alignment.map_x, align!(b"01"));
+    assert_eq!(alignment.map_y, align!(b"01"));
     assert_eq!(score, 1.0);
 
     let mut pars_mats = PAM::new(&node_info_1, 1.0, &node_info_2, 1.0, &scoring, |_| 0);
@@ -161,8 +161,8 @@ fn traceback_correct() {
     let (node_info, alignment, score) = pars_mats.traceback();
     assert_eq!(node_info[0], site!(b"CA", NoGap));
     assert_eq!(node_info[1], site!(b"C", NoGap));
-    assert_eq!(alignment.map_x, align!(0 1));
-    assert_eq!(alignment.map_y, align!(0 1));
+    assert_eq!(alignment.map_x, align!(b"01"));
+    assert_eq!(alignment.map_y, align!(b"01"));
     assert_eq!(score, 1.0);
 }
 
@@ -276,8 +276,8 @@ fn traceback_gap_adjustment_1() {
         site!(b"-", GapFixed),
     ];
     assert_eq!(node_info, true_info);
-    assert_eq!(alignment.map_x, align!(0 1 2 3));
-    assert_eq!(alignment.map_y, align!(0 1 - -));
+    assert_eq!(alignment.map_x, align!(b"0123"));
+    assert_eq!(alignment.map_y, align!(b"01--"));
     assert_eq!(score + 8.0, 8.0);
 }
 
@@ -383,8 +383,8 @@ fn traceback_gap_adjustment_2() {
     let (node_info, alignment, score) = pars_mats.traceback();
     let true_info = vec![site!(b"A", NoGap), site!(b"C", NoGap), site!(b"G", NoGap)];
     assert_eq!(node_info, true_info);
-    assert_eq!(alignment.map_x, align!(0 1 2));
-    assert_eq!(alignment.map_y, align!(0 1 2));
+    assert_eq!(alignment.map_x, align!(b"012"));
+    assert_eq!(alignment.map_y, align!(b"012"));
     assert_eq!(score + 12.0, 12.0);
 }
 
@@ -514,8 +514,8 @@ fn traceback_gap_adjustment_3() {
     ];
     assert_eq!(node_info.len(), true_info.len());
     assert_eq!(node_info, true_info);
-    assert_eq!(alignment.map_x, align!(0 1 2 3 - 4 5));
-    assert_eq!(alignment.map_y, align!(- - - 0 1 - -));
+    assert_eq!(alignment.map_x, align!(b"0123-45"));
+    assert_eq!(alignment.map_y, align!(b"---01--"));
     assert_eq!(score + 2.75, 4.25);
 }
 
@@ -647,8 +647,8 @@ fn traceback_gap_adjustment_4() {
     ];
     assert_eq!(node_info.len(), true_info.len());
     assert_eq!(node_info, true_info);
-    assert_eq!(alignment.map_x, align!(- 0 1 2 3 4 5));
-    assert_eq!(alignment.map_y, align!(0 - 1 - - - -));
+    assert_eq!(alignment.map_x, align!(b"-012345"));
+    assert_eq!(alignment.map_y, align!(b"0-1----"));
     assert_eq!(score + 2.75, 4.25);
 }
 
@@ -774,8 +774,8 @@ fn traceback_diff_branch_models() {
     ];
     assert_eq!(node_info.len(), true_info.len());
     assert_eq!(node_info, true_info);
-    assert_eq!(alignment.map_x, align!(0 1 2 3));
-    assert_eq!(alignment.map_y, align!(0 1 - -));
+    assert_eq!(alignment.map_x, align!(b"0123"));
+    assert_eq!(alignment.map_y, align!(b"01--"));
     assert_relative_eq!(score, 9.0070875, epsilon = 0.0001);
 }
 
@@ -908,8 +908,8 @@ fn traceback_diff_branch_models_2() {
     ];
     assert_eq!(node_info.len(), true_info.len());
     assert_eq!(node_info, true_info);
-    assert_eq!(alignment.map_x, align!(0 1 2 3 4 -));
-    assert_eq!(alignment.map_y, align!(- - - 0 1 2));
+    assert_eq!(alignment.map_x, align!(b"01234-"));
+    assert_eq!(alignment.map_y, align!(b"---012"));
     assert_relative_eq!(score + 7.921925 + 11.028825, 24.29755, epsilon = 0.0001);
 }
 
@@ -1039,7 +1039,7 @@ fn traceback_diff_branch_models_3() {
     ];
     assert_eq!(node_info.len(), true_info.len());
     assert_eq!(node_info, true_info);
-    assert_eq!(alignment.map_x, align!(0 1 2 3 4 5));
-    assert_eq!(alignment.map_y, align!(- - - - 0 1));
+    assert_eq!(alignment.map_x, align!(b"012345"));
+    assert_eq!(alignment.map_y, align!(b"----01"));
     assert_relative_eq!(score + 7.686975 + 8.619275, 20.16745, epsilon = 0.0001);
 }

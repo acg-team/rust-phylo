@@ -4,13 +4,12 @@
 use std::{collections::HashMap, hint::black_box, path::PathBuf, time::Duration};
 
 use criterion::Criterion;
-use phylo::{
-    evolutionary_models::FrequencyOptimisation,
-    optimisers::ModelOptimiser,
-    phylo_info::{PhyloInfo, PhyloInfoBuilder},
-    pip_model::{PIPCost, PIPCostBuilder, PIPModel},
-    substitution_models::{QMatrix, QMatrixMaker},
-};
+
+use phylo::evolutionary_models::FrequencyOptimisation;
+use phylo::optimisers::ModelOptimiser;
+use phylo::phylo_info::{PhyloInfo, PhyloInfoBuilder};
+use phylo::pip_model::{PIPCost, PIPCostBuilder, PIPModel};
+use phylo::substitution_models::{QMatrix, QMatrixMaker};
 
 pub type BenchPath = &'static str;
 pub type SequencePaths = HashMap<&'static str, BenchPath>;

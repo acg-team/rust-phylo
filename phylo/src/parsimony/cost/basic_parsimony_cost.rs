@@ -1,8 +1,6 @@
 use std::cell::RefCell;
 use std::fmt::Display;
 
-use anyhow::Ok;
-
 use crate::alphabets::ParsimonySet;
 use crate::likelihood::TreeSearchCost;
 use crate::phylo_info::PhyloInfo;
@@ -154,9 +152,8 @@ impl BasicParsimonyInfo {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod private_tests {
-    use super::*;
-
     use crate::alignment::{Alignment, Sequences};
+    use crate::parsimony::BasicParsimonyCost;
     use crate::phylo_info::PhyloInfo;
     use crate::{record_wo_desc as record, tree};
 

@@ -88,8 +88,10 @@ impl PhyloInfoBuilder {
     /// ```
     /// use phylo::alphabets::protein_alphabet;
     /// use phylo::phylo_info::PhyloInfoBuilder;
-    /// let info = PhyloInfoBuilder::new("./examples/data/sequences_DNA_small.fasta").alphabet(Some(protein_alphabet())).build().unwrap();
+    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// let info = PhyloInfoBuilder::new("./examples/data/sequences_DNA_small.fasta").alphabet(Some(protein_alphabet())).build()?;
     /// assert_eq!(info.msa.alphabet(), &protein_alphabet());
+    /// # Ok(()) }
     /// ```
     pub fn alphabet(mut self, alphabet: Option<Alphabet>) -> PhyloInfoBuilder {
         self.alphabet = alphabet;
@@ -107,15 +109,16 @@ impl PhyloInfoBuilder {
     /// # Example
     /// ```
     /// use phylo::phylo_info::PhyloInfoBuilder;
+    /// # fn main() -> std::result::Result<(), anyhow::Error> {
     /// let info = PhyloInfoBuilder::with_attrs(
     ///     "./examples/data/sequences_DNA_small.fasta",
     ///     "./examples/data/tree_diff_branch_lengths_2.newick")
-    ///     .build()
-    ///     .unwrap();
+    ///     .build()?;
     /// assert_eq!(info.msa.len(), 8);
     /// assert_eq!(info.msa.seq_count(), 4);
     /// assert_eq!(info.tree.leaves().len(), 4);
     /// assert_eq!(info.tree.len(), 7);
+    /// # Ok(()) }
     /// ```
     pub fn build(self) -> Result<PhyloInfo> {
         info!(

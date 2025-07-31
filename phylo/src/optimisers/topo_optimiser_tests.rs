@@ -9,11 +9,9 @@ use crate::optimisers::{
     BranchOptimiser, ModelOptimiser, NniOptimiser, PhyloOptimisationResult, SprOptimiser,
     TopologyOptimiser,
 };
-use crate::parsimony::scoring::ModelScoringBuilder;
-use crate::parsimony::{BasicParsimonyCost, DolloParsimonyCost};
+use crate::parsimony::{scoring::ModelScoringBuilder, BasicParsimonyCost, DolloParsimonyCost};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
-use crate::pip_model::PIPCost;
-use crate::pip_model::{PIPCostBuilder as PIPCB, PIPModel};
+use crate::pip_model::{PIPCost, PIPCostBuilder as PIPCB, PIPModel};
 use crate::substitution_models::{
     dna_models::*, protein_models::*, QMatrix, SubstModel, SubstitutionCost,
     SubstitutionCostBuilder as SCB,
