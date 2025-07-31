@@ -1,12 +1,11 @@
 use std::fmt::Display;
 
 use anyhow::bail;
-use bio::io::fasta::Record;
 use hashbrown::HashMap;
 
 use crate::alphabets::{Alphabet, GAP};
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
-use crate::{align, Result};
+use crate::{align, record, Result};
 
 pub mod sequences;
 pub use sequences::*;
@@ -195,7 +194,7 @@ impl Alignment {
         for (idx, map) in &map {
             let rec = self.seqs.record_by_id(tree.node_id(idx));
             let aligned_seq = Self::map_sequence(map, rec.seq());
-            records.push(Record::with_attrs(rec.id(), rec.desc(), &aligned_seq));
+            records.push(record!(rec.id(), rec.desc(), &aligned_seq));
         }
 
         Ok(Sequences::with_alphabet(records, self.seqs.alphabet))
