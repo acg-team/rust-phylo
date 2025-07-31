@@ -84,7 +84,7 @@ impl Tree {
     pub(crate) fn new(sequences: &Sequences) -> Result<Self> {
         let n = sequences.len();
         if n == 0 {
-            bail!("No sequences provided, aborting.");
+            bail!("No sequences provided, aborting");
         }
         if n == 1 {
             Ok(Self {
@@ -391,10 +391,10 @@ pub fn percentiles_rounded(lengths: &[f64], categories: u32, rounding: &Rounding
 }
 
 fn argmin_wo_diagonal(q: Mat) -> (usize, usize) {
-    debug_assert!(!q.is_empty(), "The input matrix must not be empty.");
+    debug_assert!(!q.is_empty(), "The input matrix must not be empty");
     debug_assert!(
         q.ncols() > 1 && q.nrows() > 1,
-        "The input matrix should have more than 1 element."
+        "The input matrix should have more than 1 element"
     );
     let mut arg_min = vec![];
     let mut val_min = &f64::MAX;

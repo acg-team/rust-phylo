@@ -134,7 +134,7 @@ impl Alignment {
     /// ```
     pub fn from_aligned(mut seqs: Sequences, tree: &Tree) -> Result<Alignment> {
         if !seqs.aligned {
-            bail!("Sequences are not aligned.")
+            bail!("Sequences are not aligned")
         }
         seqs.remove_gap_cols();
 

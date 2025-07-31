@@ -234,7 +234,7 @@ impl<Q: QMatrix> PIPCostBuilder<Q> {
 
     pub fn build(self) -> Result<PIPCost<Q>> {
         if self.info.msa.alphabet() != self.model.alphabet() {
-            bail!("Alphabet mismatch between model and alignment.");
+            bail!("Alphabet mismatch between model and alignment");
         }
 
         let tmp = RefCell::new(PIPModelInfo::new(&self.info, &self.model).unwrap());

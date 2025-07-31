@@ -61,7 +61,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
         }
 
         debug_assert_eq!(curr_cost, self.c.borrow().cost());
-        info!("Done optimising branch lengths.");
+        info!("Done optimising branch lengths");
         info!("Final cost: {curr_cost}, achieved in {iterations} iteration(s)");
         Ok(PhyloOptimisationResult {
             initial_cost: init_cost,

@@ -77,13 +77,13 @@ fn calc_nni_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
 
 fn rooted_nni(tree: &Tree, node_idx: &NodeIdx, child_idx: &NodeIdx) -> Result<Tree> {
     if node_idx == &tree.root {
-        bail!("For the rooted NNI the node mustn't be the root of the tree.");
+        bail!("For the rooted NNI the node mustn't be the root of the tree");
     }
     if matches!(node_idx, Leaf(_)) {
         bail!("For the rooted NNI the node mustn't be a leaf");
     }
     if tree.node(child_idx).parent.is_none() || tree.node(child_idx).parent.unwrap() != *node_idx {
-        bail!("The provided child_idx (i.e. the node that indicates which subtrees should be swapped) is not a child of the node node_idx.");
+        bail!("The provided child_idx (i.e. the node that indicates which subtrees should be swapped) is not a child of the node 'node_idx'");
     }
 
     Ok(rooted_nni_unchecked(tree, node_idx, child_idx))
