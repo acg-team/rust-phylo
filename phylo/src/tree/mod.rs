@@ -2,7 +2,6 @@ use std::collections::HashSet;
 use std::fmt::{Debug, Display};
 
 use anyhow::bail;
-use approx::relative_eq;
 use bio::alignment::distance::levenshtein;
 use inc_stats::Percentiles;
 use nalgebra::{max, DMatrix};
@@ -68,8 +67,10 @@ pub struct Tree {
     preorder: Vec<NodeIdx>,
     leaf_ids: Vec<String>,
     pub complete: bool,
+    /// The number of leaves in the tree.
     pub n: usize,
-    pub height: f64,
+    /// The sum of all branch lengths of the tree.
+    pub magnitude: f64,
     pub(crate) dirty: Vec<bool>,
 }
 
@@ -83,7 +84,7 @@ impl Tree {
     pub(crate) fn new(sequences: &Sequences) -> Result<Self> {
         let n = sequences.len();
         if n == 0 {
-            bail!("No sequences provided, aborting.");
+            bail!("No sequences provided, aborting");
         }
         if n == 1 {
             Ok(Self {
@@ -98,7 +99,7 @@ impl Tree {
                 )],
                 complete: true,
                 n: 1,
-                height: 0.0,
+                magnitude: 0.0,
                 leaf_ids: vec![sequences.record(0).id().to_string()],
                 dirty: vec![false],
             })
@@ -113,7 +114,7 @@ impl Tree {
                     .collect(),
                 complete: false,
                 n,
-                height: 0.0,
+                magnitude: 0.0,
                 leaf_ids: sequences.iter().map(|seq| seq.id().to_string()).collect(),
                 dirty: vec![false; 2 * n - 1],
             })
@@ -174,7 +175,7 @@ impl Tree {
         partitions
     }
 
-    fn is_subtree(&self, query: &NodeIdx, node: &NodeIdx) -> bool {
+    pub(crate) fn is_subtree(&self, query: &NodeIdx, node: &NodeIdx) -> bool {
         let order = self.preorder_subroot(node);
         order.contains(query)
     }
@@ -186,107 +187,6 @@ impl Tree {
             .iter()
             .find(|&sibling| sibling != node_idx)
             .cloned()
-    }
-
-    /// No pruning on the root branch
-    pub fn find_possible_prune_locations(&self) -> impl Iterator<Item = &NodeIdx> + use<'_> {
-        self.preorder().iter().filter(|&n| *n != self.root)
-    }
-
-    // TODO: Bring this out of the tree
-    pub fn rooted_spr(&self, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Result<Tree> {
-        // Prune and regraft nodes must be different
-        if prune_idx == regraft_idx {
-            bail!("Prune and regraft nodes must be different.");
-        }
-        if self.is_subtree(regraft_idx, prune_idx) {
-            bail!("Prune node cannot be a subtree of the regraft node.");
-        }
-
-        let prune = self.node(prune_idx);
-        // Pruned node must have a parent, it is the one being reattached
-        if prune.parent.is_none() {
-            bail!("Cannot prune the root node.");
-        }
-        // Cannot prune direct child of the root node, otherwise branch lengths are undefined
-        if self.node(&prune.parent.unwrap()).parent.is_none() {
-            bail!("Cannot prune direct child of the root node.");
-        }
-        let regraft = self.node(regraft_idx);
-        // Regrafted node must have a parent, the prune parent is attached to that branch
-        if regraft.parent.is_none() {
-            bail!("Cannot regraft to root node.");
-        }
-        if regraft.parent == prune.parent {
-            bail!("Prune and regraft nodes must have different parents.");
-        }
-
-        Ok(self.rooted_spr_unchecked(prune_idx, regraft_idx))
-    }
-
-    fn rooted_spr_unchecked(&self, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Tree {
-        let prune = self.node(prune_idx);
-        let prune_sib = self.node(&self.sibling(&prune.idx).unwrap());
-        let prune_par = self.node(&prune.parent.unwrap());
-        let prune_grpar = self.node(&prune_par.parent.unwrap());
-        let regraft = self.node(regraft_idx);
-        let regraft_par = self.node(&regraft.parent.unwrap());
-
-        let mut new_tree = self.clone();
-
-        {
-            new_tree.dirty[usize::from(prune_sib.idx)] = true;
-            new_tree.dirty[usize::from(prune_par.idx)] = true;
-        }
-
-        {
-            // Sibling of pruned node connects to common parent, branch length is updated
-            let prune_sib = new_tree.node_mut(&prune_sib.idx);
-            prune_sib.parent = prune_par.parent;
-            prune_sib.blen += prune_par.blen;
-        };
-
-        {
-            // Pruned node's parent is removed from its parent's children, pruned nodes sibling is added
-            let prune_grpar = new_tree.node_mut(&prune_grpar.idx);
-            prune_grpar.children.retain(|&x| x != prune_par.idx);
-            prune_grpar.children.push(prune_sib.idx);
-        };
-
-        {
-            // Regrafted branch is split in two, parent of regrafted node is now pruned node's parent
-            let regraft = new_tree.node_mut(&regraft.idx);
-            regraft.parent = Some(prune_par.idx);
-            regraft.blen /= 2.0;
-        }
-
-        {
-            // Regrafted node is removed from its parent's children, pruned node's parent is added
-            let prune_par = new_tree.node_mut(&prune_par.idx);
-            prune_par.children.retain(|&x| x != prune_sib.idx);
-            prune_par.children.push(regraft.idx);
-            prune_par.blen = regraft.blen / 2.0;
-            prune_par.parent = regraft.parent;
-        }
-
-        {
-            // Regrafted node's parent's children are updated
-            let regraft_par = new_tree.node_mut(&regraft_par.idx);
-            regraft_par.children.retain(|&x| x != regraft.idx);
-            regraft_par.children.push(prune_par.idx);
-        }
-
-        // Tree height should not have changed
-        debug_assert!(relative_eq!(
-            new_tree.height,
-            new_tree.nodes.iter().map(|node| node.blen).sum(),
-            epsilon = 1e-10
-        ));
-
-        new_tree.compute_postorder();
-        new_tree.compute_preorder();
-        debug_assert_eq!(new_tree.postorder.len(), self.postorder.len());
-        new_tree
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Node> {
@@ -309,6 +209,7 @@ impl Tree {
         &mut self.nodes[usize::from(node_idx)]
     }
 
+    /// Returns the number of nodes in the tree.
     pub fn len(&self) -> usize {
         self.nodes.len()
     }
@@ -444,7 +345,7 @@ impl Tree {
         debug_assert!(blen >= 0.0);
         let idx = usize::from(node_idx);
         let old_blen = self.nodes[idx].blen;
-        self.height += blen - old_blen;
+        self.magnitude += blen - old_blen;
         self.nodes[idx].blen = blen;
         self.dirty[idx] = true;
     }
@@ -490,10 +391,10 @@ pub fn percentiles_rounded(lengths: &[f64], categories: u32, rounding: &Rounding
 }
 
 fn argmin_wo_diagonal(q: Mat) -> (usize, usize) {
-    debug_assert!(!q.is_empty(), "The input matrix must not be empty.");
+    debug_assert!(!q.is_empty(), "The input matrix must not be empty");
     debug_assert!(
         q.ncols() > 1 && q.nrows() > 1,
-        "The input matrix should have more than 1 element."
+        "The input matrix should have more than 1 element"
     );
     let mut arg_min = vec![];
     let mut val_min = &f64::MAX;
@@ -542,7 +443,7 @@ fn build_nj_tree_from_matrix(mut nj_data: NJMat, sequences: &Sequences) -> Resul
     tree.complete = true;
     tree.compute_postorder();
     tree.compute_preorder();
-    tree.height = tree.nodes.iter().map(|node| node.blen).sum();
+    tree.magnitude = tree.nodes.iter().map(|node| node.blen).sum();
     Ok(tree)
 }
 

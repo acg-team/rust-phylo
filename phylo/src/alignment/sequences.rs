@@ -100,7 +100,7 @@ impl Sequences {
         let rec = self.s.iter().find(|r| r.id() == id);
         match rec {
             Some(r) => Ok(r),
-            None => bail!("Sequence with id {} not found", id),
+            None => bail!("Sequence with id {id} not found"),
         }
     }
 

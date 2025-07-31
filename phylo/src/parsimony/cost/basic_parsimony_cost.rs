@@ -18,7 +18,7 @@ pub struct BasicParsimonyCost {
 
 impl Display for BasicParsimonyCost {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Basic parsimony cost, match = 0.0, mismatch = 1.0.")
+        write!(f, "Basic parsimony cost, match = 0.0, mismatch = 1.0")
     }
 }
 
@@ -27,7 +27,9 @@ impl BasicParsimonyCost {
         let tmp = RefCell::new(BasicParsimonyInfo::new(&info));
         Ok(BasicParsimonyCost { info, tmp })
     }
+}
 
+impl BasicParsimonyCost {
     fn score(&self) -> f64 {
         for node_idx in self.info.tree.postorder() {
             match node_idx {

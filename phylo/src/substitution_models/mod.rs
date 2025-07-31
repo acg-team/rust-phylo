@@ -126,7 +126,7 @@ impl<Q: QMatrix> SubstitutionCostBuilder<Q> {
 
     pub fn build(self) -> Result<SubstitutionCost<Q>> {
         if self.info.msa.alphabet() != self.model.alphabet() {
-            bail!("Alphabet mismatch between model and alignment.");
+            bail!("Alphabet mismatch between model and alignment");
         }
 
         let tmp = RefCell::new(SubstModelInfo::new(&self.info, &self.model).unwrap());
@@ -155,7 +155,10 @@ impl<Q: QMatrix> Clone for SubstitutionCost<Q> {
     }
 }
 
-impl<Q: QMatrix> TreeSearchCost for SubstitutionCost<Q> {
+impl<Q> TreeSearchCost for SubstitutionCost<Q>
+where
+    Q: QMatrix,
+{
     fn cost(&self) -> f64 {
         self.logl(&self.info)
     }

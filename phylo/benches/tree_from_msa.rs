@@ -8,7 +8,7 @@ use log::info;
 
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::{ModelSearchCost, TreeSearchCost};
-use phylo::optimisers::{ModelOptimiser, TopologyOptimiser};
+use phylo::optimisers::{Compatible, ModelOptimiser, SprOptimiser, TopologyOptimiser};
 use phylo::pip_model::PIPCost;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 use phylo::tree::Tree;
@@ -24,7 +24,7 @@ use helpers::{
 ///
 /// TODO: expose this as part of the rust-phylo library
 fn run_optimisation(
-    cost: impl TreeSearchCost + ModelSearchCost + Display + Clone + Send,
+    cost: impl TreeSearchCost + ModelSearchCost + Display + Clone + Send + Compatible<SprOptimiser>,
     freq_opt: FrequencyOptimisation,
     max_iterations: usize,
     epsilon: f64,
@@ -40,7 +40,7 @@ fn run_optimisation(
 
         prev_cost = final_cost;
         let model_optimiser = ModelOptimiser::new(cost, freq_opt);
-        let o = TopologyOptimiser::new(model_optimiser.run()?.cost)
+        let o = TopologyOptimiser::new(model_optimiser.run()?.cost, SprOptimiser {})
             .run()
             .unwrap();
         final_cost = o.final_cost;

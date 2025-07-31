@@ -6,7 +6,8 @@ use crate::alignment::{Alignment, Sequences};
 use crate::evolutionary_models::FrequencyOptimisation::Empirical;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{
-    BranchOptimiser, ModelOptimiser, PhyloOptimisationResult, TopologyOptimiser,
+    BranchOptimiser, ModelOptimiser, NniOptimiser, PhyloOptimisationResult, SprOptimiser,
+    TopologyOptimiser,
 };
 use crate::parsimony::{scoring::ModelScoringBuilder, BasicParsimonyCost, DolloParsimonyCost};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
@@ -19,7 +20,7 @@ use crate::{record_wo_desc as record, tree};
 
 // Macros for tests where precomputed results can be used to speed up local testing
 macro_rules! define_optimise_trees {
-    ($($fn_name:ident: { model = $model:ident, cost = $cost:ident, builder = $builder:ident }),* $(,)?) => {
+    ($($fn_name:ident: { model = $model:ident, cost = $cost:ident, builder = $builder:ident , move_optimiser = $move_optimiser:ident }),* $(,)?) => {
         $(
             #[cfg(not(feature = "precomputed-test-results"))]
             fn $fn_name<Q: QMatrix + Send>(
@@ -29,7 +30,7 @@ macro_rules! define_optimise_trees {
             ) -> PhyloOptimisationResult<$cost<Q>> {
                 let start_info = PIB::new(seq_file).build().unwrap();
                 let cost = $builder::new(model, start_info).build().unwrap();
-                TopologyOptimiser::new(cost).run().unwrap()
+                TopologyOptimiser::new(cost, $move_optimiser {}).run().unwrap()
             }
 
             #[cfg(feature = "precomputed-test-results")]
@@ -54,7 +55,7 @@ macro_rules! define_optimise_trees {
                     }
                 } else {
                     let cost = $builder::new(model.clone(), start_info).build().unwrap();
-                    let res = TopologyOptimiser::new(cost).run().unwrap();
+                    let res = TopologyOptimiser::new(cost, $move_optimiser {}).run().unwrap();
                     assert!(crate::io::write_newick_to_file(
                         &[res.cost.tree().clone()],
                         tree_file
@@ -68,8 +69,9 @@ macro_rules! define_optimise_trees {
 }
 
 define_optimise_trees!(
-    optimise_tree: { model = SubstModel, cost = SubstitutionCost, builder = SCB },
-    optimise_tree_pip: { model = PIPModel, cost = PIPCost, builder = PIPCB },
+    optimise_tree: { model = SubstModel, cost = SubstitutionCost, builder = SCB, move_optimiser = SprOptimiser },
+    optimise_tree_pip: { model = PIPModel, cost = PIPCost, builder = PIPCB, move_optimiser = SprOptimiser },
+    optimise_tree_nni: { model = SubstModel, cost = SubstitutionCost, builder = SCB, move_optimiser = NniOptimiser },
 );
 
 #[test]
@@ -91,7 +93,37 @@ fn k80_simple() {
     let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
     let c = SCB::new(k80.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
-    let o = TopologyOptimiser::new(c).run().unwrap();
+    let o = TopologyOptimiser::new(c, SprOptimiser {}).run().unwrap();
+
+    assert!(o.final_cost >= unopt_logl);
+    assert_eq!(o.initial_cost, unopt_logl);
+    assert_eq!(o.final_cost, o.cost.cost());
+
+    let c = SCB::new(k80, o.cost.info.clone()).build().unwrap();
+    assert_relative_eq!(c.cost(), o.final_cost);
+    assert_relative_eq!(c.cost(), o.cost.cost());
+}
+
+#[test]
+fn k80_simple_nni() {
+    // Check that optimisation on k80 data improves k80 likelihood when starting from a given tree
+    let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
+    let msa = Alignment::from_aligned(
+        Sequences::new(vec![
+            record!("A", b"CTATATATAC"),
+            record!("B", b"ATATATATAA"),
+            record!("C", b"TTATATATAT"),
+            record!("D", b"TTATATATAT"),
+        ]),
+        &tree,
+    )
+    .unwrap();
+    let info = PhyloInfo { msa, tree };
+
+    let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
+    let c = SCB::new(k80.clone(), info).build().unwrap();
+    let unopt_logl = c.cost();
+    let o = TopologyOptimiser::new(c, NniOptimiser {}).run().unwrap();
 
     assert!(o.final_cost >= unopt_logl);
     assert_eq!(o.initial_cost, unopt_logl);
@@ -112,7 +144,7 @@ fn k80_sim_data_from_given() {
     let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
     let c = SCB::new(k80.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
-    let o = TopologyOptimiser::new(c).run().unwrap();
+    let o = TopologyOptimiser::new(c, SprOptimiser {}).run().unwrap();
 
     assert!(o.final_cost >= unopt_logl);
     assert_eq!(o.initial_cost, unopt_logl);
@@ -132,7 +164,7 @@ fn k80_sim_data_from_nj() {
     let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
     let c = SCB::new(k80.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
-    let o = TopologyOptimiser::new(c).run().unwrap();
+    let o = TopologyOptimiser::new(c, SprOptimiser {}).run().unwrap();
 
     assert!(o.final_cost >= unopt_logl);
     assert_eq!(o.initial_cost, unopt_logl);
@@ -154,7 +186,7 @@ fn k80_sim_data_vs_phyml() {
     let jc69 = SubstModel::<JC69>::new(&[], &[]);
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
-    let o = TopologyOptimiser::new(c).run().unwrap();
+    let o = TopologyOptimiser::new(c, SprOptimiser {}).run().unwrap();
 
     assert!(o.final_cost >= unopt_logl);
     assert_eq!(o.initial_cost, unopt_logl);
@@ -186,7 +218,7 @@ fn k80_sim_data_vs_phyml() {
             epsilon = 1e-5
         );
     }
-    assert_relative_eq!(tree.height, phyml_info.tree.height, epsilon = 1e-4);
+    assert_relative_eq!(tree.magnitude, phyml_info.tree.magnitude, epsilon = 1e-4);
     assert_eq!(tree.robinson_foulds(&phyml_info.tree), 0);
 }
 
@@ -201,7 +233,7 @@ fn k80_sim_data_vs_phyml_wrong_start() {
     let jc69 = SubstModel::<JC69>::new(&[], &[]);
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
-    let o = TopologyOptimiser::new(c).run().unwrap();
+    let o = TopologyOptimiser::new(c, SprOptimiser {}).run().unwrap();
 
     assert!(o.final_cost >= unopt_logl);
     assert_eq!(o.initial_cost, unopt_logl);
@@ -227,13 +259,38 @@ fn k80_sim_data_vs_phyml_wrong_start() {
             epsilon = 1e-5
         );
     }
-    assert_relative_eq!(tree.height, phyml_info.tree.height, epsilon = 1e-4);
+    assert_relative_eq!(tree.magnitude, phyml_info.tree.magnitude, epsilon = 1e-4);
     assert_eq!(tree.robinson_foulds(&phyml_info.tree), 0);
 }
 
 #[test]
 #[cfg_attr(feature = "ci_coverage", ignore)]
-fn wag_no_gaps_vs_phyml_nj_tree_start() {
+fn wag_no_gaps_vs_phyml_nj_tree_start_nni() {
+    // Check that optimisation on protein data under WAG produces similar tree to PhyML with matching likelihoods
+    // on sequences without gaps starting from an NJ tree
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let seq_file = fldr.join("nogap_seqs.fasta");
+    let tree_file = fldr.join("jati_wag_nogap_nj_start.newick");
+
+    let wag = SubstModel::<WAG>::new(&[], &[]);
+    let res = optimise_tree_nni(&seq_file, &tree_file, wag.clone());
+    assert!(res.final_cost >= res.initial_cost);
+    let wag_tree = res.cost.tree();
+
+    let phyml_res = PIB::with_attrs(seq_file.clone(), fldr.join("phyml_nogap.newick"))
+        .build()
+        .unwrap();
+    let phyml_logl = SCB::new(wag, phyml_res.clone()).build().unwrap().cost();
+
+    // Compare tree height and logl to the output of PhyML
+    assert_relative_eq!(wag_tree.magnitude, phyml_res.tree.magnitude, epsilon = 1e-4);
+    assert_eq!(wag_tree.robinson_foulds(&phyml_res.tree), 0);
+    assert_relative_eq!(res.final_cost, phyml_logl, epsilon = 1e-5);
+}
+
+#[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
+fn wag_no_gaps_vs_phyml_nj_tree_start_spr() {
     // Check that optimisation on protein data under WAG produces similar tree to PhyML with matching likelihoods
     // on sequences without gaps starting from an NJ tree
     let fldr = Path::new("./data/phyml_protein_example/");
@@ -251,9 +308,30 @@ fn wag_no_gaps_vs_phyml_nj_tree_start() {
     let phyml_logl = SCB::new(wag, phyml_res.clone()).build().unwrap().cost();
 
     // Compare tree height and logl to the output of PhyML
-    assert_relative_eq!(wag_tree.height, phyml_res.tree.height, epsilon = 1e-4);
+    assert_relative_eq!(wag_tree.magnitude, phyml_res.tree.magnitude, epsilon = 1e-4);
     assert_eq!(wag_tree.robinson_foulds(&phyml_res.tree), 0);
     assert_relative_eq!(res.final_cost, phyml_logl, epsilon = 1e-5);
+}
+
+#[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
+fn test_nni_and_spr_find_same_tree() {
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let seq_file = fldr.join("nogap_seqs.fasta");
+    let tree_file = fldr.join("jati_wag_nogap_nj_start.newick");
+
+    let wag = SubstModel::<WAG>::new(&[], &[]);
+    let res_nni = optimise_tree_nni(&seq_file, &tree_file, wag.clone());
+    let res_spr = optimise_tree(&seq_file, &tree_file, wag.clone());
+    assert!(res_nni.final_cost >= res_nni.initial_cost);
+    assert!(res_spr.final_cost >= res_spr.initial_cost);
+    assert_relative_eq!(res_nni.final_cost, res_spr.final_cost, epsilon = 1e-5);
+
+    let nni_tree = res_nni.cost.tree();
+    let spr_tree = res_spr.cost.tree();
+
+    assert_relative_eq!(nni_tree.magnitude, spr_tree.magnitude, epsilon = 1e-4);
+    assert_eq!(nni_tree.robinson_foulds(spr_tree), 0);
 }
 
 #[test]
@@ -265,14 +343,20 @@ fn pip_vs_subst_dna_tree() {
         .build()
         .unwrap();
     let k80 = SubstModel::<K80>::new(&[], &[4.0]);
-    let k80_res = TopologyOptimiser::new(SCB::new(k80.clone(), info.clone()).build().unwrap())
-        .run()
-        .unwrap();
+    let k80_res = TopologyOptimiser::new(
+        SCB::new(k80.clone(), info.clone()).build().unwrap(),
+        SprOptimiser {},
+    )
+    .run()
+    .unwrap();
 
     let pip = PIPModel::<K80>::new(&[], &[0.5, 0.4, 4.0]);
-    let pip_res = TopologyOptimiser::new(PIPCB::new(pip.clone(), info).build().unwrap())
-        .run()
-        .unwrap();
+    let pip_res = TopologyOptimiser::new(
+        PIPCB::new(pip.clone(), info).build().unwrap(),
+        SprOptimiser {},
+    )
+    .run()
+    .unwrap();
 
     // Tree topologies under PIP+K80 and K80 should match
     assert_eq!(pip_res.cost.tree().robinson_foulds(k80_res.cost.tree()), 0);
@@ -355,8 +439,8 @@ fn wag_nogaps_pip_vs_subst_tree_nj_start() {
     let reopt_res = BranchOptimiser::new(new_pip_cost.clone()).run().unwrap();
     assert_relative_eq!(new_pip_cost.cost(), reopt_res.final_cost, epsilon = 1e-5);
     assert_relative_eq!(
-        pip_tree.height,
-        reopt_res.cost.info.tree.height,
+        pip_tree.magnitude,
+        reopt_res.cost.info.tree.magnitude,
         epsilon = 1e-5
     );
 }
@@ -449,7 +533,7 @@ fn wag_vs_phyml_empirical_freqs() {
         .build()
         .unwrap();
 
-    assert_relative_eq!(tree.height, phyml_res.tree.height, epsilon = 1e-4);
+    assert_relative_eq!(tree.magnitude, phyml_res.tree.magnitude, epsilon = 1e-4);
     assert_eq!(tree.robinson_foulds(&phyml_res.tree), 0);
 
     let wag_opt_phyml_logl = SCB::new(wag_opt, phyml_res).build().unwrap().cost();
@@ -491,8 +575,8 @@ fn pip_wag_vs_phyml_empirical_freqs() {
     // Check that our tree is better than phyml
     assert!(res.final_cost > phyml_brlen_opt.final_cost);
     assert_relative_eq!(
-        res.cost.tree().height,
-        phyml_brlen_opt.cost.info.tree.height,
+        res.cost.tree().magnitude,
+        phyml_brlen_opt.cost.info.tree.magnitude,
         epsilon = 1e-2
     );
 }
@@ -515,7 +599,7 @@ fn wag_vs_phyml_fixed_freqs() {
         .unwrap();
 
     let tree = res.cost.tree();
-    assert_relative_eq!(tree.height, phyml_res.tree.height, epsilon = 1e-4);
+    assert_relative_eq!(tree.magnitude, phyml_res.tree.magnitude, epsilon = 1e-4);
     assert_eq!(tree.robinson_foulds(&phyml_res.tree), 0);
     assert_relative_eq!(
         res.final_cost,
@@ -543,7 +627,7 @@ fn basic_parsimony_tree_search() {
     let cost = BasicParsimonyCost::new(info).unwrap();
     assert_eq!(cost.cost(), -6.0);
 
-    let res = TopologyOptimiser::new(cost).run().unwrap();
+    let res = TopologyOptimiser::new(cost, SprOptimiser {}).run().unwrap();
     assert_eq!(res.final_cost, -4.0);
 }
 
@@ -569,7 +653,7 @@ fn dollo_tree_search() {
 
     let c = DolloParsimonyCost::with_scoring(info, scoring);
     let unopt_score = c.cost();
-    let o = TopologyOptimiser::new(c).run().unwrap();
+    let o = TopologyOptimiser::new(c, SprOptimiser {}).run().unwrap();
 
     assert!(o.final_cost >= unopt_score);
     assert_eq!(o.initial_cost, unopt_score);
@@ -585,7 +669,7 @@ fn dollo_tree_search_sim_data_simple() {
     let c = DolloParsimonyCost::new(info);
     let unopt_score = c.cost();
 
-    let o = TopologyOptimiser::new(c).run().unwrap();
+    let o = TopologyOptimiser::new(c, SprOptimiser {}).run().unwrap();
     assert!(o.final_cost >= unopt_score);
     assert_eq!(o.initial_cost, unopt_score);
     assert_eq!(o.final_cost, o.cost.cost());
@@ -606,7 +690,7 @@ fn dollo_tree_search_sim_data_model() {
 
     let c = DolloParsimonyCost::with_scoring(info, scoring);
     let unopt_score = c.cost();
-    let o = TopologyOptimiser::new(c).run().unwrap();
+    let o = TopologyOptimiser::new(c, SprOptimiser {}).run().unwrap();
 
     assert!(o.final_cost >= unopt_score);
     assert_eq!(o.initial_cost, unopt_score);

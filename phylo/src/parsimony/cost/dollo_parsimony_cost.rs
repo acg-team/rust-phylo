@@ -39,13 +39,13 @@ impl DolloParsimonyCost<SimpleScoring> {
         }
     }
 }
-
 impl<S: ParsimonyScoring> DolloParsimonyCost<S> {
     pub fn with_scoring(info: PhyloInfo, scoring: S) -> Self {
         let tmp = RefCell::new(DolloParsimonyInfo::new(&info));
         DolloParsimonyCost { info, tmp, scoring }
     }
-
+}
+impl<S: ParsimonyScoring> DolloParsimonyCost<S> {
     fn score(&self) -> f64 {
         for node_idx in self.info.tree.postorder() {
             match node_idx {

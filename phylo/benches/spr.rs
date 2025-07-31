@@ -5,7 +5,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use itertools::Itertools;
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::TreeSearchCost;
-use phylo::optimisers::{spr, RegraftOptimiser};
+use phylo::optimisers::{Compatible, MoveOptimiser, SprOptimiser, TopologyOptimiser};
 use phylo::pip_model::PIPCost;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 use phylo::tree::NodeIdx;
@@ -16,20 +16,21 @@ use helpers::{
     DNA_EASY_17X2292, DNA_EASY_5X1000, DNA_EASY_8X1252,
 };
 
-fn single_spr_cycle<C: TreeSearchCost + Clone + Display + Send>(
+fn single_spr_cycle<C: TreeSearchCost + Clone + Display + Send + Compatible<SprOptimiser>>(
     mut cost_fn: C,
     prune_locations: &[&NodeIdx],
+    move_opti: SprOptimiser,
 ) -> anyhow::Result<f64> {
-    spr::fold_improving_moves(&mut cost_fn, f64::MIN, prune_locations)
+    TopologyOptimiser::fold_improving_moves(&mut cost_fn, &move_opti, f64::MIN, prune_locations)
 }
 
 fn find_best_regraft_for_single_spr_move<C: TreeSearchCost + Clone + Display + Send>(
     cost_fn: C,
     prune_location: &NodeIdx,
 ) -> anyhow::Result<f64> {
-    let regraft_optimiser = RegraftOptimiser::new(&cost_fn, prune_location);
+    let regraft_optimiser = SprOptimiser {};
     let best_regraft = regraft_optimiser
-        .find_max_cost_regraft_for_prune(f64::MIN)?
+        .best_move_at_location(f64::MIN, &cost_fn, prune_location)?
         .expect("invalid prune location for benchmarking");
     Ok(best_regraft.cost())
 }
@@ -45,18 +46,17 @@ fn run_single_spr_cycle_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
             bench.iter_batched(
                 // clone because of interior mutability in PIPCost
                 || data.clone(),
-                |(cost_fn, prune_locations)| single_spr_cycle(cost_fn, prune_locations),
+                |(cost_fn, prune_locations)| {
+                    single_spr_cycle(cost_fn, prune_locations, SprOptimiser {})
+                },
                 criterion::BatchSize::SmallInput,
             );
         });
     };
+    let move_opti = SprOptimiser {};
     for (key, path) in paths {
         let cost_fn = black_box_pip_cost::<Q>(path, FrequencyOptimisation::Empirical);
-        let prune_locations = cost_fn
-            .tree()
-            .find_possible_prune_locations()
-            .copied()
-            .collect_vec();
+        let prune_locations = move_opti.move_locations(&cost_fn).copied().collect_vec();
         let prune_locations_ref = prune_locations.iter().collect_vec();
         bench(key, (cost_fn, &prune_locations_ref));
     }
