@@ -188,7 +188,7 @@ impl<D: EvolutionaryDistance> NJBuilder<D> {
 #[cfg(test)]
 mod private_tests {
     //From test.rs in tree, so we can use macros
-    use crate::record_wo_desc as record;
+    use crate::{record_wo_desc as record, tree};
     use nalgebra::{dmatrix, DMatrix};
 
     use super::*;
@@ -252,6 +252,35 @@ mod private_tests {
         0.2326161962278796, 0.2326161962278796, 0.0, 0.28924686060898847;
         0.051744653615213576, 0.051744653615213576, 0.28924686060898847, 0.0];
         assert_eq!(mat.distances, true_mat);
+    }
+
+    #[test]
+    fn nj_tree_original_paper() {
+        // Compare against the original paper tree
+        // https://academic.oup.com/mbe/article/4/4/406/1029664
+        let nj_distances = NJMat {
+            idx: (0..8).map(NodeIdx::Leaf).collect(),
+            distances: dmatrix![
+                0.0, 7.0, 8.0, 11.0, 13.0, 16.0, 13.0, 17.0;
+                7.0, 0.0, 5.0, 8.0, 10.0, 13.0, 10.0, 14.0;
+                8.0, 5.0, 0.0, 5.0, 7.0, 10.0, 7.0, 11.0;
+                11.0, 8.0, 5.0, 0.0, 8.0, 11.0, 8.0, 12.0;
+                13.0, 10.0, 7.0, 8.0, 0.0, 5.0, 6.0, 10.0;
+                16.0, 13.0, 10.0, 11.0, 5.0, 0.0, 9.0, 13.0;
+                13.0, 10.0, 7.0, 8.0, 6.0, 9.0, 0.0, 8.0;
+                17.0, 14.0, 11.0, 12.0, 10.0, 13.0, 8.0, 0.0;
+            ],
+        };
+        let sequences = Sequences::new((1..=8).map(|i| record!(&i.to_string(), b"")).collect());
+        let nj_tree = NJBuilder::default()
+            .build_nj_tree_from_matrix(nj_distances, &sequences)
+            .unwrap();
+        let correct_tree =
+            tree!("((8:6,7:2):0.5,((5:1,6:4):2,(4:3,(3:1,(1:5,2:2):2):1):2):0.5):0.0;");
+        assert_eq!(nj_tree.height, correct_tree.height);
+        for leaf in nj_tree.leaves() {
+            assert_eq!(leaf.blen, correct_tree.by_id(&leaf.id).blen);
+        }
     }
 
     #[test]
