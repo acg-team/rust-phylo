@@ -191,7 +191,7 @@ impl QMatrixMaker for HKY {
                 2.0
             }
             Ordering::Greater => {
-                warn!("Too many values provided for HKY, required one value for kappa.");
+                warn!("Too many values provided for HKY, required one value for kappa");
                 warn!("Will only use the first value provided");
                 params[0]
             }

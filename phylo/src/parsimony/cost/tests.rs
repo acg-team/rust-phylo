@@ -1,7 +1,9 @@
 use crate::alignment::{Alignment, Sequences};
 use crate::likelihood::TreeSearchCost;
-use crate::parsimony::scoring::{GapCost, ModelScoringBuilder, SimpleScoring};
-use crate::parsimony::{BasicParsimonyCost, DolloParsimonyCost};
+use crate::parsimony::{
+    scoring::{GapCost, ModelScoringBuilder, SimpleScoring},
+    BasicParsimonyCost, DolloParsimonyCost,
+};
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{SubstModel, WAG};
 use crate::{record_wo_desc as rec, tree};

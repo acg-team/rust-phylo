@@ -977,7 +977,7 @@ fn dna_gaps_against_phyml() {
     let tree =
         tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001)0.000000:0.08716381);");
     let seqs =
-        Sequences::new(read_sequences(&Path::new("./data/").join("sequences_DNA1.fasta")).unwrap());
+        Sequences::new(read_sequences(Path::new("./data/").join("sequences_DNA1.fasta")).unwrap());
     let info = PhyloInfo {
         msa: Alignment::from_aligned(seqs, &tree).unwrap(),
         tree,

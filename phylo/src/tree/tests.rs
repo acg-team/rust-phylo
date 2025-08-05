@@ -174,7 +174,7 @@ fn newick_ladder_second_correct() {
     assert_eq!(trees[0].nodes, nodes);
     assert_eq!(trees[0].postorder.len(), 5);
     assert_eq!(trees[0].preorder.len(), 5);
-    assert_relative_eq!(trees[0].height, trees[0].iter().map(|n| n.blen).sum());
+    assert_relative_eq!(trees[0].length, trees[0].iter().map(|n| n.blen).sum());
 }
 
 #[test]
@@ -478,7 +478,7 @@ fn test_to_newick_simple() {
         preorder: vec![I(2), L(0), L(1)],
         complete: false,
         n: 3,
-        height: 8.5,
+        length: 8.5,
         leaf_ids: vec!["A".to_string(), "B".to_string()],
         dirty: vec![false; 3],
     };
@@ -502,7 +502,7 @@ fn test_to_newick_complex() {
     let tree = tree!("(((raccoon:19.19959,bear:6.80041):0.84600,((sea_lion:11.99700, seal:12.00300):7.52973,
     ((monkey:100.85930,cat:47.14069):20.59201, weasel:18.87953):2.09460):3.87382):9.0,dog:25.46154):10.0;");
     assert!(tree.complete);
-    assert_relative_eq!(tree.height, tree.iter().map(|n| n.blen).sum());
+    assert_relative_eq!(tree.length, tree.iter().map(|n| n.blen).sum());
 }
 
 #[test]
@@ -528,7 +528,7 @@ fn test_parse_huge_newick() {
     assert_eq!(tree.leaves().len(), 762);
     assert_eq!(tree.internals().len(), 761);
     assert!(tree.complete);
-    assert_relative_eq!(tree.height, tree.iter().map(|n| n.blen).sum());
+    assert_relative_eq!(tree.length, tree.iter().map(|n| n.blen).sum());
 }
 
 #[test]
@@ -580,115 +580,6 @@ fn is_subtree() {
         }
         assert!(!tree.is_subtree(&tree.root, &node.idx));
     }
-}
-
-#[test]
-fn spr_siblings() {
-    let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-    assert!(tree.rooted_spr(&tree.idx("A"), &tree.idx("B")).is_err());
-}
-
-#[test]
-fn spr_prune_root_or_children() {
-    let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-    assert!(tree.rooted_spr(&tree.idx("G"), &tree.idx("B")).is_err());
-    assert!(tree.rooted_spr(&tree.idx("E"), &tree.idx("B")).is_err());
-    assert!(tree.rooted_spr(&tree.idx("F"), &tree.idx("B")).is_err());
-}
-
-#[test]
-#[should_panic]
-fn spr_prune_root_unchecked() {
-    let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-    tree.rooted_spr_unchecked(&tree.idx("G"), &tree.idx("B"));
-}
-
-#[test]
-#[should_panic]
-fn spr_prune_root_child_unchecked() {
-    let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-    tree.rooted_spr_unchecked(&tree.idx("F"), &tree.idx("B"));
-}
-
-#[test]
-fn spr_regraft_root() {
-    let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-    assert!(tree.rooted_spr(&tree.idx("A"), &tree.idx("G")).is_err());
-}
-
-#[test]
-#[should_panic]
-fn spr_regraft_root_unchecked() {
-    let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-    tree.rooted_spr_unchecked(&tree.idx("B"), &tree.idx("G"));
-}
-
-#[test]
-fn spr_regraft_subtree() {
-    let tree = tree!("((((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3,H:1.0)K:1.0);");
-    assert!(tree.rooted_spr(&tree.idx("E"), &tree.idx("B")).is_err());
-}
-
-#[test]
-#[should_panic]
-fn spr_regraft_subtree_unchecked() {
-    let tree = tree!("((((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3,H:1.0)K:1.0);");
-    tree.rooted_spr_unchecked(&tree.idx("E"), &tree.idx("B"));
-}
-
-#[test]
-#[should_panic]
-fn spr_regraft_siblings() {
-    let tree = tree!("((((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3,H:1.0)K:1.0);");
-    tree.rooted_spr_unchecked(&tree.idx("A"), &tree.idx("B"));
-}
-
-#[test]
-fn spr_simple_valid() {
-    let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-    let new_tree = tree.rooted_spr(&tree.idx("A"), &tree.idx("C")).unwrap();
-    assert_eq!(new_tree.len(), tree.len());
-    assert_relative_eq!(new_tree.height, tree.height);
-    let prune_sib = new_tree.node(&tree.idx("B"));
-    assert_eq!(prune_sib.blen, 6.1);
-    assert_eq!(prune_sib.parent, Some(tree.idx("G")));
-    let prune_gpar = new_tree.node(&tree.idx("G"));
-    assert!([tree.idx("F"), tree.idx("B")].contains(&prune_gpar.children[0]));
-    assert!([tree.idx("B"), tree.idx("F")].contains(&prune_gpar.children[1]));
-    assert_eq!(prune_gpar.blen, 7.3);
-    let regraft_par = new_tree.node(&tree.idx("F"));
-    assert_eq!(regraft_par.blen, 6.2);
-    assert!([tree.idx("E"), tree.idx("D")].contains(&regraft_par.children[0]));
-    assert!([tree.idx("E"), tree.idx("D")].contains(&regraft_par.children[1]));
-    let prune = new_tree.node(&tree.idx("A"));
-    assert_eq!(prune.blen, 1.0);
-    assert_eq!(prune.parent, Some(tree.idx("E")));
-    let prune_par = new_tree.node(&tree.idx("E"));
-    assert_eq!(prune_par.blen, 1.5);
-    assert!([tree.idx("A"), tree.idx("C")].contains(&prune_par.children[0]));
-    assert!([tree.idx("A"), tree.idx("C")].contains(&prune_par.children[1]));
-    let regraft_sib = new_tree.node(&tree.idx("D"));
-    assert_eq!(regraft_sib.blen, 4.0);
-    assert_eq!(regraft_sib.parent, Some(tree.idx("F")));
-}
-
-#[test]
-fn spr_broken() {
-    let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
-    let new_tree = tree.rooted_spr(&tree.idx("A"), &tree.idx("C")).unwrap();
-    let ng = new_tree.node(&tree.idx("G"));
-    assert!([tree.idx("F"), tree.idx("B")].contains(&ng.children[0]));
-    assert!([tree.idx("F"), tree.idx("B")].contains(&ng.children[1]));
-    let nf = new_tree.node(&tree.idx("F"));
-    assert!([tree.idx("E"), tree.idx("D")].contains(&nf.children[0]));
-    assert!([tree.idx("E"), tree.idx("D")].contains(&nf.children[1]));
-    assert_eq!(nf.parent, Some(tree.idx("G")));
-    let ne = new_tree.node(&tree.idx("E"));
-    assert!([tree.idx("A"), tree.idx("C")].contains(&ne.children[0]));
-    assert!([tree.idx("A"), tree.idx("C")].contains(&ne.children[1]));
-    assert_eq!(ne.parent, Some(tree.idx("F")));
-    assert_eq!(new_tree.len(), tree.len());
-    assert_relative_eq!(new_tree.height, tree.height);
 }
 
 #[test]
@@ -787,11 +678,11 @@ fn rf_distance_to_itself() {
 #[test]
 fn rf_distance_against_raxml() {
     let folder = Path::new("./data/phyml_protein_example");
-    let tree_orig = &read_newick_from_file(&folder.join("example_tree.newick")).unwrap()[0];
-    let tree_phyml = &read_newick_from_file(&folder.join("phyml_nogap.newick")).unwrap()[0];
+    let tree_orig = &read_newick_from_file(folder.join("example_tree.newick")).unwrap()[0];
+    let tree_phyml = &read_newick_from_file(folder.join("phyml_nogap.newick")).unwrap()[0];
 
-    let tree = &read_newick_from_file(&folder.join("test_tree_1.newick")).unwrap()[0];
-    let tree_from_nj = &read_newick_from_file(&folder.join("test_tree_2.newick")).unwrap()[0];
+    let tree = &read_newick_from_file(folder.join("test_tree_1.newick")).unwrap()[0];
+    let tree_from_nj = &read_newick_from_file(folder.join("test_tree_2.newick")).unwrap()[0];
     assert_eq!(tree_orig.robinson_foulds(tree_phyml), 4);
     assert_eq!(tree_orig.robinson_foulds(tree), 4);
     assert_eq!(tree_orig.robinson_foulds(tree_from_nj), 4);

@@ -165,7 +165,7 @@ impl NJBuilder {
         tree.complete = true;
         tree.compute_postorder();
         tree.compute_preorder();
-        tree.height = tree.nodes.iter().map(|node| node.blen).sum();
+        tree.length = tree.nodes.iter().map(|node| node.blen).sum();
         Ok(tree)
     }
     //Converted this to method instead of associated function, we can decide which to use
