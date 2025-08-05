@@ -6,10 +6,13 @@ use log::{info, warn};
 
 use crate::alignment::{Aligner, Alignment, Sequences};
 use crate::alphabets::Alphabet;
+use crate::evolutionary_distances::LevenshteinDNACorrected;
 use crate::io::{self, DataError};
 use crate::parsimony::ParsimonyAligner;
 use crate::phylo_info::PhyloInfo;
-use crate::tree::{nj_builder::NJBuilder, tree_builder::TreeBuilder, Tree};
+use crate::tree::nj_builder::{NJBuilder, Randomise};
+use crate::tree::tree_builder::TreeBuilder;
+use crate::tree::Tree;
 use crate::Result;
 
 pub struct PhyloInfoBuilder {
@@ -148,9 +151,9 @@ impl PhyloInfoBuilder {
             None => {
                 info!("Building NJ tree from sequences");
                 // Decide between default or new() usage, edit in future push
-                let _ = NJBuilder::new(None, None);
+                let _ = NJBuilder::new(Randomise::Deterministic, LevenshteinDNACorrected);
                 self.tree_builder
-                    .unwrap_or(Box::new(NJBuilder::default()))
+                    .unwrap_or(Box::new(NJBuilder::<LevenshteinDNACorrected>::default()))
                     .build_tree(&sequences)?
             }
         };
