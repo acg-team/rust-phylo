@@ -272,12 +272,12 @@ mod private_tests {
             ],
         };
         let sequences = Sequences::new((1..=8).map(|i| record!(&i.to_string(), b"")).collect());
-        let nj_tree = NJBuilder::default()
+        let nj_tree = NJBuilder::<LevenshteinDNACorrected>::default()
             .build_nj_tree_from_matrix(nj_distances, &sequences)
             .unwrap();
         let correct_tree =
             tree!("((8:6,7:2):0.5,((5:1,6:4):2,(4:3,(3:1,(1:5,2:2):2):1):2):0.5):0.0;");
-        assert_eq!(nj_tree.height, correct_tree.height);
+        assert_eq!(nj_tree.length, correct_tree.length);
         for leaf in nj_tree.leaves() {
             assert_eq!(leaf.blen, correct_tree.by_id(&leaf.id).blen);
         }
