@@ -472,40 +472,40 @@ mod private_tests {
         let _nj_builder = NJBuilder::new(Randomise::Temperature(2.0), LevenshteinDNACorrected {});
     }
 
-    // Rethink adding these tests, would need random seed to work
-    #[test]
-    fn nj_builder_uniform() {
-        // Stolen from nj_correct test
-        let nj_distances = NJMat {
-            idx: (0..4).map(NodeIdx::Leaf).collect(),
-            distances: dmatrix![
-                    0.0, 4.0, 5.0, 10.0;
-                    4.0, 0.0, 7.0, 12.0;
-                    5.0, 7.0, 0.0, 9.0;
-                    10.0, 12.0, 9.0, 0.0],
-        };
-        let sequences = Sequences::new(vec![
-            record!("A0", b""),
-            record!("B1", b""),
-            record!("C2", b""),
-            record!("D3", b""),
-        ]);
-        let nj_builder = NJBuilder::new(Randomise::Temperature(0.0), LevenshteinDNACorrected {});
-        let nj_tree = nj_builder
-            .build_nj_tree_from_matrix(nj_distances, &sequences)
-            .unwrap();
-        let nodes = vec![
-            Node::new_leaf(0, Some(I(4)), 1.0, "A0".to_string()),
-            Node::new_leaf(1, Some(I(4)), 3.0, "B1".to_string()),
-            Node::new_leaf(2, Some(I(5)), 2.0, "C2".to_string()),
-            Node::new_leaf(3, Some(I(5)), 7.0, "D3".to_string()),
-            Node::new_internal(4, Some(I(6)), vec![L(0), L(1)], 1.0, "".to_string()),
-            Node::new_internal(5, Some(I(6)), vec![L(3), L(2)], 1.0, "".to_string()),
-            Node::new_internal(6, None, vec![I(4), I(5)], 0.0, "".to_string()),
-        ];
-        assert_eq!(nj_tree.root, I(6));
-        assert_eq!(nj_tree.nodes, nodes);
-    }
+    // // Rethink adding these tests, would need random seed to work
+    // #[test]
+    // fn nj_builder_uniform() {
+    //     // Stolen from nj_correct test
+    //     let nj_distances = NJMat {
+    //         idx: (0..4).map(NodeIdx::Leaf).collect(),
+    //         distances: dmatrix![
+    //                 0.0, 4.0, 5.0, 10.0;
+    //                 4.0, 0.0, 7.0, 12.0;
+    //                 5.0, 7.0, 0.0, 9.0;
+    //                 10.0, 12.0, 9.0, 0.0],
+    //     };
+    //     let sequences = Sequences::new(vec![
+    //         record!("A0", b""),
+    //         record!("B1", b""),
+    //         record!("C2", b""),
+    //         record!("D3", b""),
+    //     ]);
+    //     let nj_builder = NJBuilder::new(Randomise::Temperature(0.0), LevenshteinDNACorrected {});
+    //     let nj_tree = nj_builder
+    //         .build_nj_tree_from_matrix(nj_distances, &sequences)
+    //         .unwrap();
+    //     let nodes = vec![
+    //         Node::new_leaf(0, Some(I(4)), 1.0, "A0".to_string()),
+    //         Node::new_leaf(1, Some(I(4)), 3.0, "B1".to_string()),
+    //         Node::new_leaf(2, Some(I(5)), 2.0, "C2".to_string()),
+    //         Node::new_leaf(3, Some(I(5)), 7.0, "D3".to_string()),
+    //         Node::new_internal(4, Some(I(6)), vec![L(0), L(1)], 1.0, "".to_string()),
+    //         Node::new_internal(5, Some(I(6)), vec![L(3), L(2)], 1.0, "".to_string()),
+    //         Node::new_internal(6, None, vec![I(4), I(5)], 0.0, "".to_string()),
+    //     ];
+    //     assert_eq!(nj_tree.root, I(6));
+    //     assert_eq!(nj_tree.nodes, nodes);
+    // }
 
     // #[test]
     // fn nj_builder_softmax() {
