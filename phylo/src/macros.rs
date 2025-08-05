@@ -42,6 +42,7 @@ macro_rules! record {
 }
 
 /// Create a tree from a Newick string.
+/// Warning: this macro creates a tree with no checks on the Newick format.
 ///
 /// # Examples
 /// ```
