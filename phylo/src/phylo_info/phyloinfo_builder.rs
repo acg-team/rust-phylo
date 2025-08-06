@@ -10,7 +10,7 @@ use crate::evolutionary_distances::LevenshteinDNACorrected;
 use crate::io::{self, DataError};
 use crate::parsimony::ParsimonyAligner;
 use crate::phylo_info::PhyloInfo;
-use crate::tree::nj_builder::{NJBuilder, Randomise};
+use crate::tree::nj_builder::NJTreeBuilder;
 use crate::tree::tree_builder::TreeBuilder;
 use crate::tree::Tree;
 use crate::Result;
@@ -151,10 +151,9 @@ impl PhyloInfoBuilder {
             None => {
                 info!("Building NJ tree from sequences");
                 // Decide between default or new() usage, edit in future push
-                let _ = NJBuilder::new(Randomise::Deterministic, LevenshteinDNACorrected);
                 self.tree_builder
-                    .unwrap_or(Box::new(NJBuilder::<LevenshteinDNACorrected>::default()))
-                    .build_tree(&sequences)?
+                    .unwrap_or(Box::new(NJTreeBuilder::<LevenshteinDNACorrected>::default()))
+                    .build(&sequences)?
             }
         };
 

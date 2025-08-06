@@ -1,43 +1,41 @@
+use log::debug;
+use nalgebra::DMatrix;
+
 use crate::alignment::Sequences;
 use crate::evolutionary_distances::{EvolutionaryDistance, LevenshteinDNACorrected};
 use crate::tree::nj_matrices::{Mat, NJMat};
 use crate::tree::tree_builder::TreeBuilder;
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
-use log::debug;
-use nalgebra::DMatrix;
 
 pub enum Randomise {
     Deterministic,
     Temperature(f64),
 }
-pub struct NJBuilder<D: EvolutionaryDistance> {
+
+pub struct NJTreeBuilder<D: EvolutionaryDistance> {
     temperature: Randomise,
     distance_function: D,
 }
 
-impl<D: EvolutionaryDistance> TreeBuilder for NJBuilder<D> {
-    fn build_tree(&self, sequences: &Sequences) -> Result<Tree> {
+impl<D: EvolutionaryDistance> TreeBuilder for NJTreeBuilder<D> {
+    fn build(&self, sequences: &Sequences) -> Result<Tree> {
         let nj_data = self.compute_distance_matrix(sequences);
-        // Now returns from a method rather than associated function, for use of temperature instantiated value
         self.build_nj_tree_from_matrix(nj_data, sequences)
     }
 }
 
-impl<D: EvolutionaryDistance + Default> Default for NJBuilder<D> {
+impl<D: EvolutionaryDistance + Default> Default for NJTreeBuilder<D> {
     fn default() -> Self {
-        NJBuilder {
+        NJTreeBuilder {
             temperature: Randomise::Deterministic,
             distance_function: D::default(),
         }
     }
 }
 
-impl<D: EvolutionaryDistance> NJBuilder<D> {
-    // With the way we are using Option makes sense to use Into to allow for passing
-    pub(crate) fn new(temperature: Randomise, distance_function: D) -> Self {
-        // Add checking of unwrap for default when not None is passed in? Warning to user
-        // None temperature should be allowed, or if float, add stochastic
+impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
+    pub fn new(temperature: Randomise, distance_function: D) -> Self {
         if let Randomise::Temperature(t) = temperature {
             assert!(
                 (0.0..=1.0).contains(&t),
@@ -58,8 +56,7 @@ impl<D: EvolutionaryDistance> NJBuilder<D> {
         );
         debug_assert!(q.ncols() == q.nrows(), "The input matrix should be square.");
         println!("{q}");
-        // Test better outputs of computer_nj_q() as this affects this...
-        // Based on nj_correct test case, negative distances are here. Otherwise, multiplying by negative 1 should correctly make large distances very small, and small distances, still small, or large if negative
+        // Based on nj_correct test case, negative distances are common in compute_nj_q, which should be multiplied by -1 for small (desireable) distances to be larger in comparison to large distances. Allows for use of softmax
         let mut exp_mat = q.scale(-1.0);
         // e^i on all elements of matrix
         exp_mat = exp_mat.lower_triangle().map(|i| i.exp());
@@ -72,7 +69,6 @@ impl<D: EvolutionaryDistance> NJBuilder<D> {
             "Probability L Triangle Sum: {}",
             exp_mat.lower_triangle().sum() - exp_mat.diagonal().sum()
         );
-
         // Use temperature with uniform value to calculate probability
         let uniform: f64 = 1.0 / (((q.nrows().pow(2) - q.nrows()) / 2) as f64);
         // Temperature probabilities, temp=0.0 means uniform, temp=1.0 means softmax of distances
@@ -101,7 +97,7 @@ impl<D: EvolutionaryDistance> NJBuilder<D> {
         panic!("No return from softmax branch");
     }
 
-    // This is the original implementation, to be used with temperature None
+    // This is the original implementation, to be used with Randomise::Deterministic
     fn argmin_wo_diagonal(q: Mat) -> (usize, usize) {
         debug_assert!(!q.is_empty(), "The input matrix must not be empty.");
         debug_assert!(
@@ -111,7 +107,7 @@ impl<D: EvolutionaryDistance> NJBuilder<D> {
         debug_assert!(q.ncols() == q.nrows(), "The input matrix should be square.");
         let mut arg_min = vec![];
         let mut val_min = &f64::MAX;
-        for i in 0..q.nrows() {
+        for i in 1..q.nrows() {
             for j in 0..i {
                 let val = &q[(i, j)];
                 if val < val_min {
@@ -141,13 +137,13 @@ impl<D: EvolutionaryDistance> NJBuilder<D> {
         let n = nj_data.distances.ncols();
         let mut tree = Tree::new(sequences)?;
         let root_idx = usize::from(&tree.root);
-        //Wrapped in temperature check for now, can implement stochastic better in future
         for cur_idx in n..=root_idx {
             let q = nj_data.compute_nj_q();
-            // This is where we choose our next branch, if temperature exists softmax, if not argmin, default behavior
             let (i, j) = match self.temperature {
                 Randomise::Temperature(_t) => self.temperature_branch(q),
-                Randomise::Deterministic => NJBuilder::<D>::argmin_wo_diagonal(q),
+                Randomise::Deterministic => {
+                    NJTreeBuilder::<LevenshteinDNACorrected>::argmin_wo_diagonal(q)
+                }
             };
             let idx_new = cur_idx;
             let (blen_i, blen_j) = nj_data.branch_lengths(i, j, cur_idx == root_idx);
@@ -164,7 +160,6 @@ impl<D: EvolutionaryDistance> NJBuilder<D> {
         tree.length = tree.nodes.iter().map(|node| node.blen).sum();
         Ok(tree)
     }
-    //Converted this to method instead of associated function, we can decide which to use
 
     fn compute_distance_matrix(&self, sequences: &Sequences) -> NJMat {
         let nseqs = sequences.len();
@@ -207,7 +202,7 @@ mod private_tests {
     #[should_panic]
     fn test_argmin_fail() {
         //Instantiate NJBuilder instance every time
-        NJBuilder::<LevenshteinDNACorrected>::argmin_wo_diagonal(DMatrix::<f64>::from_vec(
+        NJTreeBuilder::<LevenshteinDNACorrected>::argmin_wo_diagonal(DMatrix::<f64>::from_vec(
             1,
             1,
             vec![0.0],
@@ -224,7 +219,7 @@ mod private_tests {
             record!("E4", b"CC"),
         ]);
         //For now, may instantiate NJBuilder instance every time
-        let nj_builder: NJBuilder<LevenshteinDNACorrected> = NJBuilder::default();
+        let nj_builder: NJTreeBuilder<LevenshteinDNACorrected> = NJTreeBuilder::default();
         let mat = nj_builder.compute_distance_matrix(&sequences);
         let true_mat = dmatrix![
         0.0, 26.728641210756745, 26.728641210756745, 26.728641210756745, 0.8239592165010822;
@@ -244,7 +239,7 @@ mod private_tests {
             record!("D3", b"CAAAAAAAAAAAAAAAAAAA"),
         ]);
         //For now, may instantiate NJBuilder instance every time
-        let nj_builder: NJBuilder<LevenshteinDNACorrected> = NJBuilder::default();
+        let nj_builder: NJTreeBuilder<LevenshteinDNACorrected> = NJTreeBuilder::default();
         let mat = nj_builder.compute_distance_matrix(&sequences);
         let true_mat = dmatrix![
         0.0, 0.0, 0.2326161962278796, 0.051744653615213576;
@@ -272,7 +267,7 @@ mod private_tests {
             ],
         };
         let sequences = Sequences::new((1..=8).map(|i| record!(&i.to_string(), b"")).collect());
-        let nj_tree = NJBuilder::<LevenshteinDNACorrected>::default()
+        let nj_tree = NJTreeBuilder::<LevenshteinDNACorrected>::default()
             .build_nj_tree_from_matrix(nj_distances, &sequences)
             .unwrap();
         let correct_tree =
@@ -301,7 +296,7 @@ mod private_tests {
             record!("D", b""),
         ]);
         // Instantiate NJBuilder instance every time
-        let nj_builder: NJBuilder<LevenshteinDNACorrected> = NJBuilder::default();
+        let nj_builder: NJTreeBuilder<LevenshteinDNACorrected> = NJTreeBuilder::default();
         let tree = nj_builder
             .build_nj_tree_from_matrix(nj_distances, &sequences)
             .unwrap();
@@ -336,7 +331,7 @@ mod private_tests {
             record!("D3", b""),
         ]);
         // Instantiate NJBuilder instance every time
-        let nj_builder: NJBuilder<LevenshteinDNACorrected> = NJBuilder::default();
+        let nj_builder: NJTreeBuilder<LevenshteinDNACorrected> = NJTreeBuilder::default();
         let tree = nj_builder
             .build_nj_tree_from_matrix(nj_distances, &sequences)
             .unwrap();
@@ -366,7 +361,7 @@ mod private_tests {
             record!("d", b""),
             record!("e", b""),
         ]);
-        let nj_builder: NJBuilder<LevenshteinDNACorrected> = NJBuilder::default();
+        let nj_builder: NJTreeBuilder<LevenshteinDNACorrected> = NJTreeBuilder::default();
         let tree = nj_builder
             .build_nj_tree_from_matrix(nj_distances, &sequences)
             .unwrap();
@@ -403,7 +398,7 @@ mod private_tests {
             record!("D3", b""),
             record!("E4", b""),
         ]);
-        let nj_builder: NJBuilder<LevenshteinDNACorrected> = NJBuilder::default();
+        let nj_builder: NJTreeBuilder<LevenshteinDNACorrected> = NJTreeBuilder::default();
         let nj_tree = nj_builder
             .build_nj_tree_from_matrix(nj_distances, &sequences)
             .unwrap();
@@ -438,7 +433,7 @@ mod private_tests {
             record!("C2", b""),
             record!("D3", b""),
         ]);
-        let nj_builder: NJBuilder<LevenshteinDNACorrected> = NJBuilder::default();
+        let nj_builder: NJTreeBuilder<LevenshteinDNACorrected> = NJTreeBuilder::default();
         let nj_tree = nj_builder
             .build_nj_tree_from_matrix(nj_distances, &sequences)
             .unwrap();
@@ -458,24 +453,26 @@ mod private_tests {
 
     #[test]
     fn nj_builder_correct_creation() {
-        let _nj_builder: NJBuilder<LevenshteinDNACorrected> = NJBuilder::default();
-        let _nj_builder = NJBuilder::new(Randomise::Deterministic, LevenshteinDNACorrected {});
+        let _nj_builder: NJTreeBuilder<LevenshteinDNACorrected> = NJTreeBuilder::default();
+        let _nj_builder = NJTreeBuilder::new(Randomise::Deterministic, LevenshteinDNACorrected {});
         // Have to wrap distance function in Some, because otherwise Into has to be implemented for DistanceFunction type
-        let _nj_builder = NJBuilder::new(Randomise::Temperature(0.0), LevenshteinDNACorrected {});
-        let _nj_builder = NJBuilder::new(Randomise::Temperature(1.0), LevenshteinDNACorrected {});
+        let _nj_builder =
+            NJTreeBuilder::new(Randomise::Temperature(0.0), LevenshteinDNACorrected {});
+        let _nj_builder =
+            NJTreeBuilder::new(Randomise::Temperature(1.0), LevenshteinDNACorrected {});
     }
 
     #[test]
     #[should_panic]
     fn nj_builder_panic_creation() {
         //temperature over 1.0
-        let _nj_builder = NJBuilder::new(Randomise::Temperature(2.0), LevenshteinDNACorrected {});
+        let _nj_builder =
+            NJTreeBuilder::new(Randomise::Temperature(2.0), LevenshteinDNACorrected {});
     }
 
     // // Rethink adding these tests, would need random seed to work
     // #[test]
     // fn nj_builder_uniform() {
-    //     // Stolen from nj_correct test
     //     let nj_distances = NJMat {
     //         idx: (0..4).map(NodeIdx::Leaf).collect(),
     //         distances: dmatrix![
@@ -509,7 +506,6 @@ mod private_tests {
 
     // #[test]
     // fn nj_builder_softmax() {
-    //     // Stolen from nj_correct test
     //     let nj_distances = NJMat {
     //         idx: (0..4).map(NodeIdx::Leaf).collect(),
     //         distances: dmatrix![
