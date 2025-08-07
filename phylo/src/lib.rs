@@ -14,6 +14,7 @@ pub mod optimisers;
 pub mod parsimony;
 pub mod phylo_info;
 pub mod pip_model;
+pub mod random;
 pub mod substitution_models;
 pub mod tree;
 
