@@ -5,20 +5,59 @@ use rand::distributions::{Distribution, Standard};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
-/// Global random number generator for the crate.
+/// A generic random number generator wrapper that can work with different RNGs.
 ///
-/// This provides a thread-safe, globally accessible RNG that is seeded once
-/// at the start of execution. This ensures reproducible randomness across
-/// the entire crate when using the same seed.
-pub struct GlobalRng {
-    rng: Mutex<StdRng>,
+/// This provides a thread-safe, reusable interface for different RNG backends.
+/// The RNG must implement `Rng + SeedableRng + Send`.
+///
+/// # Examples
+///
+/// ```rust
+/// use phylo::random::{RandomGenerator, init_rng, gen};
+/// use rand::rngs::StdRng;
+///
+/// // Use the global RNG
+/// init_rng(42);
+/// let value: f64 = gen();
+///
+/// // Create a custom RNG instance
+/// let custom_rng: RandomGenerator<StdRng> = RandomGenerator::new(123);
+/// let custom_value: f64 = custom_rng.gen();
+/// ```
+///
+/// # Adding Custom RNG Types
+///
+/// You can use any RNG that implements the required traits:
+///
+/// ```rust
+/// use phylo::random::RandomGenerator;
+/// use rand_chacha::ChaCha20Rng; // Requires rand_chacha dependency
+///
+/// // This would work if you add rand_chacha to your dependencies:
+/// // let fast_rng: RandomGenerator<ChaCha20Rng> = RandomGenerator::new(42);
+/// ```
+pub struct RandomGenerator<R>
+where
+    R: Rng + SeedableRng + Send,
+{
+    rng: Mutex<R>,
 }
 
-impl GlobalRng {
-    /// Create a new GlobalRng with the given seed.
+/// Type alias for the global RNG implementation.
+/// Currently uses StdRng for good performance and reproducibility.
+pub type GlobalRng = RandomGenerator<StdRng>;
+
+/// Global instance of the RNG.
+static GLOBAL_RNG: OnceLock<GlobalRng> = OnceLock::new();
+
+impl<R> RandomGenerator<R>
+where
+    R: Rng + SeedableRng + Send,
+{
+    /// Create a new RandomGenerator with the given seed.
     pub fn new(seed: u64) -> Self {
         Self {
-            rng: Mutex::new(StdRng::seed_from_u64(seed)),
+            rng: Mutex::new(R::seed_from_u64(seed)),
         }
     }
 
@@ -32,10 +71,10 @@ impl GlobalRng {
     }
 
     /// Generate a random value in the given range.
-    pub fn gen_range<T, R>(&self, range: R) -> T
+    pub fn gen_range<T, Range>(&self, range: Range) -> T
     where
         T: rand::distributions::uniform::SampleUniform,
-        R: rand::distributions::uniform::SampleRange<T>,
+        Range: rand::distributions::uniform::SampleRange<T>,
     {
         let mut rng = self.rng.lock().unwrap();
         rng.gen_range(range)
@@ -53,18 +92,15 @@ impl GlobalRng {
         rng.gen_bool(p)
     }
 
-    /// Reseed the global RNG with a new seed.
+    /// Reseed the RNG with a new seed.
     ///
     /// This is useful for testing or when you want to start a new
     /// reproducible sequence.
     pub fn reseed(&self, seed: u64) {
         let mut rng = self.rng.lock().unwrap();
-        *rng = StdRng::seed_from_u64(seed);
+        *rng = R::seed_from_u64(seed);
     }
 }
-
-/// Global instance of the RNG.
-static GLOBAL_RNG: OnceLock<GlobalRng> = OnceLock::new();
 
 /// Initialize the global RNG with a seed.
 ///
@@ -78,7 +114,7 @@ static GLOBAL_RNG: OnceLock<GlobalRng> = OnceLock::new();
 /// let random_value: f64 = phylo::random::random();
 /// ```
 pub fn init_rng(seed: u64) {
-    let _ = GLOBAL_RNG.set(GlobalRng::new(seed));
+    GLOBAL_RNG.get_or_init(|| GlobalRng::new(0)).reseed(seed);
 }
 
 /// Get a reference to the global RNG.
