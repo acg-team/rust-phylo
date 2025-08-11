@@ -9,7 +9,8 @@ use crate::alphabets::Alphabet;
 use crate::io::{self, DataError};
 use crate::parsimony::ParsimonyAligner;
 use crate::phylo_info::PhyloInfo;
-use crate::tree::{build_nj_tree, Tree};
+use crate::random::{DefaultGenerator, RandomSource};
+use crate::tree::{build_nj_tree_w_rng, Tree};
 use crate::Result;
 
 pub struct PhyloInfoBuilder {
@@ -121,6 +122,10 @@ impl PhyloInfoBuilder {
     /// # Ok(()) }
     /// ```
     pub fn build(self) -> Result<PhyloInfo> {
+        self.build_w_rng(&DefaultGenerator::default())
+    }
+
+    pub fn build_w_rng(self, rng: &impl RandomSource) -> Result<PhyloInfo> {
         info!(
             "Reading sequences from file {}",
             self.sequence_file.display()
@@ -144,7 +149,7 @@ impl PhyloInfoBuilder {
             Some(tree_file) => self.read_tree(&sequences, tree_file)?,
             None => {
                 info!("Building NJ tree from sequences");
-                build_nj_tree(&sequences)?
+                build_nj_tree_w_rng(&sequences, rng)?
             }
         };
 
