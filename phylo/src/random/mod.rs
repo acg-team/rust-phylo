@@ -1,9 +1,40 @@
 use std::sync::Mutex;
-use std::sync::OnceLock;
 
-use rand::distributions::{Distribution, Standard};
+use ntimestamp::Timestamp;
+use rand::distributions::{
+    uniform::{SampleRange, SampleUniform},
+    Distribution, Standard,
+};
+use rand::prelude::SliceRandom;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+
+/// Trait for random number generation
+pub trait RandomSource {
+    /// Generate a random value of type T.
+    fn gen<T>(&self) -> T
+    where
+        T: 'static,
+        Standard: Distribution<T>;
+
+    /// Generate a random value in the specified range.
+    fn gen_range<T, Range>(&self, range: Range) -> T
+    where
+        T: 'static + SampleUniform,
+        Range: SampleRange<T>;
+
+    /// Generate a random bool with probability p.
+    fn gen_bool(&self, p: f64) -> bool;
+
+    /// Generate a random uniform probability in the range [0.0, 1.0).
+    fn gen_probability(&self) -> f64;
+
+    /// Shuffle a slice in place.
+    fn shuffle<T>(&mut self, slice: &mut [T]);
+
+    /// Reseed the RNG with a new seed.
+    fn reseed(&self, seed: u64);
+}
 
 /// A generic random number generator wrapper that can work with different RNGs.
 ///
@@ -13,28 +44,13 @@ use rand::{Rng, SeedableRng};
 /// # Examples
 ///
 /// ```rust
-/// use phylo::random::{RandomGenerator, init_rng, gen};
 /// use rand::rngs::StdRng;
 ///
-/// // Use the global RNG
-/// init_rng(42);
-/// let value: f64 = gen();
+/// use phylo::random::{RandomGenerator, RandomSource};
 ///
 /// // Create a custom RNG instance
 /// let custom_rng: RandomGenerator<StdRng> = RandomGenerator::new(123);
 /// let custom_value: f64 = custom_rng.gen();
-/// ```
-///
-/// # Adding Custom RNG Types
-///
-/// You can use any RNG that implements the required traits:
-///
-/// ```rust
-/// use phylo::random::RandomGenerator;
-/// use rand_chacha::ChaCha20Rng; // Requires rand_chacha dependency
-///
-/// // This would work if you add rand_chacha to your dependencies:
-/// // let fast_rng: RandomGenerator<ChaCha20Rng> = RandomGenerator::new(42);
 /// ```
 pub struct RandomGenerator<R>
 where
@@ -42,13 +58,6 @@ where
 {
     rng: Mutex<R>,
 }
-
-/// Type alias for the global RNG implementation.
-/// Currently uses StdRng for good performance and reproducibility.
-pub type GlobalRng = RandomGenerator<StdRng>;
-
-/// Global instance of the RNG.
-static GLOBAL_RNG: OnceLock<GlobalRng> = OnceLock::new();
 
 impl<R> RandomGenerator<R>
 where
@@ -60,118 +69,66 @@ where
             rng: Mutex::new(R::seed_from_u64(seed)),
         }
     }
+}
 
+/// Type alias for the default RNG implementation.
+/// Currently uses StdRng for good performance and reproducibility.
+pub type DefaultGenerator = RandomGenerator<StdRng>;
+
+impl Default for DefaultGenerator {
+    fn default() -> Self {
+        let seed = Timestamp::now().as_u64(); // Use current timestamp as seed
+        Self::new(seed)
+    }
+}
+
+impl<R> RandomSource for RandomGenerator<R>
+where
+    R: Rng + SeedableRng + Send,
+{
     /// Generate a random value of type T.
-    pub fn gen<T>(&self) -> T
+    fn gen<T>(&self) -> T
     where
+        T: 'static,
         Standard: Distribution<T>,
     {
         let mut rng = self.rng.lock().unwrap();
-        rng.gen()
+        rng.gen::<T>()
     }
 
-    /// Generate a random value in the given range.
-    pub fn gen_range<T, Range>(&self, range: Range) -> T
+    /// Generate a random value in the specified range.
+    fn gen_range<T, Range>(&self, range: Range) -> T
     where
-        T: rand::distributions::uniform::SampleUniform,
-        Range: rand::distributions::uniform::SampleRange<T>,
+        T: 'static + SampleUniform,
+        Range: SampleRange<T>,
     {
         let mut rng = self.rng.lock().unwrap();
         rng.gen_range(range)
     }
 
-    /// Generate a random f64 in the range [0, 1).
-    pub fn gen_f64(&self) -> f64 {
-        let mut rng = self.rng.lock().unwrap();
-        rng.gen()
-    }
-
-    /// Generate a random boolean.
-    pub fn gen_bool(&self, p: f64) -> bool {
+    /// Generate a random bool with probability p.
+    fn gen_bool(&self, p: f64) -> bool {
         let mut rng = self.rng.lock().unwrap();
         rng.gen_bool(p)
     }
 
+    /// Generate a random uniform probability in the range [0.0, 1.0).
+    fn gen_probability(&self) -> f64 {
+        let mut rng = self.rng.lock().unwrap();
+        rng.gen_range(0.0..1.0)
+    }
+
+    /// Shuffle a slice in place.
+    fn shuffle<T>(&mut self, slice: &mut [T]) {
+        let mut rng = self.rng.lock().unwrap();
+        slice.shuffle(&mut *rng);
+    }
+
     /// Reseed the RNG with a new seed.
-    ///
-    /// This is useful for testing or when you want to start a new
-    /// reproducible sequence.
-    pub fn reseed(&self, seed: u64) {
+    fn reseed(&self, seed: u64) {
         let mut rng = self.rng.lock().unwrap();
         *rng = R::seed_from_u64(seed);
     }
-}
-
-/// Initialize the global RNG with a seed.
-///
-/// This should be called once at the start of your program.
-/// If not called explicitly, the RNG will be initialized with a default seed
-/// when first accessed.
-///
-/// # Examples
-/// ```
-/// phylo::random::init_rng(42);
-/// let random_value: f64 = phylo::random::random();
-/// ```
-pub fn init_rng(seed: u64) {
-    GLOBAL_RNG.get_or_init(|| GlobalRng::new(0)).reseed(seed);
-}
-
-/// Get a reference to the global RNG.
-///
-/// If the RNG hasn't been initialized with `init_rng()`, it will be
-/// initialized with a default seed of 0.
-pub fn global_rng() -> &'static GlobalRng {
-    GLOBAL_RNG.get_or_init(|| GlobalRng::new(0))
-}
-
-/// Generate a random value of type T using the global RNG.
-///
-/// # Examples
-/// ```
-/// let random_u32: u32 = phylo::random::gen();
-/// let random_f64: f64 = phylo::random::gen();
-/// ```
-pub fn gen<T>() -> T
-where
-    Standard: Distribution<T>,
-{
-    global_rng().gen()
-}
-
-/// Generate a random value in the given range using the global RNG.
-///
-/// # Examples
-/// ```
-/// let random_int = phylo::random::gen_range(1..10);
-/// let random_float = phylo::random::gen_range(0.0..1.0);
-/// ```
-pub fn gen_range<T, R>(range: R) -> T
-where
-    T: rand::distributions::uniform::SampleUniform,
-    R: rand::distributions::uniform::SampleRange<T>,
-{
-    global_rng().gen_range(range)
-}
-
-/// Generate a random f64 in the range [0, 1) using the global RNG.
-///
-/// # Examples
-/// ```
-/// let probability = phylo::random::gen_probability();
-/// ```
-pub fn gen_probability() -> f64 {
-    global_rng().gen_f64()
-}
-
-/// Generate a random boolean with the given probability using the global RNG.
-///
-/// # Examples
-/// ```
-/// let coin_flip = phylo::random::gen_bool(0.5);
-/// ```
-pub fn gen_bool(p: f64) -> bool {
-    global_rng().gen_bool(p)
 }
 
 #[cfg(test)]
@@ -181,13 +138,13 @@ mod tests {
     #[test]
     fn test_global_rng_reproducibility() {
         // Test that creating new instances with the same seed produces the same sequence
-        let rng1 = GlobalRng::new(42);
-        let val1: f64 = rng1.gen();
-        let val2: u32 = rng1.gen();
+        let rng1 = DefaultGenerator::new(42);
+        let val1: f64 = rng1.gen::<f64>();
+        let val2: u32 = rng1.gen::<u32>();
 
-        let rng2 = GlobalRng::new(42);
-        let val1_repeat: f64 = rng2.gen();
-        let val2_repeat: u32 = rng2.gen();
+        let rng2 = DefaultGenerator::new(42);
+        let val1_repeat: f64 = rng2.gen::<f64>();
+        let val2_repeat: u32 = rng2.gen::<u32>();
 
         assert_eq!(val1, val1_repeat);
         assert_eq!(val2, val2_repeat);
@@ -196,38 +153,50 @@ mod tests {
     #[test]
     fn test_reseed() {
         // Test that reseeding works correctly
-        let rng = GlobalRng::new(42);
-        let val1: f64 = rng.gen();
+        let rng = DefaultGenerator::new(42);
+        let val1: f64 = rng.gen::<f64>();
 
         rng.reseed(42);
-        let val1_repeat: f64 = rng.gen();
+        let val1_repeat: f64 = rng.gen::<f64>();
 
         assert_eq!(val1, val1_repeat);
     }
 
     #[test]
     fn test_global_rng_functions() {
-        init_rng(123);
+        let rng = DefaultGenerator::new(123);
 
         // Test different random generation functions
-        let _random_f64: f64 = gen();
-        let _random_probability = gen_probability();
-        let _random_range = gen_range(1..10);
-        let _random_bool = gen_bool(0.5);
+        let _random_f64: f64 = rng.gen::<f64>();
+        let _random_probability = rng.gen_probability();
+        let _random_range = rng.gen_range(1..10);
+        let _random_bool = rng.gen_bool(0.5);
 
         // Just ensure they don't panic and return reasonable values
-        assert!((0.0..1.0).contains(&gen_probability()));
-        assert!((1..10).contains(&gen_range(1..10)));
+        assert!((0.0..1.0).contains(&rng.gen_probability()));
+        assert!((1..10).contains(&rng.gen_range(1..10)));
     }
 
     #[test]
     fn test_different_seeds_produce_different_values() {
-        init_rng(1);
-        let val1: f64 = gen();
+        let rng = DefaultGenerator::new(1);
+        // init_rng(1);
+        let val1: f64 = rng.gen();
 
-        global_rng().reseed(2);
-        let val2: f64 = gen();
+        rng.reseed(2);
+        let val2: f64 = rng.gen();
 
         assert_ne!(val1, val2);
+    }
+
+    #[test]
+    fn test_shuffle() {
+        let mut rng = DefaultGenerator::new(42);
+        let mut vec = vec![1, 2, 3, 4, 5];
+        let original_vec = vec.clone();
+        rng.shuffle(&mut vec);
+        assert_ne!(vec, original_vec);
+        // Check that all elements are still present
+        assert!(vec.iter().all(|x| original_vec.contains(x)));
     }
 }
