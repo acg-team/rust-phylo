@@ -60,6 +60,7 @@ log = "0.4.19"
 # NOTE: mutli threaded kernels for matrix multiplication are available
 # through the matrixmultiply peer-dep
 nalgebra = "0.32.3"
+ntimestamp = "1.0.0"
 ordered-float = "3.7.0"
 pest = "2.7.2"
 pest_derive = "2.7.2"
