@@ -9,6 +9,9 @@ use rand::prelude::SliceRandom;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
+pub mod fake_random;
+pub use fake_random::*;
+
 /// Trait for random number generation
 pub trait RandomSource {
     /// Generate a random value of type T.
@@ -198,5 +201,14 @@ mod tests {
         assert_ne!(vec, original_vec);
         // Check that all elements are still present
         assert!(vec.iter().all(|x| original_vec.contains(x)));
+    }
+
+    #[test]
+    fn test_fake_shuffle() {
+        let mut rng = FakeGenerator::default();
+        let mut vec = vec![1, 2, 3, 4, 5];
+        let original_vec = vec.clone();
+        rng.shuffle(&mut vec);
+        assert_eq!(vec, original_vec);
     }
 }
