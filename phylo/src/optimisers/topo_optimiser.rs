@@ -12,6 +12,7 @@ use crate::optimisers::{
 use crate::parsimony::scoring::ParsimonyScoring;
 use crate::parsimony::{BasicParsimonyCost, DolloParsimonyCost};
 use crate::pip_model::PIPCost;
+use crate::random::{DefaultGenerator, RandomSource};
 use crate::substitution_models::{QMatrix, SubstitutionCost};
 use crate::tree::NodeIdx;
 use crate::Result;
@@ -123,7 +124,12 @@ where
     /// assert_eq!(result.cost.tree().len(), 9); // The initial tree has 9 nodes, 5 leaves and 4 internal nodes.
     /// # Ok(()) }
     /// ```
-    pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
+    pub fn run(self) -> Result<PhyloOptimisationResult<C>> {
+        let mut rng = DefaultGenerator::default();
+        self.run_w_rng(&mut rng)
+    }
+
+    pub fn run_w_rng(mut self, rng: &mut impl RandomSource) -> Result<PhyloOptimisationResult<C>> {
         debug_assert!(self.c.tree().len() > 3);
 
         info!("Optimising tree topology with SPRs");
@@ -137,14 +143,7 @@ where
         let mut iterations = 0;
 
         let possible_prunes: Vec<_> = self.move_opti.move_locations(&self.c).copied().collect();
-        let current_prunes: Vec<_> = possible_prunes.iter().collect();
-        cfg_if::cfg_if! {
-        if #[cfg(not(feature = "deterministic"))] {
-            let mut current_prunes = current_prunes;
-            // TODO: decide on an explicit and consistent RNG to use throughout the project
-            let rng = &mut rand::thread_rng();
-        }
-        }
+        let mut current_prunes: Vec<_> = possible_prunes.iter().collect();
 
         let move_opti = self.move_opti.clone();
         // The best move on this iteration might still be worse than the current tree, in which case
@@ -155,11 +154,7 @@ where
             info!("Iteration: {iterations}, current cost: {curr_cost}");
             prev_cost = curr_cost;
 
-            #[cfg(not(feature = "deterministic"))]
-            {
-                use rand::seq::SliceRandom;
-                current_prunes.shuffle(rng);
-            }
+            rng.shuffle(&mut current_prunes);
 
             curr_cost =
                 Self::fold_improving_moves(&mut self.c, &move_opti, curr_cost, &current_prunes)?;

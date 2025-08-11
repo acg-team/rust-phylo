@@ -12,6 +12,7 @@ use crate::optimisers::{
 use crate::parsimony::{scoring::ModelScoringBuilder, BasicParsimonyCost, DolloParsimonyCost};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::pip_model::{PIPCost, PIPCostBuilder as PIPCB, PIPModel};
+use crate::random::FakeGenerator;
 use crate::substitution_models::{
     dna_models::*, protein_models::*, QMatrix, SubstModel, SubstitutionCost,
     SubstitutionCostBuilder as SCB,
@@ -28,9 +29,10 @@ macro_rules! define_optimise_trees {
                 _: &std::path::Path,
                 model: $model<Q>,
             ) -> PhyloOptimisationResult<$cost<Q>> {
-                let start_info = PIB::new(seq_file).build().unwrap();
+                let mut fake_rng = FakeGenerator::default();
+                let start_info = PIB::new(seq_file).build_w_rng(&mut fake_rng).unwrap();
                 let cost = $builder::new(model, start_info).build().unwrap();
-                TopologyOptimiser::new(cost, $move_optimiser {}).run().unwrap()
+                TopologyOptimiser::new(cost, $move_optimiser {}).run_w_rng(&mut fake_rng).unwrap()
             }
 
             #[cfg(feature = "precomputed-test-results")]
@@ -39,7 +41,8 @@ macro_rules! define_optimise_trees {
                 tree_file: &std::path::Path,
                 model: $model<Q>,
             ) -> PhyloOptimisationResult<$cost<Q>> {
-                let start_info = PIB::new(seq_file).build().unwrap();
+                let mut fake_rng = FakeGenerator::default();
+                let start_info = PIB::new(seq_file).build_w_rng(&mut fake_rng).unwrap();
 
                 if let Ok(precomputed) =
                     PIB::with_attrs(seq_file, tree_file).build()
@@ -55,7 +58,7 @@ macro_rules! define_optimise_trees {
                     }
                 } else {
                     let cost = $builder::new(model.clone(), start_info).build().unwrap();
-                    let res = TopologyOptimiser::new(cost, $move_optimiser {}).run().unwrap();
+                    let res = TopologyOptimiser::new(cost, $move_optimiser {}).run_w_rng(&mut fake_rng).unwrap();
                     assert!(crate::io::write_newick_to_file(
                         &[res.cost.tree().clone()],
                         tree_file
@@ -93,7 +96,9 @@ fn k80_simple() {
     let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
     let c = SCB::new(k80.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
-    let o = TopologyOptimiser::new(c, SprOptimiser {}).run().unwrap();
+    let o = TopologyOptimiser::new(c, SprOptimiser {})
+        .run_w_rng(&mut FakeGenerator::default())
+        .unwrap();
 
     assert!(o.final_cost >= unopt_logl);
     assert_eq!(o.initial_cost, unopt_logl);
@@ -123,7 +128,9 @@ fn k80_simple_nni() {
     let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
     let c = SCB::new(k80.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
-    let o = TopologyOptimiser::new(c, NniOptimiser {}).run().unwrap();
+    let o = TopologyOptimiser::new(c, NniOptimiser {})
+        .run_w_rng(&mut FakeGenerator::default())
+        .unwrap();
 
     assert!(o.final_cost >= unopt_logl);
     assert_eq!(o.initial_cost, unopt_logl);
@@ -144,7 +151,9 @@ fn k80_sim_data_from_given() {
     let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
     let c = SCB::new(k80.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
-    let o = TopologyOptimiser::new(c, SprOptimiser {}).run().unwrap();
+    let o = TopologyOptimiser::new(c, SprOptimiser {})
+        .run_w_rng(&mut FakeGenerator::default())
+        .unwrap();
 
     assert!(o.final_cost >= unopt_logl);
     assert_eq!(o.initial_cost, unopt_logl);
@@ -159,12 +168,17 @@ fn k80_sim_data_from_given() {
 #[test]
 fn k80_sim_data_from_nj() {
     // Check that optimisation on k80 data improves k80 likelihood when starting from an NJ tree
+    let mut fake_rng = FakeGenerator::default();
     let fldr = Path::new("./data/sim/K80");
-    let info = PIB::new(fldr.join("K80.fasta")).build().unwrap();
+    let info = PIB::new(fldr.join("K80.fasta"))
+        .build_w_rng(&fake_rng)
+        .unwrap();
     let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
     let c = SCB::new(k80.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
-    let o = TopologyOptimiser::new(c, SprOptimiser {}).run().unwrap();
+    let o = TopologyOptimiser::new(c, SprOptimiser {})
+        .run_w_rng(&mut fake_rng)
+        .unwrap();
 
     assert!(o.final_cost >= unopt_logl);
     assert_eq!(o.initial_cost, unopt_logl);
@@ -181,12 +195,14 @@ fn k80_sim_data_vs_phyml() {
     // Check that optimisation on k80 data under JC69 produces similar tree to PhyML with matching likelihood
     let fldr = Path::new("./data/sim/");
     let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("tree.newick"))
-        .build()
+        .build_w_rng(&FakeGenerator::default())
         .unwrap();
     let jc69 = SubstModel::<JC69>::new(&[], &[]);
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
-    let o = TopologyOptimiser::new(c, SprOptimiser {}).run().unwrap();
+    let o = TopologyOptimiser::new(c, SprOptimiser {})
+        .run_w_rng(&mut FakeGenerator::default())
+        .unwrap();
 
     assert!(o.final_cost >= unopt_logl);
     assert_eq!(o.initial_cost, unopt_logl);
@@ -233,7 +249,9 @@ fn k80_sim_data_vs_phyml_wrong_start() {
     let jc69 = SubstModel::<JC69>::new(&[], &[]);
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     let unopt_logl = c.cost();
-    let o = TopologyOptimiser::new(c, SprOptimiser {}).run().unwrap();
+    let o = TopologyOptimiser::new(c, SprOptimiser {})
+        .run_w_rng(&mut FakeGenerator::default())
+        .unwrap();
 
     assert!(o.final_cost >= unopt_logl);
     assert_eq!(o.initial_cost, unopt_logl);
@@ -271,6 +289,7 @@ fn wag_no_gaps_vs_phyml_nj_tree_start_nni() {
 
     // Check that optimisation on protein data under WAG produces similar tree to PhyML with matching likelihoods
     // on sequences without gaps starting from an NJ tree
+
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
     let tree_file = fldr.join("jati_wag_nogap_nj_start.newick");
@@ -352,7 +371,7 @@ fn pip_vs_subst_dna_tree() {
         SCB::new(k80.clone(), info.clone()).build().unwrap(),
         SprOptimiser {},
     )
-    .run()
+    .run_w_rng(&mut FakeGenerator::default())
     .unwrap();
 
     let pip = PIPModel::<K80>::new(&[], &[0.5, 0.4, 4.0]);
@@ -360,7 +379,7 @@ fn pip_vs_subst_dna_tree() {
         PIPCB::new(pip.clone(), info).build().unwrap(),
         SprOptimiser {},
     )
-    .run()
+    .run_w_rng(&mut FakeGenerator::default())
     .unwrap();
 
     // Tree topologies under PIP+K80 and K80 should match
@@ -456,7 +475,9 @@ fn pip_optimise_model_tree() {
     // Check that tree optimisation under PIP has a better likelihood when the model is also optimised
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
-    let start_info = PIB::new(seq_file.clone()).build().unwrap();
+    let start_info = PIB::new(seq_file.clone())
+        .build_w_rng(&FakeGenerator::default())
+        .unwrap();
 
     let pip = PIPModel::<WAG>::new(&[], &[1.4, 0.5]);
     let res = optimise_tree_pip(
@@ -517,7 +538,9 @@ fn wag_vs_phyml_empirical_freqs() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
     let tree_file = fldr.join("jati_wag_empirical.newick");
-    let start_info = PIB::new(seq_file.clone()).build().unwrap();
+    let start_info = PIB::new(seq_file.clone())
+        .build_w_rng(&FakeGenerator::default())
+        .unwrap();
 
     let wag = SubstModel::<WAG>::new(&[], &[]);
     let o = ModelOptimiser::new(
@@ -553,7 +576,9 @@ fn pip_wag_vs_phyml_empirical_freqs() {
     let seq_file = fldr.join("seqs.fasta");
     let tree_file = fldr.join("jati_pip_wag_empirical.newick");
 
-    let start_info = PIB::new(seq_file.clone()).build().unwrap();
+    let start_info = PIB::new(seq_file.clone())
+        .build_w_rng(&FakeGenerator::default())
+        .unwrap();
     let pip = PIPModel::<WAG>::new(&[], &[1.0, 2.0]);
     // Use empirical frequencies and optimise lambda and mu for PIP
     let o = ModelOptimiser::new(
@@ -632,7 +657,9 @@ fn basic_parsimony_tree_search() {
     let cost = BasicParsimonyCost::new(info).unwrap();
     assert_eq!(cost.cost(), -6.0);
 
-    let res = TopologyOptimiser::new(cost, SprOptimiser {}).run().unwrap();
+    let res = TopologyOptimiser::new(cost, SprOptimiser {})
+        .run_w_rng(&mut FakeGenerator::default())
+        .unwrap();
     assert_eq!(res.final_cost, -4.0);
 }
 
@@ -658,7 +685,9 @@ fn dollo_tree_search() {
 
     let c = DolloParsimonyCost::with_scoring(info, scoring);
     let unopt_score = c.cost();
-    let o = TopologyOptimiser::new(c, SprOptimiser {}).run().unwrap();
+    let o = TopologyOptimiser::new(c, SprOptimiser {})
+        .run_w_rng(&mut FakeGenerator::default())
+        .unwrap();
 
     assert!(o.final_cost >= unopt_score);
     assert_eq!(o.initial_cost, unopt_score);
@@ -674,7 +703,9 @@ fn dollo_tree_search_sim_data_simple() {
     let c = DolloParsimonyCost::new(info);
     let unopt_score = c.cost();
 
-    let o = TopologyOptimiser::new(c, SprOptimiser {}).run().unwrap();
+    let o = TopologyOptimiser::new(c, SprOptimiser {})
+        .run_w_rng(&mut FakeGenerator::default())
+        .unwrap();
     assert!(o.final_cost >= unopt_score);
     assert_eq!(o.initial_cost, unopt_score);
     assert_eq!(o.final_cost, o.cost.cost());
@@ -695,7 +726,9 @@ fn dollo_tree_search_sim_data_model() {
 
     let c = DolloParsimonyCost::with_scoring(info, scoring);
     let unopt_score = c.cost();
-    let o = TopologyOptimiser::new(c, SprOptimiser {}).run().unwrap();
+    let o = TopologyOptimiser::new(c, SprOptimiser {})
+        .run_w_rng(&mut FakeGenerator::default())
+        .unwrap();
 
     assert!(o.final_cost >= unopt_score);
     assert_eq!(o.initial_cost, unopt_score);
