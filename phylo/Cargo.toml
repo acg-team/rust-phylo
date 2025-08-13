@@ -20,7 +20,6 @@ rust-version = "1.82.0"
 
 [features]
 ci_coverage = []
-deterministic = []
 # Feature that can speed up repeated test runs for when tree search is not affected and tests are ran locally.
 precomputed-test-results = []
 par-regraft = ["dep:rayon"]
