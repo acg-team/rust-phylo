@@ -136,7 +136,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_global_rng_reproducibility() {
+    fn rng_reproducibility() {
         // Test that creating new instances with the same seed produces the same sequence
         let rng1 = DefaultGenerator::new(42);
         let val1: f64 = rng1.gen::<f64>();
@@ -151,7 +151,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reseed() {
+    fn reseed() {
         // Test that reseeding works correctly
         let rng = DefaultGenerator::new(42);
         let val1: f64 = rng.gen::<f64>();
@@ -163,7 +163,7 @@ mod tests {
     }
 
     #[test]
-    fn test_global_rng_functions() {
+    fn rng_functions() {
         let rng = DefaultGenerator::new(123);
         let _random_f64: f64 = rng.gen::<f64>();
         let _random_probability = rng.gen_probability();
@@ -172,7 +172,7 @@ mod tests {
     }
 
     #[test]
-    fn test_global_rng_range() {
+    fn rng_range() {
         let rng = DefaultGenerator::new(123);
         for _ in 0..10 {
             let random_value: u32 = rng.gen_range(1..100);
@@ -181,7 +181,7 @@ mod tests {
     }
 
     #[test]
-    fn test_different_seeds_produce_different_values() {
+    fn different_seeds_produce_different_values() {
         let rng = DefaultGenerator::new(1);
         // init_rng(1);
         let val1: f64 = rng.gen();
@@ -193,7 +193,7 @@ mod tests {
     }
 
     #[test]
-    fn test_shuffle() {
+    fn shuffle() {
         let mut rng = DefaultGenerator::new(42);
         let mut vec = vec![1, 2, 3, 4, 5];
         let original_vec = vec.clone();
