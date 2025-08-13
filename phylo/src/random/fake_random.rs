@@ -162,16 +162,11 @@ impl RandomSource for FakeGenerator {
         } else if type_id == TypeId::of::<bool>() {
             fakegen_downcast!(self.next_bool())
         } else {
-            // For unknown types, use u64 as fallback
-            let value = self.next_u64();
-            let boxed: Box<dyn Any> = Box::new(value);
-            // Will panic if the type is not actually u64 but better than unsafe
-            *boxed.downcast::<T>().unwrap_or_else(|_| {
-                panic!(
-                    "FakeGenerator doesn't support type {:?}",
-                    std::any::type_name::<T>()
-                )
-            })
+            // For unknown types, immediately panic with an error
+            panic!(
+                "FakeGenerator doesn't support type {:?}",
+                std::any::type_name::<T>()
+            )
         }
     }
 
