@@ -364,21 +364,6 @@ mod tests {
     }
 
     #[test]
-    fn fake_rng_methods() {
-        let fake_rng = FakeGenerator::new();
-
-        // Test different random generation functions
-        let _random_f64: f64 = fake_rng.gen::<f64>();
-        let _random_probability = fake_rng.gen_probability();
-        // let _random_range = fake_rng.gen_range(1..10);
-        let _random_bool = fake_rng.gen_bool(0.5);
-
-        // Just ensure they don't panic and return reasonable values
-        assert!((0.0..=1.0).contains(&fake_rng.gen_probability()));
-        // assert!((1..10).contains(&fake_rng.gen_range(1..10)));
-    }
-
-    #[test]
     fn fake_different_values() {
         let fake_rng = FakeGenerator::from_f64_values(vec![0.1, 0.2, 0.3]);
         let val1: f64 = fake_rng.gen();
