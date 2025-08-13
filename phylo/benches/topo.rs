@@ -7,6 +7,7 @@ use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::TreeSearchCost;
 use phylo::optimisers::{Compatible, SprOptimiser, TopologyOptimiser, TopologyOptimiserPredicate};
 use phylo::pip_model::PIPCost;
+use phylo::random::FakeGenerator;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 
 mod helpers;
@@ -18,12 +19,14 @@ use helpers::{
 fn run_fixed_iter_topo<C: TreeSearchCost + Clone + Display + Send + Compatible<SprOptimiser>>(
     cost: C,
 ) -> anyhow::Result<f64> {
+    // Only use the FakeGenerator for deterministic benchmarking
+    let mut fake_rng = FakeGenerator::new();
     let topo_opt = TopologyOptimiser::new_with_pred(
         cost,
         SprOptimiser {},
         TopologyOptimiserPredicate::fixed_iter(NonZero::new(3).unwrap()),
     );
-    Ok(topo_opt.run()?.final_cost)
+    Ok(topo_opt.run_w_rng(&mut fake_rng)?.final_cost)
 }
 
 fn run_simulated_topo_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
