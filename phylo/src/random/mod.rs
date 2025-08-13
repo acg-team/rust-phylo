@@ -1,10 +1,8 @@
 use std::sync::Mutex;
 
 use ntimestamp::Timestamp;
-use rand::distributions::{
-    uniform::{SampleRange, SampleUniform},
-    Distribution, Standard,
-};
+use rand::distributions::uniform::{SampleRange, SampleUniform};
+use rand::distributions::{Distribution, Standard};
 use rand::prelude::SliceRandom;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -201,14 +199,5 @@ mod tests {
         assert_ne!(vec, original_vec);
         // Check that all elements are still present
         assert!(vec.iter().all(|x| original_vec.contains(x)));
-    }
-
-    #[test]
-    fn test_fake_shuffle() {
-        let mut rng = FakeGenerator::default();
-        let mut vec = vec![1, 2, 3, 4, 5];
-        let original_vec = vec.clone();
-        rng.shuffle(&mut vec);
-        assert_eq!(vec, original_vec);
     }
 }

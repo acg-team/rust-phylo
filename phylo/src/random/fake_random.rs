@@ -187,3 +187,167 @@ impl RandomSource for FakeGenerator {
         *self.bool_index.lock().unwrap() = 0;
     }
 }
+
+#[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
+mod tests {
+    use crate::random::RandomSource;
+
+    use super::*;
+
+    #[test]
+    fn test_fake_rng_defaults() {
+        // Test new FakeGenerator defaults
+        let fake_rng = FakeGenerator::new();
+        assert_eq!(fake_rng.gen::<u64>(), 0);
+        assert_eq!(fake_rng.gen::<f64>(), 0.0);
+        assert!(!fake_rng.gen::<bool>());
+    }
+
+    #[test]
+    fn test_fake_rng_with_values() {
+        // Test FakeGenerator with pre-configured values
+        let fake_rng = FakeGenerator::from_u64_values(vec![1, 2, 3]);
+        assert_eq!(fake_rng.gen::<u64>(), 1);
+        assert_eq!(fake_rng.gen::<u64>(), 2);
+        assert_eq!(fake_rng.gen::<u64>(), 3);
+        assert_eq!(fake_rng.gen::<u64>(), 1); // Wraps around
+        assert_eq!(fake_rng.gen::<f64>(), 0.0); // Default for f64
+        assert!(!fake_rng.gen::<bool>()); // Default for bool
+    }
+
+    #[test]
+    fn test_fake_rng_reproducibility() {
+        // Test that creating new instances with the same values produces the same sequence
+        let fake_source = vec![0.1, 0.2, 0.3];
+        let rng1 = FakeGenerator::from_f64_values(fake_source.clone());
+        let val1 = rng1.gen::<f64>();
+        let val2 = rng1.gen::<f32>();
+
+        let rng2 = FakeGenerator::from_f64_values(fake_source);
+        let val1_repeat = rng2.gen::<f64>();
+        let val2_repeat = rng2.gen::<f32>();
+
+        assert_eq!(val1, val1_repeat);
+        assert_eq!(val2, val2_repeat);
+    }
+
+    #[test]
+    fn test_fake_reseed_empty() {
+        // Test that reseeding does not do anything to an empty FakeGenerator
+        let rng = FakeGenerator::new();
+        let val1: f64 = rng.gen::<f64>();
+
+        rng.reseed(42);
+        let val1_repeat: f64 = rng.gen::<f64>();
+
+        assert_eq!(val1, val1_repeat);
+        assert_eq!(val1, 0.0); // Default value after reseed
+    }
+
+    #[test]
+    fn test_fake_reseed_with_values() {
+        // Test that reseeding resets pre-configured value counters
+        let values = vec![0.1, 0.2, 0.3, 0.4];
+        let fake_rng = FakeGenerator::from_f64_values(values.clone());
+        let val1: f64 = fake_rng.gen::<f64>();
+        for i in 1..10 {
+            assert_eq!(fake_rng.gen::<f64>(), values[i % values.len()]);
+        }
+
+        fake_rng.reseed(42);
+        let val1_repeat: f64 = fake_rng.gen::<f64>();
+        assert_eq!(val1, val1_repeat);
+        assert_eq!(val1, values[0]); // Should return to the first value after reseed
+    }
+
+    #[test]
+    fn test_fake_add_values_f64() {
+        let fake_rng = FakeGenerator::new();
+        let values = vec![0.1, 0.2, 0.3, 0.4];
+        fake_rng.add_f64_values(values.clone());
+        for value in values.iter() {
+            assert_eq!(fake_rng.gen::<f64>(), *value);
+        }
+        assert_eq!(fake_rng.gen::<f64>(), values[0]); // Wraps around
+        assert_eq!(fake_rng.gen::<u64>(), 0); // Default for u64
+        assert!(!fake_rng.gen::<bool>()); // Default for bool
+    }
+
+    #[test]
+    fn test_fake_add_more_values_f64() {
+        let fake_rng = FakeGenerator::new();
+        let values = vec![0.1, 0.2, 0.3, 0.4];
+        fake_rng.add_f64_values(values.clone());
+        for value in values.iter() {
+            assert_eq!(fake_rng.gen::<f64>(), *value);
+        }
+        let more_values = vec![0.5, 0.6, 0.7, 0.8];
+        fake_rng.add_f64_values(more_values.clone());
+        for value in more_values.iter() {
+            assert_eq!(fake_rng.gen::<f64>(), *value);
+        }
+        assert_eq!(fake_rng.gen::<f64>(), values[0]); // Wraps around
+        assert_eq!(fake_rng.gen::<u64>(), 0); // Default for u64
+        assert!(!fake_rng.gen::<bool>()); // Default for bool
+    }
+
+    #[test]
+    fn test_fake_add_values_u64() {
+        let fake_rng = FakeGenerator::new();
+        let values = (1..10).collect::<Vec<u64>>();
+        fake_rng.add_u64_values(values.clone());
+        for value in values.iter() {
+            assert_eq!(fake_rng.gen::<u64>(), *value);
+        }
+        assert_eq!(fake_rng.gen::<u64>(), values[0]); // Wraps around
+        assert_eq!(fake_rng.gen::<f64>(), 0.0); // Default for f64
+        assert!(!fake_rng.gen::<bool>()); // Default for bool
+    }
+
+    #[test]
+    fn test_fake_add_values_bool() {
+        let fake_rng = FakeGenerator::new();
+        let source = vec![true, false, true, false];
+        fake_rng.add_bool_values(source.clone());
+        for value in source.iter() {
+            assert_eq!(fake_rng.gen::<bool>(), *value);
+        }
+        assert_eq!(fake_rng.gen::<bool>(), source[0]); // Wraps around
+        assert_eq!(fake_rng.gen::<u64>(), 0); // Default for u64
+        assert_eq!(fake_rng.gen::<f64>(), 0.0); // Default for f64
+    }
+
+    #[test]
+    fn test_fake_rng_methods() {
+        let fake_rng = FakeGenerator::new();
+
+        // Test different random generation functions
+        let _random_f64: f64 = fake_rng.gen::<f64>();
+        let _random_probability = fake_rng.gen_probability();
+        // let _random_range = fake_rng.gen_range(1..10);
+        let _random_bool = fake_rng.gen_bool(0.5);
+
+        // Just ensure they don't panic and return reasonable values
+        assert!((0.0..=1.0).contains(&fake_rng.gen_probability()));
+        // assert!((1..10).contains(&fake_rng.gen_range(1..10)));
+    }
+
+    #[test]
+    fn test_fake_different_values() {
+        let fake_rng = FakeGenerator::from_f64_values(vec![0.1, 0.2, 0.3]);
+        let val1: f64 = fake_rng.gen();
+        let fake_rng2 = FakeGenerator::from_f64_values(vec![0.4, 0.5, 0.6]);
+        let val2: f64 = fake_rng2.gen();
+        assert_ne!(val1, val2);
+    }
+
+    #[test]
+    fn test_fake_shuffle() {
+        let mut rng = FakeGenerator::new();
+        let mut vec = vec![1, 2, 3, 4, 5];
+        let original_vec = vec.clone();
+        rng.shuffle(&mut vec);
+        assert_eq!(vec, original_vec);
+    }
+}
