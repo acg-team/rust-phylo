@@ -213,7 +213,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_fake_rng_defaults() {
+    fn fake_rng_defaults() {
         // Test new FakeGenerator defaults
         let fake_rng = FakeGenerator::new();
         assert_eq!(fake_rng.gen::<u64>(), 0);
@@ -222,13 +222,15 @@ mod tests {
     }
 
     #[test]
-    fn test_fake_rng_with_values() {
+    fn fake_rng_with_values() {
         // Test FakeGenerator with pre-configured values
-        let fake_rng = FakeGenerator::from_u64_values(vec![1, 2, 3]);
-        assert_eq!(fake_rng.gen::<u64>(), 1);
-        assert_eq!(fake_rng.gen::<u64>(), 2);
-        assert_eq!(fake_rng.gen::<u64>(), 3);
-        assert_eq!(fake_rng.gen::<u64>(), 1); // Wraps around
+        let values = (0..10).collect::<Vec<u64>>();
+        let fake_rng = FakeGenerator::from_u64_values(values.clone());
+        for i in 1..10 {
+            assert_eq!(fake_rng.gen::<u64>(), values[i % values.len()]);
+        }
+        assert_eq!(fake_rng.gen::<f64>(), 0.0); // Default for f64
+        assert!(!fake_rng.gen::<bool>()); // Default for bool
     }
 
     #[test]
@@ -251,14 +253,14 @@ mod tests {
     }
 
     #[test]
-    fn test_fake_rng_reproducibility() {
+    fn fake_rng_reproducibility() {
         // Test that creating new instances with the same values produces the same sequence
-        let fake_source = vec![0.1, 0.2, 0.3];
-        let rng1 = FakeGenerator::from_f64_values(fake_source.clone());
+        let values = vec![0.1, 0.2, 0.3];
+        let rng1 = FakeGenerator::from_f64_values(values.clone());
         let val1 = rng1.gen::<f64>();
         let val2 = rng1.gen::<f32>();
 
-        let rng2 = FakeGenerator::from_f64_values(fake_source);
+        let rng2 = FakeGenerator::from_f64_values(values);
         let val1_repeat = rng2.gen::<f64>();
         let val2_repeat = rng2.gen::<f32>();
 
@@ -267,7 +269,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fake_reseed_empty() {
+    fn fake_reseed_empty() {
         // Test that reseeding does not do anything to an empty FakeGenerator
         let rng = FakeGenerator::new();
         let val1: f64 = rng.gen::<f64>();
@@ -280,7 +282,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fake_reseed_with_values() {
+    fn fake_reseed_with_values() {
         // Test that reseeding resets pre-configured value counters
         let values = vec![0.1, 0.2, 0.3, 0.4];
         let fake_rng = FakeGenerator::from_f64_values(values.clone());
@@ -296,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fake_add_values_f64() {
+    fn fake_add_values_f64() {
         let fake_rng = FakeGenerator::new();
         let values = vec![0.1, 0.2, 0.3, 0.4];
         fake_rng.add_f64_values(values.clone());
@@ -309,7 +311,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fake_add_more_values_f64() {
+    fn fake_add_more_values_f64() {
         let fake_rng = FakeGenerator::new();
         let values = vec![0.1, 0.2, 0.3, 0.4];
         fake_rng.add_f64_values(values.clone());
@@ -327,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fake_add_values_u64() {
+    fn fake_add_values_u64() {
         let fake_rng = FakeGenerator::new();
         let values = (1..10).collect::<Vec<u64>>();
         fake_rng.add_u64_values(values.clone());
@@ -340,7 +342,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fake_add_values_bool() {
+    fn fake_add_values_bool() {
         let fake_rng = FakeGenerator::new();
         let source = vec![true, false, true, false];
         fake_rng.add_bool_values(source.clone());
@@ -377,7 +379,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fake_different_values() {
+    fn fake_different_values() {
         let fake_rng = FakeGenerator::from_f64_values(vec![0.1, 0.2, 0.3]);
         let val1: f64 = fake_rng.gen();
         let fake_rng2 = FakeGenerator::from_f64_values(vec![0.4, 0.5, 0.6]);
@@ -386,7 +388,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fake_shuffle() {
+    fn fake_shuffle() {
         let mut rng = FakeGenerator::new();
         let mut vec = vec![1, 2, 3, 4, 5];
         let original_vec = vec.clone();
