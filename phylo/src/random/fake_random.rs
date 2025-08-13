@@ -189,7 +189,8 @@ impl RandomSource for FakeGenerator {
     }
 
     fn gen_probability(&self) -> f64 {
-        self.next_f64()
+        let val = self.next_f64();
+        val.clamp(0.0, 1.0)
     }
 
     fn shuffle<T>(&mut self, _slice: &mut [T]) {
@@ -352,7 +353,16 @@ mod tests {
     }
 
     #[test]
-    fn test_fake_rng_methods() {
+    fn fake_rng_probabilities() {
+        let values = vec![0.1, 0.2, 0.3, 0.4, 0.5, 1.0, 4.0, 5.0];
+        let fake_rng = FakeGenerator::from_f64_values(values.clone());
+        for _value in values.iter() {
+            assert!((0.0..=1.0).contains(&fake_rng.gen_probability()));
+        }
+    }
+
+    #[test]
+    fn fake_rng_methods() {
         let fake_rng = FakeGenerator::new();
 
         // Test different random generation functions
