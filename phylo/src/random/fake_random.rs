@@ -215,9 +215,9 @@ mod tests {
     #[test]
     fn fake_rng_with_values() {
         // Test FakeGenerator with pre-configured values
-        let values = (0..10).collect::<Vec<u64>>();
+        let values = (15..25).collect::<Vec<u64>>();
         let fake_rng = FakeGenerator::from_u64_values(values.clone());
-        for i in 1..10 {
+        for i in 0..10 {
             assert_eq!(fake_rng.gen::<u64>(), values[i % values.len()]);
         }
         assert_eq!(fake_rng.gen::<f64>(), 0.0); // Default for f64
