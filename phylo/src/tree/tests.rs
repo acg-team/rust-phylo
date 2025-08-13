@@ -11,7 +11,7 @@ use rand::Rng;
 use crate::alignment::Sequences;
 use crate::io::read_newick_from_file;
 use crate::parsimony::Rounding;
-use crate::random::{DefaultGenerator, FakeGenerator, RandomSource};
+use crate::random::{DefaultGenerator, FakeGenerator};
 use crate::tree::{
     argmin_wo_diagonal_w_rng, build_nj_tree_from_matrix_w_rng, compute_distance_matrix,
     nj_matrices::NJMat,

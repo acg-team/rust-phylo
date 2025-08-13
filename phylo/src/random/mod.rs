@@ -18,12 +18,6 @@ pub trait RandomSource {
         T: 'static,
         Standard: Distribution<T>;
 
-    /// Generate a random value in the specified range.
-    fn gen_range<T, Range>(&self, range: Range) -> T
-    where
-        T: 'static + SampleUniform,
-        Range: SampleRange<T>;
-
     /// Generate a random bool with probability p.
     fn gen_bool(&self, p: f64) -> bool;
 
@@ -97,16 +91,6 @@ where
         rng.gen::<T>()
     }
 
-    /// Generate a random value in the specified range.
-    fn gen_range<T, Range>(&self, range: Range) -> T
-    where
-        T: 'static + SampleUniform,
-        Range: SampleRange<T>,
-    {
-        let mut rng = self.rng.lock().unwrap();
-        rng.gen_range(range)
-    }
-
     /// Generate a random bool with probability p.
     fn gen_bool(&self, p: f64) -> bool {
         let mut rng = self.rng.lock().unwrap();
@@ -129,6 +113,21 @@ where
     fn reseed(&self, seed: u64) {
         let mut rng = self.rng.lock().unwrap();
         *rng = R::seed_from_u64(seed);
+    }
+}
+
+impl<R> RandomGenerator<R>
+where
+    R: Rng + SeedableRng + Send,
+{
+    /// Generate a random value in the specified range.
+    pub fn gen_range<T, Range>(&self, range: Range) -> T
+    where
+        T: 'static + SampleUniform,
+        Range: SampleRange<T>,
+    {
+        let mut rng = self.rng.lock().unwrap();
+        rng.gen_range(range)
     }
 }
 
@@ -166,16 +165,19 @@ mod tests {
     #[test]
     fn test_global_rng_functions() {
         let rng = DefaultGenerator::new(123);
-
-        // Test different random generation functions
         let _random_f64: f64 = rng.gen::<f64>();
         let _random_probability = rng.gen_probability();
-        let _random_range = rng.gen_range(1..10);
         let _random_bool = rng.gen_bool(0.5);
-
-        // Just ensure they don't panic and return reasonable values
         assert!((0.0..1.0).contains(&rng.gen_probability()));
-        assert!((1..10).contains(&rng.gen_range(1..10)));
+    }
+
+    #[test]
+    fn test_global_rng_range() {
+        let rng = DefaultGenerator::new(123);
+        for _ in 0..10 {
+            let random_value: u32 = rng.gen_range(1..100);
+            assert!((1..100).contains(&random_value));
+        }
     }
 
     #[test]

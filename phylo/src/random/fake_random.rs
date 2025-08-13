@@ -1,7 +1,6 @@
 use std::any::{Any, TypeId};
 use std::sync::Mutex;
 
-use rand::distributions::uniform::{SampleRange, SampleUniform};
 use rand::distributions::Standard;
 use rand::prelude::Distribution;
 
@@ -174,14 +173,6 @@ impl RandomSource for FakeGenerator {
                 )
             })
         }
-    }
-
-    fn gen_range<T, Range>(&self, _range: Range) -> T
-    where
-        T: 'static + SampleUniform,
-        Range: SampleRange<T>,
-    {
-        unimplemented!("FakeGenerator does not support gen_range");
     }
 
     fn gen_bool(&self, _p: f64) -> bool {
