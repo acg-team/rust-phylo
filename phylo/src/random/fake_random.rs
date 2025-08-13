@@ -133,13 +133,29 @@ impl RandomSource for FakeGenerator {
         T: 'static,
         Standard: Distribution<T>,
     {
-        // Safe implementation using downcasting instead of transmute
+        // Safe implementation using downcasting
         let type_id = TypeId::of::<T>();
         // Create the appropriate value based on the type
         if type_id == TypeId::of::<u64>() {
             fakegen_downcast!(self.next_u64())
+        } else if type_id == TypeId::of::<usize>() {
+            fakegen_downcast!(self.next_u64() as usize)
         } else if type_id == TypeId::of::<u32>() {
             fakegen_downcast!(self.next_u64() as u32)
+        } else if type_id == TypeId::of::<u16>() {
+            fakegen_downcast!(self.next_u64() as u16)
+        } else if type_id == TypeId::of::<u8>() {
+            fakegen_downcast!(self.next_u64() as u8)
+        } else if type_id == TypeId::of::<i128>() {
+            fakegen_downcast!(self.next_u64() as i128)
+        } else if type_id == TypeId::of::<i64>() {
+            fakegen_downcast!(self.next_u64() as i64)
+        } else if type_id == TypeId::of::<i32>() {
+            fakegen_downcast!(self.next_u64() as i32)
+        } else if type_id == TypeId::of::<i16>() {
+            fakegen_downcast!(self.next_u64() as i16)
+        } else if type_id == TypeId::of::<i8>() {
+            fakegen_downcast!(self.next_u64() as i8)
         } else if type_id == TypeId::of::<f64>() {
             fakegen_downcast!(self.next_f64())
         } else if type_id == TypeId::of::<f32>() {
@@ -150,7 +166,7 @@ impl RandomSource for FakeGenerator {
             // For unknown types, use u64 as fallback
             let value = self.next_u64();
             let boxed: Box<dyn Any> = Box::new(value);
-            // This will panic if the type is not actually u64, but that's better than unsafe
+            // Will panic if the type is not actually u64 but better than unsafe
             *boxed.downcast::<T>().unwrap_or_else(|_| {
                 panic!(
                     "FakeGenerator doesn't support type {:?}",
@@ -212,6 +228,23 @@ mod tests {
         assert_eq!(fake_rng.gen::<u64>(), 2);
         assert_eq!(fake_rng.gen::<u64>(), 3);
         assert_eq!(fake_rng.gen::<u64>(), 1); // Wraps around
+    }
+
+    #[test]
+    fn fake_rng_with_diff_types() {
+        // Test FakeGenerator with different value types
+        let values = vec![5, 6, 7, 8, 9, 14, 15, 16, 17, 18];
+        let fake_rng = FakeGenerator::from_u64_values(values.clone());
+        assert_eq!(fake_rng.gen::<usize>(), values[0] as usize);
+        assert_eq!(fake_rng.gen::<u64>(), values[1]);
+        assert_eq!(fake_rng.gen::<u32>(), values[2] as u32);
+        assert_eq!(fake_rng.gen::<u16>(), values[3] as u16);
+        assert_eq!(fake_rng.gen::<u8>(), values[4] as u8);
+        assert_eq!(fake_rng.gen::<i128>(), values[5] as i128);
+        assert_eq!(fake_rng.gen::<i64>(), values[6] as i64);
+        assert_eq!(fake_rng.gen::<i32>(), values[7] as i32);
+        assert_eq!(fake_rng.gen::<i16>(), values[8] as i16);
+        assert_eq!(fake_rng.gen::<i8>(), values[9] as i8);
         assert_eq!(fake_rng.gen::<f64>(), 0.0); // Default for f64
         assert!(!fake_rng.gen::<bool>()); // Default for bool
     }
