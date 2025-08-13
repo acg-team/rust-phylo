@@ -1,10 +1,9 @@
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::sync::Mutex;
 
-use rand::distributions::{
-    uniform::{SampleRange, SampleUniform},
-    Distribution, Standard,
-};
+use rand::distributions::uniform::{SampleRange, SampleUniform};
+use rand::distributions::Standard;
+use rand::prelude::Distribution;
 
 use crate::random::RandomSource;
 
@@ -121,54 +120,52 @@ impl Default for FakeGenerator {
     }
 }
 
+macro_rules! fakegen_downcast {
+    ($val:expr) => {{
+        let boxed: Box<dyn Any> = Box::new($val);
+        *boxed.downcast::<T>().unwrap()
+    }};
+}
+
 impl RandomSource for FakeGenerator {
     fn gen<T>(&self) -> T
     where
         T: 'static,
         Standard: Distribution<T>,
     {
-        // This is a bit tricky since we need to handle any type T.
-        // We'll use type erasure and handle the most common types.
-
+        // Safe implementation using downcasting instead of transmute
         let type_id = TypeId::of::<T>();
+        // Create the appropriate value based on the type
         if type_id == TypeId::of::<u64>() {
-            let value = self.next_u64();
-            unsafe { std::mem::transmute_copy(&value) }
+            fakegen_downcast!(self.next_u64())
+        } else if type_id == TypeId::of::<u32>() {
+            fakegen_downcast!(self.next_u64() as u32)
         } else if type_id == TypeId::of::<f64>() {
-            let value = self.next_f64();
-            unsafe { std::mem::transmute_copy(&value) }
+            fakegen_downcast!(self.next_f64())
+        } else if type_id == TypeId::of::<f32>() {
+            fakegen_downcast!(self.next_f64() as f32)
         } else if type_id == TypeId::of::<bool>() {
-            let value = self.next_bool();
-            unsafe { std::mem::transmute_copy(&value) }
+            fakegen_downcast!(self.next_bool())
         } else {
-            // For other types, fall back to using u64 as the source
+            // For unknown types, use u64 as fallback
             let value = self.next_u64();
-            unsafe { std::mem::transmute_copy(&value) }
+            let boxed: Box<dyn Any> = Box::new(value);
+            // This will panic if the type is not actually u64, but that's better than unsafe
+            *boxed.downcast::<T>().unwrap_or_else(|_| {
+                panic!(
+                    "FakeGenerator doesn't support type {:?}",
+                    std::any::type_name::<T>()
+                )
+            })
         }
     }
 
-    fn gen_range<T, Range>(&self, range: Range) -> T
+    fn gen_range<T, Range>(&self, _range: Range) -> T
     where
         T: 'static + SampleUniform,
         Range: SampleRange<T>,
     {
-        // Handle the most common range types
-        let type_id = TypeId::of::<T>();
-
-        if type_id == TypeId::of::<u64>() {
-            let range = unsafe { std::mem::transmute_copy::<Range, std::ops::Range<u64>>(&range) };
-            let value = self.next_u64();
-            let result = if range.is_empty() {
-                range.start
-            } else {
-                range.start + (value % (range.end - range.start))
-            };
-            unsafe { std::mem::transmute_copy(&result) }
-        } else {
-            // For other types, use the first value from our sequences as a fallback
-            let value = self.next_u64();
-            unsafe { std::mem::transmute_copy(&value) }
-        }
+        unimplemented!("FakeGenerator does not support gen_range");
     }
 
     fn gen_bool(&self, _p: f64) -> bool {
