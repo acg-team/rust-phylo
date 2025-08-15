@@ -12,7 +12,7 @@ use crate::optimisers::{
 use crate::parsimony::scoring::ParsimonyScoring;
 use crate::parsimony::{BasicParsimonyCost, DolloParsimonyCost};
 use crate::pip_model::PIPCost;
-use crate::random::{DefaultGenerator, RandomSource};
+use crate::random::RandomSource;
 use crate::substitution_models::{QMatrix, SubstitutionCost};
 use crate::tree::NodeIdx;
 use crate::Result;
@@ -61,35 +61,44 @@ impl<S: ParsimonyScoring> Compatible<NniOptimiser> for DolloParsimonyCost<S> {}
 impl Compatible<SprOptimiser> for BasicParsimonyCost {}
 impl Compatible<NniOptimiser> for BasicParsimonyCost {}
 
-pub struct TopologyOptimiser<MO, C>
+pub struct TopologyOptimiser<'a, MO, C, R>
 where
     MO: MoveOptimiser,
     C: TreeSearchCost + Display + Clone + Send + Compatible<MO>,
+    R: RandomSource,
 {
     pub(crate) predicate: TopologyOptimiserPredicate,
-
     pub(crate) move_opti: MO,
     pub(crate) c: C,
+    pub(crate) rng: &'a R,
 }
 
-impl<MO, C> TopologyOptimiser<MO, C>
+impl<'a, MO, C, R> TopologyOptimiser<'a, MO, C, R>
 where
     MO: MoveOptimiser,
     C: TreeSearchCost + Display + Clone + Send + Compatible<MO>,
+    R: RandomSource,
 {
-    pub fn new(cost: C, move_opti: MO) -> Self {
+    pub fn new(cost: C, move_opti: MO, rng: &'a R) -> Self {
         Self {
             predicate: TopologyOptimiserPredicate::GtEpsilon(1e-3),
             move_opti,
             c: cost,
+            rng,
         }
     }
 
-    pub fn new_with_pred(cost: C, move_opti: MO, predicate: TopologyOptimiserPredicate) -> Self {
+    pub fn new_with_pred(
+        cost: C,
+        move_opti: MO,
+        rng: &'a R,
+        predicate: TopologyOptimiserPredicate,
+    ) -> Self {
         Self {
             c: cost,
             move_opti,
             predicate,
+            rng,
         }
     }
 
@@ -124,14 +133,7 @@ where
     /// assert_eq!(result.cost.tree().len(), 9); // The initial tree has 9 nodes, 5 leaves and 4 internal nodes.
     /// # Ok(()) }
     /// ```
-    pub fn run(self) -> Result<PhyloOptimisationResult<C>> {
-        let mut rng = DefaultGenerator::default();
-        self.run_w_rng(&mut rng)
-    }
-
-    pub fn run_w_rng(mut self, rng: &mut impl RandomSource) -> Result<PhyloOptimisationResult<C>> {
-        debug_assert!(self.c.tree().len() > 3);
-
+    pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
         info!("Optimising tree topology with SPRs");
         let init_cost = self.c.cost();
         let init_tree = self.c.tree();
@@ -154,7 +156,7 @@ where
             info!("Iteration: {iterations}, current cost: {curr_cost}");
             prev_cost = curr_cost;
 
-            rng.shuffle(&mut current_prunes);
+            self.rng.shuffle(&mut current_prunes);
 
             curr_cost =
                 Self::fold_improving_moves(&mut self.c, &move_opti, curr_cost, &current_prunes)?;

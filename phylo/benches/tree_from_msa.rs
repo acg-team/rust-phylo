@@ -31,7 +31,7 @@ fn run_optimisation(
     epsilon: f64,
 ) -> Result<(f64, Tree)> {
     // Only use the FakeGenerator for deterministic benchmarking
-    let mut fake_rng = FakeGenerator::new();
+    let fake_rng = FakeGenerator::new();
     let mut cost = cost;
     let mut prev_cost = f64::NEG_INFINITY;
     let mut final_cost = TreeSearchCost::cost(&cost);
@@ -43,8 +43,8 @@ fn run_optimisation(
 
         prev_cost = final_cost;
         let model_optimiser = ModelOptimiser::new(cost, freq_opt);
-        let o = TopologyOptimiser::new(model_optimiser.run()?.cost, SprOptimiser {})
-            .run_w_rng(&mut fake_rng)
+        let o = TopologyOptimiser::new(model_optimiser.run()?.cost, SprOptimiser {}, &fake_rng)
+            .run()
             .unwrap();
         final_cost = o.final_cost;
         cost = o.cost;
