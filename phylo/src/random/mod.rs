@@ -151,6 +151,30 @@ mod tests {
     }
 
     #[test]
+    fn rng_different_types() {
+        // Test that most common types can be generated from the same RNG instance and the
+        // generator does not panic.
+        let rng = DefaultGenerator::new(42);
+        let _val_usize = rng.gen::<usize>();
+        let _val_u64 = rng.gen::<u64>();
+        let _val_u32 = rng.gen::<u32>();
+        let _val_u16 = rng.gen::<u16>();
+        let _val_u8 = rng.gen::<u8>();
+        let _val_isize = rng.gen::<isize>();
+        let _val_i128 = rng.gen::<i128>();
+        let _val_i64 = rng.gen::<i64>();
+        let _val_i32 = rng.gen::<i32>();
+        let _val_i16 = rng.gen::<i16>();
+        let _val_i8 = rng.gen::<i8>();
+        let _val_char = rng.gen::<char>();
+        let _val_bool = rng.gen::<bool>();
+        let val_f64 = rng.gen::<f64>();
+        let val_f32 = rng.gen::<f32>();
+        assert!(val_f64.is_finite());
+        assert!(val_f32.is_finite());
+    }
+
+    #[test]
     fn reseed() {
         // Test that reseeding to the same value produces the same sample
         let rng = DefaultGenerator::new(42);
