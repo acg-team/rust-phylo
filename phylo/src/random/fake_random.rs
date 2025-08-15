@@ -191,7 +191,7 @@ impl RandomSource for FakeGenerator {
         val.clamp(0.0, 1.0)
     }
 
-    fn shuffle<T>(&mut self, _slice: &mut [T]) {
+    fn shuffle<T>(&self, _slice: &mut [T]) {
         // No shuffling for fake generator
     }
 
@@ -400,7 +400,7 @@ mod tests {
 
     #[test]
     fn fake_shuffle() {
-        let mut rng = FakeGenerator::new();
+        let rng = FakeGenerator::new();
         let mut vec = vec![1, 2, 3, 4, 5];
         let original_vec = vec.clone();
         rng.shuffle(&mut vec);

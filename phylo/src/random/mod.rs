@@ -28,7 +28,7 @@ pub trait RandomSource {
     fn gen_probability(&self) -> f64;
 
     /// Shuffle a slice in place.
-    fn shuffle<T>(&mut self, slice: &mut [T]);
+    fn shuffle<T>(&self, slice: &mut [T]);
 
     /// Reseed the RNG with a new seed.
     fn reseed(&self, seed: u64);
@@ -124,7 +124,7 @@ where
     }
 
     /// Shuffle a slice in place.
-    fn shuffle<T>(&mut self, slice: &mut [T]) {
+    fn shuffle<T>(&self, slice: &mut [T]) {
         let mut r = self.r.lock().unwrap();
         slice.shuffle(&mut r.rng);
     }
@@ -267,7 +267,7 @@ mod tests {
 
     #[test]
     fn shuffle() {
-        let mut rng = DefaultGenerator::new(42);
+        let rng = DefaultGenerator::new(42);
         assert_eq!(rng.seed(), 42);
         let mut vec = vec![1, 2, 3, 4, 5];
         let original_vec = vec.clone();
