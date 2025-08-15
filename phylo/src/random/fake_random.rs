@@ -220,6 +220,29 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "FakeGenerator doesn't support type")]
+    fn fake_rng_panic() {
+        // Test that FakeGenerator panics for unsupported types
+        let fake_rng = FakeGenerator::new();
+        fake_rng.gen::<char>();
+    }
+
+    #[test]
+    fn fake_rng_gen_bool() {
+        // Test that p makes no difference for gen_bool in FakeGenerator
+        let values = vec![true, false, true, false];
+        let fake_rng = FakeGenerator::new();
+        fake_rng.add_bool_values(values.clone());
+        for i in 0..10 {
+            assert_eq!(fake_rng.gen_bool(0.3), values[i % values.len()]);
+        }
+        fake_rng.reseed(0);
+        for i in 0..10 {
+            assert_eq!(fake_rng.gen_bool(0.7), values[i % values.len()]);
+        }
+    }
+
+    #[test]
     fn fake_rng_with_diff_types() {
         // Test FakeGenerator with different value types
         let values = vec![5, 6, 7, 8, 9, 14, 15, 16, 17, 18];
