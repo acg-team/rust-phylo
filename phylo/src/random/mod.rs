@@ -139,12 +139,12 @@ mod tests {
     fn rng_reproducibility() {
         // Test that creating new instances with the same seed produces the same sequence
         let rng1 = DefaultGenerator::new(42);
-        let val1: f64 = rng1.gen::<f64>();
-        let val2: u32 = rng1.gen::<u32>();
+        let val1: f64 = rng1.gen();
+        let val2: u32 = rng1.gen();
 
         let rng2 = DefaultGenerator::new(42);
-        let val1_repeat: f64 = rng2.gen::<f64>();
-        let val2_repeat: u32 = rng2.gen::<u32>();
+        let val1_repeat: f64 = rng2.gen();
+        let val2_repeat: u32 = rng2.gen();
 
         assert_eq!(val1, val1_repeat);
         assert_eq!(val2, val2_repeat);
@@ -152,12 +152,12 @@ mod tests {
 
     #[test]
     fn reseed() {
-        // Test that reseeding works correctly
+        // Test that reseeding to the same value produces the same sample
         let rng = DefaultGenerator::new(42);
-        let val1: f64 = rng.gen::<f64>();
+        let val1: f64 = rng.gen();
 
         rng.reseed(42);
-        let val1_repeat: f64 = rng.gen::<f64>();
+        let val1_repeat: f64 = rng.gen();
 
         assert_eq!(val1, val1_repeat);
     }
@@ -175,8 +175,8 @@ mod tests {
     fn rng_range() {
         let rng = DefaultGenerator::new(123);
         for _ in 0..10 {
-            let random_value: u32 = rng.gen_range(1..100);
-            assert!((1..100).contains(&random_value));
+            let val: u32 = rng.gen_range(1..100);
+            assert!((1..100).contains(&val));
         }
     }
 
