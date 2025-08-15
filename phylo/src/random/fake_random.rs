@@ -155,6 +155,8 @@ impl RandomSource for FakeGenerator {
             fakegen_downcast!(self.next_u64() as u16)
         } else if type_id == TypeId::of::<u8>() {
             fakegen_downcast!(self.next_u64() as u8)
+        } else if type_id == TypeId::of::<char>() {
+            fakegen_downcast!(self.next_u64() as u8 as char)
         } else if type_id == TypeId::of::<i128>() {
             fakegen_downcast!(self.next_u64() as i128)
         } else if type_id == TypeId::of::<i64>() {
@@ -235,9 +237,9 @@ mod tests {
     #[test]
     #[should_panic(expected = "FakeGenerator doesn't support type")]
     fn fake_rng_panic() {
-        // Test that FakeGenerator panics for unsupported types
+        // Test that FakeGenerator panics for an unsupported type (isize)
         let fake_rng = FakeGenerator::new();
-        fake_rng.gen::<char>();
+        fake_rng.gen::<isize>();
     }
 
     #[test]
