@@ -281,12 +281,12 @@ mod tests {
         // Test that creating new instances with the same values produces the same sequence
         let values = vec![0.1, 0.2, 0.3];
         let rng1 = FakeGenerator::from_f64_values(values.clone());
-        let val1 = rng1.gen::<f64>();
-        let val2 = rng1.gen::<f32>();
+        let val1: f64 = rng1.gen();
+        let val2: f32 = rng1.gen();
 
         let rng2 = FakeGenerator::from_f64_values(values);
-        let val1_repeat = rng2.gen::<f64>();
-        let val2_repeat = rng2.gen::<f32>();
+        let val1_repeat: f64 = rng2.gen();
+        let val2_repeat: f32 = rng2.gen();
 
         assert_eq!(val1, val1_repeat);
         assert_eq!(val2, val2_repeat);
@@ -297,11 +297,11 @@ mod tests {
         // Test that reseeding does not do anything to an empty FakeGenerator
         let fake_rng = FakeGenerator::new();
         assert_eq!(fake_rng.seed(), 0);
-        let val1: f64 = fake_rng.gen::<f64>();
+        let val1: f64 = fake_rng.gen();
 
         fake_rng.reseed(42);
         assert_eq!(fake_rng.seed(), 42);
-        let val1_repeat: f64 = fake_rng.gen::<f64>();
+        let val1_repeat: f64 = fake_rng.gen();
 
         assert_eq!(val1, val1_repeat);
         assert_eq!(val1, 0.0); // Default value after reseed
