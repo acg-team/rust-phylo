@@ -182,14 +182,15 @@ mod tests {
 
     #[test]
     fn different_seeds_produce_different_values() {
+        // This is not guaranteed to produce different values because there are no guarantees on the Rng
+        // implementation, but it is extremely unlikely that it will fail.
         let rng = DefaultGenerator::new(1);
-        // init_rng(1);
         let val1: f64 = rng.gen();
-
         rng.reseed(2);
-        let val2: f64 = rng.gen();
+        let val1_repeat: f64 = rng.gen();
+        assert_ne!(val1, val1_repeat);
+    }
 
-        assert_ne!(val1, val2);
     }
 
     #[test]
