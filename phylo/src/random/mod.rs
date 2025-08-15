@@ -247,6 +247,22 @@ mod tests {
         assert_ne!(val1, val1_repeat);
     }
 
+    #[test]
+    fn different_timestamps_produce_different_values() {
+        // DefaultGenerator uses the current timestamp as a seed, so different instances should have different seeds
+        // per definition of ntimestamp, but not guaranteed to produce different values, as in the previous test.
+        let timestamp = Timestamp::now().as_u64();
+        let rng = DefaultGenerator::default();
+        assert!(rng.seed() > timestamp);
+        let val1: usize = rng.gen();
+        let val2: f64 = rng.gen();
+        let rng2 = DefaultGenerator::default();
+        assert!(rng2.seed() > rng.seed());
+        assert!(rng2.seed() > timestamp);
+        let val1_repeat: usize = rng2.gen();
+        let val2_repeat: f64 = rng2.gen();
+        assert_ne!(val1, val1_repeat);
+        assert_ne!(val2, val2_repeat);
     }
 
     #[test]
