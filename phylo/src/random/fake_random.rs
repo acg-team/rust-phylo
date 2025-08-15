@@ -15,6 +15,7 @@ pub struct FakeGenerator {
     u64_index: Mutex<usize>,
     f64_index: Mutex<usize>,
     bool_index: Mutex<usize>,
+    seed: Mutex<u64>,
 }
 
 impl FakeGenerator {
@@ -28,6 +29,7 @@ impl FakeGenerator {
             u64_index: Mutex::new(0),
             f64_index: Mutex::new(0),
             bool_index: Mutex::new(0),
+            seed: Mutex::new(0),
         }
     }
 
@@ -40,6 +42,7 @@ impl FakeGenerator {
             u64_index: Mutex::new(0),
             f64_index: Mutex::new(0),
             bool_index: Mutex::new(0),
+            seed: Mutex::new(0),
         }
     }
 
@@ -52,6 +55,7 @@ impl FakeGenerator {
             u64_index: Mutex::new(0),
             f64_index: Mutex::new(0),
             bool_index: Mutex::new(0),
+            seed: Mutex::new(0),
         }
     }
 
@@ -127,6 +131,12 @@ macro_rules! fakegen_downcast {
 }
 
 impl RandomSource for FakeGenerator {
+    // The seed is irrelevant for FakeGenerator, but we implement it for compatibility
+    fn seed(&self) -> u64 {
+        let seed = self.seed.lock().unwrap();
+        *seed
+    }
+
     fn gen<T>(&self) -> T
     where
         T: 'static,
@@ -183,11 +193,12 @@ impl RandomSource for FakeGenerator {
         // No shuffling for fake generator
     }
 
-    fn reseed(&self, _seed: u64) {
-        // Reseeding just resets the indices
+    fn reseed(&self, seed: u64) {
+        // Reseeding resets the indices
         *self.u64_index.lock().unwrap() = 0;
         *self.f64_index.lock().unwrap() = 0;
         *self.bool_index.lock().unwrap() = 0;
+        *self.seed.lock().unwrap() = seed;
     }
 }
 
@@ -202,6 +213,7 @@ mod tests {
     fn fake_rng_defaults() {
         // Test new FakeGenerator defaults
         let fake_rng = FakeGenerator::new();
+        assert_eq!(fake_rng.seed(), 0);
         assert_eq!(fake_rng.gen::<u64>(), 0);
         assert_eq!(fake_rng.gen::<f64>(), 0.0);
         assert!(!fake_rng.gen::<bool>());
@@ -212,6 +224,7 @@ mod tests {
         // Test FakeGenerator with pre-configured values
         let values = (15..25).collect::<Vec<u64>>();
         let fake_rng = FakeGenerator::from_u64_values(values.clone());
+        assert_eq!(fake_rng.seed(), 0);
         for i in 0..10 {
             assert_eq!(fake_rng.gen::<u64>(), values[i % values.len()]);
         }
@@ -280,11 +293,13 @@ mod tests {
     #[test]
     fn fake_reseed_empty() {
         // Test that reseeding does not do anything to an empty FakeGenerator
-        let rng = FakeGenerator::new();
-        let val1: f64 = rng.gen::<f64>();
+        let fake_rng = FakeGenerator::new();
+        assert_eq!(fake_rng.seed(), 0);
+        let val1: f64 = fake_rng.gen::<f64>();
 
-        rng.reseed(42);
-        let val1_repeat: f64 = rng.gen::<f64>();
+        fake_rng.reseed(42);
+        assert_eq!(fake_rng.seed(), 42);
+        let val1_repeat: f64 = fake_rng.gen::<f64>();
 
         assert_eq!(val1, val1_repeat);
         assert_eq!(val1, 0.0); // Default value after reseed
