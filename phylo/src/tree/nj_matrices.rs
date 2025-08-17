@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter, Result};
 
-use nalgebra::{max, min, DMatrix};
+use nalgebra::{max, min, DMatrix, DVector};
 
 use crate::tree::NodeIdx::{self, Internal as Int};
 
@@ -72,15 +72,15 @@ impl NJMat {
         )
     }
 
-    pub(super) fn compute_nj_q(&self) -> Mat {
+    pub(super) fn compute_nj_delta_tree_length(&self) -> DVector<f64> {
         let n = self.distances.ncols();
         let s = self.distances.row_sum();
-        Mat::from_fn(n, n, |r, c| -> f64 {
-            if r == c {
-                0.0
-            } else {
-                (n - 2) as f64 * self.distances[(r, c)] - s[r] - s[c]
+        let mut delta_tree_len = Vec::with_capacity(n * (n + 1) / 2 - n);
+        for r in 1..n {
+            for c in 0..r {
+                delta_tree_len.push((n - 2) as f64 * self.distances[(r, c)] - s[r] - s[c])
             }
-        })
+        }
+        DVector::from_vec(delta_tree_len)
     }
 }

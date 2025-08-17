@@ -1,9 +1,13 @@
 use log::debug;
-use nalgebra::DMatrix;
+use nalgebra::{DMatrix, DVector};
+use rand::distributions::weighted::WeightedIndex;
+use rand::distributions::Distribution;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
 
 use crate::alignment::Sequences;
 use crate::evolutionary_distances::{EvolutionaryDistance, LevenshteinDNACorrected};
-use crate::tree::nj_matrices::{Mat, NJMat};
+use crate::tree::nj_matrices::NJMat;
 use crate::tree::tree_builder::TreeBuilder;
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
@@ -36,11 +40,16 @@ impl<D: EvolutionaryDistance + Default> Default for NJTreeBuilder<D> {
 
 impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
     pub fn new(temperature: Randomise, distance_function: D) -> Self {
-        if let Randomise::Temperature(t) = temperature {
-            assert!(
-                (0.0..=1.0).contains(&t),
-                "Temperature must be between 0.0 and 1.0 inclusive"
-            );
+        let temperature = match temperature {
+            Randomise::Temperature(t) if t < 0.0 => {
+                debug!("Temperature shouldn't be less than 0.00, setting to 0.00");
+                Randomise::Temperature(0.0)
+            }
+            Randomise::Temperature(t) if t > 1.0 => {
+                debug!("Temperature shouldn't be greater than 1.00, setting to 1.00");
+                Randomise::Temperature(1.0)
+            }
+            _ => temperature,
         };
         Self {
             temperature,
@@ -48,74 +57,62 @@ impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
         }
     }
 
-    fn temperature_branch(&self, q: Mat) -> (usize, usize) {
-        debug_assert!(!q.is_empty(), "The input matrix must not be empty.");
-        debug_assert!(
-            q.ncols() > 1 && q.nrows() > 1,
-            "The input matrix should have more than 1 element."
-        );
-        debug_assert!(q.ncols() == q.nrows(), "The input matrix should be square.");
-        println!("{q}");
-        // Based on nj_correct test case, negative distances are common in compute_nj_q, which should be multiplied by -1 for small (desireable) distances to be larger in comparison to large distances. Allows for use of softmax
-        let mut exp_mat = q.scale(-1.0);
-        // e^i on all elements of matrix
-        exp_mat = exp_mat.lower_triangle().map(|i| i.exp());
-        // With large matrices/numbers there is a slight discrepancy due to floating point numbers, greater than 1
-        let exp_sum = exp_mat.lower_triangle().sum() - exp_mat.diagonal().sum();
-        // This is softmax, on each value e^i/sum(i..n)(e^i)
-        exp_mat = exp_mat.unscale(exp_sum);
-        // This can occasionally be greater than 1 due to handling of large numbers and floating points
-        debug!(
-            "Probability L Triangle Sum: {}",
-            exp_mat.lower_triangle().sum() - exp_mat.diagonal().sum()
-        );
-        // Use temperature with uniform value to calculate probability
-        let uniform: f64 = 1.0 / (((q.nrows().pow(2) - q.nrows()) / 2) as f64);
-        // Temperature probabilities, temp=0.0 means uniform, temp=1.0 means softmax of distances
-        let temperature = match self.temperature {
-            Randomise::Temperature(f64) => f64,
-            Randomise::Deterministic => {
-                panic!("Called temperature_branch while in Deterministic mode")
-            }
-        };
-        exp_mat = exp_mat
-            .lower_triangle()
-            .map(|i| (temperature * uniform) + (1.0 - temperature * i));
-        // This is our criterion for choosing, can use random seed because iteration is deterministic
-        let branch_choice: f64 = rand::random();
-        let mut prob_sum = 0.0;
-        for i in 1..q.nrows() {
-            for j in 0..i {
-                let val = exp_mat[(i, j)];
-                prob_sum += val;
-                if prob_sum > branch_choice {
-                    return (i, j);
-                }
-            }
-        }
-        // Change? default, warning, fallback to argmin, this should never happen based on probability contraints.
-        panic!("No return from softmax branch");
+    fn index_to_ij_rowwise_nodiag(k: usize) -> (usize, usize) {
+        // 0 indexed
+        let p = ((1 + 8 * k).isqrt() - 1) / 2;
+        let i = p + 1;
+        let j = k - p * (p + 1) / 2;
+        (i, j)
     }
 
-    // This is the original implementation, to be used with Randomise::Deterministic
-    fn argmin_wo_diagonal(q: Mat) -> (usize, usize) {
-        debug_assert!(!q.is_empty(), "The input matrix must not be empty.");
+    fn softmax_vector_mut(mut v: DVector<f64>) -> DVector<f64> {
+        v = v.map(|i| i.exp());
+        let sum_j = v.sum();
+        v.unscale(sum_j)
+    }
+
+    fn temperature_branch(delta_tree_len: DVector<f64>, temperature: f64) -> (usize, usize) {
         debug_assert!(
-            q.ncols() > 1 && q.nrows() > 1,
-            "The input matrix should have more than 1 element."
+            !delta_tree_len.is_empty(),
+            "The input vector must not be empty."
         );
-        debug_assert!(q.ncols() == q.nrows(), "The input matrix should be square.");
+        if delta_tree_len.len() == 1 {
+            return NJTreeBuilder::<LevenshteinDNACorrected>::index_to_ij_rowwise_nodiag(0)
+        }
+        // Based on nj_correct test case, negative distances are common in compute_nj_q, which should be multiplied by -1 for small (desireable) distances to be larger in comparison to large distances. Allows for use of softmax
+        let scaled_mat = delta_tree_len.scale(-1.0);
+        // I think this messes up scaled_mat because of function implementation, borrows and never gives it back, could be reworked I think?
+        let mut exp_mat = NJTreeBuilder::<LevenshteinDNACorrected>::softmax_vector_mut(scaled_mat);
+        debug!("Probability Sum: {}", exp_mat.sum());
+        // Use temperature with uniform value to calculate probability
+        let uniform: f64 =
+            1.0 / (((delta_tree_len.nrows().pow(2) - delta_tree_len.nrows()) / 2) as f64);
+        // Temperature probabilities, temp=0.0 means uniform, temp=1.0 means softmax of distances
+        exp_mat = exp_mat.map(|i| (temperature * uniform) + ((1.0 - temperature) * i));
+        // This is our criterion for choosing, can use random seed because iteration is deterministic
+        let dist = WeightedIndex::new(exp_mat.data.as_vec().iter()).unwrap();
+        let mut rng = StdRng::from_seed([0; 32]);
+        NJTreeBuilder::<LevenshteinDNACorrected>::index_to_ij_rowwise_nodiag(dist.sample(&mut rng))
+    }
+
+    // Used with Randomise::Deterministic
+    fn argmin_wo_diagonal(q: DVector<f64>) -> (usize, usize) {
+        debug_assert!(!q.is_empty(), "The input matrix must not be empty.");
+        if q.nrows() == 1 {
+            return (1,0);
+        }
         let mut arg_min = vec![];
         let mut val_min = &f64::MAX;
-        for i in 1..q.nrows() {
-            for j in 0..i {
-                let val = &q[(i, j)];
-                if val < val_min {
-                    val_min = val;
-                    arg_min = vec![(i, j)];
-                } else if val == val_min {
-                    arg_min.push((i, j));
-                }
+        for i in 0..q.nrows() {
+            let val = &q[i];
+            if val < val_min {
+                val_min = val;
+                // Convert usize to u32?
+                arg_min =
+                    vec![NJTreeBuilder::<LevenshteinDNACorrected>::index_to_ij_rowwise_nodiag(i)];
+            } else if val == val_min {
+                arg_min
+                    .push(NJTreeBuilder::<LevenshteinDNACorrected>::index_to_ij_rowwise_nodiag(i));
             }
         }
 
@@ -138,13 +135,14 @@ impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
         let mut tree = Tree::new(sequences)?;
         let root_idx = usize::from(&tree.root);
         for cur_idx in n..=root_idx {
-            let q = nj_data.compute_nj_q();
+            let q = nj_data.compute_nj_delta_tree_length();
             let (i, j) = match self.temperature {
-                Randomise::Temperature(_t) => self.temperature_branch(q),
+                Randomise::Temperature(t) => Self::temperature_branch(q, t),
                 Randomise::Deterministic => {
                     NJTreeBuilder::<LevenshteinDNACorrected>::argmin_wo_diagonal(q)
                 }
             };
+            println!("{i}, {j}");
             let idx_new = cur_idx;
             let (blen_i, blen_j) = nj_data.branch_lengths(i, j, cur_idx == root_idx);
             tree.add_parent(idx_new, &nj_data.idx[i], &nj_data.idx[j], blen_i, blen_j);
@@ -184,7 +182,7 @@ impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
 mod private_tests {
     //From test.rs in tree, so we can use macros
     use crate::{record_wo_desc as record, tree};
-    use nalgebra::{dmatrix, DMatrix};
+    use nalgebra::{dmatrix, dvector, DVector};
 
     use super::*;
     use crate::tree::{
@@ -201,11 +199,9 @@ mod private_tests {
     #[test]
     #[should_panic]
     fn test_argmin_fail() {
-        //Instantiate NJBuilder instance every time
-        NJTreeBuilder::<LevenshteinDNACorrected>::argmin_wo_diagonal(DMatrix::<f64>::from_vec(
-            1,
-            1,
-            vec![0.0],
+        //Changed test for empty vector, since argmin with 1 vector length will return first branch as delta_tree_length vector is different
+        NJTreeBuilder::<LevenshteinDNACorrected>::argmin_wo_diagonal(DVector::<f64>::from_vec(
+            vec![],
         ));
     }
 
@@ -330,7 +326,7 @@ mod private_tests {
             record!("C2", b""),
             record!("D3", b""),
         ]);
-        // Instantiate NJBuilder instance every time
+        // Illegal for this test since it's DNA corrected distance
         let nj_builder: NJTreeBuilder<LevenshteinDNACorrected> = NJTreeBuilder::default();
         let tree = nj_builder
             .build_nj_tree_from_matrix(nj_distances, &sequences)
@@ -463,14 +459,60 @@ mod private_tests {
     }
 
     #[test]
-    #[should_panic]
-    fn nj_builder_panic_creation() {
-        //temperature over 1.0
-        let _nj_builder =
-            NJTreeBuilder::new(Randomise::Temperature(2.0), LevenshteinDNACorrected {});
+    fn lower_triangle_index_conversion() {
+        assert_eq!(
+            NJTreeBuilder::<LevenshteinDNACorrected>::index_to_ij_rowwise_nodiag(0),
+            (1, 0)
+        );
+        assert_eq!(
+            NJTreeBuilder::<LevenshteinDNACorrected>::index_to_ij_rowwise_nodiag(1),
+            (2, 0)
+        );
+        assert_eq!(
+            NJTreeBuilder::<LevenshteinDNACorrected>::index_to_ij_rowwise_nodiag(2),
+            (2, 1)
+        );
+        assert_eq!(
+            NJTreeBuilder::<LevenshteinDNACorrected>::index_to_ij_rowwise_nodiag(3),
+            (3, 0)
+        );
+        assert_eq!(
+            NJTreeBuilder::<LevenshteinDNACorrected>::index_to_ij_rowwise_nodiag(5),
+            (3, 2)
+        );
     }
 
-    // // Rethink adding these tests, would need random seed to work
+    #[test]
+    fn compute_nj_delta_tree_length_vector() {
+        let nj_distances = NJMat {
+            idx: (0..5).map(NodeIdx::Leaf).collect(),
+            distances: dmatrix![
+                0.0, 5.0, 9.0, 9.0, 8.0;
+                5.0, 0.0, 10.0, 10.0, 9.0;
+                9.0, 10.0, 0.0, 8.0, 7.0;
+                9.0, 10.0, 8.0, 0.0, 3.0;
+                8.0, 9.0, 7.0, 3.0, 0.0],
+        }; 
+        let q = nj_distances.compute_nj_delta_tree_length();
+        assert_eq!(q, dvector![-50.0,-38.0,-38.0,-34.0,-34.0,-40.0,-34.0,-34.0,-40.0,-48.0])
+    }
+
+    #[test]
+    fn argmin_wo_diagonal_vector() {
+        let delta_tree_length = dvector![-50.0,-38.0,-38.0,-34.0,-34.0,-40.0,-34.0,-34.0,-40.0,-48.0];
+        assert_eq!(NJTreeBuilder::<LevenshteinDNACorrected>::argmin_wo_diagonal(delta_tree_length), (1,0));
+    }
+
+    #[test]
+    fn softmax_vector_mut_test() {
+        let delta_tree_length = dvector![1.3,5.1,2.2,0.7,1.1];
+        let softmax_vector = NJTreeBuilder::<LevenshteinDNACorrected>::softmax_vector_mut(delta_tree_length);
+        println!("{softmax_vector:?}");
+        assert_eq!(softmax_vector, dvector![0.020190464732580685, 0.9025376890165726, 0.04966052987196013, 0.011080761983386346, 0.01653055439550022]);
+        assert_eq!(softmax_vector.sum(), 1.0);
+    }
+    
+    // Rethink adding these tests, would need random seed to work
     // #[test]
     // fn nj_builder_uniform() {
     //     let nj_distances = NJMat {
@@ -504,36 +546,40 @@ mod private_tests {
     //     assert_eq!(nj_tree.nodes, nodes);
     // }
 
-    // #[test]
-    // fn nj_builder_softmax() {
-    //     let nj_distances = NJMat {
-    //         idx: (0..4).map(NodeIdx::Leaf).collect(),
-    //         distances: dmatrix![
-    //                 0.0, 4.0, 5.0, 10.0;
-    //                 4.0, 0.0, 7.0, 12.0;
-    //                 5.0, 7.0, 0.0, 9.0;
-    //                 10.0, 12.0, 9.0, 0.0],
-    //     };
-    //     let sequences = Sequences::new(vec![
-    //         record!("A0", b""),
-    //         record!("B1", b""),
-    //         record!("C2", b""),
-    //         record!("D3", b""),
-    //     ]);
-    //     let nj_builder = NJBuilder::new(1.0, None);
-    //     let nj_tree = nj_builder
-    //         .build_nj_tree_from_matrix(nj_distances, &sequences)
-    //         .unwrap();
-    //     let nodes = vec![
-    //         Node::new_leaf(0, Some(I(4)), 1.0, "A0".to_string()),
-    //         Node::new_leaf(1, Some(I(4)), 3.0, "B1".to_string()),
-    //         Node::new_leaf(2, Some(I(5)), 2.0, "C2".to_string()),
-    //         Node::new_leaf(3, Some(I(5)), 7.0, "D3".to_string()),
-    //         Node::new_internal(4, Some(I(6)), vec![L(0), L(1)], 1.0, "".to_string()),
-    //         Node::new_internal(5, Some(I(6)), vec![L(3), L(2)], 1.0, "".to_string()),
-    //         Node::new_internal(6, None, vec![I(4), I(5)], 0.0, "".to_string()),
-    //     ];
-    //     assert_eq!(nj_tree.root, I(6));
-    //     assert_eq!(nj_tree.nodes, nodes);
-    // }
+    #[test]
+    fn nj_builder_softmax() {
+            let nj_distances = NJMat {
+            idx: (0..5).map(NodeIdx::Leaf).collect(),
+            distances: dmatrix![
+                0.0, 5.0, 9.0, 9.0, 8.0;
+                5.0, 0.0, 10.0, 10.0, 9.0;
+                9.0, 10.0, 0.0, 8.0, 7.0;
+                9.0, 10.0, 8.0, 0.0, 3.0;
+                8.0, 9.0, 7.0, 3.0, 0.0],
+        };
+        let sequences = Sequences::new(vec![
+            record!("A0", b""),
+            record!("B1", b""),
+            record!("C2", b""),
+            record!("D3", b""),
+            record!("E4", b""),
+        ]);
+        let nj_builder = NJTreeBuilder::new(Randomise::Temperature(0.0), LevenshteinDNACorrected);
+        let nj_tree = nj_builder
+            .build_nj_tree_from_matrix(nj_distances, &sequences)
+            .unwrap();
+        let nodes = vec![
+            Node::new_leaf(0, Some(I(5)), 2.0, "A0".to_string()),
+            Node::new_leaf(1, Some(I(5)), 3.0, "B1".to_string()),
+            Node::new_leaf(2, Some(I(7)), 4.0, "C2".to_string()),
+            Node::new_leaf(3, Some(I(6)), 2.0, "D3".to_string()),
+            Node::new_leaf(4, Some(I(6)), 1.0, "E4".to_string()),
+            Node::new_internal(5, Some(I(7)), vec![L(1), L(0)], 3.0, "".to_string()),
+            Node::new_internal(6, Some(I(8)), vec![L(4), L(3)], 1.0, "".to_string()),
+            Node::new_internal(7, Some(I(8)), vec![I(5), L(2)], 1.0, "".to_string()),
+            Node::new_internal(8, None, vec![I(7), I(6)], 0.0, "".to_string()),
+        ];
+        assert_eq!(nj_tree.root, I(8));
+        assert_eq!(nj_tree.nodes, nodes);
+    }
 }
