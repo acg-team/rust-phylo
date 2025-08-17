@@ -77,7 +77,7 @@ impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
             "The input vector must not be empty."
         );
         if delta_tree_len.len() == 1 {
-            return NJTreeBuilder::<LevenshteinDNACorrected>::index_to_ij_rowwise_nodiag(0)
+            return NJTreeBuilder::<LevenshteinDNACorrected>::index_to_ij_rowwise_nodiag(0);
         }
         // Based on nj_correct test case, negative distances are common in compute_nj_q, which should be multiplied by -1 for small (desireable) distances to be larger in comparison to large distances. Allows for use of softmax
         let scaled_mat = delta_tree_len.scale(-1.0);
@@ -99,7 +99,7 @@ impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
     fn argmin_wo_diagonal(q: DVector<f64>) -> (usize, usize) {
         debug_assert!(!q.is_empty(), "The input matrix must not be empty.");
         if q.nrows() == 1 {
-            return (1,0);
+            return (1, 0);
         }
         let mut arg_min = vec![];
         let mut val_min = &f64::MAX;
@@ -492,26 +492,43 @@ mod private_tests {
                 9.0, 10.0, 0.0, 8.0, 7.0;
                 9.0, 10.0, 8.0, 0.0, 3.0;
                 8.0, 9.0, 7.0, 3.0, 0.0],
-        }; 
+        };
         let q = nj_distances.compute_nj_delta_tree_length();
-        assert_eq!(q, dvector![-50.0,-38.0,-38.0,-34.0,-34.0,-40.0,-34.0,-34.0,-40.0,-48.0])
+        assert_eq!(
+            q,
+            dvector![-50.0, -38.0, -38.0, -34.0, -34.0, -40.0, -34.0, -34.0, -40.0, -48.0]
+        )
     }
 
     #[test]
     fn argmin_wo_diagonal_vector() {
-        let delta_tree_length = dvector![-50.0,-38.0,-38.0,-34.0,-34.0,-40.0,-34.0,-34.0,-40.0,-48.0];
-        assert_eq!(NJTreeBuilder::<LevenshteinDNACorrected>::argmin_wo_diagonal(delta_tree_length), (1,0));
+        let delta_tree_length =
+            dvector![-50.0, -38.0, -38.0, -34.0, -34.0, -40.0, -34.0, -34.0, -40.0, -48.0];
+        assert_eq!(
+            NJTreeBuilder::<LevenshteinDNACorrected>::argmin_wo_diagonal(delta_tree_length),
+            (1, 0)
+        );
     }
 
     #[test]
     fn softmax_vector_mut_test() {
-        let delta_tree_length = dvector![1.3,5.1,2.2,0.7,1.1];
-        let softmax_vector = NJTreeBuilder::<LevenshteinDNACorrected>::softmax_vector_mut(delta_tree_length);
+        let delta_tree_length = dvector![1.3, 5.1, 2.2, 0.7, 1.1];
+        let softmax_vector =
+            NJTreeBuilder::<LevenshteinDNACorrected>::softmax_vector_mut(delta_tree_length);
         println!("{softmax_vector:?}");
-        assert_eq!(softmax_vector, dvector![0.020190464732580685, 0.9025376890165726, 0.04966052987196013, 0.011080761983386346, 0.01653055439550022]);
+        assert_eq!(
+            softmax_vector,
+            dvector![
+                0.020190464732580685,
+                0.9025376890165726,
+                0.04966052987196013,
+                0.011080761983386346,
+                0.01653055439550022
+            ]
+        );
         assert_eq!(softmax_vector.sum(), 1.0);
     }
-    
+
     // Rethink adding these tests, would need random seed to work
     // #[test]
     // fn nj_builder_uniform() {
@@ -548,7 +565,7 @@ mod private_tests {
 
     #[test]
     fn nj_builder_softmax() {
-            let nj_distances = NJMat {
+        let nj_distances = NJMat {
             idx: (0..5).map(NodeIdx::Leaf).collect(),
             distances: dmatrix![
                 0.0, 5.0, 9.0, 9.0, 8.0;
