@@ -260,7 +260,7 @@ mod tests {
     #[test]
     fn fake_rng_with_diff_types() {
         // Test FakeGenerator with different value types
-        let values = vec![5, 6, 7, 8, 9, 14, 15, 16, 17, 18];
+        let values = vec![5, 6, 7, 8, 9, 14, 15, 16, 17, 18, 33];
         let fake_rng = FakeGenerator::from_u64_values(values.clone());
         assert_eq!(fake_rng.gen::<usize>(), values[0] as usize);
         assert_eq!(fake_rng.gen::<u64>(), values[1]);
@@ -272,6 +272,7 @@ mod tests {
         assert_eq!(fake_rng.gen::<i32>(), values[7] as i32);
         assert_eq!(fake_rng.gen::<i16>(), values[8] as i16);
         assert_eq!(fake_rng.gen::<i8>(), values[9] as i8);
+        assert_eq!(fake_rng.gen::<char>(), values[10] as u8 as char);
         assert_eq!(fake_rng.gen::<f64>(), 0.0); // Default for f64
         assert!(!fake_rng.gen::<bool>()); // Default for bool
     }
