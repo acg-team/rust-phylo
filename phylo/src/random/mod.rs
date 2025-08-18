@@ -81,7 +81,10 @@ where
 }
 
 /// Type alias for the default RNG implementation.
-/// Currently uses StdRng for good performance and reproducibility.
+/// Currently uses StdRng which is not platform-independent, and should be replaced with
+/// a platform-independent RNG.
+/// TODO: Replace with a platform-independent RNG implementation (at the moment `rand_pcg` and `rand_chacha`
+/// cause dependency clashes).
 pub type DefaultGenerator = RandomGenerator<StdRng>;
 
 impl Default for DefaultGenerator {
