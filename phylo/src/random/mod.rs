@@ -157,6 +157,7 @@ where
     }
 }
 
+#[cfg_attr(coverage, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;
