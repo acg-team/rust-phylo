@@ -1,3 +1,4 @@
+use std::num::NonZero;
 use std::path::Path;
 
 use approx::assert_relative_eq;
@@ -7,7 +8,7 @@ use crate::evolutionary_models::FrequencyOptimisation::Empirical;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{
     BranchOptimiser, ModelOptimiser, NniOptimiser, PhyloOptimisationResult, SprOptimiser,
-    TopologyOptimiser,
+    TopologyOptimiser, TopologyOptimiserPredicate,
 };
 use crate::parsimony::{scoring::ModelScoringBuilder, BasicParsimonyCost, DolloParsimonyCost};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
@@ -735,4 +736,46 @@ fn dollo_tree_search_sim_data_model() {
     assert!(o.final_cost >= unopt_score);
     assert_eq!(o.initial_cost, unopt_score);
     assert_eq!(o.final_cost, o.cost.cost());
+}
+
+#[test]
+fn topo_optimiser_predicate_iters() {
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let seq_file = fldr.join("seqs.fasta");
+
+    let wag = SubstModel::<WAG>::new(&[], &[]);
+    let info = PIB::new(seq_file).build().unwrap();
+    let c = SCB::new(wag, info).build().unwrap();
+    let unopt_cost = c.cost();
+
+    let predicate = TopologyOptimiserPredicate::fixed_iter(NonZero::new(1).unwrap());
+    // Without the predicate will run for 3 iterations
+    let result =
+        TopologyOptimiser::new_with_pred(c, SprOptimiser {}, &FakeGenerator::default(), predicate)
+            .run()
+            .unwrap();
+    assert!(result.final_cost >= unopt_cost);
+    assert!(result.iterations <= 1);
+    assert_eq!(result.initial_cost, unopt_cost);
+}
+
+#[test]
+fn topo_optimiser_predicate_precision() {
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let seq_file = fldr.join("nogap_seqs.fasta");
+
+    let wag = SubstModel::<WAG>::new(&[], &[]);
+    let info = PIB::new(seq_file).build().unwrap();
+    let c = SCB::new(wag, info).build().unwrap();
+    let unopt_cost = c.cost();
+
+    let predicate = TopologyOptimiserPredicate::gt_epsilon(1e-1);
+    // Without the predicate will run for 3 iterations, for 2 with the predicate
+    let result =
+        TopologyOptimiser::new_with_pred(c, SprOptimiser {}, &FakeGenerator::default(), predicate)
+            .run()
+            .unwrap();
+    assert!(result.final_cost >= unopt_cost);
+    assert!(result.iterations <= 3);
+    assert_eq!(result.initial_cost, unopt_cost);
 }
