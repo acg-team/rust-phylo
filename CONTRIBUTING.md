@@ -49,7 +49,7 @@ In case you would like to add a feature to the crate, please open an issue first
    ```
 5. **Run the test suite** to make sure everything works:
    ```bash
-   cargo test --features deterministic
+   cargo test
    ```
 
 ### Contribution Workflow
@@ -61,7 +61,7 @@ In case you would like to add a feature to the crate, please open an issue first
 2. **Make your changes** following the guidelines below
 3. **Test thoroughly**:
    ```bash
-   cargo test --features deterministic
+   cargo test
    cargo clippy
    cargo fmt --check
    ```
@@ -80,16 +80,16 @@ When you submit a pull request, it will be automatically tested and code coverag
 
 ### Running Tests
 
-Before submitting a pull request, please run the test suite locally. To run the tests you will need to enable the `deterministic` feature:
+Before submitting a pull request, please run the test suite locally:
 
 ```bash
-cargo test --features deterministic
+cargo test
 ```
 
 For faster test runs during development, you can also use:
 
 ```bash
-cargo test --features "deterministic,precomputed-test-results"
+cargo test --features precomputed-test-results
 ```
 
 ### Formatting Code with `rustfmt`

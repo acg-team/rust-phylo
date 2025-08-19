@@ -32,6 +32,12 @@ pub trait RandomSource {
 
     /// Reseed the RNG with a new seed.
     fn reseed(&self, seed: u64);
+
+    /// Sample from a weighted distribution.
+    fn sample<D, T>(&self, dist: &D) -> T
+    where
+        T: 'static,
+        D: Distribution<T>;
 }
 
 pub struct SeededRng<R>
@@ -140,6 +146,16 @@ where
             rng: R::seed_from_u64(seed),
         };
     }
+
+    /// Sample from a weighted distribution.
+    fn sample<D, T>(&self, dist: &D) -> T
+    where
+        T: 'static,
+        D: Distribution<T>,
+    {
+        let mut r = self.r.lock().unwrap();
+        r.rng.sample(dist)
+    }
 }
 
 impl<R> RandomGenerator<R>
@@ -160,6 +176,9 @@ where
 #[cfg_attr(coverage, coverage(off))]
 #[cfg(test)]
 mod tests {
+    use itertools::repeat_n;
+    use rand::distributions::WeightedIndex;
+
     use super::*;
 
     #[test]
@@ -279,5 +298,17 @@ mod tests {
         assert_ne!(vec, original_vec);
         // Check that all elements are still present
         assert!(vec.iter().all(|x| original_vec.contains(x)));
+    }
+
+    #[test]
+    fn sample_weighted_index() {
+        let rng = DefaultGenerator::new(42);
+        assert_eq!(rng.seed(), 42);
+        let dist = WeightedIndex::new([1.0, 2.0, 3.0]).unwrap();
+        let sample = rng.sample(&dist);
+        assert!(sample < 3);
+        let dist = WeightedIndex::new(repeat_n(1.0, 15)).unwrap();
+        let sample = rng.sample(&dist);
+        assert!(sample < 15);
     }
 }

@@ -68,7 +68,6 @@ This crate supports several optional features:
 - `par-regraft`: Enable parallel regrafting operations using Rayon;
 - `par-regraft-chunk`: Enable chunked parallel regrafting;
 - `par-regraft-manual`: Enable manual parallel regrafting control;
-- `deterministic`: Ensure deterministic behaviour for reproducible results (required for running tests);
 - `precomputed-test-results`: Speed up test runs with precomputed results (for local development).
 
 Enable features in your Cargo.toml:
@@ -117,7 +116,8 @@ Please read our [contributor guide]( CONTRIBUTING.md )!
 - Mattes Mrzik ([GitHub]( https://github.com/MattesMrzik ), [email]( mailto:mattes.mrzik@zhaw.ch ));
 - Dmitrii Iartsev ([GitHub]( https://github.com/jarcev ), [email]( mailto:dmitrii.iartsev@zhaw.ch ));
 - Merlin Maggi ([GitHub]( https://github.com/merlinio2000 ));
-- Luca Müller ([GitHub]( https://github.com/lucasperception )).
+- Luca Müller ([GitHub]( https://github.com/lucasperception ));
+- Kai Davidson ([GitHub]( https://github.com/kalxed )).
 
 ## Related Projects
 
