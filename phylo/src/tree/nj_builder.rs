@@ -1,13 +1,10 @@
 use log::debug;
 use nalgebra::{DMatrix, DVector};
 use rand::distributions::weighted::WeightedIndex;
-use rand::distributions::Distribution;
-use rand::rngs::StdRng;
-use rand::SeedableRng;
 
 use crate::alignment::Sequences;
-use crate::evolutionary_distances::{EvolutionaryDistance, LevenshteinDNACorrected};
-use crate::random::{DefaultGenerator, RandomSource};
+use crate::evolutionary_distances::EvolutionaryDistance;
+use crate::random::RandomSource;
 use crate::tree::nj_matrices::DistanceMatrix;
 use crate::tree::tree_builder::TreeBuilder;
 use crate::tree::{NodeIdx, Tree};
@@ -27,7 +24,7 @@ pub struct NJTreeBuilder<'a, D: EvolutionaryDistance, R: RandomSource> {
 impl<'a, D: EvolutionaryDistance, R: RandomSource> TreeBuilder for NJTreeBuilder<'a, D, R> {
     fn build(&self, sequences: &Sequences) -> Result<Tree> {
         let distances = self.compute_distance_matrix(sequences);
-        self.build_nj_tree_from_matrix_w_rng(distances, sequences)
+        self.build_from_distances_w_rng(distances, sequences)
     }
 }
 
@@ -83,19 +80,15 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         if delta_tree_len.len() == 1 {
             return 0;
         }
-        // Negative distances should be preferred so with softmax becomes positive, while positive values are not preferred and become negative
+        //Invert distances for softmax
         let inverted_delta = delta_tree_len.scale(-1.0);
-        let mut exp_mat =
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax(inverted_delta);
+        let mut exp_mat = NJTreeBuilder::<D, R>::softmax(inverted_delta);
         let uniform: f64 =
             1.0 / (((delta_tree_len.nrows().pow(2) - delta_tree_len.nrows()) / 2) as f64);
-        // Temperature probabilities, temp=0.0 means uniform, temp=1.0 means softmax of distances
+        // Interpolated probabilities, temp=0.0 means uniform, temp=1.0 means softmax of distances
         exp_mat = exp_mat.map(|i| (temperature * uniform) + ((1.0 - temperature) * i));
-        // This is our criterion for choosing, can use random seed because iteration is deterministic
         let dist = WeightedIndex::new(exp_mat.data.as_vec().iter()).unwrap();
-        let mut rng = StdRng::from_seed([0; 32]);
-        //TODO @junniest add new sample signature and function here
-        dist.sample(&mut rng)
+        rng.sample(&dist)
     }
 
     // Used with Randomise::Deterministic, defaults to first lowest index
@@ -118,7 +111,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         arg_min
     }
 
-    fn build_nj_tree_from_matrix_w_rng(
+    fn build_from_distances_w_rng(
         &self,
         mut distances: DistanceMatrix,
         sequences: &Sequences,
@@ -130,9 +123,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
             let q = distances.delta_tree_length();
             let index = match self.randomise {
                 Strategy::SoftmaxUniform(t) => Self::softmax_uniform(q, t, self.rng),
-                Strategy::Deterministic => {
-                    NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::argmin(q)
-                }
+                Strategy::Deterministic => Self::argmin(q),
             };
             let (i, j) = Self::lower_triangle_index(index);
             let idx_new = cur_idx;
@@ -162,11 +153,11 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         let mut distances = DMatrix::zeros(nseqs, nseqs);
         for i in 0..nseqs {
             for j in (i + 1)..nseqs {
-                let corrected_dist = self
+                let dist = self
                     .distance_function
                     .dist(sequences.record(i), sequences.record(j));
-                distances[(i, j)] = corrected_dist;
-                distances[(j, i)] = corrected_dist;
+                distances[(i, j)] = dist;
+                distances[(j, i)] = dist;
             }
         }
         DistanceMatrix {
@@ -182,6 +173,7 @@ mod private_tests {
     use super::*;
     use nalgebra::{dmatrix, dvector, DVector};
 
+    use crate::evolutionary_distances::LevenshteinDNACorrected;
     use crate::random::{DefaultGenerator, FakeGenerator};
     use crate::tree::Node;
     use crate::tree::NodeIdx::{self, Internal as I, Leaf as L};
@@ -232,7 +224,6 @@ mod private_tests {
             record!("C2", b"AAAAAAAAAAAAAAAAAAAAAAAAA"),
             record!("D3", b"CAAAAAAAAAAAAAAAAAAA"),
         ]);
-        //For now, may instantiate NJBuilder instance every time
         let rng = FakeGenerator::new();
         let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
         let mat = nj_builder.compute_distance_matrix(&sequences);
@@ -264,7 +255,7 @@ mod private_tests {
         let sequences = Sequences::new((1..=8).map(|i| record!(&i.to_string(), b"")).collect());
         let rng = FakeGenerator::new();
         let nj_tree = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng)
-            .build_nj_tree_from_matrix_w_rng(nj_distances, &sequences)
+            .build_from_distances_w_rng(nj_distances, &sequences)
             .unwrap();
         let correct_tree =
             tree!("((8:6,7:2):0.5,((5:1,6:4):2,(4:3,(3:1,(1:5,2:2):2):1):2):0.5):0.0;");
@@ -295,7 +286,7 @@ mod private_tests {
         let rng = FakeGenerator::new();
         let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
         let tree = nj_builder
-            .build_nj_tree_from_matrix_w_rng(nj_distances, &sequences)
+            .build_from_distances_w_rng(nj_distances, &sequences)
             .unwrap();
         assert_eq!(tree.by_id("A").blen, 1.0);
         assert_eq!(tree.by_id("B").blen, 3.0);
@@ -331,7 +322,7 @@ mod private_tests {
         let rng = FakeGenerator::new();
         let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
         let tree = nj_builder
-            .build_nj_tree_from_matrix_w_rng(nj_distances, &sequences)
+            .build_from_distances_w_rng(nj_distances, &sequences)
             .unwrap();
         assert_eq!(tree.len(), 7);
         assert_eq!(tree.postorder.len(), 7);
@@ -362,7 +353,7 @@ mod private_tests {
         let rng = FakeGenerator::new();
         let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
         let tree = nj_builder
-            .build_nj_tree_from_matrix_w_rng(nj_distances, &sequences)
+            .build_from_distances_w_rng(nj_distances, &sequences)
             .unwrap();
         assert_eq!(tree.by_id("a").blen, 2.0);
         assert_eq!(tree.by_id("b").blen, 3.0);
@@ -400,7 +391,7 @@ mod private_tests {
         let rng = FakeGenerator::new();
         let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
         let nj_tree = nj_builder
-            .build_nj_tree_from_matrix_w_rng(nj_distances, &sequences)
+            .build_from_distances_w_rng(nj_distances, &sequences)
             .unwrap();
         let nodes = vec![
             Node::new_leaf(0, Some(I(5)), 2.0, "A0".to_string()),
@@ -436,7 +427,7 @@ mod private_tests {
         let rng = FakeGenerator::new();
         let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
         let nj_tree = nj_builder
-            .build_nj_tree_from_matrix_w_rng(nj_distances, &sequences)
+            .build_from_distances_w_rng(nj_distances, &sequences)
             .unwrap();
         let nodes = vec![
             Node::new_leaf(0, Some(I(4)), 1.0, "A0".to_string()),
@@ -533,7 +524,7 @@ mod private_tests {
     }
 
     #[test]
-    fn softmax_mut() {
+    fn softmax() {
         let delta_tree_length = dvector![1.3, 5.1, 2.2, 0.7, 1.1];
         let softmax_vector =
             NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax(delta_tree_length);
@@ -602,10 +593,10 @@ mod private_tests {
             record!("D3", b""),
             record!("E4", b""),
         ]);
-        let rng = FakeGenerator::new();
+        let rng = DefaultGenerator::new(3);
         let nj_builder = NJTreeBuilder::new_with_softmax(LevenshteinDNACorrected, &rng, 0.0);
         let nj_tree = nj_builder
-            .build_nj_tree_from_matrix_w_rng(nj_distances, &sequences)
+            .build_from_distances_w_rng(nj_distances, &sequences)
             .unwrap();
         let nodes = vec![
             Node::new_leaf(0, Some(I(5)), 2.0, "A0".to_string()),
