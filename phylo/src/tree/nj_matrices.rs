@@ -72,7 +72,7 @@ impl DistanceMatrix {
         )
     }
 
-    pub(super) fn compute_nj_delta_tree_length(&self) -> DVector<f64> {
+    pub(super) fn delta_tree_length(&self) -> DVector<f64> {
         let n = self.distances.ncols();
         let s = self.distances.row_sum();
         let mut index = 0;

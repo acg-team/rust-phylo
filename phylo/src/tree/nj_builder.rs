@@ -32,6 +32,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> TreeBuilder for NJTreeBuilder
 }
 
 impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
+    /// Creates a Neighbor Joining Tree Builder object with Deterministic strategy, which uses argmin to minimize the tree length
     pub fn new(distance_function: D, rng: &'a R) -> Self {
         Self {
             randomise: Strategy::Deterministic,
@@ -40,6 +41,8 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         }
     }
 
+    /// Creates a Neighbor Joining Tree object with Softmax Uniform strategy, introduces stochasticity to tree building
+    /// temperature value can be between 0.0 and 1.0 and interpolates between the softmax and uniform distribution for creating the NJ method minimal tree
     pub fn new_with_softmax(distance_function: D, rng: &'a R, temperature: f64) -> Self {
         if temperature > 1.0 {
             debug!("Temperature should not be greater than 1.0, clamping to 1.0");
@@ -54,7 +57,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         }
     }
 
-    fn index_to_ij_rowwise_nodiag(k: usize) -> (usize, usize) {
+    fn lower_triangle_index(k: usize) -> (usize, usize) {
         // 0 indexed
         let p = ((1 + 8 * k).isqrt() - 1) / 2;
         let i = p + 1;
@@ -62,31 +65,28 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         (i, j)
     }
 
-    fn softmax_mut(mut v: DVector<f64>) -> DVector<f64> {
+    fn softmax(mut v: DVector<f64>) -> DVector<f64> {
         v = v.map(|i| i.exp());
         let sum_j = v.sum();
         v.unscale(sum_j)
     }
 
-    fn softmax_uniform_to_lower_triangle(
+    fn softmax_uniform(
         delta_tree_len: DVector<f64>,
         temperature: f64,
         rng: &impl RandomSource,
-    ) -> (usize, usize) {
+    ) -> usize {
         debug_assert!(
             !delta_tree_len.is_empty(),
             "The input vector must not be empty."
         );
         if delta_tree_len.len() == 1 {
-            return NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::index_to_ij_rowwise_nodiag(0);
+            return 0;
         }
-        // Based on nj_correct test case, negative distances are common in compute_nj_q, which should be multiplied by -1 for small (desireable) distances to be larger in comparison to large distances. Allows for use of softmax
-        let scaled_mat = delta_tree_len.scale(-1.0);
-        // I think this messes up scaled_mat because of function implementation, borrows and never gives it back, could be reworked I think?
+        // Negative distances should be preferred so with softmax becomes positive, while positive values are not preferred and become negative
+        let inverted_delta = delta_tree_len.scale(-1.0);
         let mut exp_mat =
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax_mut(scaled_mat);
-        debug!("Probability Sum: {}", exp_mat.sum());
-        // Use temperature with uniform value to calculate probability
+            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax(inverted_delta);
         let uniform: f64 =
             1.0 / (((delta_tree_len.nrows().pow(2) - delta_tree_len.nrows()) / 2) as f64);
         // Temperature probabilities, temp=0.0 means uniform, temp=1.0 means softmax of distances
@@ -95,26 +95,23 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         let dist = WeightedIndex::new(exp_mat.data.as_vec().iter()).unwrap();
         let mut rng = StdRng::from_seed([0; 32]);
         //TODO @junniest add new sample signature and function here
-        NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::index_to_ij_rowwise_nodiag(
-            dist.sample(&mut rng),
-        )
+        dist.sample(&mut rng)
     }
 
     // Used with Randomise::Deterministic, defaults to first lowest index
-    fn argmin_to_lower_triangle(q: DVector<f64>) -> (usize, usize) {
+    fn argmin(q: DVector<f64>) -> usize {
         debug_assert!(!q.is_empty(), "The input matrix must not be empty.");
         if q.nrows() == 1 {
-            return (1, 0);
+            return 0;
         }
         // First element of lower diagonal is default if nothing is lower or higher. Should always be reassigned.
-        let mut arg_min = (1, 0);
+        let mut arg_min = 0;
         let mut val_min = &f64::MAX;
         for i in 0..q.nrows() {
             let val = &q[i];
             if val < val_min {
                 val_min = val;
-                // Convert usize to u32?
-                arg_min = NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::index_to_ij_rowwise_nodiag(i);
+                arg_min = i;
             }
         }
         // Returns first element in arg_min
@@ -130,18 +127,14 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         let mut tree = Tree::new(sequences)?;
         let root_idx = usize::from(&tree.root);
         for cur_idx in n..=root_idx {
-            let q = distances.compute_nj_delta_tree_length();
-            let (i, j) =
-                match self.randomise {
-                    Strategy::SoftmaxUniform(t) => {
-                        Self::softmax_uniform_to_lower_triangle(q, t, self.rng)
-                    }
-                    Strategy::Deterministic => NJTreeBuilder::<
-                        LevenshteinDNACorrected,
-                        DefaultGenerator,
-                    >::argmin_to_lower_triangle(q),
-                };
-            println!("{i}, {j}");
+            let q = distances.delta_tree_length();
+            let index = match self.randomise {
+                Strategy::SoftmaxUniform(t) => Self::softmax_uniform(q, t, self.rng),
+                Strategy::Deterministic => {
+                    NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::argmin(q)
+                }
+            };
+            let (i, j) = Self::lower_triangle_index(index);
             let idx_new = cur_idx;
             let (blen_i, blen_j) = distances.branch_lengths(i, j, cur_idx == root_idx);
             tree.add_parent(
@@ -204,7 +197,7 @@ mod private_tests {
     #[should_panic]
     fn test_argmin_fail() {
         //Changed test for empty vector, since argmin with 1 vector length will return first branch as delta_tree_length vector is different
-        NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::argmin_to_lower_triangle(
+        NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::argmin(
             DVector::<f64>::from_vec(vec![]),
         );
     }
@@ -479,39 +472,29 @@ mod private_tests {
     #[test]
     fn lower_triangle_index_conversion() {
         assert_eq!(
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::index_to_ij_rowwise_nodiag(
-                0
-            ),
+            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::lower_triangle_index(0),
             (1, 0)
         );
         assert_eq!(
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::index_to_ij_rowwise_nodiag(
-                1
-            ),
+            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::lower_triangle_index(1),
             (2, 0)
         );
         assert_eq!(
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::index_to_ij_rowwise_nodiag(
-                2
-            ),
+            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::lower_triangle_index(2),
             (2, 1)
         );
         assert_eq!(
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::index_to_ij_rowwise_nodiag(
-                3
-            ),
+            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::lower_triangle_index(3),
             (3, 0)
         );
         assert_eq!(
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::index_to_ij_rowwise_nodiag(
-                5
-            ),
+            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::lower_triangle_index(5),
             (3, 2)
         );
     }
 
     #[test]
-    fn compute_nj_delta_tree_length_vector() {
+    fn delta_tree_length() {
         let nj_distances = DistanceMatrix {
             idx: (0..5).map(NodeIdx::Leaf).collect(),
             distances: dmatrix![
@@ -521,7 +504,7 @@ mod private_tests {
                 9.0, 10.0, 8.0, 0.0, 3.0;
                 8.0, 9.0, 7.0, 3.0, 0.0],
         };
-        let q = nj_distances.compute_nj_delta_tree_length();
+        let q = nj_distances.delta_tree_length();
         assert_eq!(
             q,
             dvector![-50.0, -38.0, -38.0, -34.0, -34.0, -40.0, -34.0, -34.0, -40.0, -48.0]
@@ -529,29 +512,23 @@ mod private_tests {
     }
 
     #[test]
-    fn argmin_to_lower_triangle() {
+    fn argmin() {
         let delta_tree_length =
             dvector![-50.0, -38.0, -38.0, -34.0, -34.0, -40.0, -34.0, -34.0, -40.0, -48.0];
         assert_eq!(
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::argmin_to_lower_triangle(
-                delta_tree_length
-            ),
-            (1, 0)
+            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::argmin(delta_tree_length),
+            0
         );
         let same_tree_length =
             dvector![-10.0, -10.0, -10.0, -10.0, -10.0, -10.0, -10.0, -10.0, -10.0, -10.0];
         assert_eq!(
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::argmin_to_lower_triangle(
-                same_tree_length
-            ),
-            (1, 0)
+            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::argmin(same_tree_length),
+            0
         );
         let weird_tree_length = dvector![10.0, 15.0, 3.0, 20.0, 40.0, 500.0, 1000.0, 30.0];
         assert_eq!(
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::argmin_to_lower_triangle(
-                weird_tree_length
-            ),
-            (2, 1)
+            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::argmin(weird_tree_length),
+            2
         )
     }
 
@@ -559,10 +536,7 @@ mod private_tests {
     fn softmax_mut() {
         let delta_tree_length = dvector![1.3, 5.1, 2.2, 0.7, 1.1];
         let softmax_vector =
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax_mut(
-                delta_tree_length,
-            );
-        println!("{softmax_vector:?}");
+            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax(delta_tree_length);
         assert_eq!(
             softmax_vector,
             dvector![
