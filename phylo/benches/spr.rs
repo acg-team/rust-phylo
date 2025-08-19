@@ -7,6 +7,7 @@ use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::TreeSearchCost;
 use phylo::optimisers::{Compatible, MoveOptimiser, SprOptimiser, TopologyOptimiser};
 use phylo::pip_model::PIPCost;
+use phylo::random::FakeGenerator;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 use phylo::tree::NodeIdx;
 
@@ -21,7 +22,12 @@ fn single_spr_cycle<C: TreeSearchCost + Clone + Display + Send + Compatible<SprO
     prune_locations: &[&NodeIdx],
     spr_optimiser: SprOptimiser,
 ) -> anyhow::Result<f64> {
-    TopologyOptimiser::fold_improving_moves(&mut cost_fn, &spr_optimiser, f64::MIN, prune_locations)
+    TopologyOptimiser::<SprOptimiser, C, FakeGenerator>::fold_improving_moves(
+        &mut cost_fn,
+        &spr_optimiser,
+        f64::MIN,
+        prune_locations,
+    )
 }
 
 fn find_best_regraft_for_single_spr_move<C: TreeSearchCost + Clone + Display + Send>(

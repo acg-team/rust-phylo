@@ -1,10 +1,10 @@
-use bio::io::fasta::Record;
 use rstest::*;
 
 use crate::alphabets::{
     dna_alphabet, protein_alphabet, ParsimonySet, AMB_AMINOACIDS, AMB_NUCLEOTIDES, AMINOACIDS,
     NUCLEOTIDES,
 };
+use crate::record_wo_desc as record;
 
 #[test]
 fn parsimony_set_iters() {
@@ -23,7 +23,7 @@ fn parsimony_set_iters() {
 
 #[test]
 fn dna_sets() {
-    let record = Record::with_attrs("", None, b"AaCcTtGgXn-");
+    let record = record!("", b"AaCcTtGgXn-");
 
     let sets = record
         .seq()
@@ -45,7 +45,7 @@ fn dna_sets() {
 
 #[test]
 fn protein_sets() {
-    let record = Record::with_attrs("", None, b"rRlLeEqQxO-");
+    let record = record!("", b"rRlLeEqQxO-");
     let sets = record
         .seq()
         .iter()

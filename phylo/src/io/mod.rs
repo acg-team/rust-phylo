@@ -10,7 +10,7 @@ use log::info;
 
 use crate::alphabets::{protein_alphabet, GAP, POSSIBLE_GAPS};
 use crate::tree::{tree_parser, Tree};
-use crate::Result;
+use crate::{record, Result};
 
 pub(crate) struct DataError {
     pub(crate) message: String,
@@ -73,7 +73,7 @@ pub fn read_sequences(path: impl AsRef<Path> + Debug) -> Result<Vec<Record>> {
             });
         }
 
-        sequences.push(Record::with_attrs(rec.id(), rec.desc(), &seq));
+        sequences.push(record!(rec.id(), rec.desc(), &seq));
     }
     if sequences.is_empty() {
         bail!(DataError {
@@ -100,12 +100,12 @@ pub fn read_sequences(path: impl AsRef<Path> + Debug) -> Result<Vec<Record>> {
 ///
 /// use std::fs::{File, remove_file};
 ///
-/// use bio::io::fasta::Record;
 /// use phylo::io::write_sequences_to_file;
+/// use phylo::record;
 /// # fn main() -> std::result::Result<(), anyhow::Error> {
 /// let sequences = vec![
-///    Record::with_attrs("seq1", None, b"ATGC"),
-///    Record::with_attrs("seq2", None, b"CGTA"),
+///    record!("seq1", None, b"ATGC"),
+///    record!("seq2", None, b"CGTA"),
 /// ];
 /// let output_path = "./examples/data/doctest_tmp_output.fasta";
 /// write_sequences_to_file(&sequences, output_path)?;

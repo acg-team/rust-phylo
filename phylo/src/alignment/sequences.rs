@@ -5,7 +5,7 @@ use bio::io::fasta::Record;
 use bitvec::vec::BitVec;
 
 use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet, GAP};
-use crate::Result;
+use crate::{record, Result};
 
 #[derive(Debug, Clone)]
 pub struct Sequences {
@@ -120,7 +120,7 @@ impl Sequences {
                     .filter(|&c| c != &GAP)
                     .copied()
                     .collect::<Vec<u8>>();
-                Record::with_attrs(rec.id(), rec.desc(), &sequence)
+                record!(rec.id(), rec.desc(), &sequence)
             })
             .collect();
         Sequences {
@@ -151,7 +151,7 @@ impl Sequences {
                 .filter(|(i, _)| !gap_cols[*i])
                 .map(|(_, c)| *c)
                 .collect();
-            Record::with_attrs(rec.id(), rec.desc(), &seq)
+            record!(rec.id(), rec.desc(), &seq)
         });
         self.s = new_seqs.collect();
     }

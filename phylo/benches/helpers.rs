@@ -9,6 +9,7 @@ use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::optimisers::ModelOptimiser;
 use phylo::phylo_info::{PhyloInfo, PhyloInfoBuilder};
 use phylo::pip_model::{PIPCost, PIPCostBuilder, PIPModel};
+use phylo::random::FakeGenerator;
 use phylo::substitution_models::{QMatrix, QMatrixMaker};
 
 pub type BenchPath = &'static str;
@@ -36,13 +37,11 @@ pub const AA_MEDIUM_79X106: &str = "data/benchmark-datasets/aa/medium/strua5_gen
 pub const AA_MEDIUM_30X86: &str = "data/benchmark-datasets/aa/medium/nagya1_Cluster3439.aln";
 
 pub fn black_box_deterministic_phylo_info(seq_file: impl Into<PathBuf>) -> PhyloInfo {
-    assert!(
-        cfg!(feature = "deterministic"),
-        "only run benches with '-F deterministic'"
-    );
+    // Only use the FakeGenerator for deterministic benchmarking
+    let fake_rng = FakeGenerator::new();
     black_box(
         PhyloInfoBuilder::new(seq_file.into())
-            .build()
+            .build_w_rng(&fake_rng)
             .expect("sequence file should be able to build phylo info"),
     )
 }

@@ -10,6 +10,7 @@ use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::{ModelSearchCost, TreeSearchCost};
 use phylo::optimisers::{Compatible, ModelOptimiser, SprOptimiser, TopologyOptimiser};
 use phylo::pip_model::PIPCost;
+use phylo::random::FakeGenerator;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
 use phylo::tree::Tree;
 
@@ -29,6 +30,8 @@ fn run_optimisation(
     max_iterations: usize,
     epsilon: f64,
 ) -> Result<(f64, Tree)> {
+    // Only use the FakeGenerator for deterministic benchmarking
+    let fake_rng = FakeGenerator::new();
     let mut cost = cost;
     let mut prev_cost = f64::NEG_INFINITY;
     let mut final_cost = TreeSearchCost::cost(&cost);
@@ -40,7 +43,7 @@ fn run_optimisation(
 
         prev_cost = final_cost;
         let model_optimiser = ModelOptimiser::new(cost, freq_opt);
-        let o = TopologyOptimiser::new(model_optimiser.run()?.cost, SprOptimiser {})
+        let o = TopologyOptimiser::new(model_optimiser.run()?.cost, SprOptimiser {}, &fake_rng)
             .run()
             .unwrap();
         final_cost = o.final_cost;

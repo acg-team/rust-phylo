@@ -10,6 +10,7 @@ use crate::evolutionary_distances::LevenshteinDNACorrected;
 use crate::io::{self, DataError};
 use crate::parsimony::ParsimonyAligner;
 use crate::phylo_info::PhyloInfo;
+use crate::random::{DefaultGenerator, RandomSource};
 use crate::tree::nj_builder::NJTreeBuilder;
 use crate::tree::tree_builder::TreeBuilder;
 use crate::tree::Tree;
@@ -127,6 +128,10 @@ impl PhyloInfoBuilder {
     /// # Ok(()) }
     /// ```
     pub fn build(self) -> Result<PhyloInfo> {
+        self.build_w_rng(&DefaultGenerator::default())
+    }
+
+    pub fn build_w_rng(self, rng: &impl RandomSource) -> Result<PhyloInfo> {
         info!(
             "Reading sequences from file {}",
             self.sequence_file.display()
@@ -150,9 +155,8 @@ impl PhyloInfoBuilder {
             Some(tree_file) => self.read_tree(&sequences, tree_file)?,
             None => {
                 info!("Building NJ tree from sequences");
-                // Decide between default or new() usage, edit in future push
                 self.tree_builder
-                    .unwrap_or(Box::new(NJTreeBuilder::<LevenshteinDNACorrected>::default()))
+                    .unwrap_or(Box::new(NJTreeBuilder::new(LevenshteinDNACorrected, rng)))
                     .build(&sequences)?
             }
         };

@@ -10,6 +10,7 @@ use rand::Rng;
 use crate::alignment::Sequences;
 use crate::io::read_newick_from_file;
 use crate::parsimony::Rounding;
+use crate::random::DefaultGenerator;
 use crate::tree::{
     percentiles, percentiles_rounded,
     tree_parser::{from_newick, ParsingError, Rule},
@@ -451,17 +452,19 @@ fn test_node_id_string() {
 
 #[test]
 fn test_node_idx_display() {
-    let r1 = rand::thread_rng().gen_range(1..100);
+    let rng = DefaultGenerator::default();
+    let r1 = rng.gen_range(1..100);
     assert_eq!(format!("{}", L(r1)), format!("leaf node {}", r1));
-    let r2 = rand::thread_rng().gen_range(1..100);
+    let r2 = rng.gen_range(1..100);
     assert_eq!(format!("{}", I(r2)), format!("internal node {}", r2));
 }
 
 #[test]
 fn test_node_idx_debug() {
-    let r1 = rand::thread_rng().gen_range(1..100);
+    let rng = DefaultGenerator::default();
+    let r1 = rng.gen_range(1..100);
     assert_eq!(format!("{:?}", L(r1)), format!("Leaf({})", r1));
-    let r2 = rand::thread_rng().gen_range(1..100);
+    let r2 = rng.gen_range(1..100);
     assert_eq!(format!("{:?}", I(r2)), format!("Int({})", r2));
 }
 
@@ -690,4 +693,3 @@ fn rf_distance_against_raxml() {
     assert_eq!(tree_phyml.robinson_foulds(tree_from_nj), 0);
     assert_eq!(tree.robinson_foulds(tree_from_nj), 0);
 }
-//Should probably add a test for build_nj_tree(), though as long as composite functions work, I doubt there is an issue...?

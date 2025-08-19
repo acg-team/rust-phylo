@@ -7,18 +7,18 @@ use crate::tree::NodeIdx::{self, Internal as Int};
 pub(super) type Mat = DMatrix<f64>;
 
 #[derive(Debug)]
-pub(super) struct NJMat {
+pub(super) struct DistanceMatrix {
     pub(super) idx: Vec<NodeIdx>,
     pub(super) distances: Mat,
 }
 
-impl Display for NJMat {
+impl Display for DistanceMatrix {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{:?}\n {}", self.idx, self.distances)
     }
 }
 
-impl NJMat {
+impl DistanceMatrix {
     pub(super) fn add_merge_node(mut self, idx_new: usize) -> Self {
         let new_row_index = self.distances.nrows();
         self.distances = self
@@ -75,12 +75,14 @@ impl NJMat {
     pub(super) fn compute_nj_delta_tree_length(&self) -> DVector<f64> {
         let n = self.distances.ncols();
         let s = self.distances.row_sum();
-        let mut delta_tree_len = Vec::with_capacity(n * (n + 1) / 2 - n);
+        let mut index = 0;
+        let mut delta_tree_len = DVector::zeros(n * (n + 1) / 2 - n);
         for r in 1..n {
             for c in 0..r {
-                delta_tree_len.push((n - 2) as f64 * self.distances[(r, c)] - s[r] - s[c])
+                delta_tree_len[index] = (n - 2) as f64 * self.distances[(r, c)] - s[r] - s[c];
+                index += 1
             }
         }
-        DVector::from_vec(delta_tree_len)
+        delta_tree_len
     }
 }
