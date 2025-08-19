@@ -234,8 +234,10 @@ mod tests {
         // Test new FakeGenerator defaults
         let fake_rng = FakeGenerator::new();
         assert_eq!(fake_rng.seed(), 0);
-        assert_eq!(fake_rng.gen::<u64>(), 0);
-        assert_eq!(fake_rng.gen::<f64>(), 0.0);
+        let val: u64 = fake_rng.gen();
+        assert_eq!(val, 0);
+        let val: f64 = fake_rng.gen();
+        assert_eq!(val, 0.0);
         assert!(!fake_rng.gen::<bool>());
     }
 
@@ -246,9 +248,11 @@ mod tests {
         let fake_rng = FakeGenerator::from_u64_values(values.clone());
         assert_eq!(fake_rng.seed(), 0);
         for i in 0..10 {
-            assert_eq!(fake_rng.gen::<u64>(), values[i % values.len()]);
+            let val: u64 = fake_rng.gen();
+            assert_eq!(val, values[i % values.len()]);
         }
-        assert_eq!(fake_rng.gen::<f64>(), 0.0); // Default for f64
+        let val: f64 = fake_rng.gen();
+        assert_eq!(val, 0.0); // Default for f64
         assert!(!fake_rng.gen::<bool>()); // Default for bool
     }
 
@@ -280,19 +284,33 @@ mod tests {
         // Test FakeGenerator with different value types
         let values = vec![5, 6, 7, 8, 9, 14, 15, 16, 17, 18, 33];
         let fake_rng = FakeGenerator::from_u64_values(values.clone());
-        assert_eq!(fake_rng.gen::<usize>(), values[0] as usize);
-        assert_eq!(fake_rng.gen::<u64>(), values[1]);
-        assert_eq!(fake_rng.gen::<u32>(), values[2] as u32);
-        assert_eq!(fake_rng.gen::<u16>(), values[3] as u16);
-        assert_eq!(fake_rng.gen::<u8>(), values[4] as u8);
-        assert_eq!(fake_rng.gen::<i128>(), values[5] as i128);
-        assert_eq!(fake_rng.gen::<i64>(), values[6] as i64);
-        assert_eq!(fake_rng.gen::<i32>(), values[7] as i32);
-        assert_eq!(fake_rng.gen::<i16>(), values[8] as i16);
-        assert_eq!(fake_rng.gen::<i8>(), values[9] as i8);
-        assert_eq!(fake_rng.gen::<char>(), values[10] as u8 as char);
-        assert_eq!(fake_rng.gen::<f64>(), 0.0); // Default for f64
-        assert!(!fake_rng.gen::<bool>()); // Default for bool
+        assert_eq!(fake_rng.seed(), 0);
+        let val: usize = fake_rng.gen();
+        assert_eq!(val, values[0] as usize);
+        let val: u64 = fake_rng.gen();
+        assert_eq!(val, values[1]);
+        let val: u32 = fake_rng.gen();
+        assert_eq!(val, values[2] as u32);
+        let val: u16 = fake_rng.gen();
+        assert_eq!(val, values[3] as u16);
+        let val: u8 = fake_rng.gen();
+        assert_eq!(val, values[4] as u8);
+        let val: i128 = fake_rng.gen();
+        assert_eq!(val, values[5] as i128);
+        let val: i64 = fake_rng.gen();
+        assert_eq!(val, values[6] as i64);
+        let val: i32 = fake_rng.gen();
+        assert_eq!(val, values[7] as i32);
+        let val: i16 = fake_rng.gen();
+        assert_eq!(val, values[8] as i16);
+        let val: i8 = fake_rng.gen();
+        assert_eq!(val, values[9] as i8);
+        let val: char = fake_rng.gen();
+        assert_eq!(val, values[10] as u8 as char);
+        let val: f64 = fake_rng.gen();
+        assert_eq!(val, 0.0); // Default for f64
+        let val: bool = fake_rng.gen();
+        assert!(!val); // Default for bool
     }
 
     #[test]
@@ -331,13 +349,14 @@ mod tests {
         // Test that reseeding resets pre-configured value counters
         let values = vec![0.1, 0.2, 0.3, 0.4];
         let fake_rng = FakeGenerator::from_f64_values(values.clone());
-        let val1: f64 = fake_rng.gen::<f64>();
+        let val1: f64 = fake_rng.gen();
         for i in 1..10 {
-            assert_eq!(fake_rng.gen::<f64>(), values[i % values.len()]);
+            let val: f64 = fake_rng.gen();
+            assert_eq!(val, values[i % values.len()]);
         }
 
         fake_rng.reseed(42);
-        let val1_repeat: f64 = fake_rng.gen::<f64>();
+        let val1_repeat: f64 = fake_rng.gen();
         assert_eq!(val1, val1_repeat);
         assert_eq!(val1, values[0]); // Should return to the first value after reseed
     }
@@ -348,10 +367,13 @@ mod tests {
         let values = vec![0.1, 0.2, 0.3, 0.4];
         fake_rng.add_f64_values(values.clone());
         for value in values.iter() {
-            assert_eq!(fake_rng.gen::<f64>(), *value);
+            let val: f64 = fake_rng.gen();
+            assert_eq!(val, *value);
         }
-        assert_eq!(fake_rng.gen::<f64>(), values[0]); // Wraps around
-        assert_eq!(fake_rng.gen::<u64>(), 0); // Default for u64
+        let val: f64 = fake_rng.gen();
+        assert_eq!(val, values[0]); // Wraps around
+        let val: u64 = fake_rng.gen();
+        assert_eq!(val, 0); // Default for u64
         assert!(!fake_rng.gen::<bool>()); // Default for bool
     }
 
@@ -361,15 +383,19 @@ mod tests {
         let values = vec![0.1, 0.2, 0.3, 0.4];
         fake_rng.add_f64_values(values.clone());
         for value in values.iter() {
-            assert_eq!(fake_rng.gen::<f64>(), *value);
+            let val: f64 = fake_rng.gen();
+            assert_eq!(val, *value);
         }
         let more_values = vec![0.5, 0.6, 0.7, 0.8];
         fake_rng.add_f64_values(more_values.clone());
         for value in more_values.iter() {
-            assert_eq!(fake_rng.gen::<f64>(), *value);
+            let val: f64 = fake_rng.gen();
+            assert_eq!(val, *value);
         }
-        assert_eq!(fake_rng.gen::<f64>(), values[0]); // Wraps around
-        assert_eq!(fake_rng.gen::<u64>(), 0); // Default for u64
+        let val: f64 = fake_rng.gen();
+        assert_eq!(val, values[0]); // Wraps around
+        let val: u64 = fake_rng.gen();
+        assert_eq!(val, 0); // Default for u64
         assert!(!fake_rng.gen::<bool>()); // Default for bool
     }
 
@@ -379,10 +405,13 @@ mod tests {
         let values = (1..10).collect::<Vec<u64>>();
         fake_rng.add_u64_values(values.clone());
         for value in values.iter() {
-            assert_eq!(fake_rng.gen::<u64>(), *value);
+            let val: u64 = fake_rng.gen();
+            assert_eq!(val, *value);
         }
-        assert_eq!(fake_rng.gen::<u64>(), values[0]); // Wraps around
-        assert_eq!(fake_rng.gen::<f64>(), 0.0); // Default for f64
+        let val: u64 = fake_rng.gen();
+        assert_eq!(val, values[0]); // Wraps around
+        let val: f64 = fake_rng.gen();
+        assert_eq!(val, 0.0); // Default for f64
         assert!(!fake_rng.gen::<bool>()); // Default for bool
     }
 
@@ -392,11 +421,15 @@ mod tests {
         let source = vec![true, false, true, false];
         fake_rng.add_bool_values(source.clone());
         for value in source.iter() {
-            assert_eq!(fake_rng.gen::<bool>(), *value);
+            let val: bool = fake_rng.gen();
+            assert_eq!(val, *value);
         }
-        assert_eq!(fake_rng.gen::<bool>(), source[0]); // Wraps around
-        assert_eq!(fake_rng.gen::<u64>(), 0); // Default for u64
-        assert_eq!(fake_rng.gen::<f64>(), 0.0); // Default for f64
+        let val: bool = fake_rng.gen();
+        assert_eq!(val, source[0]); // Wraps around
+        let val: u64 = fake_rng.gen();
+        assert_eq!(val, 0); // Default for u64
+        let val: f64 = fake_rng.gen();
+        assert_eq!(val, 0.0); // Default for f64
     }
 
     #[test]
