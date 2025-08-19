@@ -37,8 +37,7 @@ pub trait RandomSource {
     fn sample<D, T>(&self, dist: &D) -> T
     where
         T: 'static,
-        D: Distribution<T>,
-        Standard: Distribution<T>;
+        D: Distribution<T>;
 }
 
 pub struct SeededRng<R>
@@ -153,7 +152,6 @@ where
     where
         T: 'static,
         D: Distribution<T>,
-        Standard: Distribution<T>,
     {
         let mut r = self.r.lock().unwrap();
         r.rng.sample(dist)

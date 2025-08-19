@@ -18,6 +18,13 @@ pub struct FakeGenerator {
     seed: Mutex<u64>,
 }
 
+macro_rules! fakegen_downcast {
+    ($val:expr) => {{
+        let boxed: Box<dyn Any> = Box::new($val);
+        *boxed.downcast::<T>().unwrap()
+    }};
+}
+
 impl FakeGenerator {
     /// Create a new FakeGenerator with empty value sequences,
     /// which will default to 0, 0.0, or false if no values are provided
@@ -115,32 +122,10 @@ impl FakeGenerator {
             value
         }
     }
-}
 
-impl Default for FakeGenerator {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-macro_rules! fakegen_downcast {
-    ($val:expr) => {{
-        let boxed: Box<dyn Any> = Box::new($val);
-        *boxed.downcast::<T>().unwrap()
-    }};
-}
-
-impl RandomSource for FakeGenerator {
-    // The seed is irrelevant for FakeGenerator, but we implement it for compatibility
-    fn seed(&self) -> u64 {
-        let seed = self.seed.lock().unwrap();
-        *seed
-    }
-
-    fn gen<T>(&self) -> T
+    fn next_value<T>(&self) -> T
     where
         T: 'static,
-        Standard: Distribution<T>,
     {
         // Safe implementation using downcasting
         let type_id = TypeId::of::<T>();
@@ -181,6 +166,28 @@ impl RandomSource for FakeGenerator {
             )
         }
     }
+}
+
+impl Default for FakeGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl RandomSource for FakeGenerator {
+    fn seed(&self) -> u64 {
+        // The seed is irrelevant for FakeGenerator, but we implement it for compatibility
+        let seed = self.seed.lock().unwrap();
+        *seed
+    }
+
+    fn gen<T>(&self) -> T
+    where
+        T: 'static,
+        Standard: Distribution<T>,
+    {
+        self.next_value()
+    }
 
     fn gen_bool(&self, _p: f64) -> bool {
         self.next_bool()
@@ -207,10 +214,9 @@ impl RandomSource for FakeGenerator {
     where
         T: 'static,
         D: Distribution<T>,
-        Standard: Distribution<T>,
     {
-        // Will return indicies provided as input, cannot check if the index is within the range.
-        self.gen::<T>()
+        // Will return indices provided as input, cannot check if index is within range
+        self.next_value()
     }
 }
 
