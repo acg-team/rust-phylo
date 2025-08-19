@@ -1,7 +1,7 @@
 use std::any::{Any, TypeId};
 use std::sync::Mutex;
 
-use rand::distributions::{Standard, WeightedIndex};
+use rand::distributions::Standard;
 use rand::prelude::Distribution;
 
 use crate::random::RandomSource;
@@ -203,14 +203,22 @@ impl RandomSource for FakeGenerator {
         *self.seed.lock().unwrap() = seed;
     }
 
-    fn sample(&self, _dist: &WeightedIndex<f64>) -> usize {
-        self.next_u64() as usize
+    fn sample<D, T>(&self, _dist: &D) -> T
+    where
+        T: 'static,
+        D: Distribution<T>,
+        Standard: Distribution<T>,
+    {
+        // Will return indicies provided as input, cannot check if the index is within the range.
+        self.gen::<T>()
     }
 }
 
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod tests {
+    use rand::distributions::WeightedIndex;
+
     use crate::random::RandomSource;
 
     use super::*;

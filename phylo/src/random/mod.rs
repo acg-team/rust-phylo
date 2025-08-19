@@ -2,7 +2,7 @@ use std::sync::Mutex;
 
 use ntimestamp::Timestamp;
 use rand::distributions::uniform::{SampleRange, SampleUniform};
-use rand::distributions::{Distribution, Standard, WeightedIndex};
+use rand::distributions::{Distribution, Standard};
 use rand::prelude::SliceRandom;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -34,7 +34,11 @@ pub trait RandomSource {
     fn reseed(&self, seed: u64);
 
     /// Sample from a weighted distribution.
-    fn sample(&self, dist: &WeightedIndex<f64>) -> usize;
+    fn sample<D, T>(&self, dist: &D) -> T
+    where
+        T: 'static,
+        D: Distribution<T>,
+        Standard: Distribution<T>;
 }
 
 pub struct SeededRng<R>
@@ -145,9 +149,14 @@ where
     }
 
     /// Sample from a weighted distribution.
-    fn sample(&self, dist: &WeightedIndex<f64>) -> usize {
+    fn sample<D, T>(&self, dist: &D) -> T
+    where
+        T: 'static,
+        D: Distribution<T>,
+        Standard: Distribution<T>,
+    {
         let mut r = self.r.lock().unwrap();
-        dist.sample(&mut r.rng)
+        r.rng.sample(dist)
     }
 }
 
@@ -170,6 +179,7 @@ where
 #[cfg(test)]
 mod tests {
     use itertools::repeat_n;
+    use rand::distributions::WeightedIndex;
 
     use super::*;
 
