@@ -1,7 +1,7 @@
 use std::any::{Any, TypeId};
 use std::sync::Mutex;
 
-use rand::distributions::Standard;
+use rand::distributions::{Standard, WeightedIndex};
 use rand::prelude::Distribution;
 
 use crate::random::RandomSource;
@@ -201,6 +201,10 @@ impl RandomSource for FakeGenerator {
         *self.f64_index.lock().unwrap() = 0;
         *self.bool_index.lock().unwrap() = 0;
         *self.seed.lock().unwrap() = seed;
+    }
+
+    fn sample(&self, _dist: &WeightedIndex<f64>) -> usize {
+        self.next_u64() as usize
     }
 }
 
@@ -406,5 +410,21 @@ mod tests {
         let original_vec = vec.clone();
         rng.shuffle(&mut vec);
         assert_eq!(vec, original_vec);
+    }
+
+    #[test]
+    fn fake_sample_default() {
+        let rng = FakeGenerator::new();
+        let dist = WeightedIndex::new([1.0, 2.0, 3.0]).unwrap();
+        assert_eq!(rng.sample(&dist), 0);
+    }
+
+    #[test]
+    fn fake_sample() {
+        let rng = FakeGenerator::from_u64_values(vec![2, 0, 1]);
+        let dist = WeightedIndex::new([1.0, 2.0, 3.0]).unwrap();
+        assert_eq!(rng.sample(&dist), 2);
+        assert_eq!(rng.sample(&dist), 0);
+        assert_eq!(rng.sample(&dist), 1);
     }
 }
