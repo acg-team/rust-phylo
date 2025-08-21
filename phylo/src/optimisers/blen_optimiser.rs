@@ -12,22 +12,21 @@ use crate::{Result, MAX_BLEN};
 
 pub struct BranchOptimiser<C: TreeSearchCost + Display + Clone> {
     pub(crate) epsilon: f64,
-    // TODO: RefCell probably not needed here
-    pub(crate) c: RefCell<C>,
+    pub(crate) c: C,
 }
 
 impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
     pub fn new(cost: C) -> Self {
         Self {
             epsilon: 1e-3,
-            c: RefCell::new(cost),
+            c: cost,
         }
     }
 
     pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
         info!("Optimising branch lengths");
-        let init_cost = self.c.borrow().cost();
-        let mut tree = self.c.borrow().tree().clone();
+        let init_cost = self.c.cost();
+        let mut tree = self.c.tree().clone();
 
         info!("Initial cost: {init_cost}");
         let mut curr_cost = init_cost;
@@ -56,32 +55,32 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
                 }
                 // The branch length may have changed during the optimisation attempt, so the tree
                 // should be reset even if the optimisation was unsuccessful.
-                self.c.borrow_mut().update_tree(tree.clone(), &[*branch]);
+                self.c.update_tree(tree.clone(), &[*branch]);
             }
         }
 
-        debug_assert_eq!(curr_cost, self.c.borrow().cost());
+        debug_assert_eq!(curr_cost, self.c.cost());
         info!("Done optimising branch lengths");
         info!("Final cost: {curr_cost}, achieved in {iterations} iteration(s)");
         Ok(PhyloOptimisationResult {
             initial_cost: init_cost,
             final_cost: curr_cost,
             iterations,
-            cost: self.c.into_inner(),
+            cost: self.c,
         })
     }
 }
 
 impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
     pub(crate) fn optimise_branch(&mut self, branch: &NodeIdx) -> Result<SingleValOptResult> {
-        let start_blen = self.c.borrow().tree().node(branch).blen;
+        let start_blen = self.c.tree().node(branch).blen;
         let (min, max) = if start_blen == 0.0 {
             (0.0, 1.0)
         } else {
             (start_blen * 0.1, MAX_BLEN.min(start_blen * 10.0))
         };
         let optimiser = SingleBranchOptimiser {
-            cost: &mut self.c,
+            cost: &RefCell::new(self.c.clone()),
             branch: *branch,
         };
         let gss = BrentOpt::new(min, max);
