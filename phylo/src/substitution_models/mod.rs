@@ -72,13 +72,17 @@ impl<Q: QMatrix + QMatrixMaker> SubstModel<Q> {
 
 impl<Q: QMatrix> EvoModel for SubstModel<Q> {
     fn p(&self, time: f64) -> SubstMatrix {
+        let mut to = SubstMatrix::zeros(self.q().nrows(), self.q().ncols());
+        self.p_to(time, &mut to);
+        to
+    }
+
+    fn p_to(&self, time: f64, to: &mut SubstMatrix) {
+        to.copy_from(self.q());
         // If time > 1e10f64 the matrix exponentiation breaks and stops converging, but before it breaks
         // starting with 1e5f64 it converges to the same result.
-        if time > MAX_BLEN {
-            (self.q().clone() * MAX_BLEN).exp()
-        } else {
-            (self.q().clone() * time).exp()
-        }
+        *to *= if time > MAX_BLEN { MAX_BLEN } else { time };
+        *to = to.exp();
     }
 
     fn q(&self) -> &SubstMatrix {
