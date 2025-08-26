@@ -13,6 +13,7 @@ use crate::{Result, MAX_BLEN};
 pub struct BranchOptimiser<C: TreeSearchCost + Display + Clone> {
     pub(crate) epsilon: f64,
     pub(crate) c: C,
+    max_iters: u64,
 }
 
 impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
@@ -20,6 +21,15 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
         Self {
             epsilon: 1e-3,
             c: cost,
+            max_iters: 100,
+        }
+    }
+
+    pub fn with_iters(cost: C, max_iters: u64) -> Self {
+        Self {
+            epsilon: 1e-3,
+            c: cost,
+            max_iters,
         }
     }
 
@@ -85,7 +95,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
         };
         let gss = BrentOpt::new(min, max);
         let res = Executor::new(optimiser, gss)
-            .configure(|_| IterState::new().param(start_blen))
+            .configure(|_| IterState::new().param(start_blen).max_iters(self.max_iters))
             .run()?;
         let state = res.state();
         Ok(SingleValOptResult {
@@ -105,8 +115,13 @@ impl<C: TreeSearchCost> CostFunction for SingleBranchOptimiser<'_, C> {
     type Output = f64;
 
     fn cost(&self, value: &f64) -> Result<f64> {
+        let value = if value.is_nan() || *value < 0.0 {
+            0.0
+        } else {
+            *value
+        };
         let mut tree = self.cost.borrow().tree().clone();
-        tree.set_blen(&self.branch, *value);
+        tree.set_blen(&self.branch, value);
         self.cost.borrow_mut().update_tree(tree, &[self.branch]);
         Ok(-self.cost.borrow().cost())
     }

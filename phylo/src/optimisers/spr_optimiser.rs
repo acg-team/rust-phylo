@@ -220,7 +220,7 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
     let mut move_cost = cost_fn.cost();
     if cost_fn.blen_optimisation() && move_cost <= base_cost {
         // reoptimise branch length at the regraft location
-        let mut o = BranchOptimiser::new(cost_fn);
+        let mut o = BranchOptimiser::with_iters(cost_fn, 5);
         let blen_opt = o.optimise_branch(&regraft)?;
         if blen_opt.final_cost > move_cost {
             move_cost = blen_opt.final_cost;
