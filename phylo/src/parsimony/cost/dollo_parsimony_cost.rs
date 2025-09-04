@@ -149,7 +149,7 @@ impl<S: ParsimonyScoring> TreeSearchCost for DolloParsimonyCost<S> {
         -self.score()
     }
 
-    fn update_tree(&mut self, tree: Tree, dirty_nodes: &[NodeIdx]) {
+    fn update_tree(&mut self, tree: Tree) {
         self.info.tree = tree;
         for idx in self.info.tree.dirty.ones() {
             self.tmp.borrow_mut().node_info_valid[idx] = false;
@@ -323,7 +323,7 @@ mod private_tests {
 
         assert_eq!(cost.score(), 1.0);
 
-        cost.update_tree(tree, &[]);
+        cost.update_tree(tree);
         assert_eq!(cost.score(), 1.0);
     }
 
@@ -351,7 +351,7 @@ mod private_tests {
 
         assert_eq!(cost.score(), 4.0);
 
-        cost.update_tree(tree, &[]);
+        cost.update_tree(tree);
         assert_eq!(cost.score(), 4.0);
     }
 }

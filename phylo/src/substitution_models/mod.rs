@@ -160,7 +160,7 @@ impl<Q: QMatrix> TreeSearchCost for SubstitutionCost<Q> {
         self.logl(&self.info)
     }
 
-    fn update_tree(&mut self, tree: Tree, dirty_nodes: &[NodeIdx]) {
+    fn update_tree(&mut self, tree: Tree) {
         self.info.tree = tree;
         for idx in self.info.tree.dirty.ones() {
             self.tmp.borrow_mut().node_info_valid[idx] = false;

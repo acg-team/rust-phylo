@@ -168,7 +168,7 @@ where
                     curr_cost = o.final_cost;
                     let mut tree = o.cost.tree().clone();
                     tree.dirty();
-                    self.c.update_tree(tree, &[]);
+                    self.c.update_tree(tree);
                 }
             }
             debug!("Tree after iteration {}: \n{}", iterations, self.c.tree());
@@ -210,17 +210,13 @@ where
             |base_cost, move_location| -> Result<_> {
                 let move_cost_info =
                     move_opti.best_move_at_location(base_cost, cost_fn, move_location)?;
-                // let best_cost = move_cost_info.cost();
-                // let dirty_nodes = move_cost_info.dirty_nodes().clone();
-                // let best_tree = move_cost_info.into_tree();
                 let MoveCostInfo {
                     cost: best_cost,
                     tree: best_tree,
-                    dirty_nodes,
                 } = move_cost_info;
 
                 if best_cost > base_cost {
-                    cost_fn.update_tree(best_tree, &dirty_nodes);
+                    cost_fn.update_tree(best_tree);
                     info!("    {move_opti} move applied, new cost {best_cost}");
                     Ok(best_cost)
                 } else {

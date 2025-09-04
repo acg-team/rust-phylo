@@ -74,7 +74,7 @@ fn calc_nni_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
     mut cost_fn: C,
 ) -> Result<MoveCostInfo> {
     let mut new_tree = rooted_nni(cost_fn.tree(), node_idx, child_idx)?;
-    cost_fn.update_tree(new_tree.clone(), &[*node_idx]);
+    cost_fn.update_tree(new_tree.clone());
     let mut move_cost = cost_fn.cost();
     if cost_fn.blen_optimisation() && move_cost <= base_cost {
         let mut o = BranchOptimiser::new(cost_fn);
@@ -84,7 +84,7 @@ fn calc_nni_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
             new_tree.set_blen(node_idx, blen_opt.value);
         }
     }
-    Ok(MoveCostInfo::new(move_cost, new_tree, vec![*node_idx]))
+    Ok(MoveCostInfo::new(move_cost, new_tree))
 }
 
 fn rooted_nni(tree: &Tree, node_idx: &NodeIdx, child_idx: &NodeIdx) -> Result<Tree> {

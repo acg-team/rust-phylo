@@ -65,7 +65,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
                 }
                 // The branch length may have changed during the optimisation attempt, so the tree
                 // should be reset even if the optimisation was unsuccessful.
-                self.c.update_tree(tree.clone(), &[*branch]);
+                self.c.update_tree(tree.clone());
             }
         }
 
@@ -122,7 +122,7 @@ impl<C: TreeSearchCost> CostFunction for SingleBranchOptimiser<'_, C> {
         };
         let mut tree = self.cost.borrow().tree().clone();
         tree.set_blen(&self.branch, value);
-        self.cost.borrow_mut().update_tree(tree, &[self.branch]);
+        self.cost.borrow_mut().update_tree(tree);
         Ok(-self.cost.borrow().cost())
     }
 

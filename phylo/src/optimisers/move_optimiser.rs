@@ -8,19 +8,14 @@ use crate::Result;
 /// a call to [`MoveOptimiser::best_move_at_location`].
 pub struct MoveCostInfo {
     pub cost: f64,
+    // The tree contains a tree.dirty FixedBitSet which should mark all the nodes affected by the move,
+    // and the call to [`TreeSearchCost::update_tree`] should update its internal node states.
     pub tree: Tree,
-    /// The nodes that where affected by the move operation. These are passed to the
-    /// [`TreeSearchCost::update_tree`], such that the cost may update its internal node states.
-    pub dirty_nodes: Vec<NodeIdx>,
 }
 
 impl MoveCostInfo {
-    pub fn new(cost: f64, tree: Tree, dirty_nodes: Vec<NodeIdx>) -> Self {
-        MoveCostInfo {
-            cost,
-            dirty_nodes,
-            tree,
-        }
+    pub fn new(cost: f64, tree: Tree) -> Self {
+        MoveCostInfo { cost, tree }
     }
 }
 

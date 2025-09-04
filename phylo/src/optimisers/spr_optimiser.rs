@@ -81,7 +81,7 @@ impl SprOptimiser {
         if tree.children(&tree.root).contains(prune_location) {
             // due to topology change the current node may have become the direct child of root
             // so the move is no longer possible
-            return Ok(MoveCostInfo::new(base_cost, tree.clone(), vec![]));
+            return Ok(MoveCostInfo::new(base_cost, tree.clone()));
         }
 
         let regraft_locations = self
@@ -215,7 +215,7 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
 ) -> Result<MoveCostInfo> {
     let mut new_tree = rooted_spr(cost_fn.tree(), &prune_location, &regraft)?;
 
-    cost_fn.update_tree(new_tree.clone(), &[prune_location, regraft]);
+    cost_fn.update_tree(new_tree.clone());
 
     let mut move_cost = cost_fn.cost();
     if cost_fn.blen_optimisation() && move_cost <= base_cost {
@@ -228,11 +228,7 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
         }
     }
     debug!("    Regraft to {regraft:?} w best cost {move_cost}");
-    Ok(MoveCostInfo::new(
-        move_cost,
-        new_tree,
-        vec![prune_location, regraft],
-    ))
+    Ok(MoveCostInfo::new(move_cost, new_tree))
 }
 
 fn rooted_spr(tree: &Tree, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Result<Tree> {

@@ -58,7 +58,7 @@ fn basic_parsimony_cost_tree_update() {
     };
     let mut cost = BasicParsimonyCost::new(info).unwrap();
     assert_eq!(cost.cost(), -4.0);
-    cost.update_tree(tree, &[]);
+    cost.update_tree(tree);
     assert_eq!(cost.cost(), -4.0);
 }
 
@@ -209,7 +209,7 @@ fn dollo_parsimony_cost_tree_update() {
     let scoring = SimpleScoring::new(1.0, GapCost::new(2.0, 1.0));
     let mut cost = DolloParsimonyCost::with_scoring(info, scoring);
     assert_eq!(cost.cost(), -0.0);
-    cost.update_tree(tree, &[]);
+    cost.update_tree(tree);
     assert_eq!(cost.cost(), 0.0);
 }
 
