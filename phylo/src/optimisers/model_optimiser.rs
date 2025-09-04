@@ -94,7 +94,7 @@ impl<C: ModelSearchCost + Display + Clone> ModelOptimiser<C> {
 
     fn opt_parameter(&self, param: usize, start_value: f64) -> Result<SingleValOptResult> {
         let optimiser = ParamOptimiser {
-            cost: &RefCell::new(self.c.clone()),
+            cost: RefCell::new(self.c.clone()),
             param,
         };
         let min = f64::EPSILON;
@@ -111,12 +111,12 @@ impl<C: ModelSearchCost + Display + Clone> ModelOptimiser<C> {
     }
 }
 
-pub(crate) struct ParamOptimiser<'a, C: ModelSearchCost> {
-    pub(crate) cost: &'a RefCell<C>,
+pub(crate) struct ParamOptimiser<C: ModelSearchCost> {
+    pub(crate) cost: RefCell<C>,
     pub(crate) param: usize,
 }
 
-impl<C: ModelSearchCost> CostFunction for ParamOptimiser<'_, C> {
+impl<C: ModelSearchCost> CostFunction for ParamOptimiser<C> {
     type Param = f64;
     type Output = f64;
 

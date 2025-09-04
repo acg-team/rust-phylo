@@ -90,7 +90,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
             (start_blen * 0.1, MAX_BLEN.min(start_blen * 10.0))
         };
         let optimiser = SingleBranchOptimiser {
-            cost: &RefCell::new(self.c.clone()),
+            cost: RefCell::new(self.c.clone()),
             branch: *branch,
         };
         let gss = BrentOpt::new(min, max);
@@ -105,12 +105,12 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
     }
 }
 
-pub(crate) struct SingleBranchOptimiser<'a, C: TreeSearchCost> {
-    pub(crate) cost: &'a RefCell<C>,
+pub(crate) struct SingleBranchOptimiser<C: TreeSearchCost> {
+    pub(crate) cost: RefCell<C>,
     pub(crate) branch: NodeIdx,
 }
 
-impl<C: TreeSearchCost> CostFunction for SingleBranchOptimiser<'_, C> {
+impl<C: TreeSearchCost> CostFunction for SingleBranchOptimiser<C> {
     type Param = f64;
     type Output = f64;
 
