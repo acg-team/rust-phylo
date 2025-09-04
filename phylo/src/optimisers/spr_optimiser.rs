@@ -276,8 +276,8 @@ fn rooted_spr_unchecked(tree: &Tree, prune_idx: &NodeIdx, regraft_idx: &NodeIdx)
     let mut new_tree = tree.clone();
 
     {
-        new_tree.dirty[usize::from(prune_sib.idx)] = true;
-        new_tree.dirty[usize::from(prune_par.idx)] = true;
+        new_tree.dirty.set(usize::from(prune_sib.idx), true);
+        new_tree.dirty.set(usize::from(prune_par.idx), true);
     }
 
     {

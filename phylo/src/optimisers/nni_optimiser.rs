@@ -115,7 +115,7 @@ fn rooted_nni_unchecked(tree: &Tree, node_idx: &NodeIdx, child_idx: &NodeIdx) ->
     let parent = tree.node(&tree.node(node_idx).parent.unwrap());
     let node = tree.node(node_idx);
 
-    new_tree.dirty[usize::from(node_idx)] = true;
+    new_tree.dirty.set(usize::from(node_idx), true);
 
     {
         let parent = new_tree.node_mut(&tree.node(node_idx).parent.unwrap());

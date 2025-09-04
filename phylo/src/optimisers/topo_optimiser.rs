@@ -166,7 +166,9 @@ where
                 let o = BranchOptimiser::new(self.c.clone()).run()?;
                 if o.final_cost > curr_cost {
                     curr_cost = o.final_cost;
-                    self.c.update_tree(o.cost.tree().clone(), &[]);
+                    let mut tree = o.cost.tree().clone();
+                    tree.dirty();
+                    self.c.update_tree(tree, &[]);
                 }
             }
             debug!("Tree after iteration {}: \n{}", iterations, self.c.tree());

@@ -3,6 +3,7 @@ use std::fmt::{Debug, Display};
 
 use anyhow::bail;
 use bio::alignment::distance::levenshtein;
+use fixedbitset::FixedBitSet;
 use inc_stats::Percentiles;
 use nalgebra::{max, DMatrix};
 
@@ -72,7 +73,7 @@ pub struct Tree {
     pub n: usize,
     /// The sum of all branch lengths of the tree.
     pub length: f64,
-    pub(crate) dirty: Vec<bool>,
+    pub(crate) dirty: FixedBitSet,
 }
 
 impl Display for Tree {
@@ -88,6 +89,8 @@ impl Tree {
             bail!("No sequences provided, aborting");
         }
         if n == 1 {
+            let mut dirty = FixedBitSet::with_capacity(1);
+            dirty.set(0, true);
             Ok(Self {
                 root: Leaf(0),
                 postorder: vec![Leaf(0)],
@@ -102,9 +105,11 @@ impl Tree {
                 n: 1,
                 length: 0.0,
                 leaf_ids: vec![sequences.record(0).id().to_string()],
-                dirty: vec![false],
+                dirty,
             })
         } else {
+            let mut dirty = FixedBitSet::with_capacity(2 * n - 1);
+            dirty.set_range(0..(2 * n - 1), true);
             Ok(Self {
                 root: Int(2 * n - 2),
                 postorder: Vec::new(),
@@ -117,13 +122,17 @@ impl Tree {
                 n,
                 length: 0.0,
                 leaf_ids: sequences.iter().map(|seq| seq.id().to_string()).collect(),
-                dirty: vec![false; 2 * n - 1],
+                dirty,
             })
         }
     }
 
-    pub fn clean(&mut self, clean: bool) {
-        self.dirty.fill(clean);
+    pub fn clean(&mut self) {
+        self.dirty.set_range(0..self.dirty.len(), false);
+    }
+
+    pub fn dirty(&mut self) {
+        self.dirty.set_range(0..self.dirty.len(), true);
     }
 
     pub fn robinson_foulds(&self, other: &Tree) -> usize {
@@ -350,7 +359,7 @@ impl Tree {
         let old_blen = self.nodes[idx].blen;
         self.length += blen - old_blen;
         self.nodes[idx].blen = blen;
-        self.dirty[idx] = true;
+        self.dirty.set(idx, true);
     }
 
     pub fn parent(&self, node_idx: &NodeIdx) -> Option<NodeIdx> {

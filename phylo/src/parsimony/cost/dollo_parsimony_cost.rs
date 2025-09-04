@@ -151,13 +151,10 @@ impl<S: ParsimonyScoring> TreeSearchCost for DolloParsimonyCost<S> {
 
     fn update_tree(&mut self, tree: Tree, dirty_nodes: &[NodeIdx]) {
         self.info.tree = tree;
-        if dirty_nodes.is_empty() {
-            self.tmp.borrow_mut().node_info_valid.fill(false);
-            return;
+        for idx in self.info.tree.dirty.ones() {
+            self.tmp.borrow_mut().node_info_valid[idx] = false;
         }
-        for node_idx in dirty_nodes {
-            self.tmp.borrow_mut().node_info_valid[usize::from(node_idx)] = false;
-        }
+        self.info.tree.clean();
     }
 
     fn tree(&self) -> &Tree {

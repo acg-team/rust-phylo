@@ -162,15 +162,11 @@ impl<Q: QMatrix> TreeSearchCost for SubstitutionCost<Q> {
 
     fn update_tree(&mut self, tree: Tree, dirty_nodes: &[NodeIdx]) {
         self.info.tree = tree;
-        if dirty_nodes.is_empty() {
-            self.tmp.borrow_mut().node_info_valid.fill(false);
-            self.tmp.borrow_mut().node_models_valid.fill(false);
-            return;
+        for idx in self.info.tree.dirty.ones() {
+            self.tmp.borrow_mut().node_info_valid[idx] = false;
+            self.tmp.borrow_mut().node_models_valid[idx] = false;
         }
-        for node_idx in dirty_nodes {
-            self.tmp.borrow_mut().node_info_valid[usize::from(node_idx)] = false;
-            self.tmp.borrow_mut().node_models_valid[usize::from(node_idx)] = false;
-        }
+        self.info.tree.clean();
     }
 
     fn tree(&self) -> &Tree {
