@@ -121,7 +121,12 @@ impl<C: ModelSearchCost> CostFunction for ParamOptimiser<C> {
     type Output = f64;
 
     fn cost(&self, value: &f64) -> Result<f64> {
-        self.cost.borrow_mut().set_param(self.param, *value);
+        let value = if value.is_nan() | value.is_sign_negative() {
+            0.0
+        } else {
+            *value
+        };
+        self.cost.borrow_mut().set_param(self.param, value);
         Ok(-self.cost.borrow().cost())
     }
 
