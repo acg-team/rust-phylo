@@ -469,7 +469,7 @@ impl<Q: QMatrix> PIPCost<Q> {
     fn set_model(&self, tree: &Tree, node_idx: &NodeIdx) {
         let idx = usize::from(node_idx);
         let node = tree.node(node_idx);
-        if !self.tmp.borrow().valid[idx] | !self.tmp.borrow().models_valid[idx] {
+        if !self.tmp.borrow().valid[idx] || !self.tmp.borrow().models_valid[idx] {
             let mut tmp = self.tmp.borrow_mut();
             tmp.models[idx] = self.model.p(node.blen);
             tmp.models_valid[idx] = true;

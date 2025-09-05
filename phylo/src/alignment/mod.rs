@@ -25,7 +25,7 @@ pub struct PairwiseAlignment {
 
 impl PairwiseAlignment {
     pub fn new(map_x: Mapping, map_y: Mapping) -> PairwiseAlignment {
-        debug_assert!((map_x.len() == map_y.len()) | map_y.is_empty());
+        debug_assert!((map_x.len() == map_y.len()) || map_y.is_empty());
         PairwiseAlignment { map_x, map_y }
     }
 }
