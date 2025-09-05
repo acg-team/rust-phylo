@@ -243,7 +243,7 @@ impl<Q: QMatrix> SubstitutionCost<Q> {
         let idx = usize::from(node_idx);
 
         let mut tmp_values = self.tmp.borrow_mut();
-        if tree.dirty[idx] || !tmp_values.node_models_valid[idx] {
+        if !tmp_values.node_info_valid[idx] || !tmp_values.node_models_valid[idx] {
             tmp_values.node_models[idx] = self.model.p(node.blen);
             tmp_values.node_models_valid[idx] = true;
             tmp_values.node_info_valid[idx] = false;
@@ -265,7 +265,7 @@ impl<Q: QMatrix> SubstitutionCost<Q> {
         let node = tree.node(node_idx);
         let idx = usize::from(node_idx);
 
-        if tree.dirty[idx] || !tmp_values.node_models_valid[idx] {
+        if !tmp_values.node_info_valid[idx] || !tmp_values.node_models_valid[idx] {
             tmp_values.node_models[idx] = self.model.p(node.blen);
             tmp_values.node_models_valid[idx] = true;
             tmp_values.node_info_valid[idx] = false;
