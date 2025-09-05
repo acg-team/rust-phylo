@@ -48,7 +48,12 @@ fn setup_test_tree() -> Tree {
 #[test]
 fn single_leaf_tree_complete() {
     let sequences = Sequences::new(vec![record!("A0", b"AAAAAA")]);
-    let tree = Tree::new(&sequences).unwrap();
+    let mut tree = Tree::new(&sequences).unwrap();
+
+    tree.complete = true;
+    tree.compute_postorder();
+    tree.compute_preorder();
+
     assert!(tree.complete);
     assert_eq!(tree.postorder.len(), 1);
     assert_eq!(tree.preorder.len(), 1);

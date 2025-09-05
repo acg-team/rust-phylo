@@ -88,43 +88,21 @@ impl Tree {
         if n == 0 {
             bail!("No sequences provided, aborting");
         }
-        if n == 1 {
-            let mut dirty = FixedBitSet::with_capacity(1);
-            dirty.set(0, true);
-            Ok(Self {
-                root: Leaf(0),
-                postorder: vec![Leaf(0)],
-                preorder: vec![Leaf(0)],
-                nodes: vec![Node::new_leaf(
-                    0,
-                    None,
-                    0.0,
-                    sequences.record(0).id().to_string(),
-                )],
-                complete: true,
-                n: 1,
-                length: 0.0,
-                leaf_ids: vec![sequences.record(0).id().to_string()],
-                dirty,
-            })
-        } else {
-            let mut dirty = FixedBitSet::with_capacity(2 * n - 1);
-            dirty.set_range(0..(2 * n - 1), true);
-            Ok(Self {
-                root: Int(2 * n - 2),
-                postorder: Vec::new(),
-                preorder: Vec::new(),
-                nodes: (0..n)
-                    .zip(sequences.iter().map(|seq| seq.id().to_string()))
-                    .map(|(idx, id)| Node::new_leaf(idx, None, 0.0, id))
-                    .collect(),
-                complete: false,
-                n,
-                length: 0.0,
-                leaf_ids: sequences.iter().map(|seq| seq.id().to_string()).collect(),
-                dirty,
-            })
-        }
+        let root = if n == 1 { Leaf(0) } else { Int(2 * n - 2) };
+        Ok(Self {
+            root,
+            postorder: Vec::new(),
+            preorder: Vec::new(),
+            nodes: (0..n)
+                .zip(sequences.iter().map(|seq| seq.id().to_string()))
+                .map(|(idx, id)| Node::new_leaf(idx, None, 0.0, id))
+                .collect(),
+            complete: false,
+            n,
+            length: 0.0,
+            leaf_ids: sequences.iter().map(|seq| seq.id().to_string()).collect(),
+            dirty: FixedBitSet::with_capacity(2 * n - 1),
+        })
     }
 
     pub fn clean(&mut self) {
