@@ -103,7 +103,6 @@ impl Tree {
         self.compute_preorder();
         self.length = self.nodes.iter().map(|n| n.blen).sum();
         self.dirty = FixedBitSet::with_capacity(self.n * 2 - 1);
-        self.dirty.set_range(0..(self.n * 2 - 1), false);
     }
 
     fn parse_unrooted_rule(

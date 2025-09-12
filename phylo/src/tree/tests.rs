@@ -693,9 +693,6 @@ fn test_argmin_fail() {
 
 #[test]
 fn test_to_newick_simple() {
-    let mut dirty = FixedBitSet::with_capacity(3);
-    dirty.set_range(0..3, false);
-
     let tree = Tree {
         root: I(2),
         nodes: vec![
@@ -709,7 +706,7 @@ fn test_to_newick_simple() {
         n: 3,
         length: 8.5,
         leaf_ids: vec!["A".to_string(), "B".to_string()],
-        dirty,
+        dirty: FixedBitSet::with_capacity(3),
     };
     assert_eq!(tree.to_newick(), "((A:1,B:5.5)C:2);");
 }
