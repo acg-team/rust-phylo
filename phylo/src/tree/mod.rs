@@ -105,10 +105,13 @@ impl Tree {
         })
     }
 
+    /// Marks all nodes in the tree as clean (not dirty).
     pub fn clean(&mut self) {
         self.dirty.set_range(0..self.dirty.len(), false);
     }
 
+    /// Marks all nodes in the tree as dirty (in case of disruptive changes to the tree structure
+    /// which mean that e.g. cached information for the likelihood computation is not valid anymore).
     pub fn dirty(&mut self) {
         self.dirty.set_range(0..self.dirty.len(), true);
     }
