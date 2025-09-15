@@ -511,6 +511,31 @@ fn newick_parse_phyml_output() {
     from_newick("((Gorilla:0.06683711,(Orangutan:0.21859880,Gibbon:0.31145586):0.06570906):0.03853171,Human:0.05356244,Chimpanzee:0.05417982);").unwrap();
 }
 
+#[test]
+fn dirty_clean_tree() {
+    let mut tree = tree!("(((A:1.5,B:2.3)E:5.1,(C:3.9,D:4.8)F:6.2)G:7.3);");
+    assert_eq!(tree.dirty.len(), tree.len());
+    assert!(tree.dirty.is_clear());
+    tree.dirty();
+    assert!(!tree.dirty.is_clear() && tree.dirty.is_full());
+    tree.clean();
+    assert!(tree.dirty.is_clear() && !tree.dirty.is_full());
+}
+
+#[test]
+fn partially_clean_tree() {
+    let mut tree = tree!("(((A:1.5,B:2.3)E:5.1,(C:3.9,D:4.8)F:6.2)G:7.3);");
+    assert_eq!(tree.dirty.len(), tree.len());
+    assert!(tree.dirty.is_clear());
+    tree.dirty.put(0);
+    tree.dirty.put(5);
+    tree.dirty.put(6);
+    assert!(!tree.dirty.is_clear() && !tree.dirty.is_full());
+    tree.clean();
+    assert!(tree.dirty.is_clear() && !tree.dirty.is_full());
+}
+
+#[cfg(test)]
 fn make_parsing_error(rules: &[Rule]) -> ErrorVariant<Rule> {
     ErrorVariant::ParsingError {
         positives: rules.to_vec(),
@@ -518,6 +543,7 @@ fn make_parsing_error(rules: &[Rule]) -> ErrorVariant<Rule> {
     }
 }
 
+#[cfg(test)]
 fn check_parsing_error(error: anyhow::Error, expected_parsing_error: &[Rule]) {
     assert_eq!(
         error.downcast_ref::<ParsingError>().unwrap().0.variant,
