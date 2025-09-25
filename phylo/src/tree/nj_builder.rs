@@ -76,27 +76,26 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         delta_tree_len
     }
 
-    fn softmax(delta_tree_len: DVector<f64>, temperature: f64, rng: &impl RandomSource) -> usize {
+    fn softmax(delta_tree_len: DVector<f64>, temperature: f64) -> DVector<f64> {
         debug_assert!(
             !delta_tree_len.is_empty(),
             "The input vector must not be empty."
         );
         if delta_tree_len.len() == 1 {
-            return 0;
+            return DVector::from_element(1, 1.0);
         }
         let n = delta_tree_len.len();
 
         let mut exp_mat = Self::softmax_from_distances(delta_tree_len);
-        let uniform: f64 = 1.0 / (((n.pow(2) - n) / 2) as f64);
+        let uniform_weight = 1.0 / (((n.pow(2) - n) / 2) as f64);
+        println!("Coeff: {uniform_weight}");
 
         // Interpolated probabilities, temp=0.0 means uniform, temp=1.0 means softmax of distances
         // Avoid copying the matrix by mutating in place
         for element in exp_mat.iter_mut() {
-            *element = (temperature * uniform) + ((1.0 - temperature) * *element);
+            *element = (temperature * uniform_weight) + ((1.0 - temperature) * *element);
         }
-
-        let dist = WeightedIndex::new(exp_mat.iter()).unwrap();
-        rng.sample(&dist)
+        exp_mat
     }
 
     fn build_from_distances(
@@ -110,7 +109,9 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         for cur_idx in n..=root_idx {
             let q = distances.delta_tree_length();
             let index = match self.randomise {
-                Strategy::SoftmaxUniform(t) => Self::softmax(q, t, self.rng),
+                Strategy::SoftmaxUniform(t) => self
+                    .rng
+                    .sample(&WeightedIndex::new(Self::softmax(q, t).iter()).unwrap()),
                 Strategy::Deterministic => q.argmin().0,
             };
             let (i, j) = Self::lower_triangle_index(index);
@@ -533,6 +534,25 @@ mod private_tests {
             softmax,
             dvector![0.77514955, 0.11593805, 0.03859242, 0.07031998],
             epsilon = 1e-8
+        );
+    }
+
+    #[test]
+    fn softmax_uniform() {
+        let delta_tree_length = dvector![-1.3, -5.1, -2.2, -0.7, -1.1];
+        let softmax_vector = NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax(
+            delta_tree_length,
+            0.0,
+        );
+        assert_eq!(
+            softmax_vector,
+            dvector![
+                0.020190464732580685,
+                0.9025376890165726,
+                0.04966052987196013,
+                0.011080761983386346,
+                0.01653055439550022
+            ]
         );
     }
 
