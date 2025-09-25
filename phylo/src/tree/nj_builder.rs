@@ -158,8 +158,8 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
 
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
-mod private_tests {
-    use super::*;
+mod tests {
+    use approx::assert_relative_eq;
     use nalgebra::{dmatrix, dvector};
 
     use crate::evolutionary_distances::LevenshteinDNACorrected;
@@ -167,6 +167,8 @@ mod private_tests {
     use crate::tree::Node;
     use crate::tree::NodeIdx::{self, Internal as I, Leaf as L};
     use crate::{record_wo_desc as record, tree};
+
+    use super::*;
 
     #[cfg(test)]
     fn is_unique<T: std::cmp::Eq + std::hash::Hash>(vec: &[T]) -> bool {
