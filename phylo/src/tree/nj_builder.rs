@@ -94,24 +94,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         rng.sample(&dist)
     }
 
-    // Used with Randomise::Deterministic, defaults to first lowest index
-    fn argmin(q: DVector<f64>) -> usize {
-        debug_assert!(!q.is_empty(), "The input matrix must not be empty.");
-        if q.nrows() == 1 {
-            return 0;
         }
-        // First element of lower diagonal is default if nothing is lower or higher. Should always be reassigned.
-        let mut arg_min = 0;
-        let mut val_min = &f64::MAX;
-        for i in 0..q.nrows() {
-            let val = &q[i];
-            if val < val_min {
-                val_min = val;
-                arg_min = i;
-            }
-        }
-        // Returns first element in arg_min
-        arg_min
     }
 
     fn build_from_distances(
@@ -126,7 +109,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
             let q = distances.delta_tree_length();
             let index = match self.randomise {
                 Strategy::SoftmaxUniform(t) => Self::softmax_uniform(q, t, self.rng),
-                Strategy::Deterministic => Self::argmin(q),
+                Strategy::Deterministic => q.argmin().0,
             };
             let (i, j) = Self::lower_triangle_index(index);
             let idx_new = cur_idx;
@@ -186,15 +169,6 @@ mod private_tests {
     fn is_unique<T: std::cmp::Eq + std::hash::Hash>(vec: &[T]) -> bool {
         let set: std::collections::HashSet<_> = vec.iter().collect();
         set.len() == vec.len()
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_argmin_fail() {
-        //Changed test for empty vector, since argmin with 1 vector length will return first branch as delta_tree_length vector is different
-        NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::argmin(
-            DVector::<f64>::from_vec(vec![]),
-        );
     }
 
     #[test]
