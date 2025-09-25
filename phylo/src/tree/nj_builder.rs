@@ -21,7 +21,7 @@ pub struct NJTreeBuilder<'a, D: EvolutionaryDistance, R: RandomSource> {
     rng: &'a R,
 }
 
-impl<'a, D: EvolutionaryDistance, R: RandomSource> TreeBuilder for NJTreeBuilder<'a, D, R> {
+impl<D: EvolutionaryDistance, R: RandomSource> TreeBuilder for NJTreeBuilder<'_, D, R> {
     fn build(&self, sequences: &Sequences) -> Result<Tree> {
         let distances = self.compute_distance_matrix(sequences);
         self.build_from_distances(distances, sequences)
