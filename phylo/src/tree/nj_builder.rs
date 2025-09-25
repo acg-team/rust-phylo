@@ -539,7 +539,7 @@ mod tests {
     }
 
     #[test]
-    fn softmax_uniform() {
+    fn softmax_w_temp_regular() {
         let delta_tree_length = dvector![-1.3, -5.1, -2.2, -0.7, -1.1];
         let softmax_vector = NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax(
             delta_tree_length,
@@ -555,6 +555,28 @@ mod tests {
                 0.01653055439550022
             ]
         );
+        assert_eq!(softmax_vector.sum(), 1.0);
+    }
+
+    #[test]
+    fn softmax_w_temp_uniform() {
+        let delta_tree_length = dvector![-1.3, -5.1, -2.2, -0.7, -1.1];
+        let softmax_vector = NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax(
+            delta_tree_length,
+            1.0,
+        );
+        assert_eq!(softmax_vector, dvector![0.2, 0.2, 0.2, 0.2, 0.2]);
+        assert_eq!(softmax_vector.sum(), 1.0);
+    }
+
+    #[test]
+    fn softmax_w_temp_between() {
+        let delta_tree_length = dvector![-1.3, -5.1, -2.2, -0.7, -1.1];
+        let softmax_vector = NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax(
+            delta_tree_length,
+            0.5,
+        );
+        assert_eq!(softmax_vector.sum(), 1.0);
     }
 
     // Rethink adding these tests, would need random seed to work
