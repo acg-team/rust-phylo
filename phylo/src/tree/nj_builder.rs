@@ -169,12 +169,12 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         }
     }
 }
-// Tests are at the bottom of this module for ability to use private functions
+
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod private_tests {
-    // From test.rs in tree, so we can use macros
     use super::*;
-    use nalgebra::{dmatrix, dvector, DVector};
+    use nalgebra::{dmatrix, dvector};
 
     use crate::evolutionary_distances::LevenshteinDNACorrected;
     use crate::random::{DefaultGenerator, FakeGenerator};
