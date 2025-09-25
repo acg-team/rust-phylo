@@ -38,13 +38,16 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         }
     }
 
-    /// Creates a Neighbor Joining Tree object with Softmax Uniform strategy, introduces stochasticity to tree building
-    /// temperature value can be between 0.0 and 1.0 and interpolates between the softmax and uniform distribution for creating the NJ method minimal tree
+    /// Creates a Neighbor Joining Tree object with Softmax strategy, introduces stochasticity to tree building.
+    /// Temperature can be between 0.0 and 1.0 and interpolates between the uniform and softmax distributions to select
+    /// the next pair of nodes to join. A temperature of 0.0 is fully uniform, while a temperature of 1.0 is fully softmax.
     pub fn new_with_softmax(distance_function: D, rng: &'a R, temperature: f64) -> Self {
         if temperature > 1.0 {
-            debug!("Temperature should not be greater than 1.0, clamping to 1.0");
+            debug!("Temperature should not be greater than 1.0 (set to {temperature}), clamping to 1.0");
         } else if temperature < 0.0 {
-            debug!("Temperature should not be lesss than 0.0, clamping to 0.0");
+            debug!(
+                "Temperature should not be less than 0.0 (set to {temperature}), clamping to 0.0"
+            );
         }
         let t = temperature.clamp(0.0, 1.0);
         Self {
