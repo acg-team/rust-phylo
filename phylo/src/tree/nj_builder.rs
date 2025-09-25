@@ -24,7 +24,7 @@ pub struct NJTreeBuilder<'a, D: EvolutionaryDistance, R: RandomSource> {
 impl<'a, D: EvolutionaryDistance, R: RandomSource> TreeBuilder for NJTreeBuilder<'a, D, R> {
     fn build(&self, sequences: &Sequences) -> Result<Tree> {
         let distances = self.compute_distance_matrix(sequences);
-        self.build_from_distances_w_rng(distances, sequences)
+        self.build_from_distances(distances, sequences)
     }
 }
 
@@ -111,7 +111,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         arg_min
     }
 
-    fn build_from_distances_w_rng(
+    fn build_from_distances(
         &self,
         mut distances: DistanceMatrix,
         sequences: &Sequences,
@@ -255,7 +255,7 @@ mod private_tests {
         let sequences = Sequences::new((1..=8).map(|i| record!(&i.to_string(), b"")).collect());
         let rng = FakeGenerator::new();
         let nj_tree = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng)
-            .build_from_distances_w_rng(nj_distances, &sequences)
+            .build_from_distances(nj_distances, &sequences)
             .unwrap();
         let correct_tree =
             tree!("((8:6,7:2):0.5,((5:1,6:4):2,(4:3,(3:1,(1:5,2:2):2):1):2):0.5):0.0;");
@@ -286,7 +286,7 @@ mod private_tests {
         let rng = FakeGenerator::new();
         let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
         let tree = nj_builder
-            .build_from_distances_w_rng(nj_distances, &sequences)
+            .build_from_distances(nj_distances, &sequences)
             .unwrap();
         assert_eq!(tree.by_id("A").blen, 1.0);
         assert_eq!(tree.by_id("B").blen, 3.0);
@@ -322,7 +322,7 @@ mod private_tests {
         let rng = FakeGenerator::new();
         let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
         let tree = nj_builder
-            .build_from_distances_w_rng(nj_distances, &sequences)
+            .build_from_distances(nj_distances, &sequences)
             .unwrap();
         assert_eq!(tree.len(), 7);
         assert_eq!(tree.postorder.len(), 7);
@@ -353,7 +353,7 @@ mod private_tests {
         let rng = FakeGenerator::new();
         let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
         let tree = nj_builder
-            .build_from_distances_w_rng(nj_distances, &sequences)
+            .build_from_distances(nj_distances, &sequences)
             .unwrap();
         assert_eq!(tree.by_id("a").blen, 2.0);
         assert_eq!(tree.by_id("b").blen, 3.0);
@@ -391,7 +391,7 @@ mod private_tests {
         let rng = FakeGenerator::new();
         let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
         let nj_tree = nj_builder
-            .build_from_distances_w_rng(nj_distances, &sequences)
+            .build_from_distances(nj_distances, &sequences)
             .unwrap();
         let nodes = vec![
             Node::new_leaf(0, Some(I(5)), 2.0, "A0".to_string()),
@@ -427,7 +427,7 @@ mod private_tests {
         let rng = FakeGenerator::new();
         let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
         let nj_tree = nj_builder
-            .build_from_distances_w_rng(nj_distances, &sequences)
+            .build_from_distances(nj_distances, &sequences)
             .unwrap();
         let nodes = vec![
             Node::new_leaf(0, Some(I(4)), 1.0, "A0".to_string()),
@@ -596,7 +596,7 @@ mod private_tests {
         let rng = DefaultGenerator::new(3);
         let nj_builder = NJTreeBuilder::new_with_softmax(LevenshteinDNACorrected, &rng, 0.0);
         let nj_tree = nj_builder
-            .build_from_distances_w_rng(nj_distances, &sequences)
+            .build_from_distances(nj_distances, &sequences)
             .unwrap();
         let nodes = vec![
             Node::new_leaf(0, Some(I(5)), 2.0, "A0".to_string()),
