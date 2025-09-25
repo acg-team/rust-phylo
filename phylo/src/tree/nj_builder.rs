@@ -66,7 +66,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
     }
 
     fn softmax_from_distances(mut delta_tree_len: DVector<f64>) -> DVector<f64> {
-        // Invert distances for softmax
+        // Invert distances for softmax, smallest negative distance should have highest probability
         delta_tree_len.scale_mut(-1.0);
         // Avoid copying the matrix by mutating in place
         for element in delta_tree_len.iter_mut() {
@@ -499,6 +499,41 @@ mod private_tests {
             ]
         );
         assert_eq!(softmax_vector.sum(), 1.0);
+    }
+
+    #[test]
+    fn softmax_example() {
+        // Example values from https://medium.com/@hunter-j-phillips/a-simple-introduction-to-softmax-287712d69bac
+        let softmax =
+            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax_from_distances(
+                dvector![-5.0, -7.0, -10.0],
+            );
+        assert_relative_eq!(softmax, dvector![0.006, 0.047, 0.946], epsilon = 1e-3);
+        assert_relative_eq!(softmax.sum(), 1.0, epsilon = 1e-5);
+
+        let softmax =
+            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax_from_distances(
+                dvector![-1.0, -2.0, -3.0],
+            );
+        assert_relative_eq!(softmax, dvector![0.0900, 0.2447, 0.6652], epsilon = 1e-4);
+        assert_relative_eq!(softmax.sum(), 1.0, epsilon = 1e-5);
+
+        let softmax =
+            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax_from_distances(
+                dvector![-4.0, -5.0, -6.0],
+            );
+        assert_relative_eq!(softmax, dvector![0.0900, 0.2447, 0.6652], epsilon = 1e-4);
+        assert_relative_eq!(softmax.sum(), 1.0, epsilon = 1e-5);
+
+        let softmax =
+            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax_from_distances(
+                dvector![-3.2, -1.3, -0.2, -0.8],
+            );
+        assert_relative_eq!(
+            softmax,
+            dvector![0.77514955, 0.11593805, 0.03859242, 0.07031998],
+            epsilon = 1e-8
+        );
     }
 
     // Rethink adding these tests, would need random seed to work
