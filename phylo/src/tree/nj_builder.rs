@@ -87,8 +87,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         let n = delta_tree_len.len();
 
         let mut exp_mat = Self::softmax_from_distances(delta_tree_len);
-        let uniform_weight = 1.0 / (((n.pow(2) - n) / 2) as f64);
-        println!("Coeff: {uniform_weight}");
+        let uniform_weight = 1.0 / n as f64;
 
         // Interpolated probabilities, temp=0.0 means uniform, temp=1.0 means softmax of distances
         // Avoid copying the matrix by mutating in place
