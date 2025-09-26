@@ -164,7 +164,7 @@ mod tests {
     use nalgebra::{dmatrix, dvector};
 
     use crate::evolutionary_distances::LevenshteinDNACorrected as LDNACorr;
-    use crate::random::{DefaultGenerator, FakeGenerator as FakeGen};
+    use crate::random::FakeGenerator as FakeGen;
     use crate::tree::Node;
     use crate::tree::NodeIdx::{self, Internal as I, Leaf as L};
     use crate::{record_wo_desc as record, tree};
@@ -554,39 +554,74 @@ mod tests {
         assert_eq!(softmax_vector.sum(), 1.0);
     }
 
-    // Rethink adding these tests, would need random seed to work
-    // #[test]
-    // fn nj_builder_uniform() {
-    //     let nj_distances = NJMat {
-    //         idx: (0..4).map(NodeIdx::Leaf).collect(),
-    //         distances: dmatrix![
-    //                 0.0, 4.0, 5.0, 10.0;
-    //                 4.0, 0.0, 7.0, 12.0;
-    //                 5.0, 7.0, 0.0, 9.0;
-    //                 10.0, 12.0, 9.0, 0.0],
-    //     };
-    //     let sequences = Sequences::new(vec![
-    //         record!("A0", b""),
-    //         record!("B1", b""),
-    //         record!("C2", b""),
-    //         record!("D3", b""),
-    //     ]);
-    //     let nj_builder = NJBuilder::new(Randomise::Temperature(0.0), LDNACorr {});
-    //     let nj_tree = nj_builder
-    //         .build_nj_tree_from_matrix(nj_distances, &sequences)
-    //         .unwrap();
-    //     let nodes = vec![
-    //         Node::new_leaf(0, Some(I(4)), 1.0, "A0".to_string()),
-    //         Node::new_leaf(1, Some(I(4)), 3.0, "B1".to_string()),
-    //         Node::new_leaf(2, Some(I(5)), 2.0, "C2".to_string()),
-    //         Node::new_leaf(3, Some(I(5)), 7.0, "D3".to_string()),
-    //         Node::new_internal(4, Some(I(6)), vec![L(0), L(1)], 1.0, "".to_string()),
-    //         Node::new_internal(5, Some(I(6)), vec![L(3), L(2)], 1.0, "".to_string()),
-    //         Node::new_internal(6, None, vec![I(4), I(5)], 0.0, "".to_string()),
-    //     ];
-    //     assert_eq!(nj_tree.root, I(6));
-    //     assert_eq!(nj_tree.nodes, nodes);
-    // }
+    #[test]
+    fn nj_tree_original_paper_fake_softmax() {
+        // Compare against the original paper tree
+        // https://academic.oup.com/mbe/article/4/4/406/1029664
+        let nj_distances = DistanceMatrix {
+            idx: (0..8).map(NodeIdx::Leaf).collect(),
+            distances: dmatrix![
+                0.0, 7.0, 8.0, 11.0, 13.0, 16.0, 13.0, 17.0;
+                7.0, 0.0, 5.0, 8.0, 10.0, 13.0, 10.0, 14.0;
+                8.0, 5.0, 0.0, 5.0, 7.0, 10.0, 7.0, 11.0;
+                11.0, 8.0, 5.0, 0.0, 8.0, 11.0, 8.0, 12.0;
+                13.0, 10.0, 7.0, 8.0, 0.0, 5.0, 6.0, 10.0;
+                16.0, 13.0, 10.0, 11.0, 5.0, 0.0, 9.0, 13.0;
+                13.0, 10.0, 7.0, 8.0, 6.0, 9.0, 0.0, 8.0;
+                17.0, 14.0, 11.0, 12.0, 10.0, 13.0, 8.0, 0.0;
+            ],
+        };
+        let sequences = Sequences::new((1..=8).map(|i| record!(&i.to_string(), b"")).collect());
+
+        // FakeGen will return values that will select the same pairs as in the original paper
+        let rng = FakeGen::from_u64_values(vec![0, 5, 5, 9, 1, 0, 0]);
+        let nj_tree = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 1.0)
+            .build_from_distances(nj_distances, &sequences)
+            .unwrap();
+        let correct_tree =
+            tree!("((8:6,7:2):0.5,((5:1,6:4):2,(4:3,(3:1,(1:5,2:2):2):1):2):0.5):0.0;");
+        assert_eq!(nj_tree.length, correct_tree.length);
+        for leaf in nj_tree.leaves() {
+            assert_eq!(leaf.blen, correct_tree.by_id(&leaf.id).blen);
+        }
+        assert_eq!(nj_tree.robinson_foulds(&correct_tree), 0);
+    }
+
+    #[test]
+    fn nj_builder_fake_softmax() {
+        let nj_distances = DistanceMatrix {
+            idx: (0..4).map(NodeIdx::Leaf).collect(),
+            distances: dmatrix![
+                    0.0, 4.0, 5.0, 10.0;
+                    4.0, 0.0, 7.0, 12.0;
+                    5.0, 7.0, 0.0, 9.0;
+                    10.0, 12.0, 9.0, 0.0],
+        };
+        let sequences = Sequences::new(vec![
+            record!("A0", b""),
+            record!("B1", b""),
+            record!("C2", b""),
+            record!("D3", b""),
+        ]);
+
+        // FakeGen will return values that will select the last pair every time
+        let rng = FakeGen::from_u64_values(vec![5, 2, 0]);
+        let nj_softmax_builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 1.0);
+        let nj_softmax_tree = nj_softmax_builder
+            .build_from_distances(nj_distances.clone(), &sequences)
+            .unwrap();
+
+        let rng = FakeGen::new();
+        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
+        let tree = nj_builder
+            .build_from_distances(nj_distances, &sequences)
+            .unwrap();
+
+        // In this case both end up the same same length
+        assert_eq!(nj_softmax_tree.length, tree.length);
+        // Different rooting, but rf distance 0
+        assert_eq!(nj_softmax_tree.robinson_foulds(&tree), 0);
+    }
 
     #[test]
     fn nj_builder_softmax() {
@@ -606,23 +641,33 @@ mod tests {
             record!("D3", b""),
             record!("E4", b""),
         ]);
-        let rng = DefaultGenerator::new(0);
-        let nj_builder = NJTreeBuilder::new_with_softmax(LDNACorr, &rng, 0.0);
+        let rng = FakeGen::new();
+        let nj_uniform_builder = NJTreeBuilder::new_with_softmax(LDNACorr, &rng, 0.0);
+        let nj_uniform_tree = nj_uniform_builder
+            .build_from_distances(nj_distances.clone(), &sequences)
+            .unwrap();
+
+        let nj_softmax_builder = NJTreeBuilder::new_with_softmax(LDNACorr, &rng, 1.0);
+        let nj_softmax_tree = nj_softmax_builder
+            .build_from_distances(nj_distances.clone(), &sequences)
+            .unwrap();
+
+        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
         let nj_tree = nj_builder
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
-        let nodes = vec![
-            Node::new_leaf(0, Some(I(5)), 2.0, "A0".to_string()),
-            Node::new_leaf(1, Some(I(5)), 3.0, "B1".to_string()),
-            Node::new_leaf(2, Some(I(7)), 4.0, "C2".to_string()),
-            Node::new_leaf(3, Some(I(6)), 2.0, "D3".to_string()),
-            Node::new_leaf(4, Some(I(6)), 1.0, "E4".to_string()),
-            Node::new_internal(5, Some(I(7)), vec![L(1), L(0)], 3.0, "".to_string()),
-            Node::new_internal(6, Some(I(8)), vec![L(4), L(3)], 1.0, "".to_string()),
-            Node::new_internal(7, Some(I(8)), vec![I(5), L(2)], 1.0, "".to_string()),
-            Node::new_internal(8, None, vec![I(7), I(6)], 0.0, "".to_string()),
-        ];
-        assert_eq!(nj_tree.root, I(8));
-        assert_eq!(nj_tree.nodes, nodes);
+
+        // Uniform should be longer than the original NJ since it does not pick the optimal pair
+        assert!(nj_uniform_tree.length > nj_tree.length);
+        // Different resulting topologies
+        assert!(nj_uniform_tree.robinson_foulds(&nj_tree) > 0);
+
+        // Uniform should be longer than the original NJ since it does not pick the optimal pair
+        assert!(nj_softmax_tree.length > nj_tree.length);
+        // Different resulting topologies
+        assert!(nj_softmax_tree.robinson_foulds(&nj_tree) > 0);
+
+        // Since FakeGen always returns 0, both softmax trees should be the same
+        assert_eq!(nj_uniform_tree.nodes, nj_softmax_tree.nodes);
     }
 }
