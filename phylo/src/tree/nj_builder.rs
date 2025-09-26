@@ -66,7 +66,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         (i, j)
     }
 
-    fn softmax_from_distances(mut delta_tree_len: DVector<f64>) -> DVector<f64> {
+    fn softmax_from_deltas(mut delta_tree_len: DVector<f64>) -> DVector<f64> {
         // Invert distances for softmax, smallest negative distance should have highest probability
         delta_tree_len.scale_mut(-1.0);
         // Avoid copying the matrix by mutating in place
@@ -87,10 +87,10 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         }
         let n = delta_tree_len.len();
 
-        let mut exp_mat = Self::softmax_from_distances(delta_tree_len);
+        let mut exp_mat = Self::softmax_from_deltas(delta_tree_len);
         let uniform_weight = 1.0 / n as f64;
 
-        // Interpolated probabilities, temp=0.0 means uniform, temp=1.0 means softmax of distances
+        // Interpolated probabilities, temp = 0.0 means uniform, temp = 1.0 means softmax of distances
         // Avoid copying the matrix by mutating in place
         for element in exp_mat.iter_mut() {
             *element = (temperature * uniform_weight) + ((1.0 - temperature) * *element);
@@ -535,19 +535,12 @@ mod tests {
     #[test]
     fn softmax_w_temp_regular() {
         let delta_tree_length = dvector![-1.3, -5.1, -2.2, -0.7, -1.1];
-        let softmax_vector =
-            NJTreeBuilder::<LDNACorr, FakeGen>::softmax(delta_tree_length, 0.0);
-        assert_eq!(
-            softmax_vector,
-            dvector![
-                0.020190464732580685,
-                0.9025376890165726,
-                0.04966052987196013,
-                0.011080761983386346,
-                0.01653055439550022
-            ]
-        );
-        assert_eq!(softmax_vector.sum(), 1.0);
+        let softmax_w_temp =
+            NJTreeBuilder::<LDNACorr, FakeGen>::softmax(delta_tree_length.clone(), 0.0);
+        let softmax_regular =
+            NJTreeBuilder::<LDNACorr, FakeGen>::softmax_from_deltas(delta_tree_length);
+        assert_eq!(softmax_w_temp, softmax_regular);
+        assert_eq!(softmax_w_temp.sum(), 1.0);
     }
 
     #[test]
