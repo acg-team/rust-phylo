@@ -85,7 +85,7 @@ impl DistanceMatrix {
         for r in 1..n {
             for c in 0..r {
                 delta_tree_len[index] = (n - 2) as f64 * self.distances[(r, c)] - s[r] - s[c];
-                index += 1
+                index += 1;
             }
         }
         delta_tree_len
