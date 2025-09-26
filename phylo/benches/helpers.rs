@@ -5,6 +5,7 @@ use std::{collections::HashMap, hint::black_box, path::PathBuf, time::Duration};
 
 use criterion::Criterion;
 
+use phylo::alignment::MSA;
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::optimisers::ModelOptimiser;
 use phylo::phylo_info::{PhyloInfo, PhyloInfoBuilder};
@@ -36,7 +37,7 @@ pub const AA_EASY_27X632: &str = "data/benchmark-datasets/aa/easy/boroa6_OG126_g
 pub const AA_MEDIUM_79X106: &str = "data/benchmark-datasets/aa/medium/strua5_gene1339_23221.aln";
 pub const AA_MEDIUM_30X86: &str = "data/benchmark-datasets/aa/medium/nagya1_Cluster3439.aln";
 
-pub fn black_box_deterministic_phylo_info(seq_file: impl Into<PathBuf>) -> PhyloInfo {
+pub fn black_box_deterministic_phylo_info(seq_file: impl Into<PathBuf>) -> PhyloInfo<MSA> {
     // Only use the FakeGenerator for deterministic benchmarking
     let fake_rng = FakeGenerator::new();
     black_box(
@@ -49,7 +50,7 @@ pub fn black_box_deterministic_phylo_info(seq_file: impl Into<PathBuf>) -> Phylo
 pub fn black_box_pip_cost<Model: QMatrix + QMatrixMaker>(
     path: impl Into<PathBuf>,
     freq_opt: FrequencyOptimisation,
-) -> PIPCost<Model> {
+) -> PIPCost<Model, MSA> {
     let info = black_box_deterministic_phylo_info(path);
     let pip_cost = PIPCostBuilder::new(PIPModel::<Model>::new(&[], &[]), info)
         .build()
@@ -75,7 +76,7 @@ pub struct PIPConfig {
 }
 pub fn black_box_raw_pip_cost_with_config<Model: QMatrix + QMatrixMaker>(
     seq_path: impl Into<PathBuf>,
-) -> (PIPConfig, PIPCost<Model>) {
+) -> (PIPConfig, PIPCost<Model, MSA>) {
     let info = black_box_deterministic_phylo_info(seq_path);
 
     let cfg = black_box(PIPConfig {

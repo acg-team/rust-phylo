@@ -2,6 +2,7 @@ use std::fmt;
 use std::result::Result as stdResult;
 
 use anyhow::bail;
+use fixedbitset::FixedBitSet;
 use log::{info, warn};
 use pest::{error::Error as PestError, iterators::Pair, Parser};
 use pest_derive::Parser;
@@ -71,7 +72,7 @@ impl Tree {
             n: 0,
             length: 0.0,
             leaf_ids: Vec::new(),
-            dirty: Vec::new(),
+            dirty: FixedBitSet::new(),
         }
     }
 
@@ -101,7 +102,7 @@ impl Tree {
         self.compute_postorder();
         self.compute_preorder();
         self.length = self.nodes.iter().map(|n| n.blen).sum();
-        self.dirty = vec![false; self.n * 2 - 1];
+        self.dirty = FixedBitSet::with_capacity(self.n * 2 - 1);
     }
 
     fn parse_unrooted_rule(

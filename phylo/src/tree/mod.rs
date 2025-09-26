@@ -2,6 +2,8 @@ use std::collections::HashSet;
 use std::fmt::{Debug, Display};
 
 use anyhow::bail;
+use bio::alignment::distance::levenshtein;
+use fixedbitset::FixedBitSet;
 use inc_stats::Percentiles;
 
 use crate::alignment::Sequences;
@@ -68,7 +70,7 @@ pub struct Tree {
     pub n: usize,
     /// The sum of all branch lengths of the tree.
     pub length: f64,
-    pub(crate) dirty: Vec<bool>,
+    pub(crate) dirty: FixedBitSet,
 }
 
 impl Display for Tree {
@@ -83,43 +85,32 @@ impl Tree {
         if n == 0 {
             bail!("No sequences provided, aborting");
         }
-        if n == 1 {
-            Ok(Self {
-                root: Leaf(0),
-                postorder: vec![Leaf(0)],
-                preorder: vec![Leaf(0)],
-                nodes: vec![Node::new_leaf(
-                    0,
-                    None,
-                    0.0,
-                    sequences.record(0).id().to_string(),
-                )],
-                complete: true,
-                n: 1,
-                length: 0.0,
-                leaf_ids: vec![sequences.record(0).id().to_string()],
-                dirty: vec![false],
-            })
-        } else {
-            Ok(Self {
-                root: Int(2 * n - 2),
-                postorder: Vec::new(),
-                preorder: Vec::new(),
-                nodes: (0..n)
-                    .zip(sequences.iter().map(|seq| seq.id().to_string()))
-                    .map(|(idx, id)| Node::new_leaf(idx, None, 0.0, id))
-                    .collect(),
-                complete: false,
-                n,
-                length: 0.0,
-                leaf_ids: sequences.iter().map(|seq| seq.id().to_string()).collect(),
-                dirty: vec![false; 2 * n - 1],
-            })
-        }
+        let root = if n == 1 { Leaf(0) } else { Int(2 * n - 2) };
+        Ok(Self {
+            root,
+            postorder: Vec::new(),
+            preorder: Vec::new(),
+            nodes: (0..n)
+                .zip(sequences.iter().map(|seq| seq.id().to_string()))
+                .map(|(idx, id)| Node::new_leaf(idx, None, 0.0, id))
+                .collect(),
+            complete: false,
+            n,
+            length: 0.0,
+            leaf_ids: sequences.iter().map(|seq| seq.id().to_string()).collect(),
+            dirty: FixedBitSet::with_capacity(2 * n - 1),
+        })
     }
 
-    pub fn clean(&mut self, clean: bool) {
-        self.dirty.fill(clean);
+    /// Marks all nodes in the tree as clean (not dirty).
+    pub fn clean(&mut self) {
+        self.dirty.set_range(0..self.dirty.len(), false);
+    }
+
+    /// Marks all nodes in the tree as dirty (in case of disruptive changes to the tree structure
+    /// which mean that e.g. cached information for the likelihood computation is not valid anymore).
+    pub fn dirty(&mut self) {
+        self.dirty.set_range(0..self.dirty.len(), true);
     }
 
     pub fn robinson_foulds(&self, other: &Tree) -> usize {
@@ -346,7 +337,7 @@ impl Tree {
         let old_blen = self.nodes[idx].blen;
         self.length += blen - old_blen;
         self.nodes[idx].blen = blen;
-        self.dirty[idx] = true;
+        self.dirty.set(idx, true);
     }
 
     pub fn parent(&self, node_idx: &NodeIdx) -> Option<NodeIdx> {
@@ -367,6 +358,19 @@ impl Tree {
             .iter()
             .filter(|&x| matches!(x.idx, Int(_)))
             .collect()
+    }
+
+    pub fn node_ids_are_unique(&self) -> Result<()> {
+        let mut seen = HashSet::new();
+        for node_idx in self.postorder() {
+            if !seen.insert(self.node_id(node_idx)) {
+                bail!(
+                    "Node ID '{}' is not unique in the tree",
+                    self.node_id(node_idx)
+                );
+            }
+        }
+        Ok(())
     }
 }
 

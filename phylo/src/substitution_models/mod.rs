@@ -7,6 +7,7 @@ use anyhow::bail;
 use hashbrown::HashMap;
 use nalgebra::{DMatrix, DVector};
 
+use crate::alignment::Alignment;
 use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
 use crate::likelihood::{ModelSearchCost, TreeSearchCost};
@@ -38,12 +39,12 @@ pub trait QMatrixMaker {
 }
 
 pub trait QMatrix: Debug + Clone + Display {
-    fn set_param(&mut self, param: usize, value: f64);
-    fn params(&self) -> &[f64];
-    fn freqs(&self) -> &FreqVector;
-    fn set_freqs(&mut self, freqs: FreqVector);
     fn q(&self) -> &SubstMatrix;
     fn rate(&self, i: u8, j: u8) -> f64;
+    fn params(&self) -> &[f64];
+    fn set_param(&mut self, param: usize, value: f64);
+    fn freqs(&self) -> &FreqVector;
+    fn set_freqs(&mut self, freqs: FreqVector);
     fn n(&self) -> usize;
     fn alphabet(&self) -> &Alphabet;
 }
@@ -114,17 +115,17 @@ impl<Q: QMatrix> EvoModel for SubstModel<Q> {
     }
 }
 
-pub struct SubstitutionCostBuilder<Q: QMatrix> {
+pub struct SubstitutionCostBuilder<Q: QMatrix, A: Alignment> {
     model: SubstModel<Q>,
-    info: PhyloInfo,
+    info: PhyloInfo<A>,
 }
 
-impl<Q: QMatrix> SubstitutionCostBuilder<Q> {
-    pub fn new(model: SubstModel<Q>, info: PhyloInfo) -> Self {
+impl<Q: QMatrix, A: Alignment> SubstitutionCostBuilder<Q, A> {
+    pub fn new(model: SubstModel<Q>, info: PhyloInfo<A>) -> Self {
         SubstitutionCostBuilder { model, info }
     }
 
-    pub fn build(self) -> Result<SubstitutionCost<Q>> {
+    pub fn build(self) -> Result<SubstitutionCost<Q, A>> {
         if self.info.msa.alphabet() != self.model.alphabet() {
             bail!("Alphabet mismatch between model and alignment");
         }
@@ -139,13 +140,13 @@ impl<Q: QMatrix> SubstitutionCostBuilder<Q> {
 }
 
 #[derive(Debug)]
-pub struct SubstitutionCost<Q: QMatrix> {
+pub struct SubstitutionCost<Q: QMatrix, A: Alignment> {
     pub(crate) model: SubstModel<Q>,
-    pub(crate) info: PhyloInfo,
+    pub(crate) info: PhyloInfo<A>,
     tmp: RefCell<SubstModelInfo<Q>>,
 }
 
-impl<Q: QMatrix> Clone for SubstitutionCost<Q> {
+impl<Q: QMatrix, A: Alignment> Clone for SubstitutionCost<Q, A> {
     fn clone(&self) -> Self {
         SubstitutionCost {
             model: self.model.clone(),
@@ -155,22 +156,18 @@ impl<Q: QMatrix> Clone for SubstitutionCost<Q> {
     }
 }
 
-impl<Q: QMatrix> TreeSearchCost for SubstitutionCost<Q> {
+impl<Q: QMatrix, A: Alignment> TreeSearchCost for SubstitutionCost<Q, A> {
     fn cost(&self) -> f64 {
         self.logl(&self.info)
     }
 
-    fn update_tree(&mut self, tree: Tree, dirty_nodes: &[NodeIdx]) {
+    fn update_tree(&mut self, tree: Tree) {
         self.info.tree = tree;
-        if dirty_nodes.is_empty() {
-            self.tmp.borrow_mut().node_info_valid.fill(false);
-            self.tmp.borrow_mut().node_models_valid.fill(false);
-            return;
+        for idx in self.info.tree.dirty.ones() {
+            self.tmp.borrow_mut().node_info_valid[idx] = false;
+            self.tmp.borrow_mut().node_models_valid[idx] = false;
         }
-        for node_idx in dirty_nodes {
-            self.tmp.borrow_mut().node_info_valid[usize::from(node_idx)] = false;
-            self.tmp.borrow_mut().node_models_valid[usize::from(node_idx)] = false;
-        }
+        self.info.tree.clean();
     }
 
     fn tree(&self) -> &Tree {
@@ -178,7 +175,7 @@ impl<Q: QMatrix> TreeSearchCost for SubstitutionCost<Q> {
     }
 }
 
-impl<Q: QMatrix> ModelSearchCost for SubstitutionCost<Q> {
+impl<Q: QMatrix, A: Alignment> ModelSearchCost for SubstitutionCost<Q, A> {
     fn cost(&self) -> f64 {
         self.logl(&self.info)
     }
@@ -206,14 +203,14 @@ impl<Q: QMatrix> ModelSearchCost for SubstitutionCost<Q> {
     }
 }
 
-impl<Q: QMatrix> Display for SubstitutionCost<Q> {
+impl<Q: QMatrix, A: Alignment> Display for SubstitutionCost<Q, A> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.model)
     }
 }
 
-impl<Q: QMatrix> SubstitutionCost<Q> {
-    fn logl(&self, info: &PhyloInfo) -> f64 {
+impl<Q: QMatrix, A: Alignment> SubstitutionCost<Q, A> {
+    fn logl(&self, info: &PhyloInfo<A>) -> f64 {
         for node_idx in info.tree.postorder() {
             match node_idx {
                 Internal(_) => {
@@ -247,7 +244,7 @@ impl<Q: QMatrix> SubstitutionCost<Q> {
         let idx = usize::from(node_idx);
 
         let mut tmp_values = self.tmp.borrow_mut();
-        if tree.dirty[idx] || !tmp_values.node_models_valid[idx] {
+        if !tmp_values.node_info_valid[idx] || !tmp_values.node_models_valid[idx] {
             tmp_values.node_models[idx] = self.model.p(node.blen);
             tmp_values.node_models_valid[idx] = true;
             tmp_values.node_info_valid[idx] = false;
@@ -269,7 +266,7 @@ impl<Q: QMatrix> SubstitutionCost<Q> {
         let node = tree.node(node_idx);
         let idx = usize::from(node_idx);
 
-        if tree.dirty[idx] || !tmp_values.node_models_valid[idx] {
+        if !tmp_values.node_info_valid[idx] || !tmp_values.node_models_valid[idx] {
             tmp_values.node_models[idx] = self.model.p(node.blen);
             tmp_values.node_models_valid[idx] = true;
             tmp_values.node_info_valid[idx] = false;
@@ -299,14 +296,14 @@ pub struct SubstModelInfo<Q: QMatrix> {
 }
 
 impl<Q: QMatrix> SubstModelInfo<Q> {
-    pub fn new(info: &PhyloInfo, model: &SubstModel<Q>) -> Result<Self> {
+    pub fn new<A: Alignment>(info: &PhyloInfo<A>, model: &SubstModel<Q>) -> Result<Self> {
         let n = model.q().nrows();
         let node_count = info.tree.len();
         let msa_length = info.msa.len();
 
         let mut leaf_seq_info = HashMap::with_capacity(info.tree.leaves().len());
         for node in info.tree.leaves() {
-            let seq = info.msa.seqs.record_by_id(&node.id).seq().to_vec();
+            let seq = info.msa.seqs().record_by_id(&node.id).seq().to_vec();
             let alignment_map = info.msa.leaf_map(&node.idx);
             let mut leaf_seq_w_gaps = DMatrix::<f64>::zeros(n, msa_length);
             for (i, mut site_info) in leaf_seq_w_gaps.column_iter_mut().enumerate() {

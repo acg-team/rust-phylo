@@ -3,7 +3,7 @@ use std::path::Path;
 
 use approx::assert_relative_eq;
 
-use crate::alignment::{Alignment, Sequences};
+use crate::alignment::{Alignment, Sequences, MSA};
 use crate::evolutionary_models::FrequencyOptimisation::Empirical;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{
@@ -29,7 +29,7 @@ macro_rules! define_optimise_trees {
                 seq_file: &std::path::Path,
                 _: &std::path::Path,
                 model: $model<Q>,
-            ) -> PhyloOptimisationResult<$cost<Q>> {
+            ) -> PhyloOptimisationResult<$cost<Q, MSA>> {
                 let mut fake_rng = FakeGenerator::default();
                 let start_info = PIB::new(seq_file).build_w_rng(&mut fake_rng).unwrap();
                 let cost = $builder::new(model, start_info).build().unwrap();
@@ -41,7 +41,7 @@ macro_rules! define_optimise_trees {
                 seq_file: &std::path::Path,
                 tree_file: &std::path::Path,
                 model: $model<Q>,
-            ) -> PhyloOptimisationResult<$cost<Q>> {
+            ) -> PhyloOptimisationResult<$cost<Q, MSA>> {
                 let mut fake_rng = FakeGenerator::default();
                 let start_info = PIB::new(seq_file).build_w_rng(&mut fake_rng).unwrap();
 
@@ -82,7 +82,7 @@ define_optimise_trees!(
 fn k80_simple() {
     // Check that optimisation on k80 data improves k80 likelihood when starting from a given tree
     let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"CTATATATAC"),
             record!("B", b"ATATATATAA"),
@@ -114,7 +114,7 @@ fn k80_simple() {
 fn k80_simple_nni() {
     // Check that optimisation on k80 data improves k80 likelihood when starting from a given tree
     let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
-    let msa = Alignment::from_aligned(
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"CTATATATAC"),
             record!("B", b"ATATATATAA"),
@@ -290,7 +290,6 @@ fn wag_no_gaps_vs_phyml_nj_tree_start_nni() {
 
     // Check that optimisation on protein data under WAG produces similar tree to PhyML with matching likelihoods
     // on sequences without gaps starting from an NJ tree
-
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
     let tree_file = fldr.join("jati_wag_nogap_nj_start.newick");
@@ -654,7 +653,7 @@ fn basic_parsimony_tree_search() {
     let tree = tree!("((A:1.0,D:1.0):1.0,(C:1.0,B:1.0):1.0):0.0;");
 
     let info = PhyloInfo {
-        msa: Alignment::from_aligned(seqs.clone(), &tree).unwrap(),
+        msa: MSA::from_aligned(seqs.clone(), &tree).unwrap(),
         tree,
     };
     let cost = BasicParsimonyCost::new(info).unwrap();
@@ -668,8 +667,8 @@ fn basic_parsimony_tree_search() {
 
 #[test]
 fn dollo_tree_search() {
-    let tree = tree!("(((A:1.0,C:1.0)E:2.0,(C:1.0,B:1.0)F:2.0)G:3.0);");
-    let msa = Alignment::from_aligned(
+    let tree = tree!("(((A:1.0,C:1.0)E:2.0,(D:1.0,B:1.0)F:2.0)G:3.0);");
+    let msa = MSA::from_aligned(
         Sequences::new(vec![
             record!("A", b"TTTTTTTTTTTCTATATATA-"),
             record!("B", b"TTTTTTTTTTTATATATAT-A"),

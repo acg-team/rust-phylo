@@ -3,6 +3,7 @@ use std::fmt::Display;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use itertools::Itertools;
+use phylo::alignment::MSA;
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::TreeSearchCost;
 use phylo::optimisers::{Compatible, MoveOptimiser, SprOptimiser, TopologyOptimiser};
@@ -47,7 +48,7 @@ fn run_single_spr_cycle_for_sizes<Q: QMatrix + QMatrixMaker + Send>(
 ) {
     let mut bench_group = criterion.benchmark_group(format!("SINGLE-SPR-CYCLE {group_name}"));
     let spr_optimiser = SprOptimiser {};
-    let mut bench = |id: &str, data: (PIPCost<Q>, &[&NodeIdx])| {
+    let mut bench = |id: &str, data: (PIPCost<Q, MSA>, &[&NodeIdx])| {
         bench_group.bench_function(id, |bench| {
             bench.iter_batched(
                 // clone because of interior mutability in PIPCost
@@ -79,7 +80,7 @@ fn run_find_best_regraft_for_single_spr_move<Q: QMatrix + QMatrixMaker + Send>(
 ) {
     let mut bench_group =
         criterion.benchmark_group(format!("SINGLE-SPR-MOVE-FIND-BEST-REGRAFT {group_name}"));
-    let mut bench = |id: &str, data: (PIPCost<Q>, &NodeIdx)| {
+    let mut bench = |id: &str, data: (PIPCost<Q, MSA>, &NodeIdx)| {
         bench_group.bench_function(id, |bench| {
             bench.iter_batched(
                 // clone because of interior mutability in PIPCost

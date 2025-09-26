@@ -1,22 +1,33 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use anyhow::bail;
 use hashbrown::HashMap;
 
-use crate::alphabets::{Alphabet, GAP};
+use crate::alphabets::Alphabet;
+use crate::asr::AncestralSequenceReconstruction;
+use crate::parsimony_presence_absence::ParsimonyPresenceAbsence;
+use crate::phylo_info::{
+    set_missing_tree_node_ids, validate_ids_with_ancestors, validate_taxa_ids,
+};
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
-use crate::{align, record, Result};
+use crate::{align, aligned_seq, record, Result};
 
 pub mod sequences;
 pub use sequences::*;
 pub mod aligner;
 pub use aligner::*;
 
+/// Represents an aligned position in a sequence. Used in [`Mapping`].
 pub type Position = Option<usize>;
-pub type Mapping = Vec<Option<usize>>;
-pub type InternalMapping = HashMap<NodeIdx, PairwiseAlignment>;
-pub type LeafMapping = HashMap<NodeIdx, Mapping>;
+/// Represents aligned positions of a sequence.
+/// E.g. The `Mapping` for the sequence `A--T-` is `[Some(0), None, None, Some(1), None]`.
+pub type Mapping = Vec<Position>;
+/// For an internal node of the tree, represents the pairwise alignment of the two sub MSAs that
+/// correspond to the two children of that node.
+pub type InternalAlignments = HashMap<NodeIdx, PairwiseAlignment>;
+pub type SeqMaps = HashMap<NodeIdx, Mapping>;
 
+/// Represents a pairwise alignment of two sequences or MSAs. Used in [`InternalAlignments`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct PairwiseAlignment {
     pub map_x: Mapping,
@@ -25,229 +36,107 @@ pub struct PairwiseAlignment {
 
 impl PairwiseAlignment {
     pub fn new(map_x: Mapping, map_y: Mapping) -> PairwiseAlignment {
-        debug_assert!((map_x.len() == map_y.len()) | map_y.is_empty());
+        debug_assert!((map_x.len() == map_y.len()) || map_y.is_empty());
         PairwiseAlignment { map_x, map_y }
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Alignment {
-    pub(crate) seqs: Sequences,
-    pub(crate) leaf_map: LeafMapping,
-    pub(crate) node_map: InternalMapping,
-}
-
-impl Display for Alignment {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.seqs)
-    }
-}
-
-impl Alignment {
-    /// Returns the alphabet of the MSA.
+/// Represents an alignment of sequences that are associated with the leaves of a phylogenetic tree.
+/// See also [`AncestralAlignment`].
+#[allow(clippy::len_without_is_empty)]
+pub trait Alignment: Display + Clone + Debug {
+    /// Returns the alphabet of the sequences in the alignment.
+    fn alphabet(&self) -> &Alphabet;
+    /// Returns the sequences without gaps
+    fn seqs(&self) -> &Sequences;
+    /// Returns the length of the sequences in the alignment
+    fn len(&self) -> usize;
+    /// Returns the number of sequences in the alignment. Should be equal to the number of leaves
+    /// in the tree.
+    fn seq_count(&self) -> usize;
+    fn leaf_map(&self, node: &NodeIdx) -> &Mapping;
+    fn leaf_maps(&self) -> &SeqMaps;
+    fn internal_alignments(&self) -> &InternalAlignments;
+    /// Checks if inputs are compatible, removes columns with only gaps and calls [`Self::from_aligned_unchecked`].  
     ///
-    /// # Example
-    /// ```
-    /// use phylo::alignment::{Alignment, Sequences};
-    /// use phylo::alphabets::dna_alphabet;
-    /// use phylo::{record, tree};
-    /// # fn main() -> std::result::Result<(), anyhow::Error> {
-    /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
-    /// let seqs = Sequences::with_alphabet(vec![
-    ///     record!("A0", Some("A0 sequence"), b"AAAA"),
-    ///     record!("B1", Some("B1 sequence"), b"---A"),
-    ///     record!("C2", Some("C2 sequence"), b"AA--"),
-    /// ], dna_alphabet());
-    /// let msa = Alignment::from_aligned(seqs, &tree)?;
-    /// assert_eq!(*msa.alphabet(), dna_alphabet());
-    /// # Ok(()) }
-    /// ```
-    pub fn alphabet(&self) -> &Alphabet {
-        &self.seqs.alphabet
-    }
-
-    /// Returns the length of the MSA, i.e. the number of sites/columns.
+    /// # Errors
     ///
-    /// # Example
-    /// ```
-    /// use phylo::alignment::{Alignment, Sequences};
-    /// use phylo::{record, tree};
-    /// # fn main() -> std::result::Result<(), anyhow::Error> {
-    /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
-    /// let seqs = Sequences::new(vec![
-    ///     record!("A0", Some("A0 sequence"), b"AAAA"),
-    ///     record!("B1", Some("B1 sequence"), b"---A"),
-    ///     record!("C2", Some("C2 sequence"), b"AA--"),
-    /// ]);
-    /// let msa = Alignment::from_aligned(seqs, &tree)?;
-    /// assert_eq!(msa.len(), 4);
-    /// # Ok(()) }
-    /// ```
-    #[allow(clippy::len_without_is_empty)]
-    pub fn len(&self) -> usize {
-        self.leaf_map
-            .values()
-            .next()
-            .map(|map| map.len())
-            .unwrap_or(0)
-    }
-
-    /// Returns the number of sequences in the MSA, i.e. the number of rows.
-    ///
-    /// # Example
-    /// ```
-    /// use phylo::alignment::{Alignment, Sequences};
-    /// use phylo::{record, tree};
-    /// # fn main() -> std::result::Result<(), anyhow::Error> {
-    /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
-    /// let seqs = Sequences::new(vec![
-    ///     record!("A0", Some("A0 sequence"), b"AAAA"),
-    ///     record!("B1", Some("B1 sequence"), b"---A"),
-    ///     record!("C2", Some("C2 sequence"), b"AA--"),
-    /// ]);
-    /// let msa = Alignment::from_aligned(seqs, &tree)?;
-    /// assert_eq!(msa.seq_count(), 3);
-    /// # Ok(()) }
-    /// ```
-    pub fn seq_count(&self) -> usize {
-        self.leaf_map.len()
-    }
-
-    /// Constructs an alignment instance from aligned sequences and a phylogenetic tree.
-    ///
-    /// # Example
-    /// ```
-    /// use phylo::alignment::{Alignment, Sequences};
-    /// use phylo::{record, tree};
-    /// # fn main() -> std::result::Result<(), anyhow::Error> {
-    /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
-    /// let seqs = Sequences::new(vec![
-    ///     record!("A0", Some("A0 sequence"), b"AAAA"),
-    ///     record!("B1", Some("B1 sequence"), b"---A"),
-    ///     record!("C2", Some("C2 sequence"), b"AA--"),
-    /// ]);
-    /// let msa = Alignment::from_aligned(seqs.clone(), &tree)?;
-    /// let aligned_seqs = msa.compile(&tree)?;
-    /// assert_eq!(aligned_seqs, seqs);
-    /// # Ok(()) }
-    /// ```
-    pub fn from_aligned(mut seqs: Sequences, tree: &Tree) -> Result<Alignment> {
-        if !seqs.aligned {
+    /// - bails if sequences are not aligned
+    /// - bails if sequence IDs are not unique ([`Sequences::ids_are_unique`])
+    /// - bails if sequence IDs do not match the taxa IDs in the tree ([`validate_taxa_ids`])
+    fn from_aligned(mut sequences: Sequences, tree: &Tree) -> Result<Self> {
+        if !sequences.aligned {
             bail!("Sequences are not aligned")
         }
-        seqs.remove_gap_cols();
+        sequences.ids_are_unique()?;
+        validate_taxa_ids(tree, &sequences)?;
+        sequences.remove_gap_cols();
+        Ok(Self::from_aligned_unchecked(sequences, tree))
+    }
+    /// Constructs an alignment instance from aligned sequences and a phylogenetic tree. Is called
+    /// by [`Self::from_aligned`]. The caller must ensure that the sequences are aligned, that the
+    /// sequence IDs are unique, and that the sequence IDs match the taxa IDs in the tree.
+    fn from_aligned_unchecked(sequences: Sequences, tree: &Tree) -> Self;
+}
 
-        let msa_len = seqs.record(0).seq().len();
-        let mut stack = HashMap::<NodeIdx, Mapping>::with_capacity(tree.len());
-        let mut msa = InternalMapping::with_capacity(tree.n);
-        for node_idx in tree.postorder() {
-            match node_idx {
-                Int(_) => {
-                    let childs = tree.children(node_idx);
-                    let map_x = stack[&childs[0]].clone();
-                    let map_y = stack[&childs[1]].clone();
-                    stack.insert(*node_idx, Self::stack_maps(msa_len, &map_x, &map_y));
-                    msa.insert(*node_idx, Self::clear_common_gaps(msa_len, &map_x, &map_y));
-                }
-                Leaf(_) => {
-                    let seq = seqs.record_by_id(tree.node_id(node_idx)).seq();
-                    stack.insert(*node_idx, align!(seq).clone());
-                }
-            }
+/// Represents an alignment of sequences that are associated with all nodes of a phylogenetic tree,
+/// i.e. both leaves (modern sequences) and internal nodes (ancestral sequences).
+///
+/// The default implementation of [`Alignment::from_aligned`] only ensures
+/// prerequisites to build an alignment, not an ancestral alignment. Please overwrite this default
+/// implementation and make sure to call [`Tree::node_ids_are_unique`] in addition to checks
+/// your implementation requires.
+// TODO: instead of having this tip here, we could change the default implementation of
+// Alignment::from_aligned to ensure prerequisites for alignment as well as ancestral alignment.
+pub trait AncestralAlignment: Alignment {
+    fn ancestral_seqs(&self) -> &Sequences;
+    fn ancestral_map(&self, node_idx: &NodeIdx) -> &Mapping;
+    /// Checks if inputs are compatible and calls [`Self::from_aligned_with_ancestral_unchecked`].  
+    /// Checks:
+    /// - if sequences are aligned
+    /// - if sequence IDs are unique ([`Sequences::ids_are_unique`])
+    /// - if sequence IDs match the node IDs in the tree ([`validate_ids_with_ancestors`])
+    /// - removes columns with only gaps ([`Sequences::remove_gap_cols`])
+    ///
+    /// Only overwrite this method if absolutely necessary. The default implementation
+    /// ensures that prerequisites are met. Overwriting and not ensuring these checks
+    /// may lead to unexpected panics or wrong results.
+    fn from_aligned_with_ancestral(mut all_seqs: Sequences, tree: &Tree) -> Result<Self> {
+        if !all_seqs.aligned {
+            bail!("Sequences are not aligned")
         }
-        let leaf_maps = stack
-            .iter()
-            .filter_map(|(idx, map)| match idx {
-                Leaf(_) => Some((*idx, map.clone())),
-                _ => None,
-            })
-            .collect();
-
-        let seqs = seqs.into_gapless();
-        Ok(Alignment {
-            seqs,
-            leaf_map: leaf_maps,
-            node_map: msa,
-        })
+        all_seqs.ids_are_unique()?;
+        validate_ids_with_ancestors(tree, &all_seqs)?;
+        all_seqs.remove_gap_cols();
+        Ok(Self::from_aligned_with_ancestral_unchecked(all_seqs, tree))
     }
+    /// Constructs an ancestral alignment instance from aligned sequences and a phylogenetic tree. Is called
+    /// by the default implementation of [`Self::from_aligned_with_ancestral`].
+    fn from_aligned_with_ancestral_unchecked(all_seqs: Sequences, tree: &Tree) -> Self;
+}
 
-    pub fn compile(&self, tree: &Tree) -> Result<Sequences> {
-        self.compile_subroot(None, tree)
-    }
+#[derive(Debug, Clone)]
+pub struct MSA {
+    seqs: Sequences,
+    leaf_maps: SeqMaps,
+    internal_alignments: InternalAlignments,
+    idx_to_id: Vec<String>,
+}
 
-    pub(crate) fn leaf_map(&self, node: &NodeIdx) -> &Mapping {
-        self.leaf_map.get(node).unwrap()
-    }
-
-    pub(crate) fn compile_subroot(
-        &self,
-        subroot_opt: Option<&NodeIdx>,
-        tree: &Tree,
-    ) -> Result<Sequences> {
-        let subroot = subroot_opt.unwrap_or(&tree.root);
-        let map = if subroot == &tree.root {
-            self.leaf_map.clone()
-        } else {
-            self.compile_leaf_map(subroot, tree)?
-        };
-        let mut records = Vec::with_capacity(map.len());
-        for (idx, map) in &map {
-            let rec = self.seqs.record_by_id(tree.node_id(idx));
-            let aligned_seq = Self::map_sequence(map, rec.seq());
-            records.push(record!(rec.id(), rec.desc(), &aligned_seq));
+impl Display for MSA {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut aligned_records = Vec::with_capacity(self.seqs.len());
+        for (node_idx, seq_map) in &self.leaf_maps {
+            let id = &self.idx_to_id[usize::from(node_idx)];
+            let record = self.seqs.record_by_id(id);
+            let aligned_seq = aligned_seq!(seq_map, record.seq());
+            aligned_records.push(record!(id, record.desc(), &aligned_seq));
         }
-
-        Ok(Sequences::with_alphabet(records, self.seqs.alphabet))
+        write!(f, "{}", Sequences::new(aligned_records))
     }
+}
 
-    pub(crate) fn compile_leaf_map(&self, root: &NodeIdx, tree: &Tree) -> Result<LeafMapping> {
-        let order = &tree.preorder_subroot(root);
-        let msa_len = match root {
-            Int(_) => self.node_map[root].map_x.len(),
-            Leaf(_) => self.seqs.record_by_id(tree.node_id(root)).seq().len(),
-        };
-        let mut stack = HashMap::<NodeIdx, Mapping>::with_capacity(tree.len());
-        stack.insert(*root, (0..msa_len).map(Some).collect());
-        let mut leaf_map = LeafMapping::with_capacity(tree.n);
-        for idx in order {
-            match idx {
-                Int(_) => {
-                    let parent = &stack[idx];
-                    let childs = tree.children(idx);
-                    let map_x = &self.node_map[idx].map_x;
-                    let map_y = &self.node_map[idx].map_y;
-                    let x = Self::map_child(parent, map_x);
-                    let y = Self::map_child(parent, map_y);
-                    stack.insert(childs[0], x);
-                    stack.insert(childs[1], y);
-                }
-                Leaf(_) => {
-                    leaf_map.insert(*idx, stack[idx].clone());
-                }
-            }
-        }
-        Ok(leaf_map)
-    }
-
-    fn map_sequence(map: &Mapping, seq: &[u8]) -> Vec<u8> {
-        map.iter()
-            .map(|site| if let Some(idx) = site { seq[*idx] } else { GAP })
-            .collect()
-    }
-
-    fn map_child(parent: &Mapping, child: &Mapping) -> Mapping {
-        parent
-            .iter()
-            .map(|site| {
-                if let Some(idx) = site {
-                    child[*idx]
-                } else {
-                    None
-                }
-            })
-            .collect::<Mapping>()
-    }
-
+impl MSA {
     fn stack_maps(msa_len: usize, map_x: &Mapping, map_y: &Mapping) -> Mapping {
         let mut map = Vec::with_capacity(msa_len);
         let mut ind = 0usize;
@@ -272,6 +161,357 @@ impl Alignment {
             }
         }
         PairwiseAlignment::new(upd_map_x, upd_map_y)
+    }
+}
+
+impl Alignment for MSA {
+    /// Returns the alphabet of the MSA.
+    ///
+    /// # Example
+    /// ```
+    /// # use bio::io::fasta::Record;
+    /// use phylo::alignment::{MSA, Alignment};
+    /// use phylo::alignment::Sequences;
+    /// use phylo::alphabets::dna_alphabet;
+    /// use phylo::{record, tree};
+    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
+    /// let seqs = Sequences::with_alphabet(vec![
+    ///     record!("A0", Some("A0 sequence"), b"AAAA"),
+    ///     record!("B1", Some("B1 sequence"), b"---A"),
+    ///     record!("C2", Some("C2 sequence"), b"AA--"),
+    /// ], dna_alphabet());
+    /// let msa = MSA::from_aligned(seqs, &tree)?;
+    /// assert_eq!(*msa.alphabet(), dna_alphabet());
+    /// # Ok(()) }
+    ///
+    fn alphabet(&self) -> &Alphabet {
+        &self.seqs.alphabet
+    }
+
+    fn seqs(&self) -> &Sequences {
+        &self.seqs
+    }
+
+    /// Returns the length of the MSA, i.e. the number of sites/columns.
+    ///
+    /// # Example
+    /// ```
+    /// # use bio::io::fasta::Record;
+    /// use phylo::alignment::{Alignment, MSA};
+    /// use phylo::alignment::Sequences;
+    /// use phylo::{record, tree};
+    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
+    /// let seqs = Sequences::new(vec![
+    ///     record!("A0", Some("A0 sequence"), b"AAAA"),
+    ///     record!("B1", Some("B1 sequence"), b"---A"),
+    ///     record!("C2", Some("C2 sequence"), b"AA--"),
+    /// ]);
+    /// let msa = MSA::from_aligned(seqs, &tree)?;
+    /// assert_eq!(msa.len(), 4);
+    /// # Ok(()) }
+    /// ```
+    #[allow(clippy::len_without_is_empty)]
+    fn len(&self) -> usize {
+        self.leaf_maps
+            .values()
+            .next()
+            .map(|map| map.len())
+            .unwrap_or(0)
+    }
+
+    /// Returns the number of sequences in the MSA, i.e. the number of rows.
+    ///
+    /// # Example
+    /// ```
+    /// # use bio::io::fasta::Record;
+    /// use phylo::alignment::{MSA, Alignment};
+    /// use phylo::alignment::Sequences;
+    /// use phylo::{record, tree};
+    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
+    /// let seqs = Sequences::new(vec![
+    ///     record!("A0", Some("A0 sequence"), b"AAAA"),
+    ///     record!("B1", Some("B1 sequence"), b"---A"),
+    ///     record!("C2", Some("C2 sequence"), b"AA--"),
+    /// ]);
+    /// let msa = MSA::from_aligned(seqs, &tree)?;
+    /// assert_eq!(msa.seq_count(), 3);
+    /// # Ok(()) }
+    /// ```
+    fn seq_count(&self) -> usize {
+        self.leaf_maps.len()
+    }
+
+    fn leaf_map(&self, node: &NodeIdx) -> &Mapping {
+        self.leaf_maps.get(node).unwrap()
+    }
+
+    fn leaf_maps(&self) -> &SeqMaps {
+        &self.leaf_maps
+    }
+
+    fn internal_alignments(&self) -> &InternalAlignments {
+        &self.internal_alignments
+    }
+
+    /// Constructs an alignment instance from aligned sequences and a phylogenetic tree.
+    ///
+    /// # Example
+    /// ```
+    /// # use bio::io::fasta::Record;
+    /// use phylo::alignment::{MSA, Alignment};
+    /// use phylo::alignment::Sequences;
+    /// use phylo::phylo_info::PhyloInfo;
+    /// use phylo::{record, tree};
+    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
+    /// let seqs = Sequences::new(vec![
+    ///     record!("A0", Some("A0 sequence"), b"AAAA"),
+    ///     record!("B1", Some("B1 sequence"), b"---A"),
+    ///     record!("C2", Some("C2 sequence"), b"AA--"),
+    /// ]);
+    /// let msa = MSA::from_aligned(seqs.clone(), &tree)?;
+    /// let phylo_info = PhyloInfo { msa, tree };
+    /// let aligned_seqs = phylo_info.compile_alignment(None)?;
+    /// assert_eq!(aligned_seqs, seqs);
+    /// # Ok(()) }
+    /// ```
+    fn from_aligned_unchecked(seqs: Sequences, tree: &Tree) -> MSA {
+        let msa_len = seqs.record(0).seq().len();
+        let mut stack = HashMap::<NodeIdx, Mapping>::with_capacity(tree.len());
+        let mut internal_alignments = InternalAlignments::with_capacity(tree.n);
+        let mut idx_to_id = vec![String::new(); tree.len()];
+        for node_idx in tree.postorder() {
+            match node_idx {
+                Int(_) => {
+                    let childs = tree.children(node_idx);
+                    let map_x = stack[&childs[0]].clone();
+                    let map_y = stack[&childs[1]].clone();
+                    stack.insert(*node_idx, Self::stack_maps(msa_len, &map_x, &map_y));
+                    internal_alignments
+                        .insert(*node_idx, Self::clear_common_gaps(msa_len, &map_x, &map_y));
+                }
+                Leaf(_) => {
+                    let seq = seqs.record_by_id(tree.node_id(node_idx)).seq();
+                    stack.insert(*node_idx, align!(seq).clone());
+                    idx_to_id[usize::from(node_idx)] = tree.node_id(node_idx).to_string();
+                }
+            }
+        }
+        let leaf_maps = stack
+            .iter()
+            .filter_map(|(idx, map)| match idx {
+                Leaf(_) => Some((*idx, map.clone())),
+                _ => None,
+            })
+            .collect();
+
+        let seqs = seqs.into_gapless();
+        MSA {
+            seqs,
+            leaf_maps,
+            internal_alignments,
+            idx_to_id,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MASA {
+    leaf_seqs: Sequences,
+    ancestral_seqs: Sequences,
+    leaf_maps: SeqMaps,
+    ancestral_maps: SeqMaps,
+    // TODO: this needs to be implemented
+    internal_alignments: InternalAlignments,
+    idx_to_id: Vec<String>,
+}
+
+impl Display for MASA {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let both_maps = self.leaf_maps.iter().chain(self.ancestral_maps.iter());
+        for (node_idx, seq_map) in both_maps {
+            let id = &self.idx_to_id[usize::from(node_idx)];
+            let record = match node_idx {
+                Int(_) => self.ancestral_seqs.record_by_id(id),
+                Leaf(_) => self.leaf_seqs.record_by_id(id),
+            };
+            let aligned_seq = aligned_seq!(seq_map, record.seq());
+            write!(f, "{}", record!(id, record.desc(), &aligned_seq))?;
+        }
+        Ok(())
+    }
+}
+
+impl Alignment for MASA {
+    fn alphabet(&self) -> &Alphabet {
+        &self.leaf_seqs.alphabet
+    }
+
+    fn seqs(&self) -> &Sequences {
+        &self.leaf_seqs
+    }
+
+    #[allow(clippy::len_without_is_empty)]
+    fn len(&self) -> usize {
+        self.leaf_maps
+            .values()
+            .next()
+            .map(|map| map.len())
+            .unwrap_or(0)
+    }
+
+    fn seq_count(&self) -> usize {
+        self.leaf_maps.len()
+    }
+
+    fn leaf_map(&self, node: &NodeIdx) -> &Mapping {
+        self.leaf_maps.get(node).unwrap()
+    }
+
+    fn leaf_maps(&self) -> &SeqMaps {
+        &self.leaf_maps
+    }
+
+    fn internal_alignments(&self) -> &InternalAlignments {
+        &self.internal_alignments
+    }
+
+    /// # Example
+    /// ```
+    /// # use bio::io::fasta::Record;
+    /// use phylo::alignment::{MASA, Alignment, AncestralAlignment};
+    /// use phylo::alignment::Sequences;
+    /// use phylo::phylo_info::PhyloInfo;
+    /// use phylo::{record, tree};
+    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// let tree = tree!("(((A0:1.0,B1:1.0)I1:1.0,C2:1.0)I2:1.0);");
+    /// let seqs = Sequences::new(vec![
+    ///     record!("A0", Some("A0 sequence"), b"AAAA"),
+    ///     record!("B1", Some("B1 sequence"), b"---A"),
+    ///     record!("C2", Some("C2 sequence"), b"AA--"),
+    /// ]);
+    /// let masa = MASA::from_aligned(seqs.clone(), &tree)?;
+    /// let phylo_info = PhyloInfo { msa: masa, tree };
+    /// let aligned_seqs = phylo_info.compile_alignment(None)?;
+    ///
+    /// // checking leaf sequences
+    /// assert_eq!(aligned_seqs, seqs);
+    /// // checking ancestral sequences
+    /// let root_seq = phylo_info.msa.ancestral_seqs().record_by_id("I2").seq();
+    /// let root_seq = std::str::from_utf8(root_seq).unwrap().to_string();
+    /// assert_eq!(root_seq, "XX");
+    /// let root_map = phylo_info.msa.ancestral_map(&phylo_info.tree.root);
+    /// assert_eq!(root_map, &vec![Some(0), Some(1), None, None]);
+    /// // Ancestral sequences are inferred by (hard coded) ParsimonyPresenceAbsence.
+    /// // Alternatively, you may call MSA::from_aligned and then call ASR on that.
+    /// let i1_seq = phylo_info.msa.ancestral_seqs().record_by_id("I1").seq();
+    /// let i1_seq = std::str::from_utf8(i1_seq).unwrap().to_string();
+    /// assert_eq!(i1_seq, "XXX");
+    /// let i1_map = phylo_info.msa.ancestral_map(&phylo_info.tree.by_id("I1").idx);
+    /// assert_eq!(i1_map, &vec![Some(0), Some(1), None, Some(2)]);
+    /// /// or use the align_seq marco to test seq and map at the same time
+    /// # Ok(()) }
+    /// ```
+    fn from_aligned(sequences: Sequences, tree: &Tree) -> Result<Self> {
+        let tree = &set_missing_tree_node_ids(tree)?;
+        let msa = MSA::from_aligned(sequences, tree)?;
+        // TODO: Do the internal_alignments, built in the line above, conform with adding ancestral seqs?
+        //       see also from_aligned_with_ancestral
+        // If the user wants to use a different ASR method to build the MASA, they can call
+        // MSA::from_aligned and then call their desired ASR method on the MSA.
+        let asr = ParsimonyPresenceAbsence {};
+        asr.reconstruct_ancestral_seqs(&msa, tree)
+    }
+
+    fn from_aligned_unchecked(sequences: Sequences, tree: &Tree) -> Self {
+        let msa = MSA::from_aligned_unchecked(sequences, tree);
+        // TODO: do the internal alignments, built in the above line, conform with adding ancestral seqs?
+        //       see also from_aligned_with_ancestral
+        // If the user wants to use a different ASR method to build the MASA, they can call
+        // MSA::from_aligned and then call their desired ASR method on the MSA.
+        let asr = ParsimonyPresenceAbsence {};
+        asr.reconstruct_ancestral_seqs_unchecked(&msa, tree)
+    }
+}
+
+impl AncestralAlignment for MASA {
+    fn ancestral_seqs(&self) -> &Sequences {
+        &self.ancestral_seqs
+    }
+
+    fn ancestral_map(&self, node: &NodeIdx) -> &Mapping {
+        self.ancestral_maps.get(node).unwrap()
+    }
+
+    /// # Example
+    /// ```
+    /// # use bio::io::fasta::Record;
+    /// use phylo::alignment::{MASA, Alignment, AncestralAlignment};
+    /// use phylo::alignment::Sequences;
+    /// use phylo::phylo_info::PhyloInfo;
+    /// use phylo::{record, tree};
+    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// let tree = tree!("(((A0:1.0,B1:1.0)I1:1.0,C2:1.0)I2:1.0);");
+    /// let seqs = Sequences::new(vec![
+    ///     record!("A0", Some("A0 sequence"), b"AG-T"),
+    ///     record!("B1", Some("B1 sequence"), b"---T"),
+    ///     record!("C2", Some("C2 sequence"), b"AC--"),
+    ///     record!("I1", Some("I1 sequence"), b"AA-A"),
+    ///     record!("I2", Some("I2 sequence"), b"ACGT"),
+    /// ]);
+    /// let masa = MASA::from_aligned_with_ancestral_unchecked(seqs.clone(), &tree);
+    ///
+    /// assert_eq!(masa.seqs().len(), 3);
+    /// assert_eq!(masa.ancestral_seqs().len(), 2);
+    /// # Ok(()) }
+    /// ```
+    fn from_aligned_with_ancestral_unchecked(all_seqs: Sequences, tree: &Tree) -> MASA {
+        let mut leaf_maps = HashMap::<NodeIdx, Mapping>::with_capacity(tree.n);
+        let mut ancestral_maps = HashMap::<NodeIdx, Mapping>::with_capacity(tree.len() - tree.n);
+        let mut leaf_records = Vec::with_capacity(tree.n);
+        let mut ancestral_records = Vec::with_capacity(tree.len() - tree.n);
+        let mut idx_to_id = vec![String::new(); tree.len()];
+        for node_idx in tree.postorder() {
+            let record = all_seqs.record_by_id(tree.node_id(node_idx));
+            let mapping = align!(record.seq());
+            match node_idx {
+                Int(_) => {
+                    ancestral_maps.insert(*node_idx, mapping);
+                    ancestral_records.push(record.clone());
+                }
+                Leaf(_) => {
+                    leaf_maps.insert(*node_idx, mapping);
+                    leaf_records.push(record.clone());
+                }
+            };
+            idx_to_id[usize::from(node_idx)] = record.id().to_string();
+        }
+        let leaf_seqs = Sequences {
+            s: leaf_records,
+            aligned: true,
+            alphabet: all_seqs.alphabet,
+        };
+        let leaf_seqs = leaf_seqs.into_gapless();
+        let ancestral_seqs = Sequences {
+            s: ancestral_records,
+            aligned: true,
+            alphabet: all_seqs.alphabet,
+        };
+        let ancestral_seqs = ancestral_seqs.into_gapless();
+
+        // TODO: internal_alignments still missing. How do they work if there are seqs at internal nodes?
+        //       see also MASA::from_aligned
+        MASA {
+            leaf_seqs,
+            ancestral_seqs,
+            leaf_maps,
+            ancestral_maps,
+            idx_to_id,
+            internal_alignments: HashMap::<NodeIdx, PairwiseAlignment>::new(),
+        }
     }
 }
 

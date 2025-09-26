@@ -2,7 +2,7 @@ use std::path::Path;
 
 use approx::assert_relative_eq;
 
-use crate::alignment::{Alignment, Sequences};
+use crate::alignment::{Alignment, Sequences, MSA};
 use crate::alphabets::protein_alphabet;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::BranchOptimiser;
@@ -130,7 +130,7 @@ fn repeated_optimisation_limit() {
 #[test]
 fn only_gap_sequence() {
     let tree = tree!("((5207:0.8699783346462397,284812:226000000):0);");
-    let msa = Alignment::from_aligned(
+    let msa: MSA = Alignment::from_aligned(
         Sequences::with_alphabet(
             vec![record!("284812", b"-"), record!("5207", b"V")],
             protein_alphabet(),

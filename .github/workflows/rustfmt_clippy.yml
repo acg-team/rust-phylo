@@ -50,6 +50,8 @@ jobs:
     if: needs.skip_check.outputs.should_skip != 'true' 
     runs-on: ubuntu-latest
     steps:
+      - name: Skip Duplicate Actions
+        uses: fkirc/skip-duplicate-actions@v5.3.1
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.86.0
         with:

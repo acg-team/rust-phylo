@@ -81,7 +81,7 @@ impl SprOptimiser {
         if tree.children(&tree.root).contains(prune_location) {
             // due to topology change the current node may have become the direct child of root
             // so the move is no longer possible
-            return Ok(MoveCostInfo::new(base_cost, tree.clone(), vec![]));
+            return Ok(MoveCostInfo::new(base_cost, tree.clone()));
         }
 
         let regraft_locations = self
@@ -136,7 +136,7 @@ fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
             for regraft_result in regrafts.iter().map(move |regraft| {
                 calc_spr_cost_with_blen_opt(prune_location, *regraft, base_cost, cost_func.clone())
             }) {
-                match result {
+                match regraft_result {
                     Ok(regraft_info) if regraft_info.cost > max_cost => {
                         max_cost = regraft_info.cost;
                         max = Some(regraft_info);
@@ -215,12 +215,12 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
 ) -> Result<MoveCostInfo> {
     let mut new_tree = rooted_spr(cost_fn.tree(), &prune_location, &regraft)?;
 
-    cost_fn.update_tree(new_tree.clone(), &[prune_location, regraft]);
+    cost_fn.update_tree(new_tree.clone());
 
     let mut move_cost = cost_fn.cost();
     if cost_fn.blen_optimisation() && move_cost <= base_cost {
         // reoptimise branch length at the regraft location
-        let mut o = BranchOptimiser::new(cost_fn);
+        let mut o = BranchOptimiser::with_iters(cost_fn, 5);
         let blen_opt = o.optimise_branch(&regraft)?;
         if blen_opt.final_cost > move_cost {
             move_cost = blen_opt.final_cost;
@@ -228,11 +228,7 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
         }
     }
     debug!("    Regraft to {regraft:?} w best cost {move_cost}");
-    Ok(MoveCostInfo::new(
-        move_cost,
-        new_tree,
-        vec![prune_location, regraft],
-    ))
+    Ok(MoveCostInfo::new(move_cost, new_tree))
 }
 
 fn rooted_spr(tree: &Tree, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Result<Tree> {
@@ -276,8 +272,8 @@ fn rooted_spr_unchecked(tree: &Tree, prune_idx: &NodeIdx, regraft_idx: &NodeIdx)
     let mut new_tree = tree.clone();
 
     {
-        new_tree.dirty[usize::from(prune_sib.idx)] = true;
-        new_tree.dirty[usize::from(prune_par.idx)] = true;
+        new_tree.dirty.set(usize::from(prune_sib.idx), true);
+        new_tree.dirty.set(usize::from(prune_par.idx), true);
     }
 
     {

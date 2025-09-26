@@ -90,6 +90,30 @@ macro_rules! align {
     }};
 }
 
+/// Create an aligned sequence from a vector of option indices and a ungapped sequence.
+///
+/// # Examples
+/// ```
+/// # use phylo::aligned_seq;
+/// use phylo::alphabets::GAP;
+/// let indices = vec![None, Some(0), None, Some(1)];
+/// let seq = b"AT";
+/// let aligned = aligned_seq!(indices, seq);
+/// assert_eq!(aligned, vec![GAP, b'A', GAP, b'T']);
+/// ```
+#[macro_export]
+macro_rules! aligned_seq {
+    ($vec:expr, $seq:expr) => {{
+        use $crate::alphabets::GAP;
+        $vec.iter()
+            .map(|&opt| match opt {
+                Some(i) => $seq[i],
+                None => GAP,
+            })
+            .collect::<Vec<u8>>()
+    }};
+}
+
 /// Create a parsimony site from a sequence and site flag.
 ///
 /// **Note:** This macro is intended for internal use within this crate only.
