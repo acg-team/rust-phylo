@@ -58,14 +58,6 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         }
     }
 
-    fn lower_triangle_index(k: usize) -> (usize, usize) {
-        // 0 indexed
-        let p = ((1 + 8 * k).isqrt() - 1) / 2;
-        let i = p + 1;
-        let j = k - p * (p + 1) / 2;
-        (i, j)
-    }
-
     fn softmax_from_deltas(mut delta_tree_len: DVector<f64>) -> DVector<f64> {
         // Invert distances for softmax, smallest negative distance should have highest probability
         delta_tree_len.scale_mut(-1.0);
@@ -114,7 +106,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
                     .sample(&WeightedIndex::new(Self::softmax(q, t).iter()).unwrap()),
                 Strategy::Deterministic => q.argmin().0,
             };
-            let (i, j) = Self::lower_triangle_index(index);
+            let (i, j) = lower_triangle_index(index);
             let idx_new = cur_idx;
             let (blen_i, blen_j) = distances.branch_lengths(i, j, cur_idx == root_idx);
             tree.add_parent(
@@ -154,6 +146,14 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
             distances,
         }
     }
+}
+
+fn lower_triangle_index(k: usize) -> (usize, usize) {
+    // 0 indexed
+    let p = ((1 + 8 * k).isqrt() - 1) / 2;
+    let i = p + 1;
+    let j = k - p * (p + 1) / 2;
+    (i, j)
 }
 
 #[cfg(test)]
@@ -447,26 +447,20 @@ mod tests {
 
     #[test]
     fn lower_triangle_index_conversion() {
-        assert_eq!(
-            NJTreeBuilder::<LDNACorr, FakeGen>::lower_triangle_index(0),
-            (1, 0)
-        );
-        assert_eq!(
-            NJTreeBuilder::<LDNACorr, FakeGen>::lower_triangle_index(1),
-            (2, 0)
-        );
-        assert_eq!(
-            NJTreeBuilder::<LDNACorr, FakeGen>::lower_triangle_index(2),
-            (2, 1)
-        );
-        assert_eq!(
-            NJTreeBuilder::<LDNACorr, FakeGen>::lower_triangle_index(3),
-            (3, 0)
-        );
-        assert_eq!(
-            NJTreeBuilder::<LDNACorr, FakeGen>::lower_triangle_index(5),
-            (3, 2)
-        );
+        assert_eq!(lower_triangle_index(0), (1, 0));
+        assert_eq!(lower_triangle_index(1), (2, 0));
+        assert_eq!(lower_triangle_index(2), (2, 1));
+        assert_eq!(lower_triangle_index(3), (3, 0));
+        assert_eq!(lower_triangle_index(5), (3, 2));
+        assert_eq!(lower_triangle_index(6), (4, 0));
+        assert_eq!(lower_triangle_index(9), (4, 3));
+        assert_eq!(lower_triangle_index(10), (5, 0));
+        assert_eq!(lower_triangle_index(14), (5, 4));
+        assert_eq!(lower_triangle_index(15), (6, 0));
+        assert_eq!(lower_triangle_index(20), (6, 5));
+        assert_eq!(lower_triangle_index(21), (7, 0));
+        assert_eq!(lower_triangle_index(23), (7, 2));
+        assert_eq!(lower_triangle_index(28), (8, 0));
     }
 
     #[test]
