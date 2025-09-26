@@ -10,6 +10,7 @@ use crate::tree::tree_builder::TreeBuilder;
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum Strategy {
     Deterministic,
     SoftmaxUniform(f64),
