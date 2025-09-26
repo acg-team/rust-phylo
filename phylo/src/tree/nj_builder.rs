@@ -428,19 +428,21 @@ mod tests {
 
     #[test]
     fn nj_builder_correct_creation() {
-        let rng = FakeGenerator::new();
-        let _nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
-        let _nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &DefaultGenerator::new(0));
-        let _nj_builder = NJTreeBuilder::new_with_softmax(
-            LevenshteinDNACorrected {},
-            &DefaultGenerator::new(0),
-            0.0,
-        );
-        let _nj_builder = NJTreeBuilder::new_with_softmax(
-            LevenshteinDNACorrected {},
-            &DefaultGenerator::new(0),
-            1.0,
-        );
+        let rng = FakeGen::new();
+        let builder = NJTreeBuilder::new(LDNACorr {}, &rng);
+        assert_matches!(builder.randomise, Strategy::Deterministic);
+        let builder = NJTreeBuilder::new(LDNACorr {}, &rng);
+        assert_matches!(builder.randomise, Strategy::Deterministic);
+        let builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 0.0);
+        assert_matches!(builder.randomise, Strategy::SoftmaxUniform(t) if t == 0.0);
+        let builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 1.0);
+        assert_matches!(builder.randomise, Strategy::SoftmaxUniform(t) if t == 1.0);
+        let builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 0.5);
+        assert_matches!(builder.randomise, Strategy::SoftmaxUniform(t) if t == 0.5);
+        let builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 1.5);
+        assert_matches!(builder.randomise, Strategy::SoftmaxUniform(t) if t == 1.0);
+        let builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, -1.5);
+        assert_matches!(builder.randomise, Strategy::SoftmaxUniform(t) if t == 0.0);
     }
 
     #[test]
