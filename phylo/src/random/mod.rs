@@ -311,4 +311,25 @@ mod tests {
         let sample = rng.sample(&dist);
         assert!(sample < 15);
     }
+
+    #[test]
+    fn sample_weighted_single_best() {
+        let rng = DefaultGenerator::new(42);
+        assert_eq!(rng.seed(), 42);
+        let dist = WeightedIndex::new([1.0, 0.0, 0.0, 0.0, 0.0]).unwrap();
+        let sample = rng.sample(&dist);
+        assert!(sample == 0);
+        let dist = WeightedIndex::new([0.0, 0.0, 1.0, 0.0, 0.0]).unwrap();
+        let sample = rng.sample(&dist);
+        assert!(sample == 2);
+    }
+
+    #[test]
+    fn sample_weighted_several_best() {
+        let rng = DefaultGenerator::new(42);
+        assert_eq!(rng.seed(), 42);
+        let dist = WeightedIndex::new([0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0]).unwrap();
+        let sample = rng.sample(&dist);
+        assert!(sample == 2 || sample == 4 || sample == 7);
+    }
 }
