@@ -159,10 +159,11 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
 #[cfg_attr(coverage, coverage(off))]
 mod tests {
     use approx::assert_relative_eq;
+    use assert_matches::assert_matches;
     use nalgebra::{dmatrix, dvector};
 
-    use crate::evolutionary_distances::LevenshteinDNACorrected;
-    use crate::random::{DefaultGenerator, FakeGenerator};
+    use crate::evolutionary_distances::LevenshteinDNACorrected as LDNACorr;
+    use crate::random::{DefaultGenerator, FakeGenerator as FakeGen};
     use crate::tree::Node;
     use crate::tree::NodeIdx::{self, Internal as I, Leaf as L};
     use crate::{record_wo_desc as record, tree};
@@ -185,8 +186,8 @@ mod tests {
             record!("E4", b"CC"),
         ]);
         //For now, may instantiate NJBuilder instance every time
-        let rng = FakeGenerator::new();
-        let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
+        let rng = FakeGen::new();
+        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
         let mat = nj_builder.compute_distance_matrix(&sequences);
         let true_mat = dmatrix![
         0.0, 26.728641210756745, 26.728641210756745, 26.728641210756745, 0.8239592165010822;
@@ -205,8 +206,8 @@ mod tests {
             record!("C2", b"AAAAAAAAAAAAAAAAAAAAAAAAA"),
             record!("D3", b"CAAAAAAAAAAAAAAAAAAA"),
         ]);
-        let rng = FakeGenerator::new();
-        let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
+        let rng = FakeGen::new();
+        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
         let mat = nj_builder.compute_distance_matrix(&sequences);
         let true_mat = dmatrix![
         0.0, 0.0, 0.2326161962278796, 0.051744653615213576;
@@ -234,8 +235,8 @@ mod tests {
             ],
         };
         let sequences = Sequences::new((1..=8).map(|i| record!(&i.to_string(), b"")).collect());
-        let rng = FakeGenerator::new();
-        let nj_tree = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng)
+        let rng = FakeGen::new();
+        let nj_tree = NJTreeBuilder::new(LDNACorr {}, &rng)
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
         let correct_tree =
@@ -264,8 +265,8 @@ mod tests {
             record!("D", b""),
         ]);
         // Instantiate NJBuilder instance every time
-        let rng = FakeGenerator::new();
-        let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
+        let rng = FakeGen::new();
+        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
         let tree = nj_builder
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
@@ -300,8 +301,8 @@ mod tests {
             record!("D3", b""),
         ]);
         // Illegal for this test since it's DNA corrected distance
-        let rng = FakeGenerator::new();
-        let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
+        let rng = FakeGen::new();
+        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
         let tree = nj_builder
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
@@ -331,8 +332,8 @@ mod tests {
             record!("d", b""),
             record!("e", b""),
         ]);
-        let rng = FakeGenerator::new();
-        let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
+        let rng = FakeGen::new();
+        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
         let tree = nj_builder
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
@@ -369,8 +370,8 @@ mod tests {
             record!("D3", b""),
             record!("E4", b""),
         ]);
-        let rng = FakeGenerator::new();
-        let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
+        let rng = FakeGen::new();
+        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
         let nj_tree = nj_builder
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
@@ -405,8 +406,8 @@ mod tests {
             record!("C2", b""),
             record!("D3", b""),
         ]);
-        let rng = FakeGenerator::new();
-        let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
+        let rng = FakeGen::new();
+        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
         let nj_tree = nj_builder
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
@@ -444,23 +445,23 @@ mod tests {
     #[test]
     fn lower_triangle_index_conversion() {
         assert_eq!(
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::lower_triangle_index(0),
+            NJTreeBuilder::<LDNACorr, FakeGen>::lower_triangle_index(0),
             (1, 0)
         );
         assert_eq!(
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::lower_triangle_index(1),
+            NJTreeBuilder::<LDNACorr, FakeGen>::lower_triangle_index(1),
             (2, 0)
         );
         assert_eq!(
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::lower_triangle_index(2),
+            NJTreeBuilder::<LDNACorr, FakeGen>::lower_triangle_index(2),
             (2, 1)
         );
         assert_eq!(
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::lower_triangle_index(3),
+            NJTreeBuilder::<LDNACorr, FakeGen>::lower_triangle_index(3),
             (3, 0)
         );
         assert_eq!(
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::lower_triangle_index(5),
+            NJTreeBuilder::<LDNACorr, FakeGen>::lower_triangle_index(5),
             (3, 2)
         );
     }
@@ -487,9 +488,7 @@ mod tests {
     fn softmax() {
         let delta_tree_length = dvector![-1.3, -5.1, -2.2, -0.7, -1.1];
         let softmax_vector =
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax_from_distances(
-                delta_tree_length,
-            );
+            NJTreeBuilder::<LDNACorr, FakeGen>::softmax_from_deltas(delta_tree_length);
         assert_eq!(
             softmax_vector,
             dvector![
@@ -504,47 +503,39 @@ mod tests {
     }
 
     #[test]
-    fn softmax_example() {
+    fn softmax_examples() {
         // Example values from https://medium.com/@hunter-j-phillips/a-simple-introduction-to-softmax-287712d69bac
         let softmax =
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax_from_distances(
-                dvector![-5.0, -7.0, -10.0],
-            );
+            NJTreeBuilder::<LDNACorr, FakeGen>::softmax_from_deltas(dvector![-5.0, -7.0, -10.0]);
         assert_relative_eq!(softmax, dvector![0.006, 0.047, 0.946], epsilon = 1e-3);
         assert_relative_eq!(softmax.sum(), 1.0, epsilon = 1e-5);
 
         let softmax =
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax_from_distances(
-                dvector![-1.0, -2.0, -3.0],
-            );
+            NJTreeBuilder::<LDNACorr, FakeGen>::softmax_from_deltas(dvector![-1.0, -2.0, -3.0]);
         assert_relative_eq!(softmax, dvector![0.0900, 0.2447, 0.6652], epsilon = 1e-4);
         assert_relative_eq!(softmax.sum(), 1.0, epsilon = 1e-5);
 
         let softmax =
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax_from_distances(
-                dvector![-4.0, -5.0, -6.0],
-            );
+            NJTreeBuilder::<LDNACorr, FakeGen>::softmax_from_deltas(dvector![-4.0, -5.0, -6.0]);
         assert_relative_eq!(softmax, dvector![0.0900, 0.2447, 0.6652], epsilon = 1e-4);
         assert_relative_eq!(softmax.sum(), 1.0, epsilon = 1e-5);
 
-        let softmax =
-            NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax_from_distances(
-                dvector![-3.2, -1.3, -0.2, -0.8],
-            );
+        // Example values from https://ai.gopubby.com/the-softmax-activation-function-work-with-keras-8f674b4481a5
+        let softmax = NJTreeBuilder::<LDNACorr, FakeGen>::softmax_from_deltas(dvector![
+            -2.0, -4.3, -1.2, 3.1
+        ]);
         assert_relative_eq!(
             softmax,
-            dvector![0.77514955, 0.11593805, 0.03859242, 0.07031998],
-            epsilon = 1e-8
+            dvector![0.087492, 0.872661, 0.039313, 0.000533],
+            epsilon = 1e-6
         );
     }
 
     #[test]
     fn softmax_w_temp_regular() {
         let delta_tree_length = dvector![-1.3, -5.1, -2.2, -0.7, -1.1];
-        let softmax_vector = NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax(
-            delta_tree_length,
-            0.0,
-        );
+        let softmax_vector =
+            NJTreeBuilder::<LDNACorr, FakeGen>::softmax(delta_tree_length, 0.0);
         assert_eq!(
             softmax_vector,
             dvector![
@@ -561,10 +552,7 @@ mod tests {
     #[test]
     fn softmax_w_temp_uniform() {
         let delta_tree_length = dvector![-1.3, -5.1, -2.2, -0.7, -1.1];
-        let softmax_vector = NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax(
-            delta_tree_length,
-            1.0,
-        );
+        let softmax_vector = NJTreeBuilder::<LDNACorr, FakeGen>::softmax(delta_tree_length, 1.0);
         assert_eq!(softmax_vector, dvector![0.2, 0.2, 0.2, 0.2, 0.2]);
         assert_eq!(softmax_vector.sum(), 1.0);
     }
@@ -572,10 +560,7 @@ mod tests {
     #[test]
     fn softmax_w_temp_between() {
         let delta_tree_length = dvector![-1.3, -5.1, -2.2, -0.7, -1.1];
-        let softmax_vector = NJTreeBuilder::<LevenshteinDNACorrected, DefaultGenerator>::softmax(
-            delta_tree_length,
-            0.5,
-        );
+        let softmax_vector = NJTreeBuilder::<LDNACorr, FakeGen>::softmax(delta_tree_length, 0.5);
         assert_eq!(softmax_vector.sum(), 1.0);
     }
 
@@ -596,7 +581,7 @@ mod tests {
     //         record!("C2", b""),
     //         record!("D3", b""),
     //     ]);
-    //     let nj_builder = NJBuilder::new(Randomise::Temperature(0.0), LevenshteinDNACorrected {});
+    //     let nj_builder = NJBuilder::new(Randomise::Temperature(0.0), LDNACorr {});
     //     let nj_tree = nj_builder
     //         .build_nj_tree_from_matrix(nj_distances, &sequences)
     //         .unwrap();
@@ -631,8 +616,8 @@ mod tests {
             record!("D3", b""),
             record!("E4", b""),
         ]);
-        let rng = DefaultGenerator::new(3);
-        let nj_builder = NJTreeBuilder::new_with_softmax(LevenshteinDNACorrected, &rng, 0.0);
+        let rng = DefaultGenerator::new(0);
+        let nj_builder = NJTreeBuilder::new_with_softmax(LDNACorr, &rng, 0.0);
         let nj_tree = nj_builder
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
