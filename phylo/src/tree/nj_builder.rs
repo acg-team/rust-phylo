@@ -30,7 +30,9 @@ impl<D: EvolutionaryDistance, R: RandomSource> TreeBuilder for NJTreeBuilder<'_,
 }
 
 impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
-    /// Creates a Neighbor Joining Tree Builder object with Deterministic strategy, which uses argmin to minimize the tree length
+    /// Creates a Neighbor Joining Tree Builder with ArgMax strategy, which uses argmax to minimise the tree length.
+    /// This implements the classic NJ algorithm but always selects the first pair of nodes with the smallest distance.
+    /// TODO: Add option to randomise ties @junniest.
     pub fn new(distance_function: D, rng: &'a R) -> Self {
         info!("Creating regular NJTreeBuilder, first argmax choice for next pair of nodes to join");
         Self {
@@ -40,7 +42,9 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         }
     }
 
-    /// Creates a Neighbor Joining Tree object with Softmax strategy, introduces stochasticity to tree building.
+    /// Creates a Neighbor Joining Tree Builder with Softmax strategy, introduces stochasticity to tree building.
+    /// This uses SoftMax to select the next pair of nodes to join based on their contribution to minimising the tree length
+    /// (`delta_tree_len`). Nodes that contribute more to minimising the tree length have a higher probability of being selected.
     /// Temperature can be between 0.0 and 1.0 and interpolates between the uniform and softmax distributions to select
     /// the next pair of nodes to join. A temperature of 0.0 is fully uniform, while a temperature of 1.0 is fully softmax.
     pub fn new_with_softmax(distance_function: D, rng: &'a R, temperature: f64) -> Self {
