@@ -6,7 +6,7 @@ use crate::tree::NodeIdx::{self, Internal as Int};
 
 pub(super) type Mat = DMatrix<f64>;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(super) struct DistanceMatrix {
     pub(super) idx: Vec<NodeIdx>,
     pub(super) distances: Mat,
