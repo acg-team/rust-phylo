@@ -72,6 +72,11 @@ impl DistanceMatrix {
         )
     }
 
+    // Delta tree length is often referred to as Q matrix in literature, renamed here to avoid confusion
+    // with the Q matrices used in substitution models.
+    // Here it is represented as a vector since only the lower triangle without the diagonal is needed.
+    // Delta tree length represents the change in tree length if two nodes are joined, where the minimal
+    // value indicates the best pair to join next.
     pub(super) fn delta_tree_length(&self) -> DVector<f64> {
         let n = self.distances.ncols();
         let s = self.distances.row_sum();
