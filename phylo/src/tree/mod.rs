@@ -2,7 +2,6 @@ use std::collections::HashSet;
 use std::fmt::{Debug, Display};
 
 use anyhow::bail;
-use bio::alignment::distance::levenshtein;
 use fixedbitset::FixedBitSet;
 use inc_stats::Percentiles;
 
