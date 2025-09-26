@@ -12,7 +12,7 @@ use crate::Result;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Strategy {
-    Deterministic,
+    ArgMax,
     SoftmaxUniform(f64),
 }
 
@@ -33,7 +33,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
     /// Creates a Neighbor Joining Tree Builder object with Deterministic strategy, which uses argmin to minimize the tree length
     pub fn new(distance_function: D, rng: &'a R) -> Self {
         Self {
-            randomise: Strategy::Deterministic,
+            randomise: Strategy::ArgMax,
             distance_function,
             rng,
         }
@@ -100,12 +100,14 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         let root_idx = usize::from(&tree.root);
         for cur_idx in n..=root_idx {
             let q = distances.delta_tree_length();
+
             let index = match self.randomise {
                 Strategy::SoftmaxUniform(t) => self
                     .rng
                     .sample(&WeightedIndex::new(Self::softmax(q, t).iter()).unwrap()),
-                Strategy::Deterministic => q.argmin().0,
+                Strategy::ArgMax => q.argmin().0,
             };
+
             let (i, j) = lower_triangle_index(index);
             let idx_new = cur_idx;
             let (blen_i, blen_j) = distances.branch_lengths(i, j, cur_idx == root_idx);
@@ -430,9 +432,9 @@ mod tests {
     fn nj_builder_correct_creation() {
         let rng = FakeGen::new();
         let builder = NJTreeBuilder::new(LDNACorr {}, &rng);
-        assert_matches!(builder.randomise, Strategy::Deterministic);
+        assert_matches!(builder.randomise, Strategy::ArgMax);
         let builder = NJTreeBuilder::new(LDNACorr {}, &rng);
-        assert_matches!(builder.randomise, Strategy::Deterministic);
+        assert_matches!(builder.randomise, Strategy::ArgMax);
         let builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 0.0);
         assert_matches!(builder.randomise, Strategy::SoftmaxUniform(t) if t == 0.0);
         let builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 1.0);
