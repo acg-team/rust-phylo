@@ -1,4 +1,4 @@
-use log::debug;
+use log::{debug, info};
 use nalgebra::{DMatrix, DVector};
 use rand::distributions::weighted::WeightedIndex;
 
@@ -32,6 +32,7 @@ impl<D: EvolutionaryDistance, R: RandomSource> TreeBuilder for NJTreeBuilder<'_,
 impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
     /// Creates a Neighbor Joining Tree Builder object with Deterministic strategy, which uses argmin to minimize the tree length
     pub fn new(distance_function: D, rng: &'a R) -> Self {
+        info!("Creating regular NJTreeBuilder, first argmax choice for next pair of nodes to join");
         Self {
             randomise: Strategy::ArgMax,
             distance_function,
@@ -43,6 +44,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
     /// Temperature can be between 0.0 and 1.0 and interpolates between the uniform and softmax distributions to select
     /// the next pair of nodes to join. A temperature of 0.0 is fully uniform, while a temperature of 1.0 is fully softmax.
     pub fn new_with_softmax(distance_function: D, rng: &'a R, temperature: f64) -> Self {
+        info!("Creating NJTreeBuilder with softmax strategy and temperature {temperature}");
         if temperature > 1.0 {
             debug!("Temperature should not be greater than 1.0 (set to {temperature}), clamping to 1.0");
         } else if temperature < 0.0 {
@@ -59,7 +61,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
     }
 
     fn softmax_from_deltas(mut delta_tree_len: DVector<f64>) -> DVector<f64> {
-        // Invert distances for softmax, smallest negative distance should have highest probability
+        // Invert deltas for softmax, smallest negative delta should have highest probability
         delta_tree_len.scale_mut(-1.0);
         // Avoid copying the matrix by mutating in place
         for element in delta_tree_len.iter_mut() {
@@ -267,7 +269,6 @@ mod tests {
             record!("C", b""),
             record!("D", b""),
         ]);
-        // Instantiate NJBuilder instance every time
         let rng = FakeGen::new();
         let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
         let tree = nj_builder
