@@ -194,7 +194,6 @@ mod tests {
             record!("D3", b"A"),
             record!("E4", b"CC"),
         ]);
-        //For now, may instantiate NJBuilder instance every time
         let rng = FakeGen::new();
         let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
         let mat = nj_builder.compute_distance_matrix(&sequences);
@@ -308,8 +307,11 @@ mod tests {
             record!("C2", b""),
             record!("D3", b""),
         ]);
-        // Illegal for this test since it's DNA corrected distance
         let rng = FakeGen::new();
+
+        // The DNA distance function is not valid for AA sequences but here it is needed to instantiate NJTreeBuilder
+        // since the distance function is a required parameter.
+        // The actual distances are provided directly so the distance function is not used.
         let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
         let tree = nj_builder
             .build_from_distances(nj_distances, &sequences)
