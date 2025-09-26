@@ -181,7 +181,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
                     .build(&sequences)?
             }
         };
-      
+
         let msa = if sequences.len() == tree.n {
             tree = set_missing_tree_node_ids(&tree)?;
             if sequences.aligned {
