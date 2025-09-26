@@ -93,7 +93,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         // Interpolated probabilities, temp = 0.0 means uniform, temp = 1.0 means softmax of distances
         // Avoid copying the matrix by mutating in place
         for element in exp_mat.iter_mut() {
-            *element = (temperature * uniform_weight) + ((1.0 - temperature) * *element);
+            *element = ((1.0 - temperature) * uniform_weight) + ((temperature) * *element);
         }
         exp_mat
     }
@@ -536,7 +536,7 @@ mod tests {
     fn softmax_w_temp_regular() {
         let delta_tree_length = dvector![-1.3, -5.1, -2.2, -0.7, -1.1];
         let softmax_w_temp =
-            NJTreeBuilder::<LDNACorr, FakeGen>::softmax(delta_tree_length.clone(), 0.0);
+            NJTreeBuilder::<LDNACorr, FakeGen>::softmax(delta_tree_length.clone(), 1.0);
         let softmax_regular =
             NJTreeBuilder::<LDNACorr, FakeGen>::softmax_from_deltas(delta_tree_length);
         assert_eq!(softmax_w_temp, softmax_regular);
@@ -546,7 +546,7 @@ mod tests {
     #[test]
     fn softmax_w_temp_uniform() {
         let delta_tree_length = dvector![-1.3, -5.1, -2.2, -0.7, -1.1];
-        let softmax_vector = NJTreeBuilder::<LDNACorr, FakeGen>::softmax(delta_tree_length, 1.0);
+        let softmax_vector = NJTreeBuilder::<LDNACorr, FakeGen>::softmax(delta_tree_length, 0.0);
         assert_eq!(softmax_vector, dvector![0.2, 0.2, 0.2, 0.2, 0.2]);
         assert_eq!(softmax_vector.sum(), 1.0);
     }
