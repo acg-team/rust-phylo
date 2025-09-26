@@ -664,17 +664,13 @@ mod tests {
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
 
-        // Uniform should be longer than the original NJ since it does not pick the optimal pair
+        // Since FakeGen always returns 0, both softmax trees should be the same
+        assert_eq!(nj_uniform_tree.nodes, nj_softmax_tree.nodes);
+
+        // The softmax/uniform trees should be longer than the original NJ since it does not pick the optimal pair
+        // Only checking one because the trees are the same
         assert!(nj_uniform_tree.length > nj_tree.length);
         // Different resulting topologies
         assert!(nj_uniform_tree.robinson_foulds(&nj_tree) > 0);
-
-        // Uniform should be longer than the original NJ since it does not pick the optimal pair
-        assert!(nj_softmax_tree.length > nj_tree.length);
-        // Different resulting topologies
-        assert!(nj_softmax_tree.robinson_foulds(&nj_tree) > 0);
-
-        // Since FakeGen always returns 0, both softmax trees should be the same
-        assert_eq!(nj_uniform_tree.nodes, nj_softmax_tree.nodes);
     }
 }
