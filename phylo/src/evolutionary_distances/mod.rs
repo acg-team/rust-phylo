@@ -12,6 +12,7 @@ pub struct LevenshteinDNACorrected;
 impl EvolutionaryDistance for LevenshteinDNACorrected {
     fn dist(&self, a: &Record, b: &Record) -> f64 {
         // Distance formula corrected using the Jukes-Cantor model
+        // Formula 1.6 from "Computational Molecular Evolution" by Ziheng Yang (2006)
         let seq_i = a.seq();
         let seq_j = b.seq();
         // To avoid infinite distance when all characters are different, the maximum
@@ -32,7 +33,8 @@ pub struct LevenshteinProteinCorrected;
 
 impl EvolutionaryDistance for LevenshteinProteinCorrected {
     fn dist(&self, a: &Record, b: &Record) -> f64 {
-        // Distance formula corrected using the The Poisson model, equivalent to Jukes-Cantor for proteins
+        // Distance formula corrected using the the Poisson model, equivalent to Jukes-Cantor for proteins.
+        // Formula 2.3 from "Computational Molecular Evolution" by Ziheng Yang (2006)
         let seq_i = a.seq();
         let seq_j = b.seq();
         // To avoid infinite distance when all characters are different, the maximum
