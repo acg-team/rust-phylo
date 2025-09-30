@@ -48,3 +48,16 @@ impl EvolutionaryDistance for LevenshteinProteinCorrected {
         -max_proportion * (1.0 - 1.0 / max_proportion * proportion_diff).ln()
     }
 }
+
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
+/// Simple Levenshtein distance without any correction, meaningful for both DNA
+/// and protein sequences
+pub struct Levenshtein;
+
+impl EvolutionaryDistance for Levenshtein {
+    fn dist(&self, a: &Record, b: &Record) -> f64 {
+        let seq_i = a.seq();
+        let seq_j = b.seq();
+        levenshtein(seq_i, seq_j) as f64
+    }
+}
