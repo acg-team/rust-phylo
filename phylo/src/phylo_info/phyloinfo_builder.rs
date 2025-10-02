@@ -348,14 +348,13 @@ pub fn validate_ids_with_ancestors(tree: &Tree, sequences: &Sequences) -> Result
 mod private_tests {
     use std::path::Path;
 
-    use crate::{
-        alignment::Sequences,
-        phylo_info::{
-            phyloinfo_builder::{set_missing_tree_node_ids, PhyloInfoBuilder as PIB},
-            validate_ids_with_ancestors,
-        },
-        record_wo_desc as record, tree,
+    use crate::alignment::Sequences;
+    use crate::phylo_info::{
+        phyloinfo_builder::{set_missing_tree_node_ids, PhyloInfoBuilder as PIB},
+        validate_ids_with_ancestors,
     };
+    use crate::random::FakeGenerator;
+    use crate::{record_wo_desc as record, tree};
 
     #[test]
     fn builder_setters() {
@@ -371,6 +370,32 @@ mod private_tests {
         assert_eq!(builder.tree_file.as_ref().unwrap(), Path::new(newick_path));
         let builder = builder.tree_file(None::<&str>);
         assert_eq!(builder.tree_file, None);
+    }
+
+    #[test]
+    fn build_dna_nj_tree_wo_builder() {
+        let fldr = Path::new("./data");
+        let builder = PIB::new(fldr.join("sequences_DNA1.fasta"));
+
+        let res_tree =
+            builder.build_nj_tree(&FakeGenerator::new(), &builder.read_sequences().unwrap());
+
+        assert!(res_tree.is_ok());
+        let tree = res_tree.unwrap();
+        assert_eq!(tree.len(), 7);
+    }
+
+    #[test]
+    fn build_protein_nj_tree_wo_builder() {
+        let fldr = Path::new("./data");
+        let builder = PIB::new(fldr.join("sequences_protein1.fasta"));
+
+        let res_tree =
+            builder.build_nj_tree(&FakeGenerator::new(), &builder.read_sequences().unwrap());
+
+        assert!(res_tree.is_ok());
+        let tree = res_tree.unwrap();
+        assert_eq!(tree.len(), 7);
     }
 
     #[test]
