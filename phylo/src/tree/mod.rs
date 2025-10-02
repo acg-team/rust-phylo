@@ -11,8 +11,10 @@ use crate::tree::NodeIdx::{Internal as Int, Leaf};
 use crate::Result;
 
 pub mod nj_builder;
+pub use nj_builder::NJTreeBuilder;
 mod nj_matrices;
 pub mod tree_builder;
+pub use tree_builder::TreeBuilder;
 pub mod tree_parser;
 
 mod tree_node;
