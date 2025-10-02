@@ -5,17 +5,19 @@ use anyhow::{bail, Ok};
 use log::{info, warn};
 
 use crate::alignment::{Aligner, Alignment, AncestralAlignment, Sequences, MASA, MSA};
-use crate::alphabets::Alphabet;
+use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet};
 use crate::asr::AncestralSequenceReconstruction;
-use crate::evolutionary_distances::LevenshteinDNACorrected;
+use crate::evolutionary_distances::{
+    Levenshtein, LevenshteinDNACorrected, LevenshteinProteinCorrected,
+};
 use crate::io::{self, DataError};
 use crate::parsimony::ParsimonyAligner;
 use crate::parsimony_presence_absence::ParsimonyPresenceAbsence;
 use crate::phylo_info::PhyloInfo;
 use crate::random::{DefaultGenerator, RandomSource};
-use crate::tree::nj_builder::NJTreeBuilder;
-use crate::tree::tree_builder::TreeBuilder;
+use crate::tree::NJTreeBuilder;
 use crate::tree::Tree;
+use crate::tree::TreeBuilder;
 use crate::Result;
 
 pub struct PhyloInfoBuilder<A: Alignment, AA: AncestralAlignment> {
@@ -147,12 +149,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
         let sequences = self.read_sequences()?;
         let tree = match &self.tree_file {
             Some(tree_file) => self.read_tree(tree_file)?,
-            None => {
-                info!("Building NJ tree from sequences");
-                self.tree_builder
-                    .unwrap_or(Box::new(NJTreeBuilder::new(LevenshteinDNACorrected, rng)))
-                    .build(&sequences)?
-            }
+            None => self.build_nj_tree(rng, &sequences)?,
         };
         let msa = if sequences.aligned {
             info!("Sequences are aligned");
@@ -174,12 +171,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
         let sequences = self.read_sequences()?;
         let mut tree = match &self.tree_file {
             Some(tree_file) => self.read_tree(tree_file)?,
-            None => {
-                info!("Building NJ tree from sequences");
-                self.tree_builder
-                    .unwrap_or(Box::new(NJTreeBuilder::new(LevenshteinDNACorrected, rng)))
-                    .build(&sequences)?
-            }
+            None => self.build_nj_tree(rng, &sequences)?,
         };
 
         let msa = if sequences.len() == tree.n {
@@ -211,6 +203,27 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
         }?;
 
         Ok(PhyloInfo { tree, msa })
+    }
+
+    /// Builds an NJ tree from the provided sequences using the appropriate
+    /// evolutionary distance based on the provided alphabet (if any).
+    /// If no alphabet is provided or if the alphabet is unknown, the simple
+    /// Levenshtein distance is used.
+    fn build_nj_tree(&self, rng: &impl RandomSource, sequences: &Sequences) -> Result<Tree> {
+        info!("Building NJ tree from sequences");
+        let builder: Box<dyn TreeBuilder> = if sequences.alphabet() == &dna_alphabet() {
+            info!("Using corrected Levenshtein DNA distance for distance calculation");
+            Box::new(NJTreeBuilder::new(LevenshteinDNACorrected, rng))
+        } else if sequences.alphabet() == &protein_alphabet() {
+            info!("Using corrected Levenshtein protein distance for distance calculation");
+            Box::new(NJTreeBuilder::new(LevenshteinProteinCorrected, rng))
+        } else {
+            unreachable!("Unknown alphabet, should have been defined earlier");
+        };
+        self.tree_builder
+            .as_ref()
+            .unwrap_or(&builder)
+            .build(sequences)
     }
 
     fn read_sequences(&self) -> Result<Sequences> {
