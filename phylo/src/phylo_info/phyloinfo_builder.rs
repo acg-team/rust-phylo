@@ -204,9 +204,9 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     }
 
     /// Builds an NJ tree from the provided sequences using the appropriate
-    /// evolutionary distance based on the provided alphabet (if any).
-    /// If no alphabet is provided or if the alphabet is unknown, the simple
-    /// Levenshtein distance is used.
+    /// evolutionary distance based on the provided alphabet. Bails if the
+    /// alphabet is unknown (should not happen because the sequences would not
+    /// have been read in the first place).
     fn build_nj_tree(&self, rng: &impl RandomSource, sequences: &Sequences) -> Result<Tree> {
         info!("Building NJ tree from sequences");
         let builder: Box<dyn TreeBuilder> = if sequences.alphabet() == &dna_alphabet() {
