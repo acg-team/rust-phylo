@@ -25,7 +25,7 @@ pub struct PhyloInfoBuilder<A: Alignment, AA: AncestralAlignment> {
     // but since we access the alignment on a regular basis (or do we actually? Since we instead use the encoding)
     aligner: Option<Box<dyn Aligner<A>>>,
     asr: Option<Box<dyn AncestralSequenceReconstruction<A, AA>>>,
-    tree_builder: Option<Box<dyn TreeBuilder>>,
+    // tree_builder: Option<Box<dyn TreeBuilder>>,
     alphabet: Option<Alphabet>,
 }
 
@@ -47,7 +47,6 @@ impl PhyloInfoBuilder<MSA, MASA> {
             tree_file: None,
             aligner: None,
             asr: None,
-            tree_builder: None,
             alphabet: None,
         }
     }
@@ -74,7 +73,6 @@ impl PhyloInfoBuilder<MSA, MASA> {
             tree_file: Some(tree_file.as_ref().to_path_buf()),
             aligner: None,
             asr: None,
-            tree_builder: None,
             alphabet: None,
         }
     }
@@ -218,10 +216,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
         } else {
             unreachable!("Unknown alphabet, should have been defined earlier");
         };
-        self.tree_builder
-            .as_ref()
-            .unwrap_or(&builder)
-            .build(sequences)
+        builder.build(sequences)
     }
 
     fn read_sequences(&self) -> Result<Sequences> {
