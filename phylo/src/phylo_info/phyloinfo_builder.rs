@@ -7,9 +7,7 @@ use log::{info, warn};
 use crate::alignment::{Aligner, Alignment, AncestralAlignment, Sequences, MASA, MSA};
 use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet};
 use crate::asr::AncestralSequenceReconstruction;
-use crate::evolutionary_distances::{
-    Levenshtein, LevenshteinDNACorrected, LevenshteinProteinCorrected,
-};
+use crate::evolutionary_distances::{LevenshteinDNACorrected, LevenshteinProteinCorrected};
 use crate::io::{self, DataError};
 use crate::parsimony::ParsimonyAligner;
 use crate::parsimony_presence_absence::ParsimonyPresenceAbsence;
