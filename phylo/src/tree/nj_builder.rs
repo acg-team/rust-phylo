@@ -23,6 +23,27 @@ pub struct NJTreeBuilder<'a, D: EvolutionaryDistance, R: RandomSource> {
 }
 
 impl<D: EvolutionaryDistance, R: RandomSource> TreeBuilder for NJTreeBuilder<'_, D, R> {
+    /// Builds a tree from the given sequences using the Neighbor Joining algorithm.
+    /// This first computes the distance matrix using the provided distance function,
+    /// and then constructs the tree using the NJ algorithm.
+    ///
+    /// # Example
+    /// ```rust
+    /// use phylo::alignment::Sequences;
+    /// use phylo::evolutionary_distances::LevenshteinDNACorrected;
+    /// use phylo::io::read_sequences;
+    /// use phylo::random::DefaultGenerator;
+    /// use phylo::tree::NJTreeBuilder;
+    /// use phylo::tree::TreeBuilder;
+    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta")?);
+    /// let rng = DefaultGenerator::default();
+    /// let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
+    /// let tree = nj_builder.build(&sequences)?;
+    /// assert_eq!(tree.len(), 7);
+    /// assert_eq!(tree.leaves().len(), 4);
+    /// # Ok(()) }
+    /// ```
     fn build(&self, sequences: &Sequences) -> Result<Tree> {
         let distances = self.compute_distance_matrix(sequences);
         self.build_from_distances(distances, sequences)
@@ -33,6 +54,24 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
     /// Creates a Neighbor Joining Tree Builder with ArgMax strategy, which uses argmax to minimise the tree length.
     /// This implements the classic NJ algorithm but always selects the first pair of nodes with the smallest distance.
     /// TODO: Add option to randomise ties @junniest.
+    ///
+    /// # Example
+    /// ```rust
+    /// use phylo::alignment::Sequences;
+    /// use phylo::evolutionary_distances::LevenshteinDNACorrected;
+    /// use phylo::io::read_sequences;
+    /// use phylo::random::DefaultGenerator;
+    /// use phylo::tree::NJTreeBuilder;
+    /// use phylo::tree::TreeBuilder;
+    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta")?);
+    /// let rng = DefaultGenerator::default();
+    /// let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
+    /// let tree = nj_builder.build(&sequences)?;
+    /// assert_eq!(tree.len(), 7);
+    /// assert_eq!(tree.leaves().len(), 4);
+    /// # Ok(()) }
+    /// ```
     pub fn new(distance_function: D, rng: &'a R) -> Self {
         info!("Creating regular NJTreeBuilder, first argmax choice for next pair of nodes to join");
         Self {
@@ -47,6 +86,24 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
     /// (`delta_tree_len`). Nodes that contribute more to minimising the tree length have a higher probability of being selected.
     /// Temperature can be between 0.0 and 1.0 and interpolates between the uniform and softmax distributions to select
     /// the next pair of nodes to join. A temperature of 0.0 is fully uniform, while a temperature of 1.0 is fully softmax.
+    ///
+    /// # Example
+    /// ```rust
+    /// use phylo::alignment::Sequences;
+    /// use phylo::evolutionary_distances::LevenshteinDNACorrected;
+    /// use phylo::io::read_sequences;
+    /// use phylo::random::DefaultGenerator;
+    /// use phylo::tree::NJTreeBuilder;
+    /// use phylo::tree::TreeBuilder;
+    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta")?);
+    /// let rng = DefaultGenerator::default();
+    /// let nj_builder = NJTreeBuilder::new_with_softmax(LevenshteinDNACorrected {}, &rng, 0.5);
+    /// let tree = nj_builder.build(&sequences)?;
+    /// assert_eq!(tree.len(), 7);
+    /// assert_eq!(tree.leaves().len(), 4);
+    /// # Ok(()) }
+    /// ```
     pub fn new_with_softmax(distance_function: D, rng: &'a R, temperature: f64) -> Self {
         info!("Creating NJTreeBuilder with softmax strategy and temperature {temperature}");
         if temperature > 1.0 {
@@ -64,8 +121,11 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         }
     }
 
+    /// Computes the softmax distribution from the delta tree lengths without temperature
+    /// scaling. As the delta tree lengths are negative, they are inverted before computing
+    /// the distribution, so that smaller (more negative) delta tree lengths have higher probabilities.
     fn softmax_from_deltas(mut delta_tree_len: DVector<f64>) -> DVector<f64> {
-        // Invert deltas for softmax, smallest negative delta should have highest probability
+        // Invert deltas for softmax, most negative delta should have the highest probability
         delta_tree_len.scale_mut(-1.0);
         // Avoid copying the matrix by mutating in place
         for element in delta_tree_len.iter_mut() {
@@ -75,6 +135,10 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         delta_tree_len
     }
 
+    /// Computes the softmax probabilities from the delta tree lengths with temperature
+    /// scaling, interpolating linearly between uniform and softmax distributions.
+    /// A temperature of 0.0 results in a uniform distribution, while a temperature of 1.0
+    /// results in a pure softmax distribution.
     fn softmax(delta_tree_len: DVector<f64>, temperature: f64) -> DVector<f64> {
         debug_assert!(
             !delta_tree_len.is_empty(),
@@ -88,7 +152,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         let mut exp_mat = Self::softmax_from_deltas(delta_tree_len);
         let uniform_weight = 1.0 / n as f64;
 
-        // Interpolated probabilities, temp = 0.0 means uniform, temp = 1.0 means softmax of distances
+        // Interpolated probabilities, temp = 0.0 is the uniform distribution, temp = 1.0 is the softmax of distances
         // Avoid copying the matrix by mutating in place
         for element in exp_mat.iter_mut() {
             *element = ((1.0 - temperature) * uniform_weight) + ((temperature) * *element);
@@ -96,6 +160,9 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         exp_mat
     }
 
+    /// Builds a tree from a given distance matrix using the Neighbor Joining algorithm.
+    /// TODO: does not actually need the sequences, only used to create the tree with
+    /// correct leaf ids, should be refactored @junniest
     fn build_from_distances(
         &self,
         mut distances: DistanceMatrix,
@@ -137,6 +204,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         Ok(tree)
     }
 
+    /// Computes the distance matrix for the given sequences using the provided distance function.
     fn compute_distance_matrix(&self, sequences: &Sequences) -> DistanceMatrix {
         let nseqs = sequences.len();
         let mut distances = DMatrix::zeros(nseqs, nseqs);
@@ -156,6 +224,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
     }
 }
 
+// Convert a linear index in the lower triangle of a matrix to (i, j) coordinates
 fn lower_triangle_index(k: usize) -> (usize, usize) {
     // 0 indexed
     let p = ((1 + 8 * k).isqrt() - 1) / 2;
