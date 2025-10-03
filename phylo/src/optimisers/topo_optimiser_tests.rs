@@ -754,7 +754,7 @@ fn fix_iter_low() {
     // Without the predicate will run for 4 iterations
     assert_eq!(res_default.iterations, 4);
 
-    let result = TopologyOptimiser::new_with_pred(
+    let result = TopologyOptimiser::with_stop_condition(
         c,
         SprOptimiser {},
         &FakeGenerator::default(),
@@ -787,7 +787,7 @@ fn precision() {
     // Without the predicate will run for 4 iterations
     assert_eq!(res_default.iterations, 4);
 
-    let result = TopologyOptimiser::new_with_pred(
+    let result = TopologyOptimiser::with_stop_condition(
         c,
         SprOptimiser {},
         &FakeGenerator::default(),
@@ -820,7 +820,7 @@ fn fix_iter() {
     assert_eq!(res_default.iterations, 2);
 
     // Without the predicate will run for 2 iterations, for 5 with the predicate
-    let result = TopologyOptimiser::new_with_pred(
+    let result = TopologyOptimiser::with_stop_condition(
         c,
         SprOptimiser {},
         &FakeGenerator::default(),
@@ -852,7 +852,7 @@ fn max_iter() {
     assert_eq!(res_default.iterations, 2);
 
     // Without the predicate will run for 2 iterations, for at most 5 with the predicate
-    let result = TopologyOptimiser::new_with_pred(
+    let result = TopologyOptimiser::with_stop_condition(
         c,
         SprOptimiser {},
         &FakeGenerator::default(),

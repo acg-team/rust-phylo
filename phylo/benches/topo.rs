@@ -22,7 +22,7 @@ fn run_fixed_iter_topo<C: TreeSearchCost + Clone + Display + Send + Compatible<S
 ) -> anyhow::Result<f64> {
     // Only use the FakeGenerator for deterministic benchmarking
     let fake_rng = FakeGenerator::new();
-    let topo_opt = TopologyOptimiser::new_with_pred(
+    let topo_opt = TopologyOptimiser::with_stop_condition(
         cost,
         SprOptimiser {},
         &fake_rng,

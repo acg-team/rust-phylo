@@ -58,11 +58,11 @@ where
         }
     }
 
-    pub fn new_with_pred(cost: C, move_opti: MO, rng: &'a R, predicate: StopCondition) -> Self {
+    pub fn with_stop_condition(cost: C, move_opti: MO, rng: &'a R, stop: StopCondition) -> Self {
         Self {
             c: cost,
             move_opti,
-            stop_condition: predicate,
+            stop_condition: stop,
             rng,
         }
     }
