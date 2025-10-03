@@ -739,7 +739,7 @@ fn dollo_tree_search_sim_data_model() {
 
 #[test]
 #[cfg_attr(feature = "ci_coverage", ignore)]
-fn topo_optimiser_predicate_iters() {
+fn fix_iter_low() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
 
@@ -771,7 +771,7 @@ fn topo_optimiser_predicate_iters() {
 
 #[test]
 #[cfg_attr(feature = "ci_coverage", ignore)]
-fn topo_optimiser_predicate_precision() {
+fn precision() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
     let epsilon = 1e-1;
@@ -805,7 +805,7 @@ fn topo_optimiser_predicate_precision() {
 
 #[test]
 #[cfg_attr(feature = "ci_coverage", ignore)]
-fn topo_optimiser_predicate_fix_iter() {
+fn fix_iter() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
 
@@ -836,7 +836,7 @@ fn topo_optimiser_predicate_fix_iter() {
 
 #[test]
 #[cfg_attr(feature = "ci_coverage", ignore)]
-fn topo_optimiser_predicate_max_iter() {
+fn max_iter() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
     let epsilon = 1e-10;
