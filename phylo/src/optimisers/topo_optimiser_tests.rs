@@ -1,4 +1,4 @@
-use std::num::NonZero;
+use std::num::NonZeroUsize;
 use std::path::Path;
 
 use approx::assert_relative_eq;
@@ -8,7 +8,7 @@ use crate::evolutionary_models::FrequencyOptimisation::Empirical;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{
     BranchOptimiser, ModelOptimiser, NniOptimiser, PhyloOptimisationResult, SprOptimiser,
-    TopologyOptimiser, TopologyOptimiserPredicate,
+    StopCondition, TopologyOptimiser,
 };
 use crate::parsimony::{scoring::ModelScoringBuilder, BasicParsimonyCost, DolloParsimonyCost};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
@@ -738,6 +738,7 @@ fn dollo_tree_search_sim_data_model() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn topo_optimiser_predicate_iters() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
@@ -747,19 +748,64 @@ fn topo_optimiser_predicate_iters() {
     let c = SCB::new(wag, info).build().unwrap();
     let unopt_cost = c.cost();
 
-    let predicate = TopologyOptimiserPredicate::fixed_iter(NonZero::new(1).unwrap());
-    // Without the predicate will run for 3 iterations
-    let result =
-        TopologyOptimiser::new_with_pred(c, SprOptimiser {}, &FakeGenerator::default(), predicate)
-            .run()
-            .unwrap();
+    let res_default = TopologyOptimiser::new(c.clone(), SprOptimiser {}, &FakeGenerator::default())
+        .run()
+        .unwrap();
+    // Without the predicate will run for 4 iterations
+    assert_eq!(res_default.iterations, 4);
+
+    let result = TopologyOptimiser::new_with_pred(
+        c,
+        SprOptimiser {},
+        &FakeGenerator::default(),
+        StopCondition::fixed_iter(NonZeroUsize::new(1).unwrap()),
+    )
+    .run()
+    .unwrap();
     assert!(result.final_cost >= unopt_cost);
-    assert!(result.iterations <= 1);
+    assert_eq!(result.iterations, 1);
+    assert_eq!(result.initial_cost, unopt_cost);
+
+    assert!(result.final_cost <= res_default.final_cost);
+}
+
+#[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
+fn topo_optimiser_predicate_precision() {
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let seq_file = fldr.join("seqs.fasta");
+    let epsilon = 1e-1;
+
+    let wag = SubstModel::<WAG>::new(&[], &[]);
+    let info = PIB::new(seq_file).build().unwrap();
+    let c = SCB::new(wag, info).build().unwrap();
+    let unopt_cost = c.cost();
+
+    let res_default = TopologyOptimiser::new(c.clone(), SprOptimiser {}, &FakeGenerator::default())
+        .run()
+        .unwrap();
+    // Without the predicate will run for 4 iterations
+    assert_eq!(res_default.iterations, 4);
+
+    let result = TopologyOptimiser::new_with_pred(
+        c,
+        SprOptimiser {},
+        &FakeGenerator::default(),
+        StopCondition::epsilon(epsilon),
+    )
+    .run()
+    .unwrap();
+    assert!(result.final_cost >= unopt_cost);
+
+    let mut costs = result.costs;
+    assert!(costs.pop().unwrap() - costs.pop().unwrap() < epsilon);
+    assert!(result.iterations <= res_default.iterations);
     assert_eq!(result.initial_cost, unopt_cost);
 }
 
 #[test]
-fn topo_optimiser_predicate_precision() {
+#[cfg_attr(feature = "ci_coverage", ignore)]
+fn topo_optimiser_predicate_fix_iter() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
 
@@ -768,13 +814,56 @@ fn topo_optimiser_predicate_precision() {
     let c = SCB::new(wag, info).build().unwrap();
     let unopt_cost = c.cost();
 
-    let predicate = TopologyOptimiserPredicate::gt_epsilon(1e-1);
-    // Without the predicate will run for 3 iterations, for 2 with the predicate
-    let result =
-        TopologyOptimiser::new_with_pred(c, SprOptimiser {}, &FakeGenerator::default(), predicate)
-            .run()
-            .unwrap();
+    let res_default = TopologyOptimiser::new(c.clone(), SprOptimiser {}, &FakeGenerator::default())
+        .run()
+        .unwrap();
+    assert_eq!(res_default.iterations, 2);
+
+    // Without the predicate will run for 2 iterations, for 5 with the predicate
+    let result = TopologyOptimiser::new_with_pred(
+        c,
+        SprOptimiser {},
+        &FakeGenerator::default(),
+        StopCondition::fixed_iter(NonZeroUsize::new(5).unwrap()),
+    )
+    .run()
+    .unwrap();
     assert!(result.final_cost >= unopt_cost);
-    assert!(result.iterations <= 3);
+    assert!(result.final_cost >= res_default.final_cost);
+    assert_eq!(result.iterations, 5);
+    assert_eq!(result.initial_cost, unopt_cost);
+}
+
+#[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
+fn topo_optimiser_predicate_max_iter() {
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let seq_file = fldr.join("nogap_seqs.fasta");
+    let epsilon = 1e-10;
+
+    let wag = SubstModel::<WAG>::new(&[], &[]);
+    let info = PIB::new(seq_file).build().unwrap();
+    let c = SCB::new(wag, info).build().unwrap();
+    let unopt_cost = c.cost();
+
+    let res_default = TopologyOptimiser::new(c.clone(), SprOptimiser {}, &FakeGenerator::default())
+        .run()
+        .unwrap();
+    assert_eq!(res_default.iterations, 2);
+
+    // Without the predicate will run for 2 iterations, for at most 5 with the predicate
+    let result = TopologyOptimiser::new_with_pred(
+        c,
+        SprOptimiser {},
+        &FakeGenerator::default(),
+        StopCondition::max_iter_epsilon(NonZeroUsize::new(5).unwrap(), epsilon),
+    )
+    .run()
+    .unwrap();
+    assert!(result.final_cost >= unopt_cost);
+    assert!(result.iterations <= 5);
+    assert!(result.final_cost >= res_default.final_cost);
+    let mut costs = result.costs;
+    assert!(costs.pop().unwrap() - costs.pop().unwrap() < epsilon);
     assert_eq!(result.initial_cost, unopt_cost);
 }
