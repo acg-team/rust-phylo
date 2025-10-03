@@ -33,7 +33,7 @@ macro_rules! define_optimise_trees {
                 let mut fake_rng = FakeGenerator::default();
                 let start_info = PIB::new(seq_file).build_w_rng(&mut fake_rng).unwrap();
                 let cost = $builder::new(model, start_info).build().unwrap();
-                TopologyOptimiser::new(cost, $move_optimiser {}, &fake_rng).run().unwrap()
+                TopologyOptimiser::with_stop_condition(cost, $move_optimiser {}, &fake_rng, StopCondition::Epsilon(1e-5)).run().unwrap()
             }
 
             #[cfg(feature = "precomputed-test-results")]
@@ -59,7 +59,7 @@ macro_rules! define_optimise_trees {
                     }
                 } else {
                     let cost = $builder::new(model.clone(), start_info).build().unwrap();
-                    let res = TopologyOptimiser::new(cost, $move_optimiser {}, &fake_rng).run().unwrap();
+                    let res = TopologyOptimiser::with_stop_condition(cost, $move_optimiser {}, &fake_rng, StopCondition::Epsilon(1e-5)).run().unwrap();
                     assert!(crate::io::write_newick_to_file(
                         &[res.cost.tree().clone()],
                         tree_file
