@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::num::NonZeroUsize;
 
 use itertools::Itertools;
 use log::{debug, info};
@@ -8,7 +7,7 @@ use crate::alignment::Alignment;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{
     BranchOptimiser, MoveCostInfo, MoveOptimiser, NniOptimiser, PhyloOptimisationResult,
-    SprOptimiser,
+    SprOptimiser, StopCondition,
 };
 use crate::parsimony::scoring::ParsimonyScoring;
 use crate::parsimony::{BasicParsimonyCost, DolloParsimonyCost};
@@ -17,36 +16,6 @@ use crate::random::RandomSource;
 use crate::substitution_models::{QMatrix, SubstitutionCost};
 use crate::tree::NodeIdx;
 use crate::Result;
-
-#[derive(Debug, Clone, Copy)]
-pub enum TopologyOptimiserPredicate {
-    GtEpsilon(f64),
-    FixedIter(NonZeroUsize),
-    // NOTE: use of `fn(..) -> ..` disallows closures that capture any
-    // surrounding variables, for that we would need to allow Boxed Fn
-    // trait objects (or introduce a generic parameter which might get tedious)
-    Custom(fn(usize, f64) -> bool),
-}
-
-impl TopologyOptimiserPredicate {
-    fn test(&self, iteration: usize, delta: f64) -> bool {
-        use TopologyOptimiserPredicate::*;
-        match *self {
-            GtEpsilon(min_delta) => delta > min_delta,
-            FixedIter(max) => max.get() > iteration,
-            Custom(pred) => pred(iteration, delta),
-        }
-    }
-    pub fn gt_epsilon(epsilon: f64) -> Self {
-        Self::GtEpsilon(epsilon)
-    }
-    pub fn fixed_iter(num: NonZeroUsize) -> Self {
-        Self::FixedIter(num)
-    }
-    pub fn custom(pred: fn(usize, f64) -> bool) -> Self {
-        Self::Custom(pred)
-    }
-}
 
 /// The `Compatible` trait is used to ensure that the cost and move optimiser passed to
 /// [`TopologyOptimiser::new`] are compatible.
@@ -68,7 +37,7 @@ where
     C: TreeSearchCost + Display + Clone + Send + Compatible<MO>,
     R: RandomSource,
 {
-    pub(crate) predicate: TopologyOptimiserPredicate,
+    pub(crate) stop_condition: StopCondition,
     pub(crate) move_opti: MO,
     pub(crate) c: C,
     pub(crate) rng: &'a R,
@@ -82,26 +51,76 @@ where
 {
     pub fn new(cost: C, move_opti: MO, rng: &'a R) -> Self {
         Self {
-            predicate: TopologyOptimiserPredicate::GtEpsilon(1e-3),
             move_opti,
             c: cost,
+            stop_condition: StopCondition::Epsilon(1e-5),
             rng,
         }
     }
 
-    pub fn new_with_pred(
-        cost: C,
-        move_opti: MO,
-        rng: &'a R,
-        predicate: TopologyOptimiserPredicate,
-    ) -> Self {
+    pub fn new_with_pred(cost: C, move_opti: MO, rng: &'a R, predicate: StopCondition) -> Self {
         Self {
             c: cost,
             move_opti,
-            predicate,
+            stop_condition: predicate,
             rng,
         }
     }
+
+    // pub fn run_old(mut self) -> Result<PhyloOptimisationResult<C>> {
+    //     info!("Optimising tree topology with SPRs");
+    //     let init_cost = self.c.cost();
+    //     let init_tree = self.c.tree();
+
+    //     info!("Initial cost: {init_cost}");
+    //     debug!("Initial tree: \n{init_tree}");
+    //     let mut curr_cost = init_cost;
+    //     let mut prev_cost = f64::NEG_INFINITY;
+    //     let mut iterations = 0;
+
+    //     let possible_move_locs: Vec<_> = self.move_opti.move_locations(&self.c).copied().collect();
+    //     let mut current_move_locs: Vec<_> = possible_move_locs.iter().collect();
+
+    //     let move_opti = self.move_opti.clone();
+    //     let mut delta = curr_cost - prev_cost;
+    //     // The best move on this iteration might still be worse than the current tree, in which case
+    //     // the search stops.
+    //     // This means that curr_cost is always higher than or equal to prev_cost.
+    //     while !self.stop_condition.met(iterations, delta) {
+    //         iterations += 1;
+    //         info!("Iteration: {iterations}, current cost: {curr_cost}");
+    //         prev_cost = curr_cost;
+
+    //         self.rng.shuffle(&mut current_move_locs);
+
+    //         curr_cost =
+    //             Self::fold_improving_moves(&mut self.c, &move_opti, curr_cost, &current_move_locs)?;
+
+    //         // Optimise branch lengths on current tree to match PhyML
+    //         if self.c.blen_optimisation() {
+    //             let o = BranchOptimiser::new(self.c.clone()).run()?;
+    //             if o.final_cost > curr_cost {
+    //                 curr_cost = o.final_cost;
+    //                 let mut tree = o.cost.tree().clone();
+    //                 tree.dirty();
+    //                 self.c.update_tree(tree);
+    //             }
+    //         }
+    //         debug!("Tree after iteration {}: \n{}", iterations, self.c.tree());
+    //         delta = curr_cost - prev_cost;
+    //     }
+
+    //     debug_assert_eq!(curr_cost, self.c.cost());
+    //     info!("Done optimising tree topology");
+    //     info!("Final cost: {curr_cost}, achieved in {iterations} iteration(s)");
+    //     Ok(PhyloOptimisationResult {
+    //         initial_cost: init_cost,
+    //         final_cost: curr_cost,
+    //         iterations,
+    //         final_delta: delta,
+    //         cost: self.c,
+    //     })
+    // }
 
     /// Runs the topology optimisation algorithm on the given cost function.
     /// The algorithm will iterate until the predicate is satisfied.
@@ -145,45 +164,55 @@ where
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
 
-        let possible_move_locs: Vec<_> = self.move_opti.move_locations(&self.c).copied().collect();
-        let mut current_move_locs: Vec<_> = possible_move_locs.iter().collect();
+        let mut delta = curr_cost - prev_cost;
 
-        let move_opti = self.move_opti.clone();
-        // The best move on this iteration might still be worse than the current tree, in which case
-        // the search stops.
-        // This means that curr_cost is always higher than or equal to prev_cost.
-        while self.predicate.test(iterations, curr_cost - prev_cost) {
+        let mut costs = vec![curr_cost];
+
+        while !self.stop_condition.met(iterations, delta) {
             iterations += 1;
             info!("Iteration: {iterations}, current cost: {curr_cost}");
             prev_cost = curr_cost;
-
-            self.rng.shuffle(&mut current_move_locs);
-
-            curr_cost =
-                Self::fold_improving_moves(&mut self.c, &move_opti, curr_cost, &current_move_locs)?;
-
-            // Optimise branch lengths on current tree to match PhyML
-            if self.c.blen_optimisation() {
-                let o = BranchOptimiser::new(self.c.clone()).run()?;
-                if o.final_cost > curr_cost {
-                    curr_cost = o.final_cost;
-                    let mut tree = o.cost.tree().clone();
-                    tree.dirty();
-                    self.c.update_tree(tree);
-                }
-            }
-            debug!("Tree after iteration {}: \n{}", iterations, self.c.tree());
+            curr_cost = self.optimise_iteration(curr_cost)?;
+            delta = curr_cost - prev_cost;
+            costs.push(curr_cost);
         }
 
         debug_assert_eq!(curr_cost, self.c.cost());
-        info!("Done optimising tree topology");
+        info!("Done optimising branch lengths");
         info!("Final cost: {curr_cost}, achieved in {iterations} iteration(s)");
         Ok(PhyloOptimisationResult {
             initial_cost: init_cost,
             final_cost: curr_cost,
             iterations,
+            costs,
             cost: self.c,
         })
+    }
+
+    /// Performs a single iteration of branch length optimisation over all branches in the tree.
+    /// Returns the cost after optimising all branches once.
+    fn optimise_iteration(&mut self, init_cost: f64) -> Result<f64> {
+        let possible_move_locs: Vec<_> = self.move_opti.move_locations(&self.c).copied().collect();
+        let mut current_move_locs: Vec<_> = possible_move_locs.iter().collect();
+
+        self.rng.shuffle(&mut current_move_locs);
+        let move_opti = self.move_opti.clone();
+
+        let mut curr_cost =
+            Self::fold_improving_moves(&mut self.c, &move_opti, init_cost, &current_move_locs)?;
+
+        // Optimise branch lengths on current tree to match PhyML
+        if self.c.blen_optimisation() {
+            let o = BranchOptimiser::new(self.c.clone()).run()?;
+            if o.final_cost > curr_cost {
+                curr_cost = o.final_cost;
+                let mut tree = o.cost.tree().clone();
+                tree.dirty();
+                self.c.update_tree(tree);
+            }
+        }
+
+        Ok(curr_cost)
     }
 
     /// Iterates over `move_locations` in order and applies the best (improving)
