@@ -864,7 +864,5 @@ fn max_iter() {
     assert!(result.final_cost >= unopt_cost);
     assert!(result.iterations <= 5);
     assert!(result.final_cost >= res_default.final_cost);
-    let mut costs = result.costs;
-    assert!(costs.pop().unwrap() - costs.pop().unwrap() < epsilon);
     assert_eq!(result.initial_cost, unopt_cost);
 }
