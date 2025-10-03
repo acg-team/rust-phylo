@@ -107,18 +107,9 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
         };
         let gss = BrentOpt::new(min, max);
 
-        let res = match self.stop_condition {
-            StopCondition::MaxIterEpsilon(max_iter, _) => Executor::new(optimiser, gss)
-                .configure(|_| {
-                    IterState::new()
-                        .param(start_blen)
-                        .max_iters(max_iter.get() as u64)
-                })
-                .run()?,
-            _ => Executor::new(optimiser, gss)
-                .configure(|_| IterState::new().param(start_blen).max_iters(10))
-                .run()?,
-        };
+        let res = Executor::new(optimiser, gss)
+            .configure(|_| IterState::new().param(start_blen).max_iters(10))
+            .run()?;
 
         let state = res.state();
         Ok(SingleValOptResult {
