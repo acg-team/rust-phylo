@@ -172,7 +172,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         let mut tree = Tree::new(sequences)?;
         let root_idx = usize::from(&tree.root);
         for cur_idx in n..=root_idx {
-            let q = distances.delta_tree_length();
+            let q = distances.compute_delta_tree_length();
 
             let index = match self.randomise {
                 Strategy::SoftmaxUniform(t) => self
@@ -552,7 +552,7 @@ mod tests {
                 9.0, 10.0, 8.0, 0.0, 3.0;
                 8.0, 9.0, 7.0, 3.0, 0.0],
         };
-        let q = nj_distances.delta_tree_length();
+        let q = nj_distances.compute_delta_tree_length();
         assert_eq!(
             q,
             dvector![-50.0, -38.0, -38.0, -34.0, -34.0, -40.0, -34.0, -34.0, -40.0, -48.0]
