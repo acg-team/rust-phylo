@@ -56,6 +56,7 @@ macro_rules! define_optimise_trees {
                         final_cost: final_cost.cost(),
                         iterations: 0,
                         cost: final_cost.clone(),
+                        costs: vec![initial_cost.cost(), final_cost.cost()],
                     }
                 } else {
                     let cost = $builder::new(model.clone(), start_info).build().unwrap();
