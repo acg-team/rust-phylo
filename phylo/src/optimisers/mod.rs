@@ -1,6 +1,9 @@
 use std::num::NonZeroUsize;
 
-use crate::likelihood::{ModelSearchCost, TreeSearchCost};
+use crate::{
+    likelihood::{ModelSearchCost, TreeSearchCost},
+    DEFAULT_EPSILON,
+};
 
 pub mod blen_optimiser;
 pub use blen_optimiser::*;
@@ -55,6 +58,10 @@ impl StopCondition {
 
     pub fn max_iter_epsilon(num: NonZeroUsize, epsilon: f64) -> Self {
         Self::MaxIterEpsilon(num, epsilon)
+    }
+
+    pub fn max_iter(num: NonZeroUsize) -> Self {
+        Self::MaxIterEpsilon(num, DEFAULT_EPSILON)
     }
 
     pub fn custom(pred: fn(usize, f64) -> bool) -> Self {
