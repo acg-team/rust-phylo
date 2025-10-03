@@ -67,61 +67,6 @@ where
         }
     }
 
-    // pub fn run_old(mut self) -> Result<PhyloOptimisationResult<C>> {
-    //     info!("Optimising tree topology with SPRs");
-    //     let init_cost = self.c.cost();
-    //     let init_tree = self.c.tree();
-
-    //     info!("Initial cost: {init_cost}");
-    //     debug!("Initial tree: \n{init_tree}");
-    //     let mut curr_cost = init_cost;
-    //     let mut prev_cost = f64::NEG_INFINITY;
-    //     let mut iterations = 0;
-
-    //     let possible_move_locs: Vec<_> = self.move_opti.move_locations(&self.c).copied().collect();
-    //     let mut current_move_locs: Vec<_> = possible_move_locs.iter().collect();
-
-    //     let move_opti = self.move_opti.clone();
-    //     let mut delta = curr_cost - prev_cost;
-    //     // The best move on this iteration might still be worse than the current tree, in which case
-    //     // the search stops.
-    //     // This means that curr_cost is always higher than or equal to prev_cost.
-    //     while !self.stop_condition.met(iterations, delta) {
-    //         iterations += 1;
-    //         info!("Iteration: {iterations}, current cost: {curr_cost}");
-    //         prev_cost = curr_cost;
-
-    //         self.rng.shuffle(&mut current_move_locs);
-
-    //         curr_cost =
-    //             Self::fold_improving_moves(&mut self.c, &move_opti, curr_cost, &current_move_locs)?;
-
-    //         // Optimise branch lengths on current tree to match PhyML
-    //         if self.c.blen_optimisation() {
-    //             let o = BranchOptimiser::new(self.c.clone()).run()?;
-    //             if o.final_cost > curr_cost {
-    //                 curr_cost = o.final_cost;
-    //                 let mut tree = o.cost.tree().clone();
-    //                 tree.dirty();
-    //                 self.c.update_tree(tree);
-    //             }
-    //         }
-    //         debug!("Tree after iteration {}: \n{}", iterations, self.c.tree());
-    //         delta = curr_cost - prev_cost;
-    //     }
-
-    //     debug_assert_eq!(curr_cost, self.c.cost());
-    //     info!("Done optimising tree topology");
-    //     info!("Final cost: {curr_cost}, achieved in {iterations} iteration(s)");
-    //     Ok(PhyloOptimisationResult {
-    //         initial_cost: init_cost,
-    //         final_cost: curr_cost,
-    //         iterations,
-    //         final_delta: delta,
-    //         cost: self.c,
-    //     })
-    // }
-
     /// Runs the topology optimisation algorithm on the given cost function.
     /// The algorithm will iterate until the predicate is satisfied.
     /// The cost function will be updated in place.
