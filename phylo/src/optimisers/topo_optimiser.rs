@@ -15,7 +15,7 @@ use crate::pip_model::PIPCost;
 use crate::random::RandomSource;
 use crate::substitution_models::{QMatrix, SubstitutionCost};
 use crate::tree::NodeIdx;
-use crate::Result;
+use crate::{Result, DEFAULT_EPSILON};
 
 /// The `Compatible` trait is used to ensure that the cost and move optimiser passed to
 /// [`TopologyOptimiser::new`] are compatible.
@@ -53,7 +53,7 @@ where
         Self {
             move_opti,
             c: cost,
-            stop_condition: StopCondition::Epsilon(1e-5),
+            stop_condition: StopCondition::Epsilon(DEFAULT_EPSILON),
             rng,
         }
     }

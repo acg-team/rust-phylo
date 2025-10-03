@@ -25,3 +25,5 @@ pub(crate) mod macros;
 type Result<T> = std::result::Result<T, Error>;
 
 pub(crate) const MAX_BLEN: f64 = 1e5f64;
+
+pub(crate) const DEFAULT_EPSILON: f64 = 1e-3;

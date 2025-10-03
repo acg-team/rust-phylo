@@ -10,7 +10,7 @@ use crate::optimisers::{BranchOptimiser, StopCondition};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::pip_model::{PIPCostBuilder as PIPCB, PIPModel};
 use crate::substitution_models::{dna_models::*, SubstModel, SubstitutionCostBuilder as SCB, WAG};
-use crate::{record_wo_desc as record, tree};
+use crate::{record_wo_desc as record, tree, DEFAULT_EPSILON};
 
 #[test]
 fn branch_opt_likelihood_increase_pip() {
@@ -46,7 +46,7 @@ fn branch_opt_likelihood_increase_pip() {
     for i in 0..o.costs.len() - 1 {
         assert!(o.costs[i] <= o.costs[i + 1]);
     }
-    assert!(o.costs[o.costs.len() - 1] - o.costs[o.costs.len() - 2] < 1e-3);
+    assert!(o.costs[o.costs.len() - 1] - o.costs[o.costs.len() - 2] < DEFAULT_EPSILON);
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn branch_opt_likelihood_increase_gtr() {
     for i in 0..o.costs.len() - 1 {
         assert!(o.costs[i] <= o.costs[i + 1]);
     }
-    assert!(o.costs[o.costs.len() - 1] - o.costs[o.costs.len() - 2] < 1e-3);
+    assert!(o.costs[o.costs.len() - 1] - o.costs[o.costs.len() - 2] < DEFAULT_EPSILON);
 }
 
 #[test]
@@ -173,10 +173,12 @@ fn max_iter() {
     );
     let c = PIPCB::new(model.clone(), info.clone()).build().unwrap();
     let unopt_cost = c.cost();
-    let epsilon = 1e-3;
+    let epsilon = DEFAULT_EPSILON;
 
     let res_default = BranchOptimiser::new(c.clone()).run().unwrap();
     assert_eq!(res_default.iterations, 4);
+    let mut costs = res_default.costs;
+    assert!(costs.pop().unwrap() - costs.pop().unwrap() < DEFAULT_EPSILON);
 
     let res = BranchOptimiser::with_stop_condition(
         c,

@@ -8,7 +8,7 @@ use log::{debug, info};
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{PhyloOptimisationResult, SingleValOptResult, StopCondition};
 use crate::tree::NodeIdx;
-use crate::{Result, MAX_BLEN};
+use crate::{Result, DEFAULT_EPSILON, MAX_BLEN};
 
 pub struct BranchOptimiser<C: TreeSearchCost + Display + Clone> {
     pub(crate) stop_condition: StopCondition,
@@ -18,7 +18,7 @@ pub struct BranchOptimiser<C: TreeSearchCost + Display + Clone> {
 impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
     pub fn new(cost: C) -> Self {
         Self {
-            stop_condition: StopCondition::Epsilon(1e-3),
+            stop_condition: StopCondition::Epsilon(DEFAULT_EPSILON),
             c: cost,
         }
     }
