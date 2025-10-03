@@ -720,12 +720,12 @@ mod tests {
             record!("E4", b""),
         ]);
         let rng = FakeGen::new();
-        let nj_uniform_builder = NJTreeBuilder::new_with_softmax(LDNACorr, &rng, 0.0);
+        let nj_uniform_builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 0.0);
         let nj_uniform_tree = nj_uniform_builder
             .build_from_distances(nj_distances.clone(), &sequences)
             .unwrap();
 
-        let nj_softmax_builder = NJTreeBuilder::new_with_softmax(LDNACorr, &rng, 1.0);
+        let nj_softmax_builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 1.0);
         let nj_softmax_tree = nj_softmax_builder
             .build_from_distances(nj_distances.clone(), &sequences)
             .unwrap();
