@@ -6,67 +6,49 @@ use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
 use crate::likelihood::TreeSearchCost;
-use crate::optimisers::{PhyloOptimisationResult, SingleValOptResult};
+use crate::optimisers::{PhyloOptimisationResult, SingleValOptResult, StopCondition};
 use crate::tree::NodeIdx;
 use crate::{Result, MAX_BLEN};
 
 pub struct BranchOptimiser<C: TreeSearchCost + Display + Clone> {
-    pub(crate) epsilon: f64,
+    pub(crate) stop_condition: StopCondition,
     pub(crate) c: C,
-    max_iters: u64,
 }
 
 impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
     pub fn new(cost: C) -> Self {
         Self {
-            epsilon: 1e-3,
+            stop_condition: StopCondition::Epsilon(1e-3),
             c: cost,
-            max_iters: 100,
         }
     }
 
-    pub fn with_iters(cost: C, max_iters: u64) -> Self {
+    pub fn with_stop_condition(cost: C, stop_condition: StopCondition) -> Self {
         Self {
-            epsilon: 1e-3,
+            stop_condition,
             c: cost,
-            max_iters,
         }
     }
 
     pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
         info!("Optimising branch lengths");
         let init_cost = self.c.cost();
-        let mut tree = self.c.tree().clone();
 
         info!("Initial cost: {init_cost}");
         let mut curr_cost = init_cost;
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
+        let mut delta = curr_cost - prev_cost;
 
-        let nodes: Vec<NodeIdx> = tree.iter().map(|node| node.idx).collect();
-        while (curr_cost - prev_cost) > self.epsilon {
+        let mut costs = vec![curr_cost];
+
+        while !self.stop_condition.met(iterations, delta) {
             iterations += 1;
             info!("Iteration: {iterations}, current cost: {curr_cost}");
             prev_cost = curr_cost;
-
-            for branch in &nodes {
-                if tree.root == *branch {
-                    continue;
-                }
-                debug!("Node {branch:?}: optimising branch length");
-                let blen_opt = self.optimise_branch(branch)?;
-                if blen_opt.final_cost > curr_cost {
-                    curr_cost = blen_opt.final_cost;
-                    tree.set_blen(branch, blen_opt.value);
-                    debug!(
-                        "    Optimised to {:.5} with cost {curr_cost:.5}",
-                        blen_opt.value
-                    );
-                }
-                // The branch length may have changed during the optimisation attempt, so the tree
-                // should be reset even if the optimisation was unsuccessful.
-                self.c.update_tree(tree.clone());
-            }
+            curr_cost = self.optimise_iteration()?;
+            delta = curr_cost - prev_cost;
+            costs.push(curr_cost);
         }
 
         debug_assert_eq!(curr_cost, self.c.cost());
@@ -76,8 +58,38 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
             initial_cost: init_cost,
             final_cost: curr_cost,
             iterations,
+            costs,
             cost: self.c,
         })
+    }
+
+    /// Performs a single iteration of branch length optimisation over all branches in the tree.
+    /// Returns the cost after optimising all branches once.
+    fn optimise_iteration(&mut self) -> Result<f64> {
+        let mut curr_cost = self.c.cost();
+        let mut tree = self.c.tree().clone();
+        let nodes: Vec<NodeIdx> = tree.iter().map(|node| node.idx).collect();
+
+        for branch in &nodes {
+            if tree.root == *branch {
+                continue;
+            }
+            debug!("Node {branch:?}: optimising branch length");
+            let blen_opt = self.optimise_branch(branch)?;
+            if blen_opt.final_cost > curr_cost {
+                curr_cost = blen_opt.final_cost;
+                tree.set_blen(branch, blen_opt.value);
+                debug!(
+                    "    Optimised to {:.5} with cost {curr_cost:.5}",
+                    blen_opt.value
+                );
+            }
+            // The branch length may have changed during the optimisation attempt, so the tree
+            // should be reset even if the optimisation was unsuccessful.
+            self.c.update_tree(tree.clone());
+        }
+
+        Ok(curr_cost)
     }
 }
 
@@ -94,9 +106,20 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
             branch: *branch,
         };
         let gss = BrentOpt::new(min, max);
-        let res = Executor::new(optimiser, gss)
-            .configure(|_| IterState::new().param(start_blen).max_iters(self.max_iters))
-            .run()?;
+
+        let res = match self.stop_condition {
+            StopCondition::MaxIterEpsilon(max_iter, _) => Executor::new(optimiser, gss)
+                .configure(|_| {
+                    IterState::new()
+                        .param(start_blen)
+                        .max_iters(max_iter.get() as u64)
+                })
+                .run()?,
+            _ => Executor::new(optimiser, gss)
+                .configure(|_| IterState::new().param(start_blen).max_iters(10))
+                .run()?,
+        };
+
         let state = res.state();
         Ok(SingleValOptResult {
             final_cost: -state.best_cost,
