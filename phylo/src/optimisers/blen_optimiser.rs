@@ -42,7 +42,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
 
         let mut costs = vec![curr_cost];
 
-        while !self.stop_condition.met(iterations, delta) {
+        while self.stop_condition.should_continue(iterations, delta) {
             iterations += 1;
             info!("Iteration: {iterations}, current cost: {curr_cost}");
             prev_cost = curr_cost;

@@ -44,10 +44,6 @@ impl StopCondition {
         }
     }
 
-    fn met(&self, iteration: usize, delta: f64) -> bool {
-        !self.should_continue(iteration, delta)
-    }
-
     pub fn epsilon(epsilon: f64) -> Self {
         Self::Epsilon(epsilon)
     }
@@ -119,7 +115,6 @@ mod tests {
     #[case(3, 0.0, true)]
     fn predicate_epsilon(#[case] iters: usize, #[case] delta: f64, #[case] expected: bool) {
         let pred = StopCondition::Epsilon(0.01);
-        assert_eq!(pred.met(iters, delta), expected);
         assert_eq!(pred.should_continue(iters, delta), !expected);
     }
 
@@ -132,7 +127,6 @@ mod tests {
     #[case(5, 1e-10, true)]
     fn predicate_fixed_iter(#[case] iters: usize, #[case] delta: f64, #[case] expected: bool) {
         let pred = StopCondition::FixedIter(NonZeroUsize::new(3).unwrap());
-        assert_eq!(pred.met(iters, delta), expected);
         assert_eq!(pred.should_continue(iters, delta), !expected);
     }
 
@@ -146,7 +140,6 @@ mod tests {
     #[case(5, 1e10, true)]
     fn predicate_max_iter(#[case] iters: usize, #[case] delta: f64, #[case] expected: bool) {
         let pred = StopCondition::MaxIterEpsilon(NonZeroUsize::new(3).unwrap(), 0.01);
-        assert_eq!(pred.met(iters, delta), expected);
         assert_eq!(pred.should_continue(iters, delta), !expected);
     }
 
@@ -163,7 +156,6 @@ mod tests {
             !(i >= 2 && d < 0.01)
         }
         let pred = StopCondition::Custom(custom);
-        assert_eq!(pred.met(iters, delta), expected);
         assert_eq!(pred.should_continue(iters, delta), !expected);
     }
 }
