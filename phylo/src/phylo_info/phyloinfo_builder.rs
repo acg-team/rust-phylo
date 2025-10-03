@@ -25,7 +25,6 @@ pub struct PhyloInfoBuilder<A: Alignment, AA: AncestralAlignment> {
     // but since we access the alignment on a regular basis (or do we actually? Since we instead use the encoding)
     aligner: Option<Box<dyn Aligner<A>>>,
     asr: Option<Box<dyn AncestralSequenceReconstruction<A, AA>>>,
-    // tree_builder: Option<Box<dyn TreeBuilder>>,
     alphabet: Option<Alphabet>,
 }
 
@@ -144,8 +143,14 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     pub fn build_w_rng(self, rng: &impl RandomSource) -> Result<PhyloInfo<A>> {
         let sequences = self.read_sequences()?;
         let tree = match &self.tree_file {
-            Some(tree_file) => self.read_tree(tree_file)?,
-            None => self.build_nj_tree(rng, &sequences)?,
+            Some(tree_file) => {
+                info!("Starting tree provided in file {}", tree_file.display());
+                self.read_tree(tree_file)?
+            }
+            None => {
+                info!("No tree file provided, building NJ tree");
+                self.build_nj_tree(rng, &sequences)?
+            }
         };
         let msa = if sequences.aligned {
             info!("Sequences are aligned");
@@ -207,16 +212,15 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     /// have been read in the first place).
     fn build_nj_tree(&self, rng: &impl RandomSource, sequences: &Sequences) -> Result<Tree> {
         info!("Building NJ tree from sequences");
-        let builder: Box<dyn TreeBuilder> = if sequences.alphabet() == &dna_alphabet() {
+        if sequences.alphabet() == &dna_alphabet() {
             info!("Using corrected Levenshtein DNA distance for distance calculation");
-            Box::new(NJTreeBuilder::new(LevenshteinDNACorrected, rng))
+            NJTreeBuilder::new(LevenshteinDNACorrected {}, rng).build(sequences)
         } else if sequences.alphabet() == &protein_alphabet() {
             info!("Using corrected Levenshtein protein distance for distance calculation");
-            Box::new(NJTreeBuilder::new(LevenshteinProteinCorrected, rng))
+            NJTreeBuilder::new(LevenshteinProteinCorrected {}, rng).build(sequences)
         } else {
             unreachable!("Unknown alphabet, should have been defined earlier");
-        };
-        builder.build(sequences)
+        }
     }
 
     fn read_sequences(&self) -> Result<Sequences> {
