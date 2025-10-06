@@ -6,7 +6,7 @@ use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
 use crate::likelihood::TreeSearchCost;
-use crate::optimisers::{TreeOptimisationResult, SingleValOptResult, StopCondition};
+use crate::optimisers::{SingleValOptResult, StopCondition, TreeOptimisationResult};
 use crate::tree::NodeIdx;
 use crate::{Result, DEFAULT_EPSILON, MAX_BLEN};
 
