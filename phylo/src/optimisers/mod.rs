@@ -99,6 +99,8 @@ pub struct ModelOptimisationResult<C: ModelSearchCost> {
     pub initial_cost: f64,
     pub final_cost: f64,
     pub iterations: usize,
+    #[allow(dead_code)]
+    pub(crate) costs: Vec<f64>,
     pub cost: C,
 }
 
