@@ -32,14 +32,16 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
 
     pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
         info!("Optimising branch lengths");
+        info!("Optimisation stopping condition: {}", self.stop_condition);
         let init_cost = self.c.cost();
 
         info!("Initial cost: {init_cost}");
+        debug!("Initial tree: \n{}", self.c.tree());
+
         let mut curr_cost = init_cost;
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
         let mut delta = curr_cost - prev_cost;
-
         let mut costs = vec![curr_cost];
 
         while self.stop_condition.should_continue(iterations, delta) {
