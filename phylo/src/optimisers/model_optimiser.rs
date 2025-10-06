@@ -51,7 +51,8 @@ impl<C: ModelSearchCost + Display + Clone> ModelOptimiser<C> {
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
         let mut delta = curr_cost - prev_cost;
-        let mut costs = vec![curr_cost];
+        // Store costs for each iteration, including initial cost before potential frequency optimisation
+        let mut costs = vec![init_cost, curr_cost];
 
         while self.stop_condition.should_continue(iterations, delta) {
             iterations += 1;

@@ -50,6 +50,7 @@ fn frequencies_unchanged_k80() {
         .run()
         .unwrap();
     assert_eq!(initial_logl, o.initial_cost);
+    assert_eq!(initial_logl, o.costs[0]);
     assert_eq!(o.cost.cost(), o.final_cost);
     assert_ne!(o.cost.model.params(), model.params());
     assert_relative_eq!(o.cost.freqs(), &frequencies!(&[0.25; 4]));
@@ -69,6 +70,7 @@ fn parameter_change_k80() {
         .run()
         .unwrap();
     assert_eq!(initial_logl, o.initial_cost);
+    assert_eq!(initial_logl, o.costs[0]);
     assert_eq!(o.cost.cost(), o.final_cost);
     assert_ne!(o.cost.model.params(), model.params());
     assert_relative_eq!(o.cost.freqs(), &frequencies!(&[0.25; 4]));
@@ -116,6 +118,7 @@ fn improved_logl_fixed_freqs_template<Q: QMatrix + QMatrixMaker>() {
         .unwrap();
 
     assert_eq!(initial_logl, o.initial_cost);
+    assert_eq!(initial_logl, o.costs[0]);
     assert_eq!(o.cost.cost(), o.final_cost);
     assert!(o.final_cost > initial_logl);
     assert_ne!(o.cost.model.params(), model.params());
@@ -145,6 +148,7 @@ fn improved_logl_empirical_freqs_template<Q: QMatrix + QMatrixMaker>() {
         .unwrap();
 
     assert_eq!(initial_logl, o.initial_cost);
+    assert_eq!(initial_logl, o.costs[0]);
     assert_eq!(o.cost.cost(), o.final_cost);
     assert!(o.final_cost > initial_logl);
     assert_ne!(o.cost.model.params(), model.params());
@@ -157,6 +161,39 @@ fn improved_logl_empirical_freqs() {
     improved_logl_empirical_freqs_template::<HKY>();
     improved_logl_empirical_freqs_template::<TN93>();
     improved_logl_empirical_freqs_template::<GTR>();
+}
+
+#[cfg(test)]
+fn improved_logl_empirical_freqs_pip_template<Q: QMatrix + QMatrixMaker>() {
+    let fldr = Path::new("./data/sim");
+    let info = PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
+    let model = PIPModel::<Q>::new(&[], &[1.4, 0.6]);
+
+    let c = PIPCostBuilder::new(model.clone(), info).build().unwrap();
+    let initial_logl = c.cost();
+    let o = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
+        .run()
+        .unwrap();
+
+    assert_eq!(initial_logl, o.initial_cost);
+    assert_eq!(initial_logl, o.costs[0]);
+    assert_eq!(o.cost.cost(), o.final_cost);
+    assert!(o.final_cost > initial_logl);
+    assert_ne!(o.cost.model.params(), model.params());
+    assert_ne!(o.cost.freqs(), model.freqs());
+    assert_eq!(
+        o.cost.freqs().view((0, 0), (4, 1)),
+        o.cost.empirical_freqs()
+    );
+}
+
+#[test]
+fn improved_logl_empirical_freqs_pip() {
+    improved_logl_empirical_freqs_pip_template::<HKY>();
+    improved_logl_empirical_freqs_pip_template::<TN93>();
+    improved_logl_empirical_freqs_pip_template::<GTR>();
 }
 
 #[test]
