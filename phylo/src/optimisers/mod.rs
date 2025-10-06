@@ -84,6 +84,7 @@ pub struct SingleValOptResult {
     pub value: f64,
 }
 
+#[derive(Clone, Debug)]
 pub struct PhyloOptimisationResult<C: TreeSearchCost> {
     pub initial_cost: f64,
     pub final_cost: f64,
@@ -93,6 +94,7 @@ pub struct PhyloOptimisationResult<C: TreeSearchCost> {
     pub cost: C,
 }
 
+#[derive(Clone, Debug)]
 pub struct ModelOptimisationResult<C: ModelSearchCost> {
     pub initial_cost: f64,
     pub final_cost: f64,
