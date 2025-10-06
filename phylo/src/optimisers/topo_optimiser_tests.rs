@@ -7,8 +7,8 @@ use crate::alignment::{Alignment, Sequences, MSA};
 use crate::evolutionary_models::FrequencyOptimisation::Empirical;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{
-    BranchOptimiser, ModelOptimiser, NniOptimiser, PhyloOptimisationResult, SprOptimiser,
-    StopCondition, TopologyOptimiser,
+    BranchOptimiser, ModelOptimiser, NniOptimiser, SprOptimiser, StopCondition, TopologyOptimiser,
+    TreeOptimisationResult,
 };
 use crate::parsimony::{scoring::ModelScoringBuilder, BasicParsimonyCost, DolloParsimonyCost};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
@@ -29,7 +29,7 @@ macro_rules! define_optimise_trees {
                 seq_file: &std::path::Path,
                 _: &std::path::Path,
                 model: $model<Q>,
-            ) -> PhyloOptimisationResult<$cost<Q, MSA>> {
+            ) -> TreeOptimisationResult<$cost<Q, MSA>> {
                 let mut fake_rng = FakeGenerator::default();
                 let start_info = PIB::new(seq_file).build_w_rng(&mut fake_rng).unwrap();
                 let cost = $builder::new(model, start_info).build().unwrap();
@@ -41,7 +41,7 @@ macro_rules! define_optimise_trees {
                 seq_file: &std::path::Path,
                 tree_file: &std::path::Path,
                 model: $model<Q>,
-            ) -> PhyloOptimisationResult<$cost<Q, MSA>> {
+            ) -> TreeOptimisationResult<$cost<Q, MSA>> {
                 let mut fake_rng = FakeGenerator::default();
                 let start_info = PIB::new(seq_file).build_w_rng(&mut fake_rng).unwrap();
 
@@ -51,7 +51,7 @@ macro_rules! define_optimise_trees {
                     let initial_cost = $builder::new(model.clone(), start_info).build().unwrap();
                     let final_cost = $builder::new(model, precomputed.clone()).build().unwrap();
 
-                    PhyloOptimisationResult {
+                    TreeOptimisationResult {
                         initial_cost: initial_cost.cost(),
                         final_cost: final_cost.cost(),
                         iterations: 0,

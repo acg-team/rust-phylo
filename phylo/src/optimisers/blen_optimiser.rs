@@ -6,7 +6,7 @@ use argmin::solver::brent::BrentOpt;
 use log::{debug, info};
 
 use crate::likelihood::TreeSearchCost;
-use crate::optimisers::{PhyloOptimisationResult, SingleValOptResult, StopCondition};
+use crate::optimisers::{TreeOptimisationResult, SingleValOptResult, StopCondition};
 use crate::tree::NodeIdx;
 use crate::{Result, DEFAULT_EPSILON, MAX_BLEN};
 
@@ -30,7 +30,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
         }
     }
 
-    pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
+    pub fn run(mut self) -> Result<TreeOptimisationResult<C>> {
         info!("Optimising branch lengths");
         info!("Optimisation stopping condition: {}", self.stop_condition);
         let init_cost = self.c.cost();
@@ -56,7 +56,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
         debug_assert_eq!(curr_cost, self.c.cost());
         info!("Done optimising branch lengths");
         info!("Final cost: {curr_cost}, achieved in {iterations} iteration(s)");
-        Ok(PhyloOptimisationResult {
+        Ok(TreeOptimisationResult {
             initial_cost: init_cost,
             final_cost: curr_cost,
             iterations,

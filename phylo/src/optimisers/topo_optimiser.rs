@@ -6,7 +6,7 @@ use log::{debug, info};
 use crate::alignment::Alignment;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{
-    BranchOptimiser, MoveCostInfo, MoveOptimiser, NniOptimiser, PhyloOptimisationResult,
+    BranchOptimiser, MoveCostInfo, MoveOptimiser, NniOptimiser, TreeOptimisationResult,
     SprOptimiser, StopCondition,
 };
 use crate::parsimony::scoring::ParsimonyScoring;
@@ -98,7 +98,7 @@ where
     /// assert_eq!(result.cost.tree().len(), 9); // The initial tree has 9 nodes, 5 leaves and 4 internal nodes.
     /// # Ok(()) }
     /// ```
-    pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
+    pub fn run(mut self) -> Result<TreeOptimisationResult<C>> {
         info!("Optimising tree topology");
         info!("Optimisation stopping condition: {}", self.stop_condition);
         let init_cost = self.c.cost();
@@ -124,7 +124,7 @@ where
         debug_assert_eq!(curr_cost, self.c.cost());
         info!("Done optimising branch lengths");
         info!("Final cost: {curr_cost}, achieved in {iterations} iteration(s)");
-        Ok(PhyloOptimisationResult {
+        Ok(TreeOptimisationResult {
             initial_cost: init_cost,
             final_cost: curr_cost,
             iterations,
