@@ -8,7 +8,7 @@ use log::{debug, info, warn};
 use crate::evolutionary_models::FrequencyOptimisation;
 use crate::likelihood::ModelSearchCost;
 use crate::optimisers::{ModelOptimisationResult, SingleValOptResult, StopCondition};
-use crate::{Result, DEFAULT_EPSILON};
+use crate::Result;
 
 pub struct ModelOptimiser<C: ModelSearchCost + Display + Clone> {
     pub(crate) stop_condition: StopCondition,
@@ -19,7 +19,7 @@ pub struct ModelOptimiser<C: ModelSearchCost + Display + Clone> {
 impl<C: ModelSearchCost + Display + Clone> ModelOptimiser<C> {
     pub fn new(cost: C, freq_opt: FrequencyOptimisation) -> Self {
         Self {
-            stop_condition: StopCondition::Epsilon(DEFAULT_EPSILON),
+            stop_condition: StopCondition::default(),
             c: cost,
             freq_opt,
         }

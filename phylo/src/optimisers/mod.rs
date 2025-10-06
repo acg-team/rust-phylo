@@ -40,6 +40,12 @@ impl std::fmt::Display for StopCondition {
     }
 }
 
+impl Default for StopCondition {
+    fn default() -> Self {
+        StopCondition::Epsilon(DEFAULT_EPSILON)
+    }
+}
+
 impl StopCondition {
     /// Validates whether the optimisation should continue based on the current iteration
     /// number and the change in cost (delta) since the last iteration.

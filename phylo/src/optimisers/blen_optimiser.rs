@@ -9,7 +9,7 @@ use log::{debug, info};
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{SingleValOptResult, StopCondition, TreeOptimisationResult};
 use crate::tree::NodeIdx;
-use crate::{Result, DEFAULT_EPSILON, MAX_BLEN};
+use crate::{Result, MAX_BLEN};
 
 pub struct BranchOptimiser<C: TreeSearchCost + Display + Clone> {
     pub(crate) stop_condition: StopCondition,
@@ -20,7 +20,7 @@ pub struct BranchOptimiser<C: TreeSearchCost + Display + Clone> {
 impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
     pub fn new(cost: C) -> Self {
         Self {
-            stop_condition: StopCondition::Epsilon(DEFAULT_EPSILON),
+            stop_condition: StopCondition::default(),
             max_brent_iters: None,
             c: cost,
         }
