@@ -34,6 +34,11 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
         }
     }
 
+    pub fn max_brent_iters(mut self, iters: NonZeroU64) -> Self {
+        self.max_brent_iters = Some(iters);
+        self
+    }
+
     pub fn run(mut self) -> Result<TreeOptimisationResult<C>> {
         info!("Optimising branch lengths");
         info!("Optimisation stopping condition: {}", self.stop_condition);
