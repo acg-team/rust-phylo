@@ -67,12 +67,13 @@ where
         }
     }
 
-    /// Runs the topology optimisation algorithm on the given cost function.
+    /// Runs the topology optimisation algorithm on the given cost function given a move optimiser.
     /// The algorithm will iterate until the predicate is satisfied.
     /// The cost function will be updated in place.
     ///
     /// # Panics
-    /// Panics if the tree has less than 4 nodes, as SPRs are not applicable to trees with less than 4 nodes.
+    /// Panics if the provided tree move is not applicable to the tree, e.g. SPR move will panic
+    /// if the tree has less than 4 nodes, as SPRs are not applicable.
     ///
     /// # Returns
     /// A `PhyloOptimisationResult` containing the initial cost, final cost, number of iterations, and the final cost function.
