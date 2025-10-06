@@ -758,9 +758,10 @@ fn fix_iter_low() {
     let res_default = TopologyOptimiser::new(c.clone(), SprOptimiser {}, &rng)
         .run()
         .unwrap();
-    // Without the predicate and with the fake rng will run deterministically for 4 iterations
+    // Without the stop condition and with the fake rng will run deterministically for 4 iterations
     assert_eq!(res_default.iterations, 4);
 
+    // With the stop condition will run for exactly 1 iteration
     let result = TopologyOptimiser::with_stop_condition(
         c,
         SprOptimiser {},
@@ -792,9 +793,10 @@ fn precision() {
     let res_default = TopologyOptimiser::new(c.clone(), SprOptimiser {}, &rng)
         .run()
         .unwrap();
-    // Without the predicate and with the fake rng will run deterministically for 4 iterations
+    // Without the stop condition and with the fake rng will run deterministically for 4 iterations
     assert_eq!(res_default.iterations, 4);
 
+    // With the stop condition will run for less iterations because epsilon is high
     let result = TopologyOptimiser::with_stop_condition(
         c,
         SprOptimiser {},
@@ -826,10 +828,10 @@ fn fix_iter() {
     let res_default = TopologyOptimiser::new(c.clone(), SprOptimiser {}, &rng)
         .run()
         .unwrap();
-    // Without the predicate and with the fake rng will run deterministically for 2 iterations
+    // Without the stop condition and with the fake rng will run deterministically for 2 iterations
     assert_eq!(res_default.iterations, 2);
 
-    // With the predicate will run for exactly 6 iterations
+    // With the stop condition will run for exactly 6 iterations
     let result = TopologyOptimiser::with_stop_condition(
         c,
         SprOptimiser {},
@@ -860,10 +862,10 @@ fn max_iter() {
     let res_default = TopologyOptimiser::new(c.clone(), SprOptimiser {}, &rng)
         .run()
         .unwrap();
-    // Without the predicate and with the fake rng will run deterministically for 2 iterations
+    // Without the stop condition and with the fake rng will run deterministically for 2 iterations
     assert_eq!(res_default.iterations, 2);
 
-    // With the predicate will run for at most 5 iterations, and would continue running because the epsilon is very low
+    // With the stop condition will run for at most 5 iterations, and would continue running because the epsilon is very low
     let result = TopologyOptimiser::with_stop_condition(
         c,
         SprOptimiser {},
