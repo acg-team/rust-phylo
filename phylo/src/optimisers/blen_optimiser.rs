@@ -48,7 +48,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
             iterations += 1;
             info!("Iteration: {iterations}, current cost: {curr_cost}");
             prev_cost = curr_cost;
-            curr_cost = self.optimise_iteration()?;
+            curr_cost = self.single_optimisation_iteration()?;
             delta = curr_cost - prev_cost;
             costs.push(curr_cost);
         }
@@ -67,7 +67,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
 
     /// Performs a single iteration of branch length optimisation over all branches in the tree.
     /// Returns the cost after optimising all branches once.
-    fn optimise_iteration(&mut self) -> Result<f64> {
+    fn single_optimisation_iteration(&mut self) -> Result<f64> {
         let mut curr_cost = self.c.cost();
         let mut tree = self.c.tree().clone();
         let nodes: Vec<NodeIdx> = tree.iter().map(|node| node.idx).collect();

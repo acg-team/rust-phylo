@@ -116,7 +116,7 @@ where
             iterations += 1;
             info!("Iteration: {iterations}, current cost: {curr_cost}");
             prev_cost = curr_cost;
-            curr_cost = self.optimise_iteration()?;
+            curr_cost = self.single_optimisation_iteration()?;
             delta = curr_cost - prev_cost;
             costs.push(curr_cost);
         }
@@ -135,7 +135,7 @@ where
 
     /// Performs a single iteration of topology optimisation over all nodes/branches in the tree.
     /// Returns the cost after going through all possible moves once.
-    fn optimise_iteration(&mut self) -> Result<f64> {
+    fn single_optimisation_iteration(&mut self) -> Result<f64> {
         let init_cost = self.c.cost();
         let possible_move_locs: Vec<_> = self.move_opti.move_locations(&self.c).copied().collect();
         let mut current_move_locs: Vec<_> = possible_move_locs.iter().collect();
