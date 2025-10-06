@@ -7,11 +7,11 @@ use log::{debug, info, warn};
 
 use crate::evolutionary_models::FrequencyOptimisation;
 use crate::likelihood::ModelSearchCost;
-use crate::optimisers::{ModelOptimisationResult, SingleValOptResult};
-use crate::Result;
+use crate::optimisers::{ModelOptimisationResult, SingleValOptResult, StopCondition};
+use crate::{Result, DEFAULT_EPSILON};
 
 pub struct ModelOptimiser<C: ModelSearchCost + Display + Clone> {
-    pub(crate) epsilon: f64,
+    pub(crate) stop_condition: StopCondition,
     pub(crate) c: C,
     pub(crate) freq_opt: FrequencyOptimisation,
 }
@@ -19,7 +19,19 @@ pub struct ModelOptimiser<C: ModelSearchCost + Display + Clone> {
 impl<C: ModelSearchCost + Display + Clone> ModelOptimiser<C> {
     pub fn new(cost: C, freq_opt: FrequencyOptimisation) -> Self {
         Self {
-            epsilon: 1e-3,
+            stop_condition: StopCondition::Epsilon(DEFAULT_EPSILON),
+            c: cost,
+            freq_opt,
+        }
+    }
+
+    pub fn with_stop_condition(
+        cost: C,
+        stop_condition: StopCondition,
+        freq_opt: FrequencyOptimisation,
+    ) -> Self {
+        Self {
+            stop_condition,
             c: cost,
             freq_opt,
         }
@@ -27,64 +39,82 @@ impl<C: ModelSearchCost + Display + Clone> ModelOptimiser<C> {
 
     pub fn run(mut self) -> Result<ModelOptimisationResult<C>> {
         info!("Optimising the evolutionary model: {}", self.c);
+        info!("Optimisation stopping condition: {}", self.stop_condition);
 
         let init_cost = self.c.cost();
         info!("Initial cost: {init_cost}");
-        let mut curr_cost = init_cost;
+
+        let mut curr_cost = self.optimise_frequencies();
+        debug_assert!(curr_cost >= init_cost);
+
+        // Set previous cost to negative infinity to ensure at least one iteration if frequency optimisation did not change the cost
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
+        let mut delta = curr_cost - prev_cost;
+        let mut costs = vec![curr_cost];
 
-        match self.freq_opt {
-            FrequencyOptimisation::Empirical => {
-                info!("Setting stationary frequencies to empirical");
-                self.empirical_freqs();
-                curr_cost = self.c.cost();
-                info!("Cost after frequency optimisation: {curr_cost}");
-            }
-            FrequencyOptimisation::Estimated => {
-                warn!("Stationary frequency estimation not available, falling back on empirical");
-                self.empirical_freqs();
-                curr_cost = self.c.cost();
-                info!("Cost after frequency optimisation: {curr_cost}");
-            }
-            FrequencyOptimisation::Fixed => {}
-        }
-
-        while (curr_cost - prev_cost) > self.epsilon {
+        while self.stop_condition.should_continue(iterations, delta) {
             iterations += 1;
-            debug!("Iteration: {iterations}");
-            let parameters = self.c.params().to_vec();
+            info!("Iteration: {iterations}, current cost: {curr_cost}");
             prev_cost = curr_cost;
-
-            for (param, start_value) in parameters.iter().enumerate() {
-                debug!(
-                    "Optimising parameter {param:?} from value {start_value} with cost {curr_cost}"
-                );
-                let param_opt = self.opt_parameter(param, *start_value)?;
-                if param_opt.final_cost < curr_cost {
-                    // Parameter will have been reset by the optimiser, set it back to start value
-                    self.c.set_param(param, *start_value);
-                    continue;
-                }
-                self.c.set_param(param, param_opt.value);
-                curr_cost = param_opt.final_cost;
-                debug!(
-                    "Optimised parameter {param:?} to value {} with cost {curr_cost}",
-                    param_opt.value
-                );
-            }
+            curr_cost = self.single_optimisation_iteration()?;
             debug!("New parameters: {}\n", self.c);
+            delta = curr_cost - prev_cost;
+            costs.push(curr_cost);
         }
 
         debug_assert_eq!(curr_cost, self.c.cost());
         info!("Done optimising model parameters");
         info!("Final cost: {curr_cost}, achieved in {iterations} iteration(s)");
+
         Ok(ModelOptimisationResult::<C> {
             initial_cost: init_cost,
             final_cost: curr_cost,
             iterations,
+            costs,
             cost: self.c,
         })
+    }
+
+    fn optimise_frequencies(&mut self) -> f64 {
+        match self.freq_opt {
+            FrequencyOptimisation::Empirical => {
+                info!("Setting stationary frequencies to empirical");
+                self.empirical_freqs();
+            }
+            FrequencyOptimisation::Estimated => {
+                warn!("Stationary frequency estimation not available, falling back on empirical");
+                self.empirical_freqs();
+            }
+            FrequencyOptimisation::Fixed => {
+                info!("Not optimising stationary frequencies");
+            }
+        }
+        let cost = self.c.cost();
+        info!("Cost after frequency optimisation: {cost}");
+        cost
+    }
+
+    fn single_optimisation_iteration(&mut self) -> Result<f64> {
+        let parameters = self.c.params().to_vec();
+        let mut curr_cost = self.c.cost();
+
+        for (param, start_value) in parameters.iter().enumerate() {
+            debug!("Optimising parameter {param:?} from value {start_value} with cost {curr_cost}");
+            let param_opt = self.opt_parameter(param, *start_value)?;
+            if param_opt.final_cost < curr_cost {
+                // Parameter will have been reset by the optimiser, set it back to start value
+                self.c.set_param(param, *start_value);
+                continue;
+            }
+            self.c.set_param(param, param_opt.value);
+            curr_cost = param_opt.final_cost;
+            debug!(
+                "Optimised parameter {param:?} to value {} with cost {curr_cost}",
+                param_opt.value
+            );
+        }
+        Ok(curr_cost)
     }
 
     fn empirical_freqs(&mut self) {
