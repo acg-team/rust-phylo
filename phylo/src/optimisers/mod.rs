@@ -1,9 +1,7 @@
 use std::num::NonZeroUsize;
 
-use crate::{
-    likelihood::{ModelSearchCost, TreeSearchCost},
-    DEFAULT_EPSILON,
-};
+use crate::likelihood::{ModelSearchCost, TreeSearchCost};
+use crate::DEFAULT_EPSILON;
 
 pub mod blen_optimiser;
 pub use blen_optimiser::*;
@@ -27,6 +25,19 @@ pub enum StopCondition {
     // surrounding variables, for that we would need to allow Boxed Fn
     // trait objects (or introduce a generic parameter which might get tedious)
     Custom(fn(usize, f64) -> bool),
+}
+
+impl std::fmt::Display for StopCondition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StopCondition::Epsilon(e) => write!(f, "delta cost < {e}"),
+            StopCondition::FixedIter(n) => write!(f, "fixed number of iterations = {}", n.get()),
+            StopCondition::MaxIterEpsilon(n, e) => {
+                write!(f, "delta cost < {e}, max iterations = {}", n.get())
+            }
+            StopCondition::Custom(fun) => write!(f, "custom predicate function: {fun:?}"),
+        }
+    }
 }
 
 impl StopCondition {
