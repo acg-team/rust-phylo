@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::fmt::Display;
+use std::num::NonZeroU64;
 
 use argmin::core::{CostFunction, Executor, IterState, State};
 use argmin::solver::brent::BrentOpt;
@@ -12,6 +13,7 @@ use crate::{Result, DEFAULT_EPSILON, MAX_BLEN};
 
 pub struct BranchOptimiser<C: TreeSearchCost + Display + Clone> {
     pub(crate) stop_condition: StopCondition,
+    pub(crate) max_brent_iters: Option<NonZeroU64>,
     pub(crate) c: C,
 }
 
@@ -19,6 +21,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
     pub fn new(cost: C) -> Self {
         Self {
             stop_condition: StopCondition::Epsilon(DEFAULT_EPSILON),
+            max_brent_iters: None,
             c: cost,
         }
     }
@@ -26,6 +29,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
     pub fn with_stop_condition(cost: C, stop_condition: StopCondition) -> Self {
         Self {
             stop_condition,
+            max_brent_iters: None,
             c: cost,
         }
     }
@@ -77,7 +81,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
                 continue;
             }
             debug!("Node {branch:?}: optimising branch length");
-            let blen_opt = self.optimise_branch(branch)?;
+            let blen_opt = self.optimise_branch_w_iters(branch, self.max_brent_iters)?;
             if blen_opt.final_cost > curr_cost {
                 curr_cost = blen_opt.final_cost;
                 tree.set_blen(branch, blen_opt.value);
@@ -97,6 +101,14 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
 
 impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
     pub(crate) fn optimise_branch(&mut self, branch: &NodeIdx) -> Result<SingleValOptResult> {
+        self.optimise_branch_w_iters(branch, None)
+    }
+
+    pub(crate) fn optimise_branch_w_iters(
+        &mut self,
+        branch: &NodeIdx,
+        max_iters: Option<NonZeroU64>,
+    ) -> Result<SingleValOptResult> {
         let start_blen = self.c.tree().node(branch).blen;
         let (min, max) = if start_blen == 0.0 {
             (0.0, 1.0)
@@ -109,9 +121,14 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
         };
         let gss = BrentOpt::new(min, max);
 
-        let res = Executor::new(optimiser, gss)
-            .configure(|_| IterState::new().param(start_blen).max_iters(10))
-            .run()?;
+        let res = match max_iters {
+            Some(iters) => Executor::new(optimiser, gss)
+                .configure(|_| IterState::new().param(start_blen).max_iters(iters.get()))
+                .run()?,
+            None => Executor::new(optimiser, gss)
+                .configure(|_| IterState::new().param(start_blen))
+                .run()?,
+        };
 
         let state = res.state();
         Ok(SingleValOptResult {

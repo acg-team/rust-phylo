@@ -1,5 +1,5 @@
 use std::fmt::Display;
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU64, NonZeroUsize};
 
 use anyhow::bail;
 use approx::relative_eq;
@@ -225,7 +225,7 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
             cost_fn,
             StopCondition::max_iter(NonZeroUsize::new(5).unwrap()),
         );
-        let blen_opt = o.optimise_branch(&regraft)?;
+        let blen_opt = o.optimise_branch_w_iters(&regraft, Some(NonZeroU64::new(10).unwrap()))?;
         if blen_opt.final_cost > move_cost {
             move_cost = blen_opt.final_cost;
             new_tree.set_blen(&regraft, blen_opt.value);
