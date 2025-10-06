@@ -17,7 +17,10 @@ use crate::substitution_models::{
     dna_models::*, protein_models::*, FreqVector, QMatrix, QMatrixMaker, SubstMatrix, SubstModel,
     SubstitutionCostBuilder as SCB,
 };
-use crate::{frequencies, record_wo_desc as record, tree};
+use crate::{record_wo_desc as record, tree};
+
+#[cfg(test)]
+use crate::frequencies;
 
 #[cfg(test)]
 fn freqs_fixed_template<Q: QMatrix + QMatrixMaker>(params: &[f64]) {
