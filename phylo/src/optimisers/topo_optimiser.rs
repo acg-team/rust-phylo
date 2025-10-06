@@ -6,8 +6,8 @@ use log::{debug, info};
 use crate::alignment::Alignment;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{
-    BranchOptimiser, MoveCostInfo, MoveOptimiser, NniOptimiser, TreeOptimisationResult,
-    SprOptimiser, StopCondition,
+    BranchOptimiser, MoveCostInfo, MoveOptimiser, NniOptimiser, SprOptimiser, StopCondition,
+    TreeOptimisationResult,
 };
 use crate::parsimony::scoring::ParsimonyScoring;
 use crate::parsimony::{BasicParsimonyCost, DolloParsimonyCost};
@@ -123,7 +123,7 @@ where
         }
 
         debug_assert_eq!(curr_cost, self.c.cost());
-        info!("Done optimising branch lengths");
+        info!("Done optimising tree topology");
         info!("Final cost: {curr_cost}, achieved in {iterations} iteration(s)");
         Ok(TreeOptimisationResult {
             initial_cost: init_cost,
