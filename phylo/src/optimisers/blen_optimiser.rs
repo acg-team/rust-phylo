@@ -60,9 +60,9 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
             curr_cost = self.single_optimisation_iteration()?;
             delta = curr_cost - prev_cost;
             costs.push(curr_cost);
+            debug_assert_eq!(curr_cost, self.c.cost());
         }
 
-        debug_assert_eq!(curr_cost, self.c.cost());
         info!("Done optimising branch lengths");
         info!("Final cost: {curr_cost}, achieved in {iterations} iteration(s)");
         Ok(TreeOptimisationResult {
