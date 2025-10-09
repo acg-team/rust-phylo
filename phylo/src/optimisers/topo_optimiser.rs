@@ -203,3 +203,171 @@ where
         )
     }
 }
+
+#[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
+mod private_tests {
+    use std::path::Path;
+
+    use crate::alignment::MSA;
+    use crate::likelihood::TreeSearchCost;
+    use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
+    use crate::pip_model::{PIPCostBuilder as PIPCB, PIPModel};
+    use crate::random::FakeGenerator;
+    use crate::substitution_models::{
+        dna_models::*, protein_models::*, QMatrix, QMatrixMaker, SubstModel,
+        SubstitutionCostBuilder as SCB,
+    };
+
+    use super::*;
+
+    #[cfg(test)]
+    fn dna_test_data() -> PhyloInfo<MSA> {
+        let fldr = Path::new("./data/sim/");
+        PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("wrong_tree.newick"))
+            .build()
+            .unwrap()
+    }
+
+    #[cfg(test)]
+    fn aa_test_data() -> PhyloInfo<MSA> {
+        let fldr = Path::new("./data/phyml_protein_example/");
+        PIB::with_attrs(fldr.join("seqs.fasta"), fldr.join("wrong_tree.newick"))
+            .build()
+            .unwrap()
+    }
+
+    #[cfg(test)]
+    fn single_iter_pip_template<
+        Q: QMatrix + QMatrixMaker + Send,
+        MO: MoveOptimiser + Clone + Send + 'static,
+    >(
+        info: PhyloInfo<MSA>,
+        move_optimiser: MO,
+    ) where
+        PIPCost<Q, MSA>: Compatible<MO>,
+    {
+        let rng = FakeGenerator::new();
+        let model = PIPModel::<Q>::new(&[], &[]);
+        let c = PIPCB::new(model.clone(), info.clone()).build().unwrap();
+        let init_cost = c.cost();
+
+        let mut optimiser = TopologyOptimiser::new(c.clone(), move_optimiser, &rng);
+        let optimised_cost = optimiser.single_optimisation_iteration().unwrap();
+
+        assert!(optimised_cost > init_cost);
+        assert_eq!(optimised_cost, optimiser.c.cost());
+
+        // Check that branch lengths changed, topology should change because the tree is wrong on purpose
+        let new_info = optimiser.c.info.clone();
+        assert_ne!(new_info.tree.length, info.tree.length);
+        assert_ne!(new_info.tree.robinson_foulds(&info.tree), 0);
+
+        // Check that the cost is the same when recomputed from the new info and same model
+        let new_cost = PIPCB::new(model, new_info).build().unwrap();
+        assert_eq!(new_cost.cost(), optimised_cost);
+    }
+
+    #[test]
+    fn single_iter_pip_dna_nni() {
+        let info = dna_test_data();
+        single_iter_pip_template::<JC69, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_pip_template::<K80, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_pip_template::<HKY, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_pip_template::<TN93, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_pip_template::<GTR, NniOptimiser>(info, NniOptimiser {});
+    }
+
+    #[test]
+    fn single_iter_pip_dna_spr() {
+        let info = dna_test_data();
+        single_iter_pip_template::<JC69, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_pip_template::<K80, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_pip_template::<HKY, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_pip_template::<TN93, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_pip_template::<GTR, SprOptimiser>(info, SprOptimiser {});
+    }
+
+    #[test]
+    fn single_iteration_pip_aa_nni() {
+        let info = aa_test_data();
+        single_iter_pip_template::<WAG, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_pip_template::<BLOSUM, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_pip_template::<HIVB, NniOptimiser>(info, NniOptimiser {});
+    }
+
+    #[test]
+    fn single_iteration_pip_aa_spr() {
+        let info = aa_test_data();
+        single_iter_pip_template::<WAG, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_pip_template::<BLOSUM, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_pip_template::<HIVB, SprOptimiser>(info, SprOptimiser {});
+    }
+
+    #[cfg(test)]
+    fn single_iter_substitution_template<
+        Q: QMatrix + QMatrixMaker + Send,
+        MO: MoveOptimiser + Clone + Send + 'static,
+    >(
+        info: PhyloInfo<MSA>,
+        move_optimiser: MO,
+    ) where
+        SubstitutionCost<Q, MSA>: Compatible<MO>,
+    {
+        let rng = FakeGenerator::new();
+        let model = SubstModel::<Q>::new(&[], &[]);
+        let c = SCB::new(model.clone(), info.clone()).build().unwrap();
+        let init_cost = c.cost();
+
+        let mut optimiser = TopologyOptimiser::new(c.clone(), move_optimiser, &rng);
+        let optimised_cost = optimiser.single_optimisation_iteration().unwrap();
+
+        assert!(optimised_cost > init_cost);
+        assert_eq!(optimised_cost, optimiser.c.cost());
+
+        // Check that branch lengths changed, topology should change because the tree is wrong on purpose
+        let new_info = optimiser.c.info.clone();
+        assert_ne!(new_info.tree.length, info.tree.length);
+        assert_ne!(new_info.tree.robinson_foulds(&info.tree), 0);
+
+        // Check that the cost is the same when recomputed from the new info and same model
+        let new_cost = SCB::new(model, new_info).build().unwrap();
+        assert_eq!(new_cost.cost(), optimised_cost);
+    }
+
+    #[test]
+    fn single_iteration_substitution_dna_nni() {
+        let info = dna_test_data();
+        single_iter_substitution_template::<JC69, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_substitution_template::<K80, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_substitution_template::<HKY, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_substitution_template::<TN93, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_substitution_template::<GTR, NniOptimiser>(info, NniOptimiser {});
+    }
+
+    #[test]
+    fn single_iteration_substitution_dna_spr() {
+        let info = dna_test_data();
+        single_iter_substitution_template::<JC69, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_substitution_template::<K80, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_substitution_template::<HKY, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_substitution_template::<TN93, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_substitution_template::<GTR, SprOptimiser>(info, SprOptimiser {});
+    }
+
+    #[test]
+    fn single_iteration_substitution_aa_nni() {
+        let info = aa_test_data();
+        single_iter_substitution_template::<WAG, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_substitution_template::<BLOSUM, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_substitution_template::<HIVB, NniOptimiser>(info.clone(), NniOptimiser {});
+    }
+
+    #[test]
+    fn single_iteration_substitution_aa_spr() {
+        let info = aa_test_data();
+        single_iter_substitution_template::<WAG, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_substitution_template::<BLOSUM, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_substitution_template::<HIVB, SprOptimiser>(info.clone(), SprOptimiser {});
+    }
+}
