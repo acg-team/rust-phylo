@@ -1,5 +1,5 @@
 use std::fmt::Display;
-use std::num::{NonZeroU64, NonZeroUsize};
+use std::num::NonZeroU64;
 
 use anyhow::bail;
 use approx::relative_eq;
@@ -8,7 +8,7 @@ use log::{debug, info};
 
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::move_optimiser::{MoveCostInfo, MoveOptimiser};
-use crate::optimisers::{BranchOptimiser, StopCondition};
+use crate::optimisers::optimise_branch_w_iters;
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
 
@@ -221,11 +221,8 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
     let mut move_cost = cost_fn.cost();
     if cost_fn.blen_optimisation() && move_cost <= base_cost {
         // reoptimise branch length at the regraft location
-        let mut o = BranchOptimiser::with_stop_condition(
-            cost_fn,
-            StopCondition::max_iter(NonZeroUsize::new(5).unwrap()),
-        );
-        let blen_opt = o.optimise_branch_w_iters(&regraft, Some(NonZeroU64::new(10).unwrap()))?;
+        let blen_opt =
+            optimise_branch_w_iters(&cost_fn, &regraft, Some(NonZeroU64::new(5).unwrap()))?;
         if blen_opt.final_cost > move_cost {
             move_cost = blen_opt.final_cost;
             new_tree.set_blen(&regraft, blen_opt.value);

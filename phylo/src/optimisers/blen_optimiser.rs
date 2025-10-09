@@ -86,7 +86,7 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
                 continue;
             }
             debug!("Node {branch:?}: optimising branch length");
-            let blen_opt = self.optimise_branch_w_iters(branch, self.max_brent_iters)?;
+            let blen_opt = optimise_branch_w_iters(&self.c, branch, self.max_brent_iters)?;
             if blen_opt.final_cost > curr_cost {
                 curr_cost = blen_opt.final_cost;
                 tree.set_blen(branch, blen_opt.value);
@@ -104,43 +104,44 @@ impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
     }
 }
 
-impl<C: TreeSearchCost + Clone + Display> BranchOptimiser<C> {
-    pub(crate) fn optimise_branch(&mut self, branch: &NodeIdx) -> Result<SingleValOptResult> {
-        self.optimise_branch_w_iters(branch, None)
-    }
+pub(crate) fn optimise_branch<T: TreeSearchCost + Clone>(
+    cost: &T,
+    branch: &NodeIdx,
+) -> Result<SingleValOptResult> {
+    optimise_branch_w_iters(cost, branch, None)
+}
 
-    pub(crate) fn optimise_branch_w_iters(
-        &mut self,
-        branch: &NodeIdx,
-        max_iters: Option<NonZeroU64>,
-    ) -> Result<SingleValOptResult> {
-        let start_blen = self.c.tree().node(branch).blen;
-        let (min, max) = if start_blen == 0.0 {
-            (0.0, 1.0)
-        } else {
-            (start_blen * 0.1, MAX_BLEN.min(start_blen * 10.0))
-        };
-        let optimiser = SingleBranchOptimiser {
-            cost: RefCell::new(self.c.clone()),
-            branch: *branch,
-        };
-        let gss = BrentOpt::new(min, max);
+pub(crate) fn optimise_branch_w_iters<T: TreeSearchCost + Clone>(
+    cost: &T,
+    branch: &NodeIdx,
+    max_iters: Option<NonZeroU64>,
+) -> Result<SingleValOptResult> {
+    let start_blen = cost.tree().node(branch).blen;
+    let (min, max) = if start_blen == 0.0 {
+        (0.0, 1.0)
+    } else {
+        (start_blen * 0.1, MAX_BLEN.min(start_blen * 10.0))
+    };
+    let optimiser = SingleBranchOptimiser {
+        cost: RefCell::new(cost.clone()),
+        branch: *branch,
+    };
+    let gss = BrentOpt::new(min, max);
 
-        let res = match max_iters {
-            Some(iters) => Executor::new(optimiser, gss)
-                .configure(|_| IterState::new().param(start_blen).max_iters(iters.get()))
-                .run()?,
-            None => Executor::new(optimiser, gss)
-                .configure(|_| IterState::new().param(start_blen))
-                .run()?,
-        };
+    let res = match max_iters {
+        Some(iters) => Executor::new(optimiser, gss)
+            .configure(|_| IterState::new().param(start_blen).max_iters(iters.get()))
+            .run()?,
+        None => Executor::new(optimiser, gss)
+            .configure(|_| IterState::new().param(start_blen))
+            .run()?,
+    };
 
-        let state = res.state();
-        Ok(SingleValOptResult {
-            final_cost: -state.best_cost,
-            value: state.best_param.unwrap(),
-        })
-    }
+    let state = res.state();
+    Ok(SingleValOptResult {
+        final_cost: -state.best_cost,
+        value: state.best_param.unwrap(),
+    })
 }
 
 pub(crate) struct SingleBranchOptimiser<C: TreeSearchCost> {

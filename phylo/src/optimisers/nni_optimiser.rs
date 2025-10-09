@@ -4,7 +4,7 @@ use std::fmt::Display;
 use anyhow::bail;
 
 use crate::likelihood::TreeSearchCost;
-use crate::optimisers::{BranchOptimiser, MoveCostInfo, MoveOptimiser};
+use crate::optimisers::{optimise_branch, MoveCostInfo, MoveOptimiser};
 use crate::tree::{
     NodeIdx::{self, Leaf},
     Tree,
@@ -77,8 +77,7 @@ fn calc_nni_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
     cost_fn.update_tree(new_tree.clone());
     let mut move_cost = cost_fn.cost();
     if cost_fn.blen_optimisation() && move_cost <= base_cost {
-        let mut o = BranchOptimiser::new(cost_fn);
-        let blen_opt = o.optimise_branch(node_idx)?;
+        let blen_opt = optimise_branch(&cost_fn, node_idx)?;
         if blen_opt.final_cost > move_cost {
             move_cost = blen_opt.final_cost;
             new_tree.set_blen(node_idx, blen_opt.value);
