@@ -130,53 +130,60 @@ mod tests {
     use super::StopCondition;
 
     #[rstest]
-    #[case(0, 0.1, false)]
-    #[case(1, 0.02, false)]
-    #[case(2, 0.005, true)]
-    #[case(3, 0.0, true)]
+    #[case(0, 0.1, true)]
+    #[case(1, 0.02, true)]
+    #[case(2, 0.005, false)]
+    #[case(3, 0.0, false)]
+    #[case(10, 0.000001, false)]
+    #[case(10, 0.1, true)]
     fn stop_condition_epsilon(#[case] iters: usize, #[case] delta: f64, #[case] expected: bool) {
         let pred = StopCondition::epsilon(0.01);
-        assert_eq!(pred.should_continue(iters, delta), !expected);
-    }
-
-    #[rstest]
-    #[case(0, 0.00000001, false)]
-    #[case(1, 0.02, false)]
-    #[case(2, 0.000005, false)]
-    #[case(3, 0.0, true)]
-    #[case(3, 1.0, true)]
-    #[case(5, 1e-10, true)]
-    fn stop_condition_fixed_iter(#[case] iters: usize, #[case] delta: f64, #[case] expected: bool) {
-        let pred = StopCondition::fixed_iter(NonZeroUsize::new(3).unwrap());
-        assert_eq!(pred.should_continue(iters, delta), !expected);
+        assert_eq!(pred.should_continue(iters, delta), expected);
     }
 
     #[rstest]
     #[case(0, 0.00000001, true)]
-    #[case(1, 0.02, false)]
+    #[case(1, 0.02, true)]
     #[case(2, 0.000005, true)]
-    #[case(3, 0.0, true)]
-    #[case(3, 1.0, true)]
-    #[case(5, 1e-10, true)]
-    #[case(5, 1e10, true)]
-    fn stop_condition_max_iter(#[case] iters: usize, #[case] delta: f64, #[case] expected: bool) {
-        let pred = StopCondition::max_iter_epsilon(NonZeroUsize::new(3).unwrap(), 0.01);
-        assert_eq!(pred.should_continue(iters, delta), !expected);
+    #[case(3, 0.0, false)]
+    #[case(3, 1.0, false)]
+    #[case(5, 1e-10, false)]
+    fn stop_condition_fixed_iter(#[case] iters: usize, #[case] delta: f64, #[case] expected: bool) {
+        let pred = StopCondition::fixed_iter(NonZeroUsize::new(3).unwrap());
+        assert_eq!(pred.should_continue(iters, delta), expected);
     }
 
     #[rstest]
     #[case(0, 0.00000001, false)]
-    #[case(1, 0.02, false)]
-    #[case(2, 0.000005, true)]
-    #[case(3, 0.0, true)]
+    #[case(1, 0.02, true)]
+    #[case(1, 0.009, false)]
+    #[case(2, 0.000005, false)]
+    #[case(3, 0.0, false)]
     #[case(3, 1.0, false)]
-    #[case(5, 1e-10, true)]
+    #[case(5, 1e-10, false)]
     #[case(5, 1e10, false)]
+    fn stop_condition_max_iter_epsilon(
+        #[case] iters: usize,
+        #[case] delta: f64,
+        #[case] expected: bool,
+    ) {
+        let pred = StopCondition::max_iter_epsilon(NonZeroUsize::new(3).unwrap(), 0.01);
+        assert_eq!(pred.should_continue(iters, delta), expected);
+    }
+
+    #[rstest]
+    #[case(0, 0.00000001, true)]
+    #[case(1, 0.02, true)]
+    #[case(2, 0.000005, false)]
+    #[case(3, 0.0, false)]
+    #[case(3, 1.0, true)]
+    #[case(5, 1e-10, false)]
+    #[case(5, 1e10, true)]
     fn stop_condition_custom(#[case] iters: usize, #[case] delta: f64, #[case] expected: bool) {
         fn custom(i: usize, d: f64) -> bool {
             !(i >= 2 && d < 0.01)
         }
         let pred = StopCondition::custom(custom);
-        assert_eq!(pred.should_continue(iters, delta), !expected);
+        assert_eq!(pred.should_continue(iters, delta), expected);
     }
 }
