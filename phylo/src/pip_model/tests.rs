@@ -4,7 +4,9 @@ use approx::assert_relative_eq;
 use nalgebra::{DMatrix, DVector};
 
 use crate::alignment::{Alignment, Sequences, MSA};
-use crate::alphabets::{protein_alphabet, AMINOACIDS as aas, GAP, NUCLEOTIDES as nucls};
+use crate::alphabets::{
+    dna_alphabet, protein_alphabet, Alphabet, AMINOACIDS as aas, GAP, NUCLEOTIDES as nucls,
+};
 use crate::evolutionary_models::EvoModel;
 use crate::io::read_sequences;
 use crate::likelihood::ModelSearchCost;
@@ -853,4 +855,117 @@ fn blen_leading_to_minusinf() {
     let logl = c.cost();
     assert_ne!(logl, f64::NEG_INFINITY);
     assert!(logl.is_sign_negative());
+}
+
+#[cfg(test)]
+fn dirty_tree_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphabet) {
+    use crate::likelihood::TreeSearchCost;
+
+    let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
+    let msa = MSA::from_aligned(
+        Sequences::with_alphabet(
+            vec![
+                record!("A", b"CT-ATA-TA-TAC"),
+                record!("B", b"ATATA--TATA-A"),
+                record!("C", b"TTA--TATATA-T"),
+                record!("D", b"TTA--TATATA-T"),
+            ],
+            alphabet,
+        ),
+        &tree,
+    )
+    .unwrap();
+    let info = PhyloInfo { msa, tree };
+
+    let model = PIPModel::<Q>::new(&[], &[]);
+    let mut c = PIPB::new(model.clone(), info.clone()).build().unwrap();
+    let logl = TreeSearchCost::cost(&c);
+    assert_eq!(logl, TreeSearchCost::cost(&c));
+
+    // The likelihood should be the same if we make the tree dirty without changing it
+    let mut tree = c.info.tree.clone();
+    tree.dirty();
+    c.update_tree(tree);
+    assert_eq!(logl, TreeSearchCost::cost(&c));
+
+    // The likelihood should be the same if we rebuild from scratch
+    let c2 = PIPB::new(model, info).build().unwrap();
+    let logl2 = TreeSearchCost::cost(&c2);
+    assert_eq!(logl2, TreeSearchCost::cost(&c2));
+    assert_eq!(logl, logl2);
+}
+
+#[test]
+fn dirty_tree_costs_match() {
+    dirty_tree_costs_match_template::<JC69>(dna_alphabet());
+    dirty_tree_costs_match_template::<K80>(dna_alphabet());
+    dirty_tree_costs_match_template::<HKY>(dna_alphabet());
+    dirty_tree_costs_match_template::<TN93>(dna_alphabet());
+    dirty_tree_costs_match_template::<GTR>(dna_alphabet());
+
+    dirty_tree_costs_match_template::<WAG>(protein_alphabet());
+    dirty_tree_costs_match_template::<HIVB>(protein_alphabet());
+    dirty_tree_costs_match_template::<BLOSUM>(protein_alphabet());
+}
+
+#[cfg(test)]
+fn dirty_branch_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphabet) {
+    use crate::likelihood::TreeSearchCost;
+
+    let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
+    let msa = MSA::from_aligned(
+        Sequences::with_alphabet(
+            vec![
+                record!("A", b"CT-ATA-TA-TAC"),
+                record!("B", b"ATATA--TATA-A"),
+                record!("C", b"TTA--TATATA-T"),
+                record!("D", b"TTA--TATATA-T"),
+            ],
+            alphabet,
+        ),
+        &tree,
+    )
+    .unwrap();
+    let info = PhyloInfo {
+        msa: msa.clone(),
+        tree: tree.clone(),
+    };
+
+    let model = PIPModel::<Q>::new(&[], &[]);
+    let mut c = PIPB::new(model.clone(), info).build().unwrap();
+    let logl = TreeSearchCost::cost(&c);
+
+    // The likelihood should change if we change branch lengths
+    let mut mutated_tree = tree.clone();
+    mutated_tree.set_blen(&tree.by_id("F").idx, 4.0);
+    mutated_tree.set_blen(&tree.by_id("B").idx, 0.75);
+    c.update_tree(mutated_tree);
+
+    let logl2 = TreeSearchCost::cost(&c);
+    assert_eq!(logl2, TreeSearchCost::cost(&c));
+    assert_ne!(logl, logl2);
+
+    // The likelihood should be the same if we rebuild from scratch with the same modification
+    let new_tree = tree!("(((A:1.0,B:0.75)E:2.0,(C:1.0,D:1.0)F:4.0)G:3.0);");
+    let new_info = PhyloInfo {
+        msa,
+        tree: new_tree,
+    };
+    let c = PIPB::new(model, new_info).build().unwrap();
+    let new_logl = TreeSearchCost::cost(&c);
+    assert_eq!(new_logl, TreeSearchCost::cost(&c));
+    assert_eq!(logl2, new_logl);
+}
+
+#[test]
+fn dirty_branch_costs_match() {
+    dirty_branch_costs_match_template::<JC69>(dna_alphabet());
+    dirty_branch_costs_match_template::<K80>(dna_alphabet());
+    dirty_branch_costs_match_template::<HKY>(dna_alphabet());
+    dirty_branch_costs_match_template::<TN93>(dna_alphabet());
+    dirty_branch_costs_match_template::<GTR>(dna_alphabet());
+
+    dirty_branch_costs_match_template::<WAG>(protein_alphabet());
+    dirty_branch_costs_match_template::<HIVB>(protein_alphabet());
+    dirty_branch_costs_match_template::<BLOSUM>(protein_alphabet());
 }
