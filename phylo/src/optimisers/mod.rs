@@ -209,4 +209,27 @@ mod tests {
         let pred = StopCondition::custom(custom);
         assert_eq!(pred.should_continue(iters, delta), expected);
     }
+
+    #[test]
+    fn stop_condition_display() {
+        let cond = StopCondition::epsilon(0.001);
+        assert_eq!(format!("{cond}"), "delta cost < 0.001");
+        let cond = StopCondition::fixed_iter(NonZeroUsize::new(5).unwrap());
+        assert_eq!(format!("{cond}"), "fixed number of iterations = 5");
+        let cond = StopCondition::max_iter_epsilon(NonZeroUsize::new(10).unwrap(), 0.0001);
+        assert_eq!(
+            format!("{cond}"),
+            "delta cost < 0.0001, max iterations = 10"
+        );
+        let cond = StopCondition::max_iter(NonZeroUsize::new(10).unwrap());
+        assert_eq!(
+            format!("{cond}"),
+            format!("delta cost < {}, max iterations = 10", DEFAULT_EPSILON)
+        );
+        fn custom(_: usize, _: f64) -> bool {
+            true
+        }
+        let cond = StopCondition::custom(custom);
+        assert!(format!("{cond}").starts_with("custom predicate function:"));
+    }
 }
