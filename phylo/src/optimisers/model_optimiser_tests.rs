@@ -5,7 +5,7 @@ use approx::assert_relative_eq;
 use crate::evolutionary_models::{EvoModel, FrequencyOptimisation};
 use crate::frequencies;
 use crate::likelihood::ModelSearchCost;
-use crate::optimisers::ModelOptimiser;
+use crate::optimisers::{ModelOptimiser, StopCondition};
 use crate::phylo_info::PhyloInfoBuilder as PIB;
 use crate::pip_model::{PIPCostBuilder, PIPModel};
 use crate::substitution_models::{
@@ -532,4 +532,31 @@ fn pip_protein_example() {
     assert_ne!(o.cost.params()[0], 2.0);
     assert_ne!(o.cost.params()[1], 0.1);
     assert_eq!(o.cost.cost(), o.final_cost);
+}
+
+#[test]
+fn stop_condition_epsilon() {
+    let epsilon = 0.005;
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let info = PIB::with_attrs(fldr.join("seqs.fasta"), fldr.join("example_tree.newick"))
+        .build()
+        .unwrap();
+    let pip = PIPModel::<WAG>::new(&[], &[2.0, 0.1]);
+    let c = PIPCostBuilder::new(pip, info).build().unwrap();
+    let initial_logl = c.cost();
+    let result = ModelOptimiser::with_stop_condition(
+        c,
+        StopCondition::epsilon(epsilon),
+        FrequencyOptimisation::Empirical,
+    )
+    .run()
+    .unwrap();
+
+    assert!(result.final_cost > initial_logl);
+    assert_relative_eq!(result.initial_cost, initial_logl);
+    assert_ne!(result.cost.params()[0], 2.0);
+    assert_ne!(result.cost.params()[1], 0.1);
+    assert_eq!(result.cost.cost(), result.final_cost);
+    let mut costs = result.costs;
+    assert!(costs.pop().unwrap() - costs.pop().unwrap() < epsilon);
 }
