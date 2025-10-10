@@ -127,6 +127,8 @@ mod tests {
 
     use rstest::rstest;
 
+    use crate::DEFAULT_EPSILON;
+
     use super::StopCondition;
 
     #[rstest]
@@ -168,6 +170,27 @@ mod tests {
         #[case] expected: bool,
     ) {
         let pred = StopCondition::max_iter_epsilon(NonZeroUsize::new(3).unwrap(), 0.01);
+        assert_eq!(pred.should_continue(iters, delta), expected);
+    }
+
+    #[rstest]
+    #[case(0, 0.00000001, false)]
+    #[case(1, 0.02, true)]
+    #[case(1, 0.009, true)]
+    #[case(1, 0.0002, false)]
+    #[case(2, 0.000005, false)]
+    #[case(3, 0.0, false)]
+    #[case(3, 1.0, false)]
+    #[case(5, 1e-10, false)]
+    #[case(5, 1e10, false)]
+    fn stop_condition_max_iter(#[case] iters: usize, #[case] delta: f64, #[case] expected: bool) {
+        let pred = StopCondition::max_iter(NonZeroUsize::new(3).unwrap());
+        match pred {
+            StopCondition::MaxIterEpsilon(_, eps) => {
+                assert_eq!(eps, DEFAULT_EPSILON);
+            }
+            _ => panic!("Expected MaxIterEpsilon variant"),
+        }
         assert_eq!(pred.should_continue(iters, delta), expected);
     }
 
