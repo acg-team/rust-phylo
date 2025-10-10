@@ -134,8 +134,8 @@ mod tests {
     #[case(1, 0.02, false)]
     #[case(2, 0.005, true)]
     #[case(3, 0.0, true)]
-    fn predicate_epsilon(#[case] iters: usize, #[case] delta: f64, #[case] expected: bool) {
-        let pred = StopCondition::Epsilon(0.01);
+    fn stop_condition_epsilon(#[case] iters: usize, #[case] delta: f64, #[case] expected: bool) {
+        let pred = StopCondition::epsilon(0.01);
         assert_eq!(pred.should_continue(iters, delta), !expected);
     }
 
@@ -146,8 +146,8 @@ mod tests {
     #[case(3, 0.0, true)]
     #[case(3, 1.0, true)]
     #[case(5, 1e-10, true)]
-    fn predicate_fixed_iter(#[case] iters: usize, #[case] delta: f64, #[case] expected: bool) {
-        let pred = StopCondition::FixedIter(NonZeroUsize::new(3).unwrap());
+    fn stop_condition_fixed_iter(#[case] iters: usize, #[case] delta: f64, #[case] expected: bool) {
+        let pred = StopCondition::fixed_iter(NonZeroUsize::new(3).unwrap());
         assert_eq!(pred.should_continue(iters, delta), !expected);
     }
 
@@ -159,8 +159,8 @@ mod tests {
     #[case(3, 1.0, true)]
     #[case(5, 1e-10, true)]
     #[case(5, 1e10, true)]
-    fn predicate_max_iter(#[case] iters: usize, #[case] delta: f64, #[case] expected: bool) {
-        let pred = StopCondition::MaxIterEpsilon(NonZeroUsize::new(3).unwrap(), 0.01);
+    fn stop_condition_max_iter(#[case] iters: usize, #[case] delta: f64, #[case] expected: bool) {
+        let pred = StopCondition::max_iter_epsilon(NonZeroUsize::new(3).unwrap(), 0.01);
         assert_eq!(pred.should_continue(iters, delta), !expected);
     }
 
@@ -172,11 +172,11 @@ mod tests {
     #[case(3, 1.0, false)]
     #[case(5, 1e-10, true)]
     #[case(5, 1e10, false)]
-    fn predicate_custom(#[case] iters: usize, #[case] delta: f64, #[case] expected: bool) {
+    fn stop_condition_custom(#[case] iters: usize, #[case] delta: f64, #[case] expected: bool) {
         fn custom(i: usize, d: f64) -> bool {
             !(i >= 2 && d < 0.01)
         }
-        let pred = StopCondition::Custom(custom);
+        let pred = StopCondition::custom(custom);
         assert_eq!(pred.should_continue(iters, delta), !expected);
     }
 }
