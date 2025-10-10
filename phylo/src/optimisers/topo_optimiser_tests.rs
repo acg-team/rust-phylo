@@ -360,7 +360,6 @@ fn test_nni_and_spr_find_same_tree() {
 }
 
 #[test]
-#[cfg_attr(feature = "ci_coverage", ignore)]
 fn pip_vs_subst_dna_tree() {
     // Check that optimisation on k80 data under PIP and substitution model produces similar trees
     let fldr = Path::new("./data/sim");
@@ -744,7 +743,6 @@ fn dollo_tree_search_sim_data_model() {
 }
 
 #[test]
-#[cfg_attr(feature = "ci_coverage", ignore)]
 fn fix_iter_low() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
@@ -778,7 +776,6 @@ fn fix_iter_low() {
 }
 
 #[test]
-#[cfg_attr(feature = "ci_coverage", ignore)]
 fn precision() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
@@ -814,7 +811,6 @@ fn precision() {
 }
 
 #[test]
-#[cfg_attr(feature = "ci_coverage", ignore)]
 fn fix_iter() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
@@ -847,7 +843,6 @@ fn fix_iter() {
 }
 
 #[test]
-#[cfg_attr(feature = "ci_coverage", ignore)]
 fn max_iter() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
