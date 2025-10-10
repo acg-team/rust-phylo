@@ -165,3 +165,84 @@ impl<C: ModelSearchCost> CostFunction for ParamOptimiser<C> {
         true
     }
 }
+
+#[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
+mod tests {
+    use std::path::Path;
+
+    use assert_matches::assert_matches;
+
+    use crate::likelihood::ModelSearchCost;
+    use crate::phylo_info::PhyloInfoBuilder as PIB;
+    use crate::pip_model::{PIPCostBuilder as PIPCB, PIPModel};
+    use crate::substitution_models::{
+        dna_models::GTR, protein_models::WAG, SubstModel, SubstitutionCostBuilder as SCB,
+    };
+
+    use super::*;
+
+    #[test]
+    fn estimated_freqs_default_to_empirical_dna() {
+        let fldr = Path::new("./data/sim");
+        let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("tree.newick"))
+            .build()
+            .unwrap();
+
+        let model = SubstModel::<GTR>::new(&[], &[]);
+        let cost = SCB::new(model, info).build().unwrap();
+        let mut opt = ModelOptimiser::new(cost.clone(), FrequencyOptimisation::Estimated);
+        assert_matches!(opt.freq_opt, FrequencyOptimisation::Estimated);
+
+        opt.optimise_frequencies();
+        assert_eq!(opt.c.freqs(), &opt.c.empirical_freqs());
+    }
+
+    #[test]
+    fn estimated_freqs_default_to_empirical_aa() {
+        let fldr = Path::new("./data/phyml_protein_example/");
+        let info = PIB::with_attrs(fldr.join("seqs.fasta"), fldr.join("wrong_tree.newick"))
+            .build()
+            .unwrap();
+
+        let model = SubstModel::<WAG>::new(&[], &[]);
+        let cost = SCB::new(model, info).build().unwrap();
+        let mut opt = ModelOptimiser::new(cost.clone(), FrequencyOptimisation::Estimated);
+        assert_matches!(opt.freq_opt, FrequencyOptimisation::Estimated);
+
+        opt.optimise_frequencies();
+        assert_eq!(opt.c.freqs(), &opt.c.empirical_freqs());
+    }
+
+    #[test]
+    fn estimated_freqs_default_to_empirical_pip_dna() {
+        let fldr = Path::new("./data/sim");
+        let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("tree.newick"))
+            .build()
+            .unwrap();
+
+        let model = PIPModel::<GTR>::new(&[], &[]);
+        let cost = PIPCB::new(model, info).build().unwrap();
+        let mut opt = ModelOptimiser::new(cost.clone(), FrequencyOptimisation::Estimated);
+        assert_matches!(opt.freq_opt, FrequencyOptimisation::Estimated);
+
+        opt.optimise_frequencies();
+        assert_eq!(opt.c.freqs().view((0, 0), (4, 1)), opt.c.empirical_freqs());
+    }
+
+    #[test]
+    fn estimated_freqs_default_to_empirical_pip_aa() {
+        let fldr = Path::new("./data/phyml_protein_example/");
+        let info = PIB::with_attrs(fldr.join("seqs.fasta"), fldr.join("wrong_tree.newick"))
+            .build()
+            .unwrap();
+
+        let model = PIPModel::<WAG>::new(&[], &[]);
+        let cost = PIPCB::new(model, info).build().unwrap();
+        let mut opt = ModelOptimiser::new(cost.clone(), FrequencyOptimisation::Estimated);
+        assert_matches!(opt.freq_opt, FrequencyOptimisation::Estimated);
+
+        opt.optimise_frequencies();
+        assert_eq!(opt.c.freqs().view((0, 0), (20, 1)), opt.c.empirical_freqs());
+    }
+}
