@@ -546,8 +546,8 @@ fn stop_condition_epsilon() {
     let initial_logl = c.cost();
     let result = ModelOptimiser::with_stop_condition(
         c,
-        StopCondition::epsilon(epsilon),
         FrequencyOptimisation::Empirical,
+        StopCondition::epsilon(epsilon),
     )
     .run()
     .unwrap();

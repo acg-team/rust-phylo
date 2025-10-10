@@ -27,8 +27,8 @@ impl<C: ModelSearchCost + Display + Clone> ModelOptimiser<C> {
 
     pub fn with_stop_condition(
         cost: C,
-        stop_condition: StopCondition,
         freq_opt: FrequencyOptimisation,
+        stop_condition: StopCondition,
     ) -> Self {
         Self {
             stop_condition,
