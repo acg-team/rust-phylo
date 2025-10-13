@@ -271,7 +271,13 @@ mod private_tests {
     #[test]
     fn single_iter_pip_dna_nni() {
         let info = dna_test_data();
-        single_iter_pip_template::<JC69, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_pip_template::<JC69, NniOptimiser>(info, NniOptimiser {});
+    }
+
+    #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
+    fn single_iter_pip_dna_nni_long() {
+        let info = dna_test_data();
         single_iter_pip_template::<K80, NniOptimiser>(info.clone(), NniOptimiser {});
         single_iter_pip_template::<HKY, NniOptimiser>(info.clone(), NniOptimiser {});
         single_iter_pip_template::<TN93, NniOptimiser>(info.clone(), NniOptimiser {});
@@ -281,7 +287,13 @@ mod private_tests {
     #[test]
     fn single_iter_pip_dna_spr() {
         let info = dna_test_data();
-        single_iter_pip_template::<JC69, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_pip_template::<JC69, SprOptimiser>(info, SprOptimiser {});
+    }
+
+    #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
+    fn single_iter_pip_dna_spr_long() {
+        let info = dna_test_data();
         single_iter_pip_template::<K80, SprOptimiser>(info.clone(), SprOptimiser {});
         single_iter_pip_template::<HKY, SprOptimiser>(info.clone(), SprOptimiser {});
         single_iter_pip_template::<TN93, SprOptimiser>(info.clone(), SprOptimiser {});
@@ -289,6 +301,7 @@ mod private_tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
     fn single_iteration_pip_aa_nni() {
         let info = aa_test_data();
         single_iter_pip_template::<WAG, NniOptimiser>(info.clone(), NniOptimiser {});
@@ -297,6 +310,7 @@ mod private_tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
     fn single_iteration_pip_aa_spr() {
         let info = aa_test_data();
         single_iter_pip_template::<WAG, SprOptimiser>(info.clone(), SprOptimiser {});
@@ -338,7 +352,14 @@ mod private_tests {
     #[test]
     fn single_iteration_substitution_dna_nni() {
         let info = dna_test_data();
-        single_iter_substitution_template::<JC69, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_substitution_template::<JC69, NniOptimiser>(info, NniOptimiser {});
+    }
+
+    #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
+    fn single_iteration_substitution_dna_nni_long() {
+        // This test takes too long for coverage runs
+        let info = dna_test_data();
         single_iter_substitution_template::<K80, NniOptimiser>(info.clone(), NniOptimiser {});
         single_iter_substitution_template::<HKY, NniOptimiser>(info.clone(), NniOptimiser {});
         single_iter_substitution_template::<TN93, NniOptimiser>(info.clone(), NniOptimiser {});
@@ -348,7 +369,13 @@ mod private_tests {
     #[test]
     fn single_iteration_substitution_dna_spr() {
         let info = dna_test_data();
-        single_iter_substitution_template::<JC69, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_substitution_template::<JC69, SprOptimiser>(info, SprOptimiser {});
+    }
+
+    #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
+    fn single_iteration_substitution_dna_spr_long() {
+        let info = dna_test_data();
         single_iter_substitution_template::<K80, SprOptimiser>(info.clone(), SprOptimiser {});
         single_iter_substitution_template::<HKY, SprOptimiser>(info.clone(), SprOptimiser {});
         single_iter_substitution_template::<TN93, SprOptimiser>(info.clone(), SprOptimiser {});
@@ -356,6 +383,7 @@ mod private_tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
     fn single_iteration_substitution_aa_nni() {
         let info = aa_test_data();
         single_iter_substitution_template::<WAG, NniOptimiser>(info.clone(), NniOptimiser {});
@@ -364,6 +392,7 @@ mod private_tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
     fn single_iteration_substitution_aa_spr() {
         let info = aa_test_data();
         single_iter_substitution_template::<WAG, SprOptimiser>(info.clone(), SprOptimiser {});

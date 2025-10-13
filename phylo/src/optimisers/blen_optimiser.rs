@@ -235,6 +235,7 @@ mod private_tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
     fn single_iteration_pip_aa() {
         let info = aa_test_data();
         single_iter_pip_template::<WAG>(info.clone());
@@ -275,6 +276,7 @@ mod private_tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
     fn single_iteration_substitution_aa() {
         let info = aa_test_data();
         single_iter_substitution_template::<WAG>(info.clone());

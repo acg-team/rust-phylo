@@ -193,6 +193,7 @@ fn k80_sim_data_from_nj() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn k80_sim_data_vs_phyml() {
     // Check that optimisation on k80 data under JC69 produces similar tree to PhyML with matching likelihood
     let fldr = Path::new("./data/sim/");
@@ -241,6 +242,7 @@ fn k80_sim_data_vs_phyml() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn k80_sim_data_vs_phyml_wrong_start() {
     // Check that optimisation on k80 data under JC69 produces similar tree to PhyML with matching likelihood
     // when starting from a wrong tree
@@ -360,6 +362,7 @@ fn test_nni_and_spr_find_same_tree() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn pip_vs_subst_dna_tree() {
     // Check that optimisation on k80 data under PIP and substitution model produces similar trees
     let fldr = Path::new("./data/sim");
@@ -720,6 +723,7 @@ fn dollo_tree_search_sim_data_simple() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn dollo_tree_search_sim_data_model() {
     let fldr = Path::new("./data/sim/");
     let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("tree.newick"))
@@ -812,6 +816,7 @@ fn precision() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn fix_iter() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
@@ -866,12 +871,12 @@ fn max_iter() {
         c,
         SprOptimiser {},
         &rng,
-        StopCondition::max_iter_epsilon(NonZeroUsize::new(5).unwrap(), epsilon),
+        StopCondition::max_iter_epsilon(NonZeroUsize::new(3).unwrap(), epsilon),
     )
     .run()
     .unwrap();
     assert!(result.final_cost >= unopt_cost);
-    assert!(result.iterations <= 5);
+    assert!(result.iterations <= 3);
     assert!(result.final_cost >= res_default.final_cost);
     assert_eq!(result.initial_cost, unopt_cost);
 }

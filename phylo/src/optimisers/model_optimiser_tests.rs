@@ -78,6 +78,7 @@ fn parameter_change_k80() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn gtr_on_k80_data() {
     let fldr = Path::new("./data/sim");
     let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("tree.newick"))
@@ -190,6 +191,7 @@ fn improved_logl_empirical_freqs_pip_template<Q: QMatrix + QMatrixMaker>() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn improved_logl_empirical_freqs_pip() {
     improved_logl_empirical_freqs_pip_template::<HKY>();
     improved_logl_empirical_freqs_pip_template::<TN93>();
@@ -409,6 +411,7 @@ fn arpip_example() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn pip_propip_example() {
     let fldr = Path::new("./data/pip/propip/");
     let info = PIB::with_attrs(fldr.join("msa.initial.fasta"), fldr.join("tree.nwk"))
@@ -434,6 +437,7 @@ fn pip_propip_example() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn pip_vs_python_no_gaps() {
     let fldr = Path::new("./data");
     let info = PIB::with_attrs(
@@ -460,6 +464,7 @@ fn pip_vs_python_no_gaps() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn pip_gtr_optimisation() {
     // Check that pip parameter optimisation produces expected results
     let fldr = Path::new("./data/sim");
@@ -489,6 +494,7 @@ fn pip_gtr_optimisation() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn pip_gtr_vs_gtr_params() {
     // Compare pip gtr parameter optimisation vs the original gtr model
     let fldr = Path::new("./data/sim");
@@ -516,6 +522,7 @@ fn pip_gtr_vs_gtr_params() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn pip_protein_example() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let info = PIB::with_attrs(fldr.join("seqs.fasta"), fldr.join("example_tree.newick"))
@@ -535,6 +542,7 @@ fn pip_protein_example() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn stop_condition_epsilon() {
     let epsilon = 0.005;
     let fldr = Path::new("./data/phyml_protein_example/");
