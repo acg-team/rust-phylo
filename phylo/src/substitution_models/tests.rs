@@ -1233,9 +1233,7 @@ fn dna_zero_diag_scores() {
 }
 
 #[cfg(test)]
-fn dirty_tree_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphabet) {
-    use crate::likelihood::TreeSearchCost;
-
+fn setup_test_info(alphabet: Alphabet) -> PhyloInfo<MSA> {
     let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let msa = MSA::from_aligned(
         Sequences::with_alphabet(
@@ -1250,7 +1248,14 @@ fn dirty_tree_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphabet
         &tree,
     )
     .unwrap();
-    let info = PhyloInfo { msa, tree };
+    PhyloInfo { msa, tree }
+}
+
+#[cfg(test)]
+fn dirty_tree_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphabet) {
+    use crate::likelihood::TreeSearchCost;
+
+    let info = setup_test_info(alphabet);
 
     let model = SubstModel::<Q>::new(&[], &[]);
     let mut c = SCB::new(model.clone(), info.clone()).build().unwrap();
@@ -1287,33 +1292,16 @@ fn dirty_tree_costs_match() {
 fn dirty_branch_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphabet) {
     use crate::likelihood::TreeSearchCost;
 
-    let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
-    let msa = MSA::from_aligned(
-        Sequences::with_alphabet(
-            vec![
-                record!("A", b"CTATATATAC"),
-                record!("B", b"ATATATATAA"),
-                record!("C", b"TTATATATAT"),
-                record!("D", b"TTATATATAT"),
-            ],
-            alphabet,
-        ),
-        &tree,
-    )
-    .unwrap();
-    let info = PhyloInfo {
-        msa: msa.clone(),
-        tree: tree.clone(),
-    };
+    let info = setup_test_info(alphabet);
 
     let model = SubstModel::<Q>::new(&[], &[]);
-    let mut c = SCB::new(model.clone(), info).build().unwrap();
+    let mut c = SCB::new(model.clone(), info.clone()).build().unwrap();
     let logl = TreeSearchCost::cost(&c);
 
     // The likelihood should change if we change branch lengths
-    let mut mutated_tree = tree.clone();
-    mutated_tree.set_blen(&tree.by_id("F").idx, 4.0);
-    mutated_tree.set_blen(&tree.by_id("B").idx, 0.75);
+    let mut mutated_tree = info.tree.clone();
+    mutated_tree.set_blen(&info.tree.by_id("F").idx, 4.0);
+    mutated_tree.set_blen(&info.tree.by_id("B").idx, 0.75);
     c.update_tree(mutated_tree);
 
     let logl2 = TreeSearchCost::cost(&c);
@@ -1323,7 +1311,7 @@ fn dirty_branch_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphab
     // The likelihood should be the same if we rebuild from scratch with the same modification
     let new_tree = tree!("(((A:1.0,B:0.75)E:2.0,(C:1.0,D:1.0)F:4.0)G:3.0);");
     let new_info = PhyloInfo {
-        msa,
+        msa: info.msa.clone(),
         tree: new_tree,
     };
     let c = SCB::new(model, new_info).build().unwrap();
@@ -1347,24 +1335,7 @@ fn dirty_branch_costs_match() {
 
 #[cfg(test)]
 fn modify_model_params_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphabet) {
-    let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
-    let msa = MSA::from_aligned(
-        Sequences::with_alphabet(
-            vec![
-                record!("A", b"CTATATATAC"),
-                record!("B", b"ATATATATAA"),
-                record!("C", b"TTATATATAT"),
-                record!("D", b"TTATATATAT"),
-            ],
-            alphabet,
-        ),
-        &tree,
-    )
-    .unwrap();
-    let info = PhyloInfo {
-        msa: msa.clone(),
-        tree: tree.clone(),
-    };
+    let info = setup_test_info(alphabet);
 
     let model = SubstModel::<Q>::new(&[], &[1.0]);
     let mut c = SCB::new(model.clone(), info.clone()).build().unwrap();
@@ -1399,24 +1370,7 @@ fn modify_model_freqs_costs_match_template<Q: QMatrix + QMatrixMaker>(
     alphabet: Alphabet,
     freqs: FreqVector,
 ) {
-    let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
-    let msa = MSA::from_aligned(
-        Sequences::with_alphabet(
-            vec![
-                record!("A", b"CTATATATAC"),
-                record!("B", b"ATATATATAA"),
-                record!("C", b"TTATATATAT"),
-                record!("D", b"TTATATATAT"),
-            ],
-            alphabet,
-        ),
-        &tree,
-    )
-    .unwrap();
-    let info = PhyloInfo {
-        msa: msa.clone(),
-        tree: tree.clone(),
-    };
+    let info = setup_test_info(alphabet);
 
     let model = SubstModel::<Q>::new(&[], &[]);
     let mut c = SCB::new(model.clone(), info.clone()).build().unwrap();
