@@ -483,58 +483,59 @@ fn pip_optimise_model_tree() {
 
     // Optimise tree starting from an NJ tree and initial model
     let pip = PIPModel::<WAG>::new(&[], &[1.4, 0.5]);
-    let tree_opt = optimise_tree_pip(
+    let tree_opt_result = optimise_tree_pip(
         &seq_file,
         &fldr.join("jati_pip_nj_start.newick"),
         pip.clone(),
     );
-    assert!(tree_opt.final_cost >= tree_opt.initial_cost);
+    assert!(tree_opt_result.final_cost >= tree_opt_result.initial_cost);
 
     // Optimise model parameters on the starting tree
-    let model_opt = ModelOptimiser::new(
+    let model_opt_result = ModelOptimiser::new(
         PIPCB::new(pip.clone(), start_info.clone()).build().unwrap(),
         Empirical,
     )
     .run()
     .unwrap();
-    let optimised_pip = model_opt.cost.model;
+    let optimised_pip = model_opt_result.cost.model;
 
-    assert!(model_opt.final_cost >= model_opt.initial_cost);
-    assert!(model_opt.final_cost >= tree_opt.final_cost);
+    assert!(model_opt_result.final_cost >= model_opt_result.initial_cost);
+    assert!(model_opt_result.final_cost >= tree_opt_result.final_cost);
 
     // Optimise tree again with the optimised model
-    let model_tree_opt = optimise_tree_pip(
+    let model_tree_opt_result = optimise_tree_pip(
         &seq_file,
         &fldr.join("jati_pip_nj_start_model_opt.newick"),
         optimised_pip.clone(),
     );
 
-    assert!(model_tree_opt.final_cost >= model_opt.final_cost);
-    assert!(model_tree_opt.final_cost >= tree_opt.initial_cost);
+    assert!(model_tree_opt_result.final_cost >= model_opt_result.final_cost);
+    assert!(model_tree_opt_result.final_cost >= tree_opt_result.initial_cost);
 
     // These trees used to match at v0.1.0, now rf is 2
     assert!(
-        model_tree_opt
+        model_tree_opt_result
             .cost
             .tree()
-            .robinson_foulds(tree_opt.cost.tree())
+            .robinson_foulds(tree_opt_result.cost.tree())
             <= 2
     );
-    assert!(model_tree_opt.final_cost > tree_opt.final_cost);
+    assert!(model_tree_opt_result.final_cost > tree_opt_result.final_cost);
 
-    // Check that the optimised tree+model is better than the starting tree with the optimised model
-    let old_tree_optimised_model_logl = PIPCB::new(optimised_pip, tree_opt.cost.info.clone())
+    // Check that the optimised tree+model likelihood is higher than the likelihood of thefirst optimised tree (no model optimisation) with the optimised model
+    let tree_opt_optimised_model_logl =
+        PIPCB::new(optimised_pip, tree_opt_result.cost.info.clone())
+            .build()
+            .unwrap()
+            .cost();
+    assert!(model_tree_opt_result.final_cost > tree_opt_optimised_model_logl);
+
+    // Check that the optimised tree+model likelihood is higher than the likelihood of the same tree with the starting model
+    let model_tree_opt_start_model_logl = PIPCB::new(pip, model_tree_opt_result.cost.info.clone())
         .build()
         .unwrap()
         .cost();
-    assert!(model_tree_opt.final_cost > old_tree_optimised_model_logl);
-
-    // Check that the optimised tree+model is better than the starting model with the optimised tree
-    let new_tree_start_model_logl = PIPCB::new(pip, model_tree_opt.cost.info.clone())
-        .build()
-        .unwrap()
-        .cost();
-    assert!(model_tree_opt.final_cost > new_tree_start_model_logl);
+    assert!(model_tree_opt_result.final_cost > model_tree_opt_start_model_logl);
 }
 
 #[test]
