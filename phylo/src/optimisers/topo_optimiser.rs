@@ -149,7 +149,15 @@ where
 
         // Optimise branch lengths on current tree to match PhyML
         if self.c.blen_optimisation() {
-            let o = BranchOptimiser::new(self.c.clone()).run()?;
+            let intermediate_stop_condition = match self.stop_condition {
+                StopCondition::Epsilon(e) => StopCondition::epsilon(e),
+                StopCondition::MaxIterEpsilon(_, e) => StopCondition::epsilon(e),
+                _ => StopCondition::default(),
+            };
+
+            let o =
+                BranchOptimiser::with_stop_condition(self.c.clone(), intermediate_stop_condition)
+                    .run()?;
             if o.final_cost > curr_cost {
                 curr_cost = o.final_cost;
                 let mut tree = o.cost.tree().clone();
