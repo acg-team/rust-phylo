@@ -515,13 +515,12 @@ fn pip_optimise_model_tree() {
     assert!(model_tree_opt_result.final_cost >= model_opt_result.final_cost);
     assert!(model_tree_opt_result.final_cost >= tree_opt_result.initial_cost);
 
-    // These trees used to match at v0.1.0, now rf is 2
-    assert!(
+    assert_eq!(
         model_tree_opt_result
             .cost
             .tree()
-            .robinson_foulds(tree_opt_result.cost.tree())
-            <= 2
+            .robinson_foulds(tree_opt_result.cost.tree()),
+        0
     );
     assert!(model_tree_opt_result.final_cost > tree_opt_result.final_cost);
 
