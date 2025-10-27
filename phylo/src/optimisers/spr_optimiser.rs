@@ -7,7 +7,7 @@ use log::{debug, info};
 
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::move_optimiser::{MoveCostInfo, MoveOptimiser};
-use crate::optimisers::BranchOptimiser;
+use crate::optimisers::optimise_branch;
 use crate::tree::{NodeIdx, Tree};
 use crate::Result;
 
@@ -220,8 +220,7 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
     let mut move_cost = cost_fn.cost();
     if cost_fn.blen_optimisation() && move_cost <= base_cost {
         // reoptimise branch length at the regraft location
-        let mut o = BranchOptimiser::with_iters(cost_fn, 5);
-        let blen_opt = o.optimise_branch(&regraft)?;
+        let blen_opt = optimise_branch(&cost_fn, &regraft)?;
         if blen_opt.final_cost > move_cost {
             move_cost = blen_opt.final_cost;
             new_tree.set_blen(&regraft, blen_opt.value);

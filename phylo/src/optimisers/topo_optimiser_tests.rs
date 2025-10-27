@@ -1,4 +1,4 @@
-use std::num::NonZero;
+use std::num::NonZeroUsize;
 use std::path::Path;
 
 use approx::assert_relative_eq;
@@ -7,8 +7,8 @@ use crate::alignment::{Alignment, Sequences, MSA};
 use crate::evolutionary_models::FrequencyOptimisation::Empirical;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{
-    BranchOptimiser, ModelOptimiser, NniOptimiser, PhyloOptimisationResult, SprOptimiser,
-    TopologyOptimiser, TopologyOptimiserPredicate,
+    BranchOptimiser, ModelOptimiser, NniOptimiser, SprOptimiser, StopCondition, TopologyOptimiser,
+    TreeOptimisationResult,
 };
 use crate::parsimony::{scoring::ModelScoringBuilder, BasicParsimonyCost, DolloParsimonyCost};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
@@ -29,7 +29,7 @@ macro_rules! define_optimise_trees {
                 seq_file: &std::path::Path,
                 _: &std::path::Path,
                 model: $model<Q>,
-            ) -> PhyloOptimisationResult<$cost<Q, MSA>> {
+            ) -> TreeOptimisationResult<$cost<Q, MSA>> {
                 let mut fake_rng = FakeGenerator::default();
                 let start_info = PIB::new(seq_file).build_w_rng(&mut fake_rng).unwrap();
                 let cost = $builder::new(model, start_info).build().unwrap();
@@ -41,7 +41,7 @@ macro_rules! define_optimise_trees {
                 seq_file: &std::path::Path,
                 tree_file: &std::path::Path,
                 model: $model<Q>,
-            ) -> PhyloOptimisationResult<$cost<Q, MSA>> {
+            ) -> TreeOptimisationResult<$cost<Q, MSA>> {
                 let mut fake_rng = FakeGenerator::default();
                 let start_info = PIB::new(seq_file).build_w_rng(&mut fake_rng).unwrap();
 
@@ -51,11 +51,12 @@ macro_rules! define_optimise_trees {
                     let initial_cost = $builder::new(model.clone(), start_info).build().unwrap();
                     let final_cost = $builder::new(model, precomputed.clone()).build().unwrap();
 
-                    PhyloOptimisationResult {
+                    TreeOptimisationResult {
                         initial_cost: initial_cost.cost(),
                         final_cost: final_cost.cost(),
                         iterations: 0,
                         cost: final_cost.clone(),
+                        costs: vec![initial_cost.cost(), final_cost.cost()],
                     }
                 } else {
                     let cost = $builder::new(model.clone(), start_info).build().unwrap();
@@ -192,6 +193,7 @@ fn k80_sim_data_from_nj() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn k80_sim_data_vs_phyml() {
     // Check that optimisation on k80 data under JC69 produces similar tree to PhyML with matching likelihood
     let fldr = Path::new("./data/sim/");
@@ -240,6 +242,7 @@ fn k80_sim_data_vs_phyml() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn k80_sim_data_vs_phyml_wrong_start() {
     // Check that optimisation on k80 data under JC69 produces similar tree to PhyML with matching likelihood
     // when starting from a wrong tree
@@ -481,55 +484,60 @@ fn pip_optimise_model_tree() {
         .build_w_rng(&FakeGenerator::default())
         .unwrap();
 
+    // Optimise tree starting from an NJ tree and initial model
     let pip = PIPModel::<WAG>::new(&[], &[1.4, 0.5]);
-    let res = optimise_tree_pip(
+    let tree_opt_result = optimise_tree_pip(
         &seq_file,
         &fldr.join("jati_pip_nj_start.newick"),
         pip.clone(),
     );
-    assert!(res.final_cost >= res.initial_cost);
+    assert!(tree_opt_result.final_cost >= tree_opt_result.initial_cost);
 
-    // Optimise model parameters
-    let o = ModelOptimiser::new(
+    // Optimise model parameters on the starting tree
+    let model_opt_result = ModelOptimiser::new(
         PIPCB::new(pip.clone(), start_info.clone()).build().unwrap(),
         Empirical,
     )
     .run()
     .unwrap();
-    let pip_opt = o.cost.model;
+    let optimised_pip = model_opt_result.cost.model;
 
-    assert!(o.final_cost >= o.initial_cost);
-    assert!(o.final_cost >= res.final_cost);
+    assert!(model_opt_result.final_cost >= model_opt_result.initial_cost);
+    assert!(model_opt_result.final_cost >= tree_opt_result.final_cost);
 
-    let model_opt_res = optimise_tree_pip(
+    // Optimise tree again with the optimised model
+    let model_tree_opt_result = optimise_tree_pip(
         &seq_file,
         &fldr.join("jati_pip_nj_start_model_opt.newick"),
-        pip_opt.clone(),
+        optimised_pip.clone(),
     );
 
-    assert!(model_opt_res.final_cost >= o.final_cost);
-    assert!(model_opt_res.final_cost >= res.initial_cost);
+    assert!(model_tree_opt_result.final_cost >= model_opt_result.final_cost);
+    assert!(model_tree_opt_result.final_cost >= tree_opt_result.initial_cost);
 
     assert_eq!(
-        model_opt_res.cost.tree().robinson_foulds(res.cost.tree()),
+        model_tree_opt_result
+            .cost
+            .tree()
+            .robinson_foulds(tree_opt_result.cost.tree()),
         0
     );
+    assert!(model_tree_opt_result.final_cost > tree_opt_result.final_cost);
 
-    assert!(model_opt_res.final_cost > res.final_cost);
-    assert!(
-        model_opt_res.final_cost
-            > PIPCB::new(pip_opt, res.cost.info.clone())
-                .build()
-                .unwrap()
-                .cost()
-    );
-    assert!(
-        model_opt_res.final_cost
-            > PIPCB::new(pip, model_opt_res.cost.info.clone())
-                .build()
-                .unwrap()
-                .cost()
-    );
+    // Check that the optimised tree+model likelihood is higher than the likelihood of thefirst optimised tree (no model optimisation) with the optimised model
+    let tree_opt_optimised_model_logl =
+        PIPCB::new(optimised_pip, tree_opt_result.cost.info.clone())
+            .build()
+            .unwrap()
+            .cost();
+    assert!(model_tree_opt_result.final_cost > tree_opt_optimised_model_logl);
+
+    // Check that the optimised tree+model likelihood is higher than the likelihood of the same tree with the starting model
+    let model_tree_opt_start_model_logl = PIPCB::new(pip, model_tree_opt_result.cost.info.clone())
+        .build()
+        .unwrap()
+        .cost();
+    assert!(model_tree_opt_result.final_cost > model_tree_opt_start_model_logl);
 }
 
 #[test]
@@ -714,6 +722,7 @@ fn dollo_tree_search_sim_data_simple() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn dollo_tree_search_sim_data_model() {
     let fldr = Path::new("./data/sim/");
     let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("tree.newick"))
@@ -738,43 +747,135 @@ fn dollo_tree_search_sim_data_model() {
 }
 
 #[test]
-fn topo_optimiser_predicate_iters() {
+fn fix_iter_low() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
+    let rng = FakeGenerator::default();
 
     let wag = SubstModel::<WAG>::new(&[], &[]);
-    let info = PIB::new(seq_file).build().unwrap();
+    let info = PIB::new(seq_file).build_w_rng(&rng).unwrap();
     let c = SCB::new(wag, info).build().unwrap();
     let unopt_cost = c.cost();
 
-    let predicate = TopologyOptimiserPredicate::fixed_iter(NonZero::new(1).unwrap());
-    // Without the predicate will run for 3 iterations
-    let result =
-        TopologyOptimiser::new_with_pred(c, SprOptimiser {}, &FakeGenerator::default(), predicate)
-            .run()
-            .unwrap();
+    let res_default = TopologyOptimiser::new(c.clone(), SprOptimiser {}, &rng)
+        .run()
+        .unwrap();
+    // Without the stop condition and with the fake rng will run deterministically for 4 iterations
+    assert_eq!(res_default.iterations, 4);
+
+    // With the stop condition will run for exactly 1 iteration
+    let result = TopologyOptimiser::with_stop_condition(
+        c,
+        SprOptimiser {},
+        &rng,
+        StopCondition::fixed_iter(NonZeroUsize::new(1).unwrap()),
+    )
+    .run()
+    .unwrap();
     assert!(result.final_cost >= unopt_cost);
-    assert!(result.iterations <= 1);
+    assert_eq!(result.iterations, 1);
+    assert_eq!(result.initial_cost, unopt_cost);
+
+    assert!(result.final_cost <= res_default.final_cost);
+}
+
+#[test]
+fn precision() {
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let seq_file = fldr.join("seqs.fasta");
+    let rng = FakeGenerator::default();
+    let epsilon = 1e-1;
+
+    let wag = SubstModel::<WAG>::new(&[], &[]);
+    let info = PIB::new(seq_file).build_w_rng(&rng).unwrap();
+    let c = SCB::new(wag, info).build().unwrap();
+    let unopt_cost = c.cost();
+
+    let res_default = TopologyOptimiser::new(c.clone(), SprOptimiser {}, &rng)
+        .run()
+        .unwrap();
+    // Without the stop condition and with the fake rng will run deterministically for 4 iterations
+    assert_eq!(res_default.iterations, 4);
+
+    // With the stop condition will run for less iterations because epsilon is high
+    let result = TopologyOptimiser::with_stop_condition(
+        c,
+        SprOptimiser {},
+        &rng,
+        StopCondition::epsilon(epsilon),
+    )
+    .run()
+    .unwrap();
+    assert!(result.final_cost >= unopt_cost);
+
+    let mut costs = result.costs;
+    assert!(costs.pop().unwrap() - costs.pop().unwrap() < epsilon);
+    assert!(result.iterations <= res_default.iterations);
     assert_eq!(result.initial_cost, unopt_cost);
 }
 
 #[test]
-fn topo_optimiser_predicate_precision() {
+#[cfg_attr(feature = "ci_coverage", ignore)]
+fn fix_iter() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
+    let rng = FakeGenerator::default();
 
     let wag = SubstModel::<WAG>::new(&[], &[]);
-    let info = PIB::new(seq_file).build().unwrap();
+    let info = PIB::new(seq_file).build_w_rng(&rng).unwrap();
     let c = SCB::new(wag, info).build().unwrap();
     let unopt_cost = c.cost();
 
-    let predicate = TopologyOptimiserPredicate::gt_epsilon(1e-1);
-    // Without the predicate will run for 3 iterations, for 2 with the predicate
-    let result =
-        TopologyOptimiser::new_with_pred(c, SprOptimiser {}, &FakeGenerator::default(), predicate)
-            .run()
-            .unwrap();
+    let res_default = TopologyOptimiser::new(c.clone(), SprOptimiser {}, &rng)
+        .run()
+        .unwrap();
+    // Without the stop condition and with the fake rng will run deterministically for 2 iterations
+    assert_eq!(res_default.iterations, 2);
+
+    // With the stop condition will run for exactly 6 iterations
+    let result = TopologyOptimiser::with_stop_condition(
+        c,
+        SprOptimiser {},
+        &rng,
+        StopCondition::fixed_iter(NonZeroUsize::new(6).unwrap()),
+    )
+    .run()
+    .unwrap();
+    assert!(result.final_cost >= unopt_cost);
+    assert!(result.final_cost >= res_default.final_cost);
+    assert_eq!(result.iterations, 6);
+    assert_eq!(result.initial_cost, unopt_cost);
+}
+
+#[test]
+fn max_iter() {
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let seq_file = fldr.join("nogap_seqs.fasta");
+    let rng = FakeGenerator::default();
+    let epsilon = 1e-10;
+
+    let wag = SubstModel::<WAG>::new(&[], &[]);
+    let info = PIB::new(seq_file).build_w_rng(&rng).unwrap();
+    let c = SCB::new(wag, info).build().unwrap();
+    let unopt_cost = c.cost();
+
+    let res_default = TopologyOptimiser::new(c.clone(), SprOptimiser {}, &rng)
+        .run()
+        .unwrap();
+    // Without the stop condition and with the fake rng will run deterministically for 2 iterations
+    assert_eq!(res_default.iterations, 2);
+
+    // With the stop condition will run for at most 5 iterations, and would continue running because the epsilon is very low
+    let result = TopologyOptimiser::with_stop_condition(
+        c,
+        SprOptimiser {},
+        &rng,
+        StopCondition::max_iter_epsilon(NonZeroUsize::new(3).unwrap(), epsilon),
+    )
+    .run()
+    .unwrap();
     assert!(result.final_cost >= unopt_cost);
     assert!(result.iterations <= 3);
+    assert!(result.final_cost >= res_default.final_cost);
     assert_eq!(result.initial_cost, unopt_cost);
 }

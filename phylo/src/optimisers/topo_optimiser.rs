@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::num::NonZeroUsize;
 
 use itertools::Itertools;
 use log::{debug, info};
@@ -7,8 +6,8 @@ use log::{debug, info};
 use crate::alignment::Alignment;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{
-    BranchOptimiser, MoveCostInfo, MoveOptimiser, NniOptimiser, PhyloOptimisationResult,
-    SprOptimiser,
+    BranchOptimiser, MoveCostInfo, MoveOptimiser, NniOptimiser, SprOptimiser, StopCondition,
+    TreeOptimisationResult,
 };
 use crate::parsimony::scoring::ParsimonyScoring;
 use crate::parsimony::{BasicParsimonyCost, DolloParsimonyCost};
@@ -17,36 +16,6 @@ use crate::random::RandomSource;
 use crate::substitution_models::{QMatrix, SubstitutionCost};
 use crate::tree::NodeIdx;
 use crate::Result;
-
-#[derive(Debug, Clone, Copy)]
-pub enum TopologyOptimiserPredicate {
-    GtEpsilon(f64),
-    FixedIter(NonZeroUsize),
-    // NOTE: use of `fn(..) -> ..` disallows closures that capture any
-    // surrounding variables, for that we would need to allow Boxed Fn
-    // trait objects (or introduce a generic parameter which might get tedious)
-    Custom(fn(usize, f64) -> bool),
-}
-
-impl TopologyOptimiserPredicate {
-    fn test(&self, iteration: usize, delta: f64) -> bool {
-        use TopologyOptimiserPredicate::*;
-        match *self {
-            GtEpsilon(min_delta) => delta > min_delta,
-            FixedIter(max) => max.get() > iteration,
-            Custom(pred) => pred(iteration, delta),
-        }
-    }
-    pub fn gt_epsilon(epsilon: f64) -> Self {
-        Self::GtEpsilon(epsilon)
-    }
-    pub fn fixed_iter(num: NonZeroUsize) -> Self {
-        Self::FixedIter(num)
-    }
-    pub fn custom(pred: fn(usize, f64) -> bool) -> Self {
-        Self::Custom(pred)
-    }
-}
 
 /// The `Compatible` trait is used to ensure that the cost and move optimiser passed to
 /// [`TopologyOptimiser::new`] are compatible.
@@ -68,7 +37,7 @@ where
     C: TreeSearchCost + Display + Clone + Send + Compatible<MO>,
     R: RandomSource,
 {
-    pub(crate) predicate: TopologyOptimiserPredicate,
+    pub(crate) stop_condition: StopCondition,
     pub(crate) move_opti: MO,
     pub(crate) c: C,
     pub(crate) rng: &'a R,
@@ -82,33 +51,29 @@ where
 {
     pub fn new(cost: C, move_opti: MO, rng: &'a R) -> Self {
         Self {
-            predicate: TopologyOptimiserPredicate::GtEpsilon(1e-3),
             move_opti,
             c: cost,
+            stop_condition: StopCondition::default(),
             rng,
         }
     }
 
-    pub fn new_with_pred(
-        cost: C,
-        move_opti: MO,
-        rng: &'a R,
-        predicate: TopologyOptimiserPredicate,
-    ) -> Self {
+    pub fn with_stop_condition(cost: C, move_opti: MO, rng: &'a R, stop: StopCondition) -> Self {
         Self {
             c: cost,
             move_opti,
-            predicate,
+            stop_condition: stop,
             rng,
         }
     }
 
-    /// Runs the topology optimisation algorithm on the given cost function.
+    /// Runs the topology optimisation algorithm on the given cost function given a move optimiser.
     /// The algorithm will iterate until the predicate is satisfied.
     /// The cost function will be updated in place.
     ///
     /// # Panics
-    /// Panics if the tree has less than 4 nodes, as SPRs are not applicable to trees with less than 4 nodes.
+    /// Panics if the provided tree move is not applicable to the tree, e.g. SPR move will panic
+    /// if the tree has less than 4 nodes, as SPRs are not applicable.
     ///
     /// # Returns
     /// A `PhyloOptimisationResult` containing the initial cost, final cost, number of iterations, and the final cost function.
@@ -134,56 +99,74 @@ where
     /// assert_eq!(result.cost.tree().len(), 9); // The initial tree has 9 nodes, 5 leaves and 4 internal nodes.
     /// # Ok(()) }
     /// ```
-    pub fn run(mut self) -> Result<PhyloOptimisationResult<C>> {
-        info!("Optimising tree topology with SPRs");
+    pub fn run(mut self) -> Result<TreeOptimisationResult<C>> {
+        info!("Optimising tree topology");
+        info!("Optimisation stopping condition: {}", self.stop_condition);
         let init_cost = self.c.cost();
-        let init_tree = self.c.tree();
 
         info!("Initial cost: {init_cost}");
-        debug!("Initial tree: \n{init_tree}");
+        debug!("Initial tree: \n{}", self.c.tree());
+
         let mut curr_cost = init_cost;
         let mut prev_cost = f64::NEG_INFINITY;
         let mut iterations = 0;
+        let mut delta = curr_cost - prev_cost;
+        let mut costs = vec![curr_cost];
 
-        let possible_move_locs: Vec<_> = self.move_opti.move_locations(&self.c).copied().collect();
-        let mut current_move_locs: Vec<_> = possible_move_locs.iter().collect();
-
-        let move_opti = self.move_opti.clone();
-        // The best move on this iteration might still be worse than the current tree, in which case
-        // the search stops.
-        // This means that curr_cost is always higher than or equal to prev_cost.
-        while self.predicate.test(iterations, curr_cost - prev_cost) {
+        while self.stop_condition.should_continue(iterations, delta) {
             iterations += 1;
             info!("Iteration: {iterations}, current cost: {curr_cost}");
             prev_cost = curr_cost;
-
-            self.rng.shuffle(&mut current_move_locs);
-
-            curr_cost =
-                Self::fold_improving_moves(&mut self.c, &move_opti, curr_cost, &current_move_locs)?;
-
-            // Optimise branch lengths on current tree to match PhyML
-            if self.c.blen_optimisation() {
-                let o = BranchOptimiser::new(self.c.clone()).run()?;
-                if o.final_cost > curr_cost {
-                    curr_cost = o.final_cost;
-                    let mut tree = o.cost.tree().clone();
-                    tree.dirty();
-                    self.c.update_tree(tree);
-                }
-            }
-            debug!("Tree after iteration {}: \n{}", iterations, self.c.tree());
+            curr_cost = self.single_optimisation_iteration()?;
+            delta = curr_cost - prev_cost;
+            costs.push(curr_cost);
+            debug_assert_eq!(curr_cost, self.c.cost());
         }
 
-        debug_assert_eq!(curr_cost, self.c.cost());
         info!("Done optimising tree topology");
         info!("Final cost: {curr_cost}, achieved in {iterations} iteration(s)");
-        Ok(PhyloOptimisationResult {
+        Ok(TreeOptimisationResult {
             initial_cost: init_cost,
             final_cost: curr_cost,
             iterations,
+            costs,
             cost: self.c,
         })
+    }
+
+    /// Performs a single iteration of topology optimisation over all nodes/branches in the tree.
+    /// Returns the cost after going through all possible moves once.
+    fn single_optimisation_iteration(&mut self) -> Result<f64> {
+        let init_cost = self.c.cost();
+        let possible_move_locs: Vec<_> = self.move_opti.move_locations(&self.c).copied().collect();
+        let mut current_move_locs: Vec<_> = possible_move_locs.iter().collect();
+
+        self.rng.shuffle(&mut current_move_locs);
+        let move_opti = self.move_opti.clone();
+
+        let mut curr_cost =
+            Self::fold_improving_moves(&mut self.c, &move_opti, init_cost, &current_move_locs)?;
+
+        // Optimise branch lengths on current tree to match PhyML
+        if self.c.blen_optimisation() {
+            let intermediate_stop_condition = match self.stop_condition {
+                StopCondition::Epsilon(e) => StopCondition::epsilon(e),
+                StopCondition::MaxIterEpsilon(_, e) => StopCondition::epsilon(e),
+                _ => StopCondition::default(),
+            };
+
+            let o =
+                BranchOptimiser::with_stop_condition(self.c.clone(), intermediate_stop_condition)
+                    .run()?;
+            if o.final_cost > curr_cost {
+                curr_cost = o.final_cost;
+                let mut tree = o.cost.tree().clone();
+                tree.dirty();
+                self.c.update_tree(tree);
+            }
+        }
+
+        Ok(curr_cost)
     }
 
     /// Iterates over `move_locations` in order and applies the best (improving)
@@ -226,5 +209,202 @@ where
                 }
             },
         )
+    }
+}
+
+#[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
+mod private_tests {
+    use std::path::Path;
+
+    use crate::alignment::MSA;
+    use crate::likelihood::TreeSearchCost;
+    use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
+    use crate::pip_model::{PIPCostBuilder as PIPCB, PIPModel};
+    use crate::random::FakeGenerator;
+    use crate::substitution_models::{
+        dna_models::*, protein_models::*, QMatrix, QMatrixMaker, SubstModel,
+        SubstitutionCostBuilder as SCB,
+    };
+
+    use super::*;
+
+    #[cfg(test)]
+    fn dna_test_data() -> PhyloInfo<MSA> {
+        let fldr = Path::new("./data/sim/");
+        PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("wrong_tree.newick"))
+            .build()
+            .unwrap()
+    }
+
+    #[cfg(test)]
+    fn aa_test_data() -> PhyloInfo<MSA> {
+        let fldr = Path::new("./data/phyml_protein_example/");
+        PIB::with_attrs(fldr.join("seqs.fasta"), fldr.join("wrong_tree.newick"))
+            .build()
+            .unwrap()
+    }
+
+    #[cfg(test)]
+    fn single_iter_pip_template<
+        Q: QMatrix + QMatrixMaker + Send,
+        MO: MoveOptimiser + Clone + Send + 'static,
+    >(
+        info: PhyloInfo<MSA>,
+        move_optimiser: MO,
+    ) where
+        PIPCost<Q, MSA>: Compatible<MO>,
+    {
+        let rng = FakeGenerator::new();
+        let model = PIPModel::<Q>::new(&[], &[]);
+        let c = PIPCB::new(model.clone(), info.clone()).build().unwrap();
+        let init_cost = c.cost();
+
+        let mut optimiser = TopologyOptimiser::new(c.clone(), move_optimiser, &rng);
+        let optimised_cost = optimiser.single_optimisation_iteration().unwrap();
+
+        assert!(optimised_cost > init_cost);
+        assert_eq!(optimised_cost, optimiser.c.cost());
+
+        // Check that branch lengths changed, topology should change because the tree is wrong on purpose
+        let new_info = optimiser.c.info.clone();
+        assert_ne!(new_info.tree.length, info.tree.length);
+        assert_ne!(new_info.tree.robinson_foulds(&info.tree), 0);
+
+        // Check that the cost is the same when recomputed from the new info and same model
+        let new_cost = PIPCB::new(model, new_info).build().unwrap();
+        assert_eq!(new_cost.cost(), optimised_cost);
+    }
+
+    #[test]
+    fn single_iter_pip_dna_nni() {
+        let info = dna_test_data();
+        single_iter_pip_template::<JC69, NniOptimiser>(info, NniOptimiser {});
+    }
+
+    #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
+    fn single_iter_pip_dna_nni_long() {
+        let info = dna_test_data();
+        single_iter_pip_template::<K80, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_pip_template::<HKY, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_pip_template::<TN93, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_pip_template::<GTR, NniOptimiser>(info, NniOptimiser {});
+    }
+
+    #[test]
+    fn single_iter_pip_dna_spr() {
+        let info = dna_test_data();
+        single_iter_pip_template::<JC69, SprOptimiser>(info, SprOptimiser {});
+    }
+
+    #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
+    fn single_iter_pip_dna_spr_long() {
+        let info = dna_test_data();
+        single_iter_pip_template::<K80, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_pip_template::<HKY, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_pip_template::<TN93, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_pip_template::<GTR, SprOptimiser>(info, SprOptimiser {});
+    }
+
+    #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
+    fn single_iteration_pip_aa_nni() {
+        let info = aa_test_data();
+        single_iter_pip_template::<WAG, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_pip_template::<BLOSUM, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_pip_template::<HIVB, NniOptimiser>(info, NniOptimiser {});
+    }
+
+    #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
+    fn single_iteration_pip_aa_spr() {
+        let info = aa_test_data();
+        single_iter_pip_template::<WAG, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_pip_template::<BLOSUM, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_pip_template::<HIVB, SprOptimiser>(info, SprOptimiser {});
+    }
+
+    #[cfg(test)]
+    fn single_iter_substitution_template<
+        Q: QMatrix + QMatrixMaker + Send,
+        MO: MoveOptimiser + Clone + Send + 'static,
+    >(
+        info: PhyloInfo<MSA>,
+        move_optimiser: MO,
+    ) where
+        SubstitutionCost<Q, MSA>: Compatible<MO>,
+    {
+        let rng = FakeGenerator::new();
+        let model = SubstModel::<Q>::new(&[], &[]);
+        let c = SCB::new(model.clone(), info.clone()).build().unwrap();
+        let init_cost = c.cost();
+
+        let mut optimiser = TopologyOptimiser::new(c.clone(), move_optimiser, &rng);
+        let optimised_cost = optimiser.single_optimisation_iteration().unwrap();
+
+        assert!(optimised_cost > init_cost);
+        assert_eq!(optimised_cost, optimiser.c.cost());
+
+        // Check that branch lengths changed, topology should change because the tree is wrong on purpose
+        let new_info = optimiser.c.info.clone();
+        assert_ne!(new_info.tree.length, info.tree.length);
+        assert_ne!(new_info.tree.robinson_foulds(&info.tree), 0);
+
+        // Check that the cost is the same when recomputed from the new info and same model
+        let new_cost = SCB::new(model, new_info).build().unwrap();
+        assert_eq!(new_cost.cost(), optimised_cost);
+    }
+
+    #[test]
+    fn single_iteration_substitution_dna_nni() {
+        let info = dna_test_data();
+        single_iter_substitution_template::<JC69, NniOptimiser>(info, NniOptimiser {});
+    }
+
+    #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
+    fn single_iteration_substitution_dna_nni_long() {
+        // This test takes too long for coverage runs
+        let info = dna_test_data();
+        single_iter_substitution_template::<K80, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_substitution_template::<HKY, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_substitution_template::<TN93, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_substitution_template::<GTR, NniOptimiser>(info, NniOptimiser {});
+    }
+
+    #[test]
+    fn single_iteration_substitution_dna_spr() {
+        let info = dna_test_data();
+        single_iter_substitution_template::<JC69, SprOptimiser>(info, SprOptimiser {});
+    }
+
+    #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
+    fn single_iteration_substitution_dna_spr_long() {
+        let info = dna_test_data();
+        single_iter_substitution_template::<K80, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_substitution_template::<HKY, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_substitution_template::<TN93, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_substitution_template::<GTR, SprOptimiser>(info, SprOptimiser {});
+    }
+
+    #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
+    fn single_iteration_substitution_aa_nni() {
+        let info = aa_test_data();
+        single_iter_substitution_template::<WAG, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_substitution_template::<BLOSUM, NniOptimiser>(info.clone(), NniOptimiser {});
+        single_iter_substitution_template::<HIVB, NniOptimiser>(info.clone(), NniOptimiser {});
+    }
+
+    #[test]
+    #[cfg_attr(feature = "ci_coverage", ignore)]
+    fn single_iteration_substitution_aa_spr() {
+        let info = aa_test_data();
+        single_iter_substitution_template::<WAG, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_substitution_template::<BLOSUM, SprOptimiser>(info.clone(), SprOptimiser {});
+        single_iter_substitution_template::<HIVB, SprOptimiser>(info.clone(), SprOptimiser {});
     }
 }

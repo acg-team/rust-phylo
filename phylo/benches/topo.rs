@@ -6,7 +6,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use phylo::alignment::MSA;
 use phylo::evolutionary_models::FrequencyOptimisation;
 use phylo::likelihood::TreeSearchCost;
-use phylo::optimisers::{Compatible, SprOptimiser, TopologyOptimiser, TopologyOptimiserPredicate};
+use phylo::optimisers::{Compatible, SprOptimiser, StopCondition, TopologyOptimiser};
 use phylo::pip_model::PIPCost;
 use phylo::random::FakeGenerator;
 use phylo::substitution_models::{QMatrix, QMatrixMaker, JC69, WAG};
@@ -22,11 +22,11 @@ fn run_fixed_iter_topo<C: TreeSearchCost + Clone + Display + Send + Compatible<S
 ) -> anyhow::Result<f64> {
     // Only use the FakeGenerator for deterministic benchmarking
     let fake_rng = FakeGenerator::new();
-    let topo_opt = TopologyOptimiser::new_with_pred(
+    let topo_opt = TopologyOptimiser::with_stop_condition(
         cost,
         SprOptimiser {},
         &fake_rng,
-        TopologyOptimiserPredicate::fixed_iter(NonZero::new(3).unwrap()),
+        StopCondition::fixed_iter(NonZero::new(3).unwrap()),
     );
     Ok(topo_opt.run()?.final_cost)
 }

@@ -5,7 +5,7 @@ use approx::assert_relative_eq;
 use crate::evolutionary_models::{EvoModel, FrequencyOptimisation};
 use crate::frequencies;
 use crate::likelihood::ModelSearchCost;
-use crate::optimisers::ModelOptimiser;
+use crate::optimisers::{ModelOptimiser, StopCondition};
 use crate::phylo_info::PhyloInfoBuilder as PIB;
 use crate::pip_model::{PIPCostBuilder, PIPModel};
 use crate::substitution_models::{
@@ -50,6 +50,7 @@ fn frequencies_unchanged_k80() {
         .run()
         .unwrap();
     assert_eq!(initial_logl, o.initial_cost);
+    assert_eq!(initial_logl, o.costs[0]);
     assert_eq!(o.cost.cost(), o.final_cost);
     assert_ne!(o.cost.model.params(), model.params());
     assert_relative_eq!(o.cost.freqs(), &frequencies!(&[0.25; 4]));
@@ -69,6 +70,7 @@ fn parameter_change_k80() {
         .run()
         .unwrap();
     assert_eq!(initial_logl, o.initial_cost);
+    assert_eq!(initial_logl, o.costs[0]);
     assert_eq!(o.cost.cost(), o.final_cost);
     assert_ne!(o.cost.model.params(), model.params());
     assert_relative_eq!(o.cost.freqs(), &frequencies!(&[0.25; 4]));
@@ -76,6 +78,7 @@ fn parameter_change_k80() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn gtr_on_k80_data() {
     let fldr = Path::new("./data/sim");
     let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("tree.newick"))
@@ -116,6 +119,7 @@ fn improved_logl_fixed_freqs_template<Q: QMatrix + QMatrixMaker>() {
         .unwrap();
 
     assert_eq!(initial_logl, o.initial_cost);
+    assert_eq!(initial_logl, o.costs[0]);
     assert_eq!(o.cost.cost(), o.final_cost);
     assert!(o.final_cost > initial_logl);
     assert_ne!(o.cost.model.params(), model.params());
@@ -145,6 +149,7 @@ fn improved_logl_empirical_freqs_template<Q: QMatrix + QMatrixMaker>() {
         .unwrap();
 
     assert_eq!(initial_logl, o.initial_cost);
+    assert_eq!(initial_logl, o.costs[0]);
     assert_eq!(o.cost.cost(), o.final_cost);
     assert!(o.final_cost > initial_logl);
     assert_ne!(o.cost.model.params(), model.params());
@@ -157,6 +162,40 @@ fn improved_logl_empirical_freqs() {
     improved_logl_empirical_freqs_template::<HKY>();
     improved_logl_empirical_freqs_template::<TN93>();
     improved_logl_empirical_freqs_template::<GTR>();
+}
+
+#[cfg(test)]
+fn improved_logl_empirical_freqs_pip_template<Q: QMatrix + QMatrixMaker>() {
+    let fldr = Path::new("./data/sim");
+    let info = PIB::with_attrs(fldr.join("GTR/gtr.fasta"), fldr.join("tree.newick"))
+        .build()
+        .unwrap();
+    let model = PIPModel::<Q>::new(&[], &[1.4, 0.6]);
+
+    let c = PIPCostBuilder::new(model.clone(), info).build().unwrap();
+    let initial_logl = c.cost();
+    let o = ModelOptimiser::new(c, FrequencyOptimisation::Empirical)
+        .run()
+        .unwrap();
+
+    assert_eq!(initial_logl, o.initial_cost);
+    assert_eq!(initial_logl, o.costs[0]);
+    assert_eq!(o.cost.cost(), o.final_cost);
+    assert!(o.final_cost > initial_logl);
+    assert_ne!(o.cost.model.params(), model.params());
+    assert_ne!(o.cost.freqs(), model.freqs());
+    assert_eq!(
+        o.cost.freqs().view((0, 0), (4, 1)),
+        o.cost.empirical_freqs()
+    );
+}
+
+#[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
+fn improved_logl_empirical_freqs_pip() {
+    improved_logl_empirical_freqs_pip_template::<HKY>();
+    improved_logl_empirical_freqs_pip_template::<TN93>();
+    improved_logl_empirical_freqs_pip_template::<GTR>();
 }
 
 #[test]
@@ -372,6 +411,7 @@ fn arpip_example() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn pip_propip_example() {
     let fldr = Path::new("./data/pip/propip/");
     let info = PIB::with_attrs(fldr.join("msa.initial.fasta"), fldr.join("tree.nwk"))
@@ -397,6 +437,7 @@ fn pip_propip_example() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn pip_vs_python_no_gaps() {
     let fldr = Path::new("./data");
     let info = PIB::with_attrs(
@@ -423,6 +464,7 @@ fn pip_vs_python_no_gaps() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn pip_gtr_optimisation() {
     // Check that pip parameter optimisation produces expected results
     let fldr = Path::new("./data/sim");
@@ -452,6 +494,7 @@ fn pip_gtr_optimisation() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn pip_gtr_vs_gtr_params() {
     // Compare pip gtr parameter optimisation vs the original gtr model
     let fldr = Path::new("./data/sim");
@@ -479,6 +522,7 @@ fn pip_gtr_vs_gtr_params() {
 }
 
 #[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
 fn pip_protein_example() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let info = PIB::with_attrs(fldr.join("seqs.fasta"), fldr.join("example_tree.newick"))
@@ -495,4 +539,32 @@ fn pip_protein_example() {
     assert_ne!(o.cost.params()[0], 2.0);
     assert_ne!(o.cost.params()[1], 0.1);
     assert_eq!(o.cost.cost(), o.final_cost);
+}
+
+#[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
+fn stop_condition_epsilon() {
+    let epsilon = 0.005;
+    let fldr = Path::new("./data/phyml_protein_example/");
+    let info = PIB::with_attrs(fldr.join("seqs.fasta"), fldr.join("example_tree.newick"))
+        .build()
+        .unwrap();
+    let pip = PIPModel::<WAG>::new(&[], &[2.0, 0.1]);
+    let c = PIPCostBuilder::new(pip, info).build().unwrap();
+    let initial_logl = c.cost();
+    let result = ModelOptimiser::with_stop_condition(
+        c,
+        FrequencyOptimisation::Empirical,
+        StopCondition::epsilon(epsilon),
+    )
+    .run()
+    .unwrap();
+
+    assert!(result.final_cost > initial_logl);
+    assert_relative_eq!(result.initial_cost, initial_logl);
+    assert_ne!(result.cost.params()[0], 2.0);
+    assert_ne!(result.cost.params()[1], 0.1);
+    assert_eq!(result.cost.cost(), result.final_cost);
+    let mut costs = result.costs;
+    assert!(costs.pop().unwrap() - costs.pop().unwrap() < epsilon);
 }
