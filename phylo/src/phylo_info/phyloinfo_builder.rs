@@ -111,7 +111,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     }
 
     pub fn build(self) -> Result<PhyloInfo<A>> {
-        self.build_w_rng(&DefaultGenerator::default())
+        self.build_w_rng(&mut DefaultGenerator::default())
     }
 
     /// Builds the PhyloInfo struct from the sequence file and the tree file (if provided).
@@ -137,7 +137,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     /// assert_eq!(info.tree.len(), 7);
     /// # Ok(()) }
     /// ```
-    pub fn build_w_rng(self, rng: &impl RandomSource) -> Result<PhyloInfo<A>> {
+    pub fn build_w_rng(self, rng: &mut impl RandomSource) -> Result<PhyloInfo<A>> {
         let sequences = self.read_sequences()?;
         let tree = match &self.tree_file {
             Some(tree_file) => self.read_tree(tree_file)?,
@@ -159,10 +159,10 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     }
 
     pub fn build_with_ancestors(self) -> Result<PhyloInfo<AA>> {
-        self.build_with_ancestors_w_rng(&DefaultGenerator::default())
+        self.build_with_ancestors_w_rng(&mut DefaultGenerator::default())
     }
 
-    pub fn build_with_ancestors_w_rng(self, rng: &impl RandomSource) -> Result<PhyloInfo<AA>> {
+    pub fn build_with_ancestors_w_rng(self, rng: &mut impl RandomSource) -> Result<PhyloInfo<AA>> {
         let sequences = self.read_sequences()?;
         let mut tree = match &self.tree_file {
             Some(tree_file) => self.read_tree(tree_file)?,

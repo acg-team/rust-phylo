@@ -40,7 +40,7 @@ where
     pub(crate) stop_condition: StopCondition,
     pub(crate) move_opti: MO,
     pub(crate) c: C,
-    pub(crate) rng: &'a R,
+    pub(crate) rng: &'a mut R,
 }
 
 impl<'a, MO, C, R> TopologyOptimiser<'a, MO, C, R>
@@ -49,7 +49,7 @@ where
     C: TreeSearchCost + Display + Clone + Send + Compatible<MO>,
     R: RandomSource,
 {
-    pub fn new(cost: C, move_opti: MO, rng: &'a R) -> Self {
+    pub fn new(cost: C, move_opti: MO, rng: &'a mut R) -> Self {
         Self {
             move_opti,
             c: cost,
@@ -58,7 +58,12 @@ where
         }
     }
 
-    pub fn with_stop_condition(cost: C, move_opti: MO, rng: &'a R, stop: StopCondition) -> Self {
+    pub fn with_stop_condition(
+        cost: C,
+        move_opti: MO,
+        rng: &'a mut R,
+        stop: StopCondition,
+    ) -> Self {
         Self {
             c: cost,
             move_opti,
@@ -255,12 +260,12 @@ mod private_tests {
     ) where
         PIPCost<Q, MSA>: Compatible<MO>,
     {
-        let rng = FakeGenerator::new();
+        let mut rng = FakeGenerator::new();
         let model = PIPModel::<Q>::new(&[], &[]);
         let c = PIPCB::new(model.clone(), info.clone()).build().unwrap();
         let init_cost = c.cost();
 
-        let mut optimiser = TopologyOptimiser::new(c.clone(), move_optimiser, &rng);
+        let mut optimiser = TopologyOptimiser::new(c.clone(), move_optimiser, &mut rng);
         let optimised_cost = optimiser.single_optimisation_iteration().unwrap();
 
         assert!(optimised_cost > init_cost);
@@ -336,12 +341,12 @@ mod private_tests {
     ) where
         SubstitutionCost<Q, MSA>: Compatible<MO>,
     {
-        let rng = FakeGenerator::new();
+        let mut rng = FakeGenerator::new();
         let model = SubstModel::<Q>::new(&[], &[]);
         let c = SCB::new(model.clone(), info.clone()).build().unwrap();
         let init_cost = c.cost();
 
-        let mut optimiser = TopologyOptimiser::new(c.clone(), move_optimiser, &rng);
+        let mut optimiser = TopologyOptimiser::new(c.clone(), move_optimiser, &mut rng);
         let optimised_cost = optimiser.single_optimisation_iteration().unwrap();
 
         assert!(optimised_cost > init_cost);

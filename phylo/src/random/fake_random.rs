@@ -1,5 +1,4 @@
 use std::any::{Any, TypeId};
-use std::sync::Mutex;
 
 use rand::distributions::Standard;
 use rand::prelude::Distribution;
@@ -9,13 +8,13 @@ use crate::random::RandomSource;
 /// A fake random number generator for deterministic testing.
 /// Returns predictable values from pre-configured sequences.
 pub struct FakeGenerator {
-    u64_values: Mutex<Vec<u64>>,
-    f64_values: Mutex<Vec<f64>>,
-    bool_values: Mutex<Vec<bool>>,
-    u64_index: Mutex<usize>,
-    f64_index: Mutex<usize>,
-    bool_index: Mutex<usize>,
-    seed: Mutex<u64>,
+    u64_values: Vec<u64>,
+    f64_values: Vec<f64>,
+    bool_values: Vec<bool>,
+    u64_index: usize,
+    f64_index: usize,
+    bool_index: usize,
+    seed: u64,
 }
 
 macro_rules! fakegen_downcast {
@@ -30,100 +29,91 @@ impl FakeGenerator {
     /// which will default to 0, 0.0, or false if no values are provided
     pub fn new() -> Self {
         Self {
-            u64_values: Mutex::new(Vec::new()),
-            f64_values: Mutex::new(Vec::new()),
-            bool_values: Mutex::new(Vec::new()),
-            u64_index: Mutex::new(0),
-            f64_index: Mutex::new(0),
-            bool_index: Mutex::new(0),
-            seed: Mutex::new(0),
+            u64_values: Vec::new(),
+            f64_values: Vec::new(),
+            bool_values: Vec::new(),
+            u64_index: 0,
+            f64_index: 0,
+            bool_index: 0,
+            seed: 0,
         }
     }
 
     /// Create a FakeGenerator with pre-configured u64 values
     pub fn from_u64_values(values: Vec<u64>) -> Self {
         Self {
-            u64_values: Mutex::new(values),
-            f64_values: Mutex::new(Vec::new()),
-            bool_values: Mutex::new(Vec::new()),
-            u64_index: Mutex::new(0),
-            f64_index: Mutex::new(0),
-            bool_index: Mutex::new(0),
-            seed: Mutex::new(0),
+            u64_values: values,
+            f64_values: Vec::new(),
+            bool_values: Vec::new(),
+            u64_index: 0,
+            f64_index: 0,
+            bool_index: 0,
+            seed: 0,
         }
     }
 
     /// Create a FakeGenerator with pre-configured f64 values
     pub fn from_f64_values(values: Vec<f64>) -> Self {
         Self {
-            u64_values: Mutex::new(Vec::new()),
-            f64_values: Mutex::new(values),
-            bool_values: Mutex::new(Vec::new()),
-            u64_index: Mutex::new(0),
-            f64_index: Mutex::new(0),
-            bool_index: Mutex::new(0),
-            seed: Mutex::new(0),
+            u64_values: Vec::new(),
+            f64_values: values,
+            bool_values: Vec::new(),
+            u64_index: 0,
+            f64_index: 0,
+            bool_index: 0,
+            seed: 0,
         }
     }
 
     /// Add more u64 values to the sequence
-    pub fn add_u64_values(&self, values: Vec<u64>) {
-        let mut u64_values = self.u64_values.lock().unwrap();
-        u64_values.extend(values);
+    pub fn add_u64_values(&mut self, values: Vec<u64>) {
+        self.u64_values.extend(values);
     }
 
     /// Add more f64 values to the sequence
-    pub fn add_f64_values(&self, values: Vec<f64>) {
-        let mut f64_values = self.f64_values.lock().unwrap();
-        f64_values.extend(values);
+    pub fn add_f64_values(&mut self, values: Vec<f64>) {
+        self.f64_values.extend(values);
     }
 
     /// Add more bool values to the sequence
-    pub fn add_bool_values(&self, values: Vec<bool>) {
-        let mut bool_values = self.bool_values.lock().unwrap();
-        bool_values.extend(values);
+    pub fn add_bool_values(&mut self, values: Vec<bool>) {
+        self.bool_values.extend(values);
     }
 
     /// Get the next u64 value, default is 0
-    fn next_u64(&self) -> u64 {
-        let mut index = self.u64_index.lock().unwrap();
-        let values = self.u64_values.lock().unwrap();
-        if values.is_empty() {
+    fn next_u64(&mut self) -> u64 {
+        if self.u64_values.is_empty() {
             0
         } else {
-            let value = values[*index % values.len()];
-            *index += 1;
+            let value = self.u64_values[self.u64_index % self.u64_values.len()];
+            self.u64_index += 1;
             value
         }
     }
 
     /// Get the next f64 value, default is 0.0
-    fn next_f64(&self) -> f64 {
-        let mut index = self.f64_index.lock().unwrap();
-        let values = self.f64_values.lock().unwrap();
-        if values.is_empty() {
+    fn next_f64(&mut self) -> f64 {
+        if self.f64_values.is_empty() {
             0.0
         } else {
-            let value = values[*index % values.len()];
-            *index += 1;
+            let value = self.f64_values[self.f64_index % self.f64_values.len()];
+            self.f64_index += 1;
             value
         }
     }
 
     /// Get the next bool value, default is false
-    fn next_bool(&self) -> bool {
-        let mut index = self.bool_index.lock().unwrap();
-        let values = self.bool_values.lock().unwrap();
-        if values.is_empty() {
+    fn next_bool(&mut self) -> bool {
+        if self.bool_values.is_empty() {
             false
         } else {
-            let value = values[*index % values.len()];
-            *index += 1;
+            let value = self.bool_values[self.bool_index % self.bool_values.len()];
+            self.bool_index += 1;
             value
         }
     }
 
-    fn next_value<T>(&self) -> T
+    fn next_value<T>(&mut self) -> T
     where
         T: 'static,
     {
@@ -177,11 +167,10 @@ impl Default for FakeGenerator {
 impl RandomSource for FakeGenerator {
     fn seed(&self) -> u64 {
         // The seed is irrelevant for FakeGenerator, but we implement it for compatibility
-        let seed = self.seed.lock().unwrap();
-        *seed
+        self.seed
     }
 
-    fn gen<T>(&self) -> T
+    fn gen<T>(&mut self) -> T
     where
         T: 'static,
         Standard: Distribution<T>,
@@ -189,28 +178,28 @@ impl RandomSource for FakeGenerator {
         self.next_value()
     }
 
-    fn gen_bool(&self, _p: f64) -> bool {
+    fn gen_bool(&mut self, _p: f64) -> bool {
         self.next_bool()
     }
 
-    fn gen_probability(&self) -> f64 {
+    fn gen_probability(&mut self) -> f64 {
         let val = self.next_f64();
         val.clamp(0.0, 1.0)
     }
 
-    fn shuffle<T>(&self, _slice: &mut [T]) {
+    fn shuffle<T>(&mut self, _slice: &mut [T]) {
         // No shuffling for fake generator
     }
 
-    fn reseed(&self, seed: u64) {
+    fn reseed(&mut self, seed: u64) {
         // Reseeding resets the indices
-        *self.u64_index.lock().unwrap() = 0;
-        *self.f64_index.lock().unwrap() = 0;
-        *self.bool_index.lock().unwrap() = 0;
-        *self.seed.lock().unwrap() = seed;
+        self.u64_index = 0;
+        self.f64_index = 0;
+        self.bool_index = 0;
+        self.seed = seed;
     }
 
-    fn sample<D, T>(&self, _dist: &D) -> T
+    fn sample<D, T>(&mut self, _dist: &D) -> T
     where
         T: 'static,
         D: Distribution<T>,
@@ -232,7 +221,7 @@ mod tests {
     #[test]
     fn fake_rng_defaults() {
         // Test new FakeGenerator defaults
-        let fake_rng = FakeGenerator::new();
+        let mut fake_rng = FakeGenerator::new();
         assert_eq!(fake_rng.seed(), 0);
         let val: u64 = fake_rng.gen();
         assert_eq!(val, 0);
@@ -245,7 +234,7 @@ mod tests {
     fn fake_rng_with_values() {
         // Test FakeGenerator with pre-configured values
         let values = (15..25).collect::<Vec<u64>>();
-        let fake_rng = FakeGenerator::from_u64_values(values.clone());
+        let mut fake_rng = FakeGenerator::from_u64_values(values.clone());
         assert_eq!(fake_rng.seed(), 0);
         for i in 0..10 {
             let val: u64 = fake_rng.gen();
@@ -260,7 +249,7 @@ mod tests {
     #[should_panic(expected = "FakeGenerator doesn't support type")]
     fn fake_rng_panic() {
         // Test that FakeGenerator panics for an unsupported type (isize)
-        let fake_rng = FakeGenerator::new();
+        let mut fake_rng = FakeGenerator::new();
         fake_rng.gen::<isize>();
     }
 
@@ -268,7 +257,7 @@ mod tests {
     fn fake_rng_gen_bool() {
         // Test that p makes no difference for gen_bool in FakeGenerator
         let values = vec![true, false, true, false];
-        let fake_rng = FakeGenerator::new();
+        let mut fake_rng = FakeGenerator::new();
         fake_rng.add_bool_values(values.clone());
         for i in 0..10 {
             assert_eq!(fake_rng.gen_bool(0.3), values[i % values.len()]);
@@ -283,7 +272,7 @@ mod tests {
     fn fake_rng_with_diff_types() {
         // Test FakeGenerator with different value types
         let values = vec![5, 6, 7, 8, 9, 14, 15, 16, 17, 18, 33];
-        let fake_rng = FakeGenerator::from_u64_values(values.clone());
+        let mut fake_rng = FakeGenerator::from_u64_values(values.clone());
         assert_eq!(fake_rng.seed(), 0);
         let val: usize = fake_rng.gen();
         assert_eq!(val, values[0] as usize);
@@ -317,11 +306,11 @@ mod tests {
     fn fake_rng_reproducibility() {
         // Test that creating new instances with the same values produces the same sequence
         let values = vec![0.1, 0.2, 0.3];
-        let rng1 = FakeGenerator::from_f64_values(values.clone());
+        let mut rng1 = FakeGenerator::from_f64_values(values.clone());
         let val1: f64 = rng1.gen();
         let val2: f32 = rng1.gen();
 
-        let rng2 = FakeGenerator::from_f64_values(values);
+        let mut rng2 = FakeGenerator::from_f64_values(values);
         let val1_repeat: f64 = rng2.gen();
         let val2_repeat: f32 = rng2.gen();
 
@@ -332,7 +321,7 @@ mod tests {
     #[test]
     fn fake_reseed_empty() {
         // Test that reseeding does not do anything to an empty FakeGenerator
-        let fake_rng = FakeGenerator::new();
+        let mut fake_rng = FakeGenerator::new();
         assert_eq!(fake_rng.seed(), 0);
         let val1: f64 = fake_rng.gen();
 
@@ -348,7 +337,7 @@ mod tests {
     fn fake_reseed_with_values() {
         // Test that reseeding resets pre-configured value counters
         let values = vec![0.1, 0.2, 0.3, 0.4];
-        let fake_rng = FakeGenerator::from_f64_values(values.clone());
+        let mut fake_rng = FakeGenerator::from_f64_values(values.clone());
         let val1: f64 = fake_rng.gen();
         for i in 1..10 {
             let val: f64 = fake_rng.gen();
@@ -363,7 +352,7 @@ mod tests {
 
     #[test]
     fn fake_add_values_f64() {
-        let fake_rng = FakeGenerator::new();
+        let mut fake_rng = FakeGenerator::new();
         let values = vec![0.1, 0.2, 0.3, 0.4];
         fake_rng.add_f64_values(values.clone());
         for value in values.iter() {
@@ -379,7 +368,7 @@ mod tests {
 
     #[test]
     fn fake_add_more_values_f64() {
-        let fake_rng = FakeGenerator::new();
+        let mut fake_rng = FakeGenerator::new();
         let values = vec![0.1, 0.2, 0.3, 0.4];
         fake_rng.add_f64_values(values.clone());
         for value in values.iter() {
@@ -401,7 +390,7 @@ mod tests {
 
     #[test]
     fn fake_add_values_u64() {
-        let fake_rng = FakeGenerator::new();
+        let mut fake_rng = FakeGenerator::new();
         let values = (1..10).collect::<Vec<u64>>();
         fake_rng.add_u64_values(values.clone());
         for value in values.iter() {
@@ -417,7 +406,7 @@ mod tests {
 
     #[test]
     fn fake_add_values_bool() {
-        let fake_rng = FakeGenerator::new();
+        let mut fake_rng = FakeGenerator::new();
         let source = vec![true, false, true, false];
         fake_rng.add_bool_values(source.clone());
         for value in source.iter() {
@@ -435,7 +424,7 @@ mod tests {
     #[test]
     fn fake_rng_probabilities() {
         let values = vec![0.1, 0.2, 0.3, 0.4, 0.5, 1.0, 4.0, 5.0];
-        let fake_rng = FakeGenerator::from_f64_values(values.clone());
+        let mut fake_rng = FakeGenerator::from_f64_values(values.clone());
         for _value in values.iter() {
             assert!((0.0..=1.0).contains(&fake_rng.gen_probability()));
         }
@@ -443,16 +432,16 @@ mod tests {
 
     #[test]
     fn fake_different_values() {
-        let fake_rng = FakeGenerator::from_f64_values(vec![0.1, 0.2, 0.3]);
+        let mut fake_rng = FakeGenerator::from_f64_values(vec![0.1, 0.2, 0.3]);
         let val1: f64 = fake_rng.gen();
-        let fake_rng2 = FakeGenerator::from_f64_values(vec![0.4, 0.5, 0.6]);
+        let mut fake_rng2 = FakeGenerator::from_f64_values(vec![0.4, 0.5, 0.6]);
         let val2: f64 = fake_rng2.gen();
         assert_ne!(val1, val2);
     }
 
     #[test]
     fn fake_shuffle() {
-        let rng = FakeGenerator::new();
+        let mut rng = FakeGenerator::new();
         let mut vec = vec![1, 2, 3, 4, 5];
         let original_vec = vec.clone();
         rng.shuffle(&mut vec);
@@ -461,14 +450,14 @@ mod tests {
 
     #[test]
     fn fake_sample_default() {
-        let rng = FakeGenerator::new();
+        let mut rng = FakeGenerator::new();
         let dist = WeightedIndex::new([1.0, 2.0, 3.0]).unwrap();
         assert_eq!(rng.sample(&dist), 0);
     }
 
     #[test]
     fn fake_sample() {
-        let rng = FakeGenerator::from_u64_values(vec![2, 0, 1]);
+        let mut rng = FakeGenerator::from_u64_values(vec![2, 0, 1]);
         let dist = WeightedIndex::new([1.0, 2.0, 3.0]).unwrap();
         assert_eq!(rng.sample(&dist), 2);
         assert_eq!(rng.sample(&dist), 0);

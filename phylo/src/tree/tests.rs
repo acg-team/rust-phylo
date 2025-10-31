@@ -164,7 +164,7 @@ fn nj_correct_web_example() {
     let nj_tree = build_nj_tree_from_matrix_w_rng(
         nj_distances,
         &sequences,
-        &FakeGenerator::from_u64_values(vec![0]),
+        &mut FakeGenerator::from_u64_values(vec![0]),
     )
     .unwrap();
     let nodes = vec![
@@ -183,7 +183,7 @@ fn nj_correct_web_example() {
 
 #[test]
 fn nj_correct() {
-    let fake_rng = FakeGenerator::from_u64_values(vec![0]);
+    let mut fake_rng = FakeGenerator::from_u64_values(vec![0]);
     let nj_distances = NJMat {
         idx: (0..5).map(NodeIdx::Leaf).collect(),
         distances: dmatrix![
@@ -200,7 +200,7 @@ fn nj_correct() {
         record!("D3", b""),
         record!("E4", b""),
     ]);
-    let nj_tree = build_nj_tree_from_matrix_w_rng(nj_distances, &sequences, &fake_rng).unwrap();
+    let nj_tree = build_nj_tree_from_matrix_w_rng(nj_distances, &sequences, &mut fake_rng).unwrap();
     let nodes = vec![
         Node::new_leaf(0, Some(I(5)), 2.0, "A0".to_string()),
         Node::new_leaf(1, Some(I(5)), 3.0, "B1".to_string()),
@@ -225,7 +225,7 @@ fn is_unique<T: std::cmp::Eq + std::hash::Hash>(vec: &[T]) -> bool {
 #[test]
 fn protein_nj_correct() {
     // NJ based on example sequences from "./data/sequences_protein1.fasta"
-    let fake_rng = FakeGenerator::from_u64_values(vec![0]);
+    let mut fake_rng = FakeGenerator::from_u64_values(vec![0]);
     let nj_distances = NJMat {
         idx: (0..4).map(NodeIdx::Leaf).collect(),
         distances: dmatrix![
@@ -240,7 +240,7 @@ fn protein_nj_correct() {
         record!("C2", b""),
         record!("D3", b""),
     ]);
-    let tree = build_nj_tree_from_matrix_w_rng(nj_distances, &sequences, &fake_rng).unwrap();
+    let tree = build_nj_tree_from_matrix_w_rng(nj_distances, &sequences, &mut fake_rng).unwrap();
     assert_eq!(tree.len(), 7);
     assert_eq!(tree.postorder.len(), 7);
     assert!(is_unique(&tree.postorder));
@@ -251,7 +251,7 @@ fn protein_nj_correct() {
 #[test]
 fn nj_correct_2() {
     // NJ based on example from https://www.tenderisthebyte.com/blog/2022/08/31/neighbor-joining-trees/#neighbor-joining-trees
-    let fake_rng = FakeGenerator::from_u64_values(vec![0]);
+    let mut fake_rng = FakeGenerator::from_u64_values(vec![0]);
     let nj_distances = NJMat {
         idx: (0..4).map(NodeIdx::Leaf).collect(),
         distances: dmatrix![
@@ -266,7 +266,7 @@ fn nj_correct_2() {
         record!("C", b""),
         record!("D", b""),
     ]);
-    let tree = build_nj_tree_from_matrix_w_rng(nj_distances, &sequences, &fake_rng).unwrap();
+    let tree = build_nj_tree_from_matrix_w_rng(nj_distances, &sequences, &mut fake_rng).unwrap();
     assert_eq!(tree.by_id("A").blen, 1.0);
     assert_eq!(tree.by_id("B").blen, 3.0);
     assert_eq!(tree.by_id("C").blen, 2.0);
@@ -283,7 +283,7 @@ fn nj_correct_2() {
 #[test]
 fn nj_correct_wiki_example() {
     // NJ based on example from https://en.wikipedia.org/wiki/Neighbor_joining
-    let fake_rng = FakeGenerator::from_u64_values(vec![0]);
+    let mut fake_rng = FakeGenerator::from_u64_values(vec![0]);
     let nj_distances = NJMat {
         idx: (0..5).map(NodeIdx::Leaf).collect(),
         distances: dmatrix![
@@ -300,7 +300,7 @@ fn nj_correct_wiki_example() {
         record!("d", b""),
         record!("e", b""),
     ]);
-    let tree = build_nj_tree_from_matrix_w_rng(nj_distances, &sequences, &fake_rng).unwrap();
+    let tree = build_nj_tree_from_matrix_w_rng(nj_distances, &sequences, &mut fake_rng).unwrap();
     assert_eq!(tree.by_id("a").blen, 2.0);
     assert_eq!(tree.by_id("b").blen, 3.0);
     assert_eq!(tree.by_id("c").blen, 4.0);
@@ -706,7 +706,7 @@ fn test_node_id_string() {
 
 #[test]
 fn test_node_idx_display() {
-    let rng = DefaultGenerator::default();
+    let mut rng = DefaultGenerator::default();
     let r1 = rng.gen_range(1..100);
     assert_eq!(format!("{}", L(r1)), format!("leaf node {}", r1));
     let r2 = rng.gen_range(1..100);
@@ -715,7 +715,7 @@ fn test_node_idx_display() {
 
 #[test]
 fn test_node_idx_debug() {
-    let rng = DefaultGenerator::default();
+    let mut rng = DefaultGenerator::default();
     let r1 = rng.gen_range(1..100);
     assert_eq!(format!("{:?}", L(r1)), format!("Leaf({})", r1));
     let r2 = rng.gen_range(1..100);
@@ -725,8 +725,8 @@ fn test_node_idx_debug() {
 #[test]
 #[should_panic]
 fn test_argmin_fail() {
-    let fake_rng = FakeGenerator::from_u64_values(vec![0]);
-    argmin_wo_diagonal_w_rng(DMatrix::<f64>::from_vec(1, 1, vec![0.0]), &fake_rng);
+    let mut fake_rng = FakeGenerator::from_u64_values(vec![0]);
+    argmin_wo_diagonal_w_rng(DMatrix::<f64>::from_vec(1, 1, vec![0.0]), &mut fake_rng);
 }
 
 #[test]

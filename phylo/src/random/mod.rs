@@ -1,5 +1,3 @@
-use std::sync::Mutex;
-
 use ntimestamp::Timestamp;
 use rand::distributions::uniform::{SampleRange, SampleUniform};
 use rand::distributions::{Distribution, Standard};
@@ -16,25 +14,25 @@ pub trait RandomSource {
     fn seed(&self) -> u64;
 
     /// Generate a random value of type T.
-    fn gen<T>(&self) -> T
+    fn gen<T>(&mut self) -> T
     where
         T: 'static,
         Standard: Distribution<T>;
 
     /// Generate a random bool with probability p.
-    fn gen_bool(&self, p: f64) -> bool;
+    fn gen_bool(&mut self, p: f64) -> bool;
 
     /// Generate a random uniform probability in the range [0.0, 1.0).
-    fn gen_probability(&self) -> f64;
+    fn gen_probability(&mut self) -> f64;
 
     /// Shuffle a slice in place.
-    fn shuffle<T>(&self, slice: &mut [T]);
+    fn shuffle<T>(&mut self, slice: &mut [T]);
 
     /// Reseed the RNG with a new seed.
-    fn reseed(&self, seed: u64);
+    fn reseed(&mut self, seed: u64);
 
     /// Sample from a weighted distribution.
-    fn sample<D, T>(&self, dist: &D) -> T
+    fn sample<D, T>(&mut self, dist: &D) -> T
     where
         T: 'static,
         D: Distribution<T>;
@@ -68,7 +66,7 @@ pub struct RandomGenerator<R>
 where
     R: Rng + SeedableRng + Send,
 {
-    r: Mutex<SeededRng<R>>,
+    r: SeededRng<R>,
 }
 
 impl<R> RandomGenerator<R>
@@ -78,10 +76,10 @@ where
     /// Create a new RandomGenerator with the given seed.
     pub fn new(seed: u64) -> Self {
         Self {
-            r: Mutex::new(SeededRng {
+            r: SeededRng {
                 seed,
                 rng: R::seed_from_u64(seed),
-            }),
+            },
         }
     }
 }
@@ -106,55 +104,45 @@ where
 {
     /// Get the current seed of the RNG.
     fn seed(&self) -> u64 {
-        let rng = self.r.lock().unwrap();
-        rng.seed
+        self.r.seed
     }
 
     /// Generate a random value of type T.
-    fn gen<T>(&self) -> T
+    fn gen<T>(&mut self) -> T
     where
         T: 'static,
         Standard: Distribution<T>,
     {
-        let mut r = self.r.lock().unwrap();
-        r.rng.gen::<T>()
+        self.r.rng.gen::<T>()
     }
 
     /// Generate a random bool with probability p.
-    fn gen_bool(&self, p: f64) -> bool {
-        let mut r = self.r.lock().unwrap();
-        r.rng.gen_bool(p)
+    fn gen_bool(&mut self, p: f64) -> bool {
+        self.r.rng.gen_bool(p)
     }
 
     /// Generate a random uniform probability in the range [0.0, 1.0).
-    fn gen_probability(&self) -> f64 {
-        let mut r = self.r.lock().unwrap();
-        r.rng.gen_range(0.0..1.0)
+    fn gen_probability(&mut self) -> f64 {
+        self.r.rng.gen_range(0.0..1.0)
     }
 
     /// Shuffle a slice in place.
-    fn shuffle<T>(&self, slice: &mut [T]) {
-        let mut r = self.r.lock().unwrap();
-        slice.shuffle(&mut r.rng);
+    fn shuffle<T>(&mut self, slice: &mut [T]) {
+        slice.shuffle(&mut self.r.rng);
     }
 
     /// Reseed the RNG with a new seed.
-    fn reseed(&self, seed: u64) {
-        let mut r = self.r.lock().unwrap();
-        *r = SeededRng {
-            seed,
-            rng: R::seed_from_u64(seed),
-        };
+    fn reseed(&mut self, seed: u64) {
+        *self = Self::new(seed);
     }
 
     /// Sample from a weighted distribution.
-    fn sample<D, T>(&self, dist: &D) -> T
+    fn sample<D, T>(&mut self, dist: &D) -> T
     where
         T: 'static,
         D: Distribution<T>,
     {
-        let mut r = self.r.lock().unwrap();
-        r.rng.sample(dist)
+        self.r.rng.sample(dist)
     }
 }
 
@@ -163,13 +151,12 @@ where
     R: Rng + SeedableRng + Send,
 {
     /// Generate a random value in the specified range.
-    pub fn gen_range<T, Range>(&self, range: Range) -> T
+    pub fn gen_range<T, Range>(&mut self, range: Range) -> T
     where
         T: 'static + SampleUniform,
         Range: SampleRange<T>,
     {
-        let mut r = self.r.lock().unwrap();
-        r.rng.gen_range(range)
+        self.r.rng.gen_range(range)
     }
 }
 
@@ -184,12 +171,12 @@ mod tests {
     #[test]
     fn rng_reproducibility() {
         // Test that creating new instances with the same seed produces the same sequence
-        let rng1 = DefaultGenerator::new(42);
+        let mut rng1 = DefaultGenerator::new(42);
         assert_eq!(rng1.seed(), 42);
         let val1: f64 = rng1.gen();
         let val2: u32 = rng1.gen();
 
-        let rng2 = DefaultGenerator::new(42);
+        let mut rng2 = DefaultGenerator::new(42);
         assert_eq!(rng2.seed(), 42);
         let val1_repeat: f64 = rng2.gen();
         let val2_repeat: u32 = rng2.gen();
@@ -202,7 +189,7 @@ mod tests {
     fn rng_different_types() {
         // Test that most common types can be generated from the same RNG instance and the
         // generator does not panic.
-        let rng = DefaultGenerator::new(42);
+        let mut rng = DefaultGenerator::new(42);
         assert_eq!(rng.seed(), 42);
         let _val: usize = rng.gen();
         let _val: u64 = rng.gen();
@@ -226,7 +213,7 @@ mod tests {
     #[test]
     fn reseed() {
         // Test that reseeding to the same value produces the same sample
-        let rng = DefaultGenerator::new(42);
+        let mut rng = DefaultGenerator::new(42);
         assert_eq!(rng.seed(), 42);
         let val1: f64 = rng.gen();
 
@@ -239,7 +226,7 @@ mod tests {
 
     #[test]
     fn rng_functions() {
-        let rng = DefaultGenerator::new(123);
+        let mut rng = DefaultGenerator::new(123);
         assert_eq!(rng.seed(), 123);
         let _random_f64: f64 = rng.gen::<f64>();
         let _random_probability = rng.gen_probability();
@@ -249,7 +236,7 @@ mod tests {
 
     #[test]
     fn rng_range() {
-        let rng = DefaultGenerator::new(123);
+        let mut rng = DefaultGenerator::new(123);
         assert_eq!(rng.seed(), 123);
         for _ in 0..10 {
             let val: u32 = rng.gen_range(1..100);
@@ -261,7 +248,7 @@ mod tests {
     fn different_seeds_produce_different_values() {
         // This is not guaranteed to produce different values because there are no guarantees on the Rng
         // implementation, but it is extremely unlikely that it will fail.
-        let rng = DefaultGenerator::new(1);
+        let mut rng = DefaultGenerator::new(1);
         assert_eq!(rng.seed(), 1);
         let val1: f64 = rng.gen();
         rng.reseed(2);
@@ -275,11 +262,11 @@ mod tests {
         // DefaultGenerator uses the current timestamp as a seed, so different instances should have different seeds
         // per definition of ntimestamp, but not guaranteed to produce different values, as in the previous test.
         let timestamp = Timestamp::now().as_u64();
-        let rng = DefaultGenerator::default();
+        let mut rng = DefaultGenerator::default();
         assert!(rng.seed() > timestamp);
         let val1: usize = rng.gen();
         let val2: f64 = rng.gen();
-        let rng2 = DefaultGenerator::default();
+        let mut rng2 = DefaultGenerator::default();
         assert!(rng2.seed() > rng.seed());
         assert!(rng2.seed() > timestamp);
         let val1_repeat: usize = rng2.gen();
@@ -290,7 +277,7 @@ mod tests {
 
     #[test]
     fn shuffle() {
-        let rng = DefaultGenerator::new(42);
+        let mut rng = DefaultGenerator::new(42);
         assert_eq!(rng.seed(), 42);
         let mut vec = vec![1, 2, 3, 4, 5];
         let original_vec = vec.clone();
@@ -302,7 +289,7 @@ mod tests {
 
     #[test]
     fn sample_weighted_index() {
-        let rng = DefaultGenerator::new(42);
+        let mut rng = DefaultGenerator::new(42);
         assert_eq!(rng.seed(), 42);
         let dist = WeightedIndex::new([1.0, 2.0, 3.0]).unwrap();
         let sample = rng.sample(&dist);
