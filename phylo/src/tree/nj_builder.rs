@@ -172,13 +172,13 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
         let mut tree = Tree::new(sequences)?;
         let root_idx = usize::from(&tree.root);
         for cur_idx in n..=root_idx {
-            let q = distances.compute_delta_tree_length();
+            let delta_lengths = distances.compute_delta_tree_length();
 
             let index = match self.randomise {
                 Strategy::SoftmaxUniform(t) => self
                     .rng
-                    .sample(&WeightedIndex::new(Self::softmax(q, t).iter()).unwrap()),
-                Strategy::ArgMax => q.argmin().0,
+                    .sample(&WeightedIndex::new(Self::softmax(delta_lengths, t).iter()).unwrap()),
+                Strategy::ArgMax => delta_lengths.argmin().0,
             };
 
             let (i, j) = lower_triangle_index(index);
