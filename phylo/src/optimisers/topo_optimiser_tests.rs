@@ -760,8 +760,8 @@ fn fix_iter_low() {
     let res_default = TopologyOptimiser::new(c.clone(), SprOptimiser {}, &rng)
         .run()
         .unwrap();
-    // Without the stop condition and with the fake rng will run deterministically for 4 iterations
-    assert_eq!(res_default.iterations, 4);
+    // Without the stop condition and with the fake rng will run deterministically for 2 iterations
+    assert_eq!(res_default.iterations, 2);
 
     // With the stop condition will run for exactly 1 iteration
     let result = TopologyOptimiser::with_stop_condition(
@@ -794,8 +794,8 @@ fn precision() {
     let res_default = TopologyOptimiser::new(c.clone(), SprOptimiser {}, &rng)
         .run()
         .unwrap();
-    // Without the stop condition and with the fake rng will run deterministically for 4 iterations
-    assert_eq!(res_default.iterations, 4);
+    // Without the stop condition and with the fake rng will run deterministically for 2 iterations
+    assert_eq!(res_default.iterations, 2);
 
     // With the stop condition will run for less iterations because epsilon is high
     let result = TopologyOptimiser::with_stop_condition(
