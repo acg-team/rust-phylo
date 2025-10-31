@@ -6,7 +6,7 @@ fn main() {
     // 1. Using the default RNG (StdRng-based)
     let seed = 42;
     println!("1. RNG (StdRng) with seed {seed} - reproducible:");
-    let rng = DefaultGenerator::new(seed);
+    let mut rng = DefaultGenerator::new(seed);
     for i in 0..3 {
         println!("  {i}: {:.6}", rng.gen::<f64>());
     }
@@ -20,7 +20,7 @@ fn main() {
 
     // 2. Generating from default RNG:
     println!("2. Generating from default RNG:");
-    let rng = DefaultGenerator::default();
+    let mut rng = DefaultGenerator::default();
     println!("  Random f64: {:.6}", rng.gen::<f64>());
     println!("  Random u32: {}", rng.gen::<u32>());
     println!("  Random i32: {}", rng.gen::<i32>());
@@ -34,7 +34,7 @@ fn main() {
     // 3. Creating a custom StdRng instance
     let seed = 123;
     println!("3. Custom StdRng instance with seed {seed} - reproducible:");
-    let custom_std_rng = RandomGenerator::<StdRng>::new(seed);
+    let mut custom_std_rng = RandomGenerator::<StdRng>::new(seed);
     for i in 0..3 {
         println!("  {i}: {:.6}", custom_std_rng.gen::<f64>());
     }
@@ -63,7 +63,7 @@ fn main() {
     // 5. Using a different seed for another StdRng instance
     let seed = 456;
     println!("5. Another StdRng instance with different seed {seed}:");
-    let another_std_rng: RandomGenerator<StdRng> = RandomGenerator::new(seed);
+    let mut another_std_rng: RandomGenerator<StdRng> = RandomGenerator::new(seed);
     for i in 0..3 {
         println!("  {i}: {:.6}", another_std_rng.gen::<f64>());
     }
@@ -71,7 +71,7 @@ fn main() {
 
     // 6. Creating a custom RNG instance with a different generator
     println!("6. Custom RNG instance with SmallRng with seed {seed}:");
-    let secure_rng: RandomGenerator<SmallRng> = RandomGenerator::new(seed);
+    let mut secure_rng: RandomGenerator<SmallRng> = RandomGenerator::new(seed);
     for i in 0..3 {
         println!("  {i}: {:.6}", secure_rng.gen::<f64>());
     }
