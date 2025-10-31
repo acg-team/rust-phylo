@@ -48,7 +48,7 @@ where
 
 /// A generic random number generator wrapper that can work with different RNGs.
 ///
-/// This provides a thread-safe, reusable interface for different RNG backends.
+/// This provides a reusable interface for different RNG backends (not thread-safe per se).
 /// The RNG must implement `Rng + SeedableRng + Send`.
 ///
 /// # Examples
