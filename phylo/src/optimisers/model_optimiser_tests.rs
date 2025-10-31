@@ -28,13 +28,13 @@ fn likelihood_improves_k80() {
         .unwrap();
     assert!(o.final_cost > unopt_logl);
 
-    let model = SubstModel::<K80>::new(o.cost.freqs().into(), o.cost.params());
+    let model = o.cost.model.clone();
+    assert_relative_eq!(model.params()[0], 1.884815, epsilon = 1e-5);
     let c2 = SCB::new(model, info).build().unwrap();
     assert_relative_eq!(o.initial_cost, unopt_logl);
     assert_relative_eq!(o.final_cost, o.cost.cost());
     assert_relative_eq!(o.final_cost, c2.cost());
     assert_relative_eq!(o.final_cost, -4034.500803, epsilon = 1e-5);
-    assert_relative_eq!(o.cost.params()[0], 1.884815, epsilon = 1e-5);
 }
 
 #[test]
@@ -266,7 +266,7 @@ fn k80_vs_phyml() {
     assert_relative_eq!(o2.final_cost, o.final_cost, epsilon = 1e-10);
     assert!(o2.final_cost >= o.final_cost);
     assert!(o2.iterations < 10);
-    assert_relative_eq!(o.cost.params(), phyml_model.params(), epsilon = 1e-2);
+    assert_relative_eq!(o.cost.model.params(), phyml_model.params(), epsilon = 1e-2);
     assert_relative_eq!(o.final_cost, phyml_logl, epsilon = 1e-6);
 }
 
@@ -297,7 +297,7 @@ fn hky_vs_phyml() {
 
     assert!(o.final_cost >= phyml_logl);
     assert_relative_eq!(o.cost.freqs(), phyml_model.freqs());
-    assert_relative_eq!(o.cost.params(), phyml_model.params(), epsilon = 1e-2);
+    assert_relative_eq!(o.cost.model.params(), phyml_model.params(), epsilon = 1e-2);
     assert_relative_eq!(o.final_cost, phyml_logl, epsilon = 1e-5);
     assert_eq!(o.final_cost, o.cost.cost());
 }
@@ -316,7 +316,7 @@ fn frequencies_fixed_opt_gtr() {
     .run()
     .unwrap();
     assert_eq!(o.cost.freqs(), &frequencies!(&[0.25, 0.35, 0.3, 0.1]));
-    assert_ne!(o.cost.params(), &[1.0; 5]);
+    assert_ne!(o.cost.model.params(), &[1.0; 5]);
     assert_eq!(o.final_cost, o.cost.cost());
 }
 
@@ -399,12 +399,13 @@ fn arpip_example() {
     assert_relative_eq!(o.initial_cost, -212.3260420492571, epsilon = 1e-6); // value from the python script
 
     assert!(o.final_cost > initial_logl);
-    assert_ne!(o.cost.params(), pip_gtr.params());
+    assert_ne!(o.cost.model.params(), pip_gtr.params());
     assert_ne!(o.cost.freqs(), pip_gtr.freqs());
     assert_eq!(o.final_cost, o.cost.cost());
 
-    let pip_gtr = PIPModel::<GTR>::new(o.cost.freqs().as_slice(), o.cost.params());
-    let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
+    let c = PIPCostBuilder::new(o.cost.model, info.clone())
+        .build()
+        .unwrap();
     assert_eq!(o.final_cost, c.cost());
 
     assert_relative_eq!(o.final_cost, -161.70972212811094, epsilon = 1e-6); // value from python script
@@ -454,10 +455,9 @@ fn pip_vs_python_no_gaps() {
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
-    let params = o.cost.params();
-    assert_ne!(params[0], 1.2);
-    assert_ne!(params[1], 0.45);
-    assert_ne!(params[2], 1.0);
+    assert_ne!(o.cost.param(0), 1.2);
+    assert_ne!(o.cost.param(1), 0.45);
+    assert_ne!(o.cost.param(2), 1.0);
     assert!(o.final_cost > -361.18634412281443);
     assert_relative_eq!(o.final_cost, -227.0848511231626, epsilon = 1e-7); // value from the python script
     assert_eq!(o.final_cost, o.cost.cost());
@@ -481,9 +481,11 @@ fn pip_gtr_optimisation() {
     let pip_o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
-    let pip_gtr = PIPModel::<GTR>::new(pip_o.cost.freqs().as_slice(), pip_o.cost.params());
 
-    let c = PIPCostBuilder::new(pip_gtr, info.clone()).build().unwrap();
+    let c = PIPCostBuilder::new(pip_o.cost.model.clone(), info.clone())
+        .build()
+        .unwrap();
+
     assert_eq!(pip_o.final_cost, c.cost());
 
     assert_relative_eq!(initial_logl, -9988.840775519875, epsilon = 1e-5); // value from the python script
@@ -518,7 +520,11 @@ fn pip_gtr_vs_gtr_params() {
     let o = ModelOptimiser::new(c, FrequencyOptimisation::Fixed)
         .run()
         .unwrap();
-    assert_relative_eq!(pip_o.cost.params()[2..], o.cost.params(), epsilon = 1e-2);
+    assert_relative_eq!(
+        pip_o.cost.model.params()[2..],
+        o.cost.model.params(),
+        epsilon = 1e-2
+    );
 }
 
 #[test]
@@ -536,8 +542,8 @@ fn pip_protein_example() {
         .unwrap();
     assert!(o.final_cost > initial_logl);
     assert_relative_eq!(o.initial_cost, initial_logl);
-    assert_ne!(o.cost.params()[0], 2.0);
-    assert_ne!(o.cost.params()[1], 0.1);
+    assert_ne!(o.cost.param(0), 2.0);
+    assert_ne!(o.cost.param(1), 0.1);
     assert_eq!(o.cost.cost(), o.final_cost);
 }
 
@@ -562,8 +568,8 @@ fn stop_condition_epsilon() {
 
     assert!(result.final_cost > initial_logl);
     assert_relative_eq!(result.initial_cost, initial_logl);
-    assert_ne!(result.cost.params()[0], 2.0);
-    assert_ne!(result.cost.params()[1], 0.1);
+    assert_ne!(result.cost.param(0), 2.0);
+    assert_ne!(result.cost.param(1), 0.1);
     assert_eq!(result.cost.cost(), result.final_cost);
     let mut costs = result.costs;
     assert!(costs.pop().unwrap() - costs.pop().unwrap() < epsilon);

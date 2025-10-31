@@ -20,9 +20,6 @@ use crate::substitution_models::{
 use crate::{record_wo_desc as record, tree};
 
 #[cfg(test)]
-use crate::frequencies;
-
-#[cfg(test)]
 fn freqs_fixed_template<Q: QMatrix + QMatrixMaker>(params: &[f64]) {
     // freqs should not change for JC69 and K80
     let mut model = SubstModel::<Q>::new(&[], params);

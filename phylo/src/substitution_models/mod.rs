@@ -10,7 +10,7 @@ use nalgebra::{DMatrix, DVector};
 use crate::alignment::Alignment;
 use crate::alphabets::Alphabet;
 use crate::evolutionary_models::EvoModel;
-use crate::likelihood::{ModelSearchCost, TreeSearchCost};
+use crate::likelihood::{ModelSearchCost, ParamRange, TreeSearchCost};
 use crate::parsimony::{CostMatrix, DiagonalZeros, ParsimonyModel, Rounding};
 use crate::phylo_info::PhyloInfo;
 use crate::tree::{
@@ -42,7 +42,15 @@ pub trait QMatrix: Debug + Clone + Display {
     fn q(&self) -> &SubstMatrix;
     fn rate(&self, i: u8, j: u8) -> f64;
     fn params(&self) -> &[f64];
+    fn param_count(&self) -> usize {
+        self.params().len()
+    }
+    fn param(&self, param: usize) -> f64 {
+        self.params()[param]
+    }
     fn set_param(&mut self, param: usize, value: f64);
+    /// Returns the valid range for a model parameter [min, max], inclusive.
+    fn param_range(&self, param: usize) -> ParamRange;
     fn freqs(&self) -> &FreqVector;
     fn set_freqs(&mut self, freqs: FreqVector);
     fn n(&self) -> usize;
@@ -180,13 +188,21 @@ impl<Q: QMatrix, A: Alignment> ModelSearchCost for SubstitutionCost<Q, A> {
         self.logl(&self.info)
     }
 
+    fn param_count(&self) -> usize {
+        self.model.qmatrix.param_count()
+    }
+
+    fn param(&self, param: usize) -> f64 {
+        self.model.qmatrix.param(param)
+    }
+
     fn set_param(&mut self, param: usize, value: f64) {
         self.model.set_param(param, value);
         self.tmp.borrow_mut().node_models_valid.fill(false);
     }
 
-    fn params(&self) -> &[f64] {
-        self.model.params()
+    fn param_range(&self, param: usize) -> ParamRange {
+        self.model.qmatrix.param_range(param)
     }
 
     fn set_freqs(&mut self, freqs: FreqVector) {

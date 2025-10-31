@@ -7,6 +7,7 @@ use log::warn;
 
 use crate::alphabets::{dna_alphabet, Alphabet, NUCLEOTIDE_INDEX};
 use crate::frequencies;
+use crate::likelihood::{ParamRange, PARAM_RANGE_DUMMY, PARAM_RANGE_POSITIVE};
 use crate::substitution_models::{FreqVector, QMatrix, QMatrixMaker, SubstMatrix};
 
 const DNA_N: usize = 4;
@@ -56,19 +57,22 @@ impl QMatrix for JC69 {
     fn q(&self) -> &SubstMatrix {
         &self.q
     }
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
+    }
+    fn params(&self) -> &[f64] {
+        &[]
+    }
+    fn set_param(&mut self, _: usize, _: f64) {}
+    fn param_range(&self, _: usize) -> ParamRange {
+        PARAM_RANGE_DUMMY
+    }
     fn freqs(&self) -> &FreqVector {
         &self.freqs
     }
     fn set_freqs(&mut self, _: FreqVector) {}
-    fn set_param(&mut self, _: usize, _: f64) {}
-    fn params(&self) -> &[f64] {
-        &[]
-    }
     fn n(&self) -> usize {
         DNA_N
-    }
-    fn rate(&self, i: u8, j: u8) -> f64 {
-        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
     }
     fn alphabet(&self) -> &Alphabet {
         &self.alphabet
@@ -119,22 +123,25 @@ impl QMatrix for K80 {
     fn q(&self) -> &SubstMatrix {
         &self.q
     }
-    fn freqs(&self) -> &FreqVector {
-        &self.freqs
-    }
-    fn set_freqs(&mut self, _: FreqVector) {}
-    fn set_param(&mut self, _: usize, value: f64) {
-        self.kappa[0] = value;
-        k80_q(&mut self.q, value);
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
     }
     fn params(&self) -> &[f64] {
         &self.kappa
     }
+    fn set_param(&mut self, _: usize, value: f64) {
+        self.kappa[0] = value;
+        k80_q(&mut self.q, value);
+    }
+    fn param_range(&self, _: usize) -> ParamRange {
+        PARAM_RANGE_POSITIVE
+    }
+    fn freqs(&self) -> &FreqVector {
+        &self.freqs
+    }
+    fn set_freqs(&mut self, _: FreqVector) {}
     fn n(&self) -> usize {
         DNA_N
-    }
-    fn rate(&self, i: u8, j: u8) -> f64 {
-        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
     }
     fn alphabet(&self) -> &Alphabet {
         &self.alphabet
@@ -212,6 +219,19 @@ impl QMatrix for HKY {
     fn q(&self) -> &SubstMatrix {
         &self.q
     }
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
+    }
+    fn params(&self) -> &[f64] {
+        &self.kappa
+    }
+    fn set_param(&mut self, _: usize, value: f64) {
+        self.kappa[0] = value;
+        hky_q(&mut self.q, &self.freqs, self.kappa[0])
+    }
+    fn param_range(&self, _: usize) -> ParamRange {
+        PARAM_RANGE_POSITIVE
+    }
     fn freqs(&self) -> &FreqVector {
         &self.freqs
     }
@@ -219,18 +239,8 @@ impl QMatrix for HKY {
         self.freqs = set_dna_freqs(freqs);
         hky_q(&mut self.q, &self.freqs, self.kappa[0])
     }
-    fn set_param(&mut self, _: usize, value: f64) {
-        self.kappa[0] = value;
-        hky_q(&mut self.q, &self.freqs, self.kappa[0])
-    }
-    fn params(&self) -> &[f64] {
-        &self.kappa
-    }
     fn n(&self) -> usize {
         DNA_N
-    }
-    fn rate(&self, i: u8, j: u8) -> f64 {
-        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
     }
     fn alphabet(&self) -> &Alphabet {
         &self.alphabet
@@ -321,6 +331,19 @@ impl QMatrix for TN93 {
     fn q(&self) -> &SubstMatrix {
         &self.q
     }
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
+    }
+    fn params(&self) -> &[f64] {
+        &self.params
+    }
+    fn set_param(&mut self, param: usize, value: f64) {
+        self.params[param] = value;
+        tn93_q(&mut self.q, &self.freqs, &self.params)
+    }
+    fn param_range(&self, _: usize) -> ParamRange {
+        PARAM_RANGE_POSITIVE
+    }
     fn freqs(&self) -> &FreqVector {
         &self.freqs
     }
@@ -328,18 +351,8 @@ impl QMatrix for TN93 {
         self.freqs = set_dna_freqs(freqs);
         tn93_q(&mut self.q, &self.freqs, &self.params)
     }
-    fn set_param(&mut self, param: usize, value: f64) {
-        self.params[param] = value;
-        tn93_q(&mut self.q, &self.freqs, &self.params)
-    }
-    fn params(&self) -> &[f64] {
-        &self.params
-    }
     fn n(&self) -> usize {
         DNA_N
-    }
-    fn rate(&self, i: u8, j: u8) -> f64 {
-        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
     }
     fn alphabet(&self) -> &Alphabet {
         &self.alphabet
@@ -433,6 +446,19 @@ impl QMatrix for GTR {
     fn q(&self) -> &SubstMatrix {
         &self.q
     }
+    fn rate(&self, i: u8, j: u8) -> f64 {
+        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
+    }
+    fn params(&self) -> &[f64] {
+        &self.params
+    }
+    fn set_param(&mut self, param: usize, value: f64) {
+        self.params[param] = value;
+        gtr_q(&mut self.q, &self.freqs, &self.params)
+    }
+    fn param_range(&self, _: usize) -> ParamRange {
+        PARAM_RANGE_POSITIVE
+    }
     fn freqs(&self) -> &FreqVector {
         &self.freqs
     }
@@ -440,18 +466,8 @@ impl QMatrix for GTR {
         self.freqs = set_dna_freqs(freqs);
         gtr_q(&mut self.q, &self.freqs, &self.params)
     }
-    fn set_param(&mut self, param: usize, value: f64) {
-        self.params[param] = value;
-        gtr_q(&mut self.q, &self.freqs, &self.params)
-    }
-    fn params(&self) -> &[f64] {
-        &self.params
-    }
     fn n(&self) -> usize {
         DNA_N
-    }
-    fn rate(&self, i: u8, j: u8) -> f64 {
-        self.q[(NUCLEOTIDE_INDEX[i as usize], NUCLEOTIDE_INDEX[j as usize])]
     }
     fn alphabet(&self) -> &Alphabet {
         &self.alphabet

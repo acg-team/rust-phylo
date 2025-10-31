@@ -97,15 +97,14 @@ impl<C: ModelSearchCost + Display + Clone> ModelOptimiser<C> {
     }
 
     fn single_optimisation_iteration(&mut self) -> Result<f64> {
-        let parameters = self.c.params().to_vec();
         let mut curr_cost = self.c.cost();
-
-        for (param, start_value) in parameters.iter().enumerate() {
+        for param in 0..self.c.param_count() {
+            let start_value = self.c.param(param);
             debug!("Optimising parameter {param:?} from value {start_value} with cost {curr_cost}");
-            let param_opt = self.opt_parameter(param, *start_value)?;
+            let param_opt = self.opt_parameter(param, start_value)?;
             if param_opt.final_cost < curr_cost {
                 // Parameter will have been reset by the optimiser, set it back to start value
-                self.c.set_param(param, *start_value);
+                self.c.set_param(param, start_value);
                 continue;
             }
             self.c.set_param(param, param_opt.value);
@@ -128,8 +127,10 @@ impl<C: ModelSearchCost + Display + Clone> ModelOptimiser<C> {
             cost: RefCell::new(self.c.clone()),
             param,
         };
-        let min = f64::EPSILON;
-        let max = start_value * 100.0;
+        let range = self.c.param_range(param);
+        let min = range.0;
+        let max = range.1.min(start_value * 100.0);
+        debug_assert!(min <= start_value && start_value <= max);
         let gss = BrentOpt::new(min, max);
         let res = Executor::new(optimiser, gss)
             .configure(|_| IterState::new().param(start_value).max_iters(500))

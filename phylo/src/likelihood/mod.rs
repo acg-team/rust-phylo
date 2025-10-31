@@ -1,6 +1,21 @@
 use crate::substitution_models::FreqVector;
 use crate::tree::Tree;
 
+/// The valid range for a model parameter [min, max], inclusive.
+pub type ParamRange = (f64, f64);
+/// Parameter is unbounded (i.e. can take any real value).
+pub static PARAM_RANGE_UNBOUNDED: ParamRange = (f64::MIN, f64::MAX);
+/// Parameter is strictly positive (i.e. greater than zero).
+pub static PARAM_RANGE_POSITIVE: ParamRange = (f64::EPSILON, f64::MAX);
+/// Parameter is non-negative (i.e. greater than or equal to zero).
+pub static PARAM_RANGE_NON_NEGATIVE: ParamRange = (0.0, f64::MAX);
+/// Parameter is in the unit interval [0, 1], inclusive.
+pub static PARAM_RANGE_UNIT_INTERVAL: ParamRange = (0.0, 1.0);
+/// Parameter is in the unit interval (0, 1), exclusive.
+pub static PARAM_RANGE_UNIT_INTERVAL_EXCLUSIVE: ParamRange = (f64::EPSILON, 1.0 - f64::EPSILON);
+/// Dummy parameter range for models without parameters.
+pub static PARAM_RANGE_DUMMY: ParamRange = (0.0, 0.0);
+
 pub trait TreeSearchCost {
     // The optimisers will maximise the cost, so if the cost should be minimised instead, it should be negated.
     // The likelihood or the log-likelihood are maximised, the parsimony score is minimised.
@@ -20,8 +35,11 @@ pub trait ModelSearchCost {
     // The optimisers will maximise the cost, so if the cost should be minimised instead, it should be negated.
     // The likelihood or the log-likelihood are maximised, the parsimony score is minimised.
     fn cost(&self) -> f64;
+    fn param_count(&self) -> usize;
+    fn param(&self, param: usize) -> f64;
     fn set_param(&mut self, param: usize, value: f64);
-    fn params(&self) -> &[f64];
+    /// Returns the valid range for a model parameter [min, max], inclusive.
+    fn param_range(&self, param: usize) -> ParamRange;
     fn set_freqs(&mut self, freqs: FreqVector);
     fn empirical_freqs(&self) -> FreqVector;
     fn freqs(&self) -> &FreqVector;

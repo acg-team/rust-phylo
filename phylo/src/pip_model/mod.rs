@@ -14,7 +14,7 @@ use nalgebra::{DMatrix, DVector};
 use crate::alignment::{Alignment, Mapping};
 use crate::alphabets::{Alphabet, GAP};
 use crate::evolutionary_models::EvoModel;
-use crate::likelihood::{ModelSearchCost, TreeSearchCost};
+use crate::likelihood::{ModelSearchCost, ParamRange, TreeSearchCost, PARAM_RANGE_POSITIVE};
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{FreqVector, QMatrix, QMatrixMaker, SubstMatrix};
 use crate::tree::{
@@ -61,6 +61,10 @@ impl<Q: QMatrix> PIPModel<Q> {
 
     fn mu(&self) -> f64 {
         self.params[1]
+    }
+
+    fn param_range(&self, _: usize) -> ParamRange {
+        PARAM_RANGE_POSITIVE
     }
 }
 
@@ -274,13 +278,22 @@ impl<Q: QMatrix, M: Alignment> ModelSearchCost for PIPCost<Q, M> {
     fn cost(&self) -> f64 {
         self.logl()
     }
+
+    fn param_count(&self) -> usize {
+        self.model.params.len()
+    }
+
+    fn param(&self, param: usize) -> f64 {
+        self.model.params()[param]
+    }
+
     fn set_param(&mut self, param: usize, value: f64) {
         self.model.set_param(param, value);
         self.tmp.borrow_mut().models_valid.fill(false);
     }
 
-    fn params(&self) -> &[f64] {
-        self.model.params()
+    fn param_range(&self, param: usize) -> ParamRange {
+        self.model.param_range(param)
     }
 
     fn set_freqs(&mut self, freqs: FreqVector) {

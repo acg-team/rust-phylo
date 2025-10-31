@@ -37,9 +37,9 @@ MSRV detected using [`cargo-msrv`]( https://github.com/foresterre/cargo-msrv ).
 
 ### Example
 
+<!-- WARNING: If you change the code below, please also update the test "phylo/src/optimisers/topo_optimiser_tests.rs:example_main_from_readme" accordingly!) -->
+
 ```rust
-use std::path::Path;
-    
 use phylo::likelihood::TreeSearchCost;
 use phylo::optimisers::TopologyOptimiser;
 use phylo::phylo_info::PhyloInfoBuilder;
@@ -47,11 +47,12 @@ use phylo::substitution_models::{SubstModel, SubstitutionCostBuilder, K80};
 
 fn main() -> std::result::Result<(), anyhow::Error> {
     // Note: This example uses test data from the repository
-    let info = PhyloInfoBuilder::new(Path::new("./examples/data/K80.fasta").to_path_buf()).build()?;
+    let info = PhyloInfoBuilder::new("./examples/data/K80.fasta").build()?;
     let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
     let c = SubstitutionCostBuilder::new(k80, info).build()?;
     let unopt_cost = c.cost();
-    let optimiser = TopologyOptimiser::new(c);
+    let rng = FakeGenerator::default();
+    let optimiser = TopologyOptimiser::new(c, SprOptimiser {}, &rng);
     let result = optimiser.run()?;
     assert_eq!(unopt_cost, result.initial_cost);
     assert!(result.final_cost > result.initial_cost);
