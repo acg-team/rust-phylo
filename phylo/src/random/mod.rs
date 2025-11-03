@@ -8,44 +8,6 @@ use rand::{Rng, SeedableRng};
 pub mod fake_random;
 pub use fake_random::*;
 
-/// Trait for random number generation
-pub trait RandomSource {
-    /// Get the current seed of the RNG.
-    fn seed(&self) -> u64;
-
-    /// Generate a random value of type T.
-    fn gen<T>(&mut self) -> T
-    where
-        T: 'static,
-        Standard: Distribution<T>;
-
-    /// Generate a random bool with probability p.
-    fn gen_bool(&mut self, p: f64) -> bool;
-
-    /// Generate a random uniform probability in the range [0.0, 1.0).
-    fn gen_probability(&mut self) -> f64;
-
-    /// Shuffle a slice in place.
-    fn shuffle<T>(&mut self, slice: &mut [T]);
-
-    /// Reseed the RNG with a new seed.
-    fn reseed(&mut self, seed: u64);
-
-    /// Sample from a weighted distribution.
-    fn sample<D, T>(&mut self, dist: &D) -> T
-    where
-        T: 'static,
-        D: Distribution<T>;
-}
-
-pub struct SeededRng<R>
-where
-    R: Rng + SeedableRng + Send,
-{
-    pub seed: u64,
-    pub rng: R,
-}
-
 /// A generic random number generator wrapper that can work with different RNGs.
 ///
 /// This provides a reusable interface for different RNG backends (not thread-safe per se).
@@ -56,32 +18,18 @@ where
 /// ```rust
 /// use rand::rngs::StdRng;
 ///
-/// use phylo::random::{RandomGenerator, RandomSource};
+/// use phylo::random::RandomGenerator;
 ///
 /// // Create a custom RNG instance
-/// let custom_rng: RandomGenerator<StdRng> = RandomGenerator::new(123);
+/// let mut custom_rng: RandomGenerator<StdRng> = RandomGenerator::new(123);
 /// let custom_value: f64 = custom_rng.gen();
 /// ```
 pub struct RandomGenerator<R>
 where
     R: Rng + SeedableRng + Send,
 {
-    r: SeededRng<R>,
-}
-
-impl<R> RandomGenerator<R>
-where
-    R: Rng + SeedableRng + Send,
-{
-    /// Create a new RandomGenerator with the given seed.
-    pub fn new(seed: u64) -> Self {
-        Self {
-            r: SeededRng {
-                seed,
-                rng: R::seed_from_u64(seed),
-            },
-        }
-    }
+    pub seed: u64,
+    pub rng: R,
 }
 
 /// Type alias for the default RNG implementation.
@@ -98,51 +46,15 @@ impl Default for DefaultGenerator {
     }
 }
 
-impl<R> RandomSource for RandomGenerator<R>
-where
-    R: Rng + SeedableRng + Send,
-{
-    /// Get the current seed of the RNG.
-    fn seed(&self) -> u64 {
-        self.r.seed
-    }
+/// Type alias for a Fake RNG implementation for testing purposes.
+#[cfg(test)]
+pub type FakeGenerator = RandomGenerator<FakeRng>;
 
-    /// Generate a random value of type T.
-    fn gen<T>(&mut self) -> T
-    where
-        T: 'static,
-        Standard: Distribution<T>,
-    {
-        self.r.rng.gen::<T>()
-    }
-
-    /// Generate a random bool with probability p.
-    fn gen_bool(&mut self, p: f64) -> bool {
-        self.r.rng.gen_bool(p)
-    }
-
-    /// Generate a random uniform probability in the range [0.0, 1.0).
-    fn gen_probability(&mut self) -> f64 {
-        self.r.rng.gen_range(0.0..1.0)
-    }
-
-    /// Shuffle a slice in place.
-    fn shuffle<T>(&mut self, slice: &mut [T]) {
-        slice.shuffle(&mut self.r.rng);
-    }
-
-    /// Reseed the RNG with a new seed.
-    fn reseed(&mut self, seed: u64) {
-        *self = Self::new(seed);
-    }
-
-    /// Sample from a weighted distribution.
-    fn sample<D, T>(&mut self, dist: &D) -> T
-    where
-        T: 'static,
-        D: Distribution<T>,
-    {
-        self.r.rng.sample(dist)
+#[cfg(test)]
+impl Default for FakeGenerator {
+    fn default() -> Self {
+        let seed = 0;
+        Self::new(seed)
     }
 }
 
@@ -150,13 +62,65 @@ impl<R> RandomGenerator<R>
 where
     R: Rng + SeedableRng + Send,
 {
+    /// Create a new RandomGenerator with the given seed.
+    pub fn new(seed: u64) -> Self {
+        Self {
+            seed,
+            rng: R::seed_from_u64(seed),
+        }
+    }
+
+    #[cfg(test)]
+    /// Create a new RandomGenerator from a given RNG instance.
+    pub(crate) fn from_rng(rng: R) -> Self {
+        Self { seed: 0, rng }
+    }
+
+    /// Get the current seed of the RNG.
+    pub fn seed(&self) -> u64 {
+        self.seed
+    }
+
+    /// Generate a random value of type T.
+    pub fn gen<T>(&mut self) -> T
+    where
+        T: 'static,
+        Standard: Distribution<T>,
+    {
+        self.rng.gen()
+    }
+
+    /// Generate a random bool with probability p.
+    pub fn gen_bool(&mut self, p: f64) -> bool {
+        self.rng.gen_bool(p)
+    }
+
+    /// Shuffle a slice in place.
+    pub fn shuffle<T>(&mut self, slice: &mut [T]) {
+        slice.shuffle(&mut self.rng);
+    }
+
+    /// Reseed the RNG with a new seed.
+    pub fn reseed(&mut self, seed: u64) {
+        *self = Self::new(seed);
+    }
+
+    /// Sample from a weighted distribution.
+    pub fn sample<D, T>(&mut self, dist: &D) -> T
+    where
+        T: 'static,
+        D: Distribution<T>,
+    {
+        self.rng.sample(dist)
+    }
+
     /// Generate a random value in the specified range.
     pub fn gen_range<T, Range>(&mut self, range: Range) -> T
     where
         T: 'static + SampleUniform,
         Range: SampleRange<T>,
     {
-        self.r.rng.gen_range(range)
+        self.rng.gen_range(range)
     }
 }
 
@@ -228,10 +192,11 @@ mod tests {
     fn rng_functions() {
         let mut rng = DefaultGenerator::new(123);
         assert_eq!(rng.seed(), 123);
-        let _random_f64: f64 = rng.gen::<f64>();
-        let _random_probability = rng.gen_probability();
+        assert!((0.0..1.0).contains(&rng.gen::<f64>()));
+        assert!((0.0..10.0).contains(&rng.gen_range(0.0..10.0)));
+        assert!((1..100).contains(&rng.gen_range(1..100)));
+
         let _random_bool = rng.gen_bool(0.5);
-        assert!((0.0..1.0).contains(&rng.gen_probability()));
     }
 
     #[test]
