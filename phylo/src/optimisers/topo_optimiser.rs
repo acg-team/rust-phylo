@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use itertools::Itertools;
 use log::{debug, info};
+use rand::{Rng, SeedableRng};
 
 use crate::alignment::Alignment;
 use crate::likelihood::TreeSearchCost;
@@ -12,7 +13,7 @@ use crate::optimisers::{
 use crate::parsimony::scoring::ParsimonyScoring;
 use crate::parsimony::{BasicParsimonyCost, DolloParsimonyCost};
 use crate::pip_model::PIPCost;
-use crate::random::RandomSource;
+use crate::random::RandomGenerator;
 use crate::substitution_models::{QMatrix, SubstitutionCost};
 use crate::tree::NodeIdx;
 use crate::Result;
@@ -35,21 +36,21 @@ pub struct TopologyOptimiser<'a, MO, C, R>
 where
     MO: MoveOptimiser,
     C: TreeSearchCost + Display + Clone + Send + Compatible<MO>,
-    R: RandomSource,
+    R: Rng + SeedableRng + Send,
 {
     pub(crate) stop_condition: StopCondition,
     pub(crate) move_opti: MO,
     pub(crate) c: C,
-    pub(crate) rng: &'a mut R,
+    pub(crate) rng: &'a mut RandomGenerator<R>,
 }
 
 impl<'a, MO, C, R> TopologyOptimiser<'a, MO, C, R>
 where
     MO: MoveOptimiser,
     C: TreeSearchCost + Display + Clone + Send + Compatible<MO>,
-    R: RandomSource,
+    R: Rng + SeedableRng + Send,
 {
-    pub fn new(cost: C, move_opti: MO, rng: &'a mut R) -> Self {
+    pub fn new(cost: C, move_opti: MO, rng: &'a mut RandomGenerator<R>) -> Self {
         Self {
             move_opti,
             c: cost,
@@ -61,7 +62,7 @@ where
     pub fn with_stop_condition(
         cost: C,
         move_opti: MO,
-        rng: &'a mut R,
+        rng: &'a mut RandomGenerator<R>,
         stop: StopCondition,
     ) -> Self {
         Self {
@@ -97,7 +98,7 @@ where
     /// let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
     /// let c = SubstitutionCostBuilder::new(k80, info).build()?;
     /// let unopt_cost = c.cost();
-    /// let result = TopologyOptimiser::new(c, SprOptimiser {}, &DefaultGenerator::default()).run()?;
+    /// let result = TopologyOptimiser::new(c, SprOptimiser {}, &mut DefaultGenerator::default()).run()?;
     /// assert_eq!(unopt_cost, result.initial_cost);
     /// assert!(result.final_cost > result.initial_cost);
     /// assert!(result.iterations <= 100);

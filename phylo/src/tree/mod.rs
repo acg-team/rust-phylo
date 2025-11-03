@@ -6,10 +6,11 @@ use bio::alignment::distance::levenshtein;
 use fixedbitset::FixedBitSet;
 use inc_stats::Percentiles;
 use nalgebra::{max, DMatrix};
+use rand::{Rng, SeedableRng};
 
 use crate::alignment::Sequences;
 use crate::parsimony::Rounding;
-use crate::random::{DefaultGenerator, RandomSource};
+use crate::random::{DefaultGenerator, RandomGenerator};
 use crate::tree::{
     nj_matrices::{Mat, NJMat},
     NodeIdx::{Internal as Int, Leaf},
@@ -396,7 +397,10 @@ pub fn percentiles_rounded(lengths: &[f64], categories: u32, rounding: &Rounding
     values
 }
 
-fn argmin_wo_diagonal_w_rng(q: Mat, rng: &mut impl RandomSource) -> (usize, usize) {
+fn argmin_wo_diagonal_w_rng<R>(q: Mat, rng: &mut RandomGenerator<R>) -> (usize, usize)
+where
+    R: Rng + SeedableRng + Send,
+{
     debug_assert!(!q.is_empty(), "The input matrix must not be empty");
     debug_assert!(
         q.ncols() > 1 && q.nrows() > 1,
@@ -418,11 +422,14 @@ fn argmin_wo_diagonal_w_rng(q: Mat, rng: &mut impl RandomSource) -> (usize, usiz
     arg_min[rng.gen::<usize>() % arg_min.len()]
 }
 
-fn build_nj_tree_from_matrix_w_rng(
+fn build_nj_tree_from_matrix_w_rng<R>(
     mut nj_data: NJMat,
     sequences: &Sequences,
-    rng: &mut impl RandomSource,
-) -> Result<Tree> {
+    rng: &mut RandomGenerator<R>,
+) -> Result<Tree>
+where
+    R: Rng + SeedableRng + Send,
+{
     let n = nj_data.distances.ncols();
     let mut tree = Tree::new(sequences)?;
     let root_idx = usize::from(&tree.root);
@@ -450,7 +457,10 @@ pub fn build_nj_tree(sequences: &Sequences) -> Result<Tree> {
     build_nj_tree_from_matrix_w_rng(nj_data, sequences, &mut DefaultGenerator::default())
 }
 
-pub fn build_nj_tree_w_rng(sequences: &Sequences, rng: &mut impl RandomSource) -> Result<Tree> {
+pub fn build_nj_tree_w_rng<R>(sequences: &Sequences, rng: &mut RandomGenerator<R>) -> Result<Tree>
+where
+    R: Rng + SeedableRng + Send,
+{
     let nj_data = compute_distance_matrix(sequences);
     build_nj_tree_from_matrix_w_rng(nj_data, sequences, rng)
 }
