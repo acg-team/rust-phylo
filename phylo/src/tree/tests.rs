@@ -8,6 +8,7 @@ use itertools::repeat_n;
 use nalgebra::{dmatrix, DMatrix};
 use pest::error::ErrorVariant;
 use rand::Rng;
+use rstest::rstest;
 
 use crate::alignment::Sequences;
 use crate::io::read_newick_from_file;
@@ -701,22 +702,24 @@ fn test_node_id_string() {
     }
 }
 
-#[test]
-fn test_node_idx_display() {
-    let mut rng = DefaultGenerator::default();
-    let r1 = rng.gen_range(1..100);
-    assert_eq!(format!("{}", L(r1)), format!("leaf node {}", r1));
-    let r2 = rng.gen_range(1..100);
-    assert_eq!(format!("{}", I(r2)), format!("internal node {}", r2));
+#[rstest]
+#[case(0)]
+#[case(1)]
+#[case(42)]
+#[case(99)]
+fn test_node_idx_display(#[case] idx: usize) {
+    assert_eq!(format!("{}", L(idx)), format!("leaf node {}", idx));
+    assert_eq!(format!("{}", I(idx)), format!("internal node {}", idx));
 }
 
-#[test]
-fn test_node_idx_debug() {
-    let mut rng = DefaultGenerator::default();
-    let r1 = rng.gen_range(1..100);
-    assert_eq!(format!("{:?}", L(r1)), format!("Leaf({})", r1));
-    let r2 = rng.gen_range(1..100);
-    assert_eq!(format!("{:?}", I(r2)), format!("Int({})", r2));
+#[rstest]
+#[case(0)]
+#[case(1)]
+#[case(42)]
+#[case(99)]
+fn test_node_idx_debug(#[case] idx: usize) {
+    assert_eq!(format!("{:?}", L(idx)), format!("Leaf({})", idx));
+    assert_eq!(format!("{:?}", I(idx)), format!("Int({})", idx));
 }
 
 #[test]
