@@ -39,7 +39,7 @@ pub const AA_MEDIUM_30X86: &str = "data/benchmark-datasets/aa/medium/nagya1_Clus
 
 pub fn black_box_deterministic_phylo_info(seq_file: impl Into<PathBuf>) -> PhyloInfo<MSA> {
     // Only use the FakeGenerator for deterministic benchmarking
-    let mut fake_rng = FakeGenerator::new();
+    let mut fake_rng = FakeGenerator::default();
     black_box(
         PhyloInfoBuilder::new(seq_file.into())
             .build_w_rng(&mut fake_rng)

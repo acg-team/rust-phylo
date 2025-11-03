@@ -32,7 +32,7 @@ fn run_optimisation(
     epsilon: f64,
 ) -> Result<(f64, Tree)> {
     // Only use the FakeGenerator for deterministic benchmarking
-    let mut fake_rng = FakeGenerator::new();
+    let mut fake_rng = FakeGenerator::default();
     let mut cost = cost;
     let mut prev_cost = f64::NEG_INFINITY;
     let mut final_cost = TreeSearchCost::cost(&cost);
