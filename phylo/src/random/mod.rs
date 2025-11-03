@@ -47,10 +47,8 @@ impl Default for DefaultGenerator {
 }
 
 /// Type alias for a Fake RNG implementation for testing purposes.
-#[cfg(test)]
 pub type FakeGenerator = RandomGenerator<FakeRng>;
 
-#[cfg(test)]
 impl Default for FakeGenerator {
     fn default() -> Self {
         let seed = 0;
