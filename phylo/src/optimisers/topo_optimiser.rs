@@ -261,7 +261,7 @@ mod private_tests {
     ) where
         PIPCost<Q, MSA>: Compatible<MO>,
     {
-        let mut rng = FakeGenerator::new();
+        let mut rng = FakeGenerator::default();
         let model = PIPModel::<Q>::new(&[], &[]);
         let c = PIPCB::new(model.clone(), info.clone()).build().unwrap();
         let init_cost = c.cost();
@@ -342,7 +342,7 @@ mod private_tests {
     ) where
         SubstitutionCost<Q, MSA>: Compatible<MO>,
     {
-        let mut rng = FakeGenerator::new();
+        let mut rng = FakeGenerator::default();
         let model = SubstModel::<Q>::new(&[], &[]);
         let c = SCB::new(model.clone(), info.clone()).build().unwrap();
         let init_cost = c.cost();
