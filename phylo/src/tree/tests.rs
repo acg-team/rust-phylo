@@ -12,7 +12,7 @@ use rand::Rng;
 use crate::alignment::Sequences;
 use crate::io::read_newick_from_file;
 use crate::parsimony::Rounding;
-use crate::random::{DefaultGenerator, FakeGenerator};
+use crate::random::FakeGenerator;
 use crate::tree::{
     argmin_wo_diagonal_w_rng, build_nj_tree_from_matrix_w_rng, compute_distance_matrix,
     nj_matrices::NJMat,
@@ -161,12 +161,9 @@ fn nj_correct_web_example() {
         record!("C2", b""),
         record!("D3", b""),
     ]);
-    let nj_tree = build_nj_tree_from_matrix_w_rng(
-        nj_distances,
-        &sequences,
-        &mut FakeGenerator::from_u64_values(vec![0]),
-    )
-    .unwrap();
+    let nj_tree =
+        build_nj_tree_from_matrix_w_rng(nj_distances, &sequences, &mut FakeGenerator::default())
+            .unwrap();
     let nodes = vec![
         Node::new_leaf(0, Some(I(4)), 1.0, "A0".to_string()),
         Node::new_leaf(1, Some(I(4)), 3.0, "B1".to_string()),
@@ -183,7 +180,7 @@ fn nj_correct_web_example() {
 
 #[test]
 fn nj_correct() {
-    let mut fake_rng = FakeGenerator::from_u64_values(vec![0]);
+    let mut fake_rng = FakeGenerator::default();
     let nj_distances = NJMat {
         idx: (0..5).map(NodeIdx::Leaf).collect(),
         distances: dmatrix![
@@ -225,7 +222,7 @@ fn is_unique<T: std::cmp::Eq + std::hash::Hash>(vec: &[T]) -> bool {
 #[test]
 fn protein_nj_correct() {
     // NJ based on example sequences from "./data/sequences_protein1.fasta"
-    let mut fake_rng = FakeGenerator::from_u64_values(vec![0]);
+    let mut fake_rng = FakeGenerator::default();
     let nj_distances = NJMat {
         idx: (0..4).map(NodeIdx::Leaf).collect(),
         distances: dmatrix![
@@ -251,7 +248,7 @@ fn protein_nj_correct() {
 #[test]
 fn nj_correct_2() {
     // NJ based on example from https://www.tenderisthebyte.com/blog/2022/08/31/neighbor-joining-trees/#neighbor-joining-trees
-    let mut fake_rng = FakeGenerator::from_u64_values(vec![0]);
+    let mut fake_rng = FakeGenerator::default();
     let nj_distances = NJMat {
         idx: (0..4).map(NodeIdx::Leaf).collect(),
         distances: dmatrix![
@@ -283,7 +280,7 @@ fn nj_correct_2() {
 #[test]
 fn nj_correct_wiki_example() {
     // NJ based on example from https://en.wikipedia.org/wiki/Neighbor_joining
-    let mut fake_rng = FakeGenerator::from_u64_values(vec![0]);
+    let mut fake_rng = FakeGenerator::default();
     let nj_distances = NJMat {
         idx: (0..5).map(NodeIdx::Leaf).collect(),
         distances: dmatrix![
@@ -725,7 +722,7 @@ fn test_node_idx_debug() {
 #[test]
 #[should_panic]
 fn test_argmin_fail() {
-    let mut fake_rng = FakeGenerator::from_u64_values(vec![0]);
+    let mut fake_rng = FakeGenerator::default();
     argmin_wo_diagonal_w_rng(DMatrix::<f64>::from_vec(1, 1, vec![0.0]), &mut fake_rng);
 }
 
