@@ -3,6 +3,7 @@ use rand::{RngCore, SeedableRng};
 /// A fake random number generator for deterministic testing.
 /// Can return pre-configured values for unsigned (usize, u64, u32, u16, u8) and
 /// signed (isize, i64, i32, i16, i8) integer types, and defaults to 0, 0.0, or false for other types.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FakeRng {
     u64_values: Vec<u64>,
     u64_index: usize,
