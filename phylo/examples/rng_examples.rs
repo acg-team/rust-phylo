@@ -1,4 +1,4 @@
-use rand::distributions::WeightedIndex;
+use rand::distr::weighted::WeightedIndex;
 use rand::rngs::{SmallRng, StdRng};
 use std::iter::repeat_n;
 

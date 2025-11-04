@@ -4,7 +4,7 @@ use std::path::Path;
 use approx::assert_relative_eq;
 use itertools::repeat_n;
 use nalgebra::dvector;
-use rand::Rng;
+use rand::{rng, Rng};
 
 use crate::alignment::{Alignment, Sequences, MSA};
 use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet, AMINOACIDS, GAP};
@@ -340,9 +340,9 @@ fn protein_correct_access_template<Q: QMatrix + QMatrixMaker>(epsilon: f64) {
     let model_2 = SubstModel::<Q>::new(&[], &[]);
     assert_relative_eq!(model_1.q(), model_2.q());
     for _ in 0..10 {
-        let mut rng = rand::thread_rng();
-        let query1 = AMINOACIDS[rng.gen_range(0..AMINOACIDS.len())];
-        let query2 = AMINOACIDS[rng.gen_range(0..AMINOACIDS.len())];
+        let mut rng = rng();
+        let query1 = AMINOACIDS[rng.random_range(0..AMINOACIDS.len())];
+        let query2 = AMINOACIDS[rng.random_range(0..AMINOACIDS.len())];
         model_1.rate(query1, query2);
     }
     assert_relative_eq!(model_1.freqs().sum(), 1.0, epsilon = epsilon);

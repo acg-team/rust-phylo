@@ -1,6 +1,6 @@
 use ntimestamp::Timestamp;
-use rand::distributions::uniform::{SampleRange, SampleUniform};
-use rand::distributions::{Distribution, Standard};
+use rand::distr::uniform::{SampleRange, SampleUniform};
+use rand::distr::{Distribution, StandardUniform};
 use rand::prelude::SliceRandom;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -83,14 +83,14 @@ where
     pub fn gen<T>(&mut self) -> T
     where
         T: 'static,
-        Standard: Distribution<T>,
+        StandardUniform: Distribution<T>,
     {
-        self.rng.gen()
+        self.rng.random()
     }
 
     /// Generate a random bool with probability p.
     pub fn gen_bool(&mut self, p: f64) -> bool {
-        self.rng.gen_bool(p)
+        self.rng.random_bool(p)
     }
 
     /// Shuffle a slice in place.
@@ -118,7 +118,7 @@ where
         T: 'static + SampleUniform,
         Range: SampleRange<T>,
     {
-        self.rng.gen_range(range)
+        self.rng.random_range(range)
     }
 }
 
@@ -126,7 +126,7 @@ where
 #[cfg(test)]
 mod tests {
     use itertools::repeat_n;
-    use rand::distributions::WeightedIndex;
+    use rand::distr::weighted::WeightedIndex;
 
     use super::*;
 
@@ -153,12 +153,10 @@ mod tests {
         // generator does not panic.
         let mut rng = DefaultGenerator::new(42);
         assert_eq!(rng.seed(), 42);
-        let _val: usize = rng.gen();
         let _val: u64 = rng.gen();
         let _val: u32 = rng.gen();
         let _val: u16 = rng.gen();
         let _val: u8 = rng.gen();
-        let _val: isize = rng.gen();
         let _val: i128 = rng.gen();
         let _val: i64 = rng.gen();
         let _val: i32 = rng.gen();
@@ -227,12 +225,12 @@ mod tests {
         let timestamp = Timestamp::now().as_u64();
         let mut rng = DefaultGenerator::default();
         assert!(rng.seed() > timestamp);
-        let val1: usize = rng.gen();
+        let val1: u64 = rng.gen();
         let val2: f64 = rng.gen();
         let mut rng2 = DefaultGenerator::default();
         assert!(rng2.seed() > rng.seed());
         assert!(rng2.seed() > timestamp);
-        let val1_repeat: usize = rng2.gen();
+        let val1_repeat: u64 = rng2.gen();
         let val2_repeat: f64 = rng2.gen();
         assert_ne!(val1, val1_repeat);
         assert_ne!(val2, val2_repeat);

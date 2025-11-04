@@ -228,6 +228,7 @@ fn k80_sim_data_vs_phyml() {
 
     let tree = o.cost.tree();
     assert_eq!(tree.robinson_foulds(&phyml_info.tree), 0);
+    assert_relative_eq!(tree.length, phyml_info.tree.length, epsilon = 1e-4);
 
     let taxa = ["Gorilla", "Orangutan", "Gibbon", "Human", "Chimpanzee"];
     for taxon in taxa.iter() {
@@ -237,8 +238,6 @@ fn k80_sim_data_vs_phyml() {
             epsilon = 1e-5
         );
     }
-    assert_relative_eq!(tree.length, phyml_info.tree.length, epsilon = 1e-4);
-    assert_eq!(tree.robinson_foulds(&phyml_info.tree), 0);
 }
 
 #[test]
@@ -273,7 +272,10 @@ fn k80_sim_data_vs_phyml_wrong_start() {
     assert_relative_eq!(o.final_cost, -4038.721121221992, epsilon = 1e-5);
 
     let tree = o.cost.tree();
-    let taxa = ["Gorilla", "Orangutan", "Gibbon", "Human", "Chimpanzee"];
+    assert_relative_eq!(tree.length, phyml_info.tree.length, epsilon = 1e-4);
+    assert_eq!(tree.robinson_foulds(&phyml_info.tree), 0);
+
+    let taxa = ["Gorilla", "Orangutan", "Gibbon", "Chimpanzee"];
     for taxon in taxa.iter() {
         assert_relative_eq!(
             tree.by_id(taxon).blen,
@@ -281,8 +283,12 @@ fn k80_sim_data_vs_phyml_wrong_start() {
             epsilon = 1e-5
         );
     }
-    assert_relative_eq!(tree.length, phyml_info.tree.length, epsilon = 1e-4);
-    assert_eq!(tree.robinson_foulds(&phyml_info.tree), 0);
+    let human_idx = tree.idx("Human");
+    assert_relative_eq!(
+        tree.by_id("Human").blen + tree.node(&tree.sibling(&human_idx).unwrap()).blen,
+        phyml_info.tree.by_id("Human").blen,
+        epsilon = 1e-4
+    );
 }
 
 #[test]

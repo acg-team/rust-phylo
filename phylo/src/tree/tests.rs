@@ -7,7 +7,7 @@ use fixedbitset::FixedBitSet;
 use itertools::repeat_n;
 use nalgebra::{dmatrix, DMatrix};
 use pest::error::ErrorVariant;
-use rand::Rng;
+use rand::{rng, Rng};
 use rstest::rstest;
 
 use crate::alignment::Sequences;
@@ -665,9 +665,9 @@ fn compute_distance_matrix_far() {
 
 #[test]
 fn test_node_idx_from_usize() {
-    let r1 = rand::thread_rng().gen_range(1..100);
+    let r1 = rng().random_range(1..100);
     assert_eq!(usize::from(&L(r1)), r1);
-    let r2 = rand::thread_rng().gen_range(1..100);
+    let r2 = rng().random_range(1..100);
     assert_eq!(usize::from(&I(r2)), r2);
 }
 

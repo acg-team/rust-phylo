@@ -1,4 +1,4 @@
-use rand::{Error, RngCore, SeedableRng};
+use rand::{RngCore, SeedableRng};
 
 /// A fake random number generator for deterministic testing.
 /// Can return pre-configured values for unsigned (usize, u64, u32, u16, u8) and
@@ -26,11 +26,6 @@ impl RngCore for FakeRng {
                 *byte = bytes[i];
             }
         }
-    }
-
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
-        self.fill_bytes(dest);
-        Ok(())
     }
 }
 
@@ -93,7 +88,7 @@ impl Default for FakeRng {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod tests {
-    use rand::distributions::WeightedIndex;
+    use rand::distr::weighted::WeightedIndex;
 
     use crate::random::{FakeGenerator, RandomGenerator};
 
@@ -129,29 +124,25 @@ mod tests {
     #[test]
     fn fake_rng_with_diff_types() {
         // Test FakeGenerator with different value types
-        let values = vec![5, 6, 7, 8, 9, 14, 15, 16, 17, 18];
+        let values = vec![5, 6, 7, 8, 9, 14, 15, 16];
         let mut fake_rng = RandomGenerator::from_rng(FakeRng::from_u64_values(values.clone()));
         assert_eq!(fake_rng.seed(), 0);
-        let val: usize = fake_rng.gen();
-        assert_eq!(val, values[0] as usize);
         let val: u64 = fake_rng.gen();
-        assert_eq!(val, values[1]);
+        assert_eq!(val, values[0]);
         let val: u32 = fake_rng.gen();
-        assert_eq!(val, values[2] as u32);
+        assert_eq!(val, values[1] as u32);
         let val: u16 = fake_rng.gen();
-        assert_eq!(val, values[3] as u16);
+        assert_eq!(val, values[2] as u16);
         let val: u8 = fake_rng.gen();
-        assert_eq!(val, values[4] as u8);
-        let val: isize = fake_rng.gen();
-        assert_eq!(val, values[5] as isize);
+        assert_eq!(val, values[3] as u8);
         let val: i64 = fake_rng.gen();
-        assert_eq!(val, values[6] as i64);
+        assert_eq!(val, values[4] as i64);
         let val: i32 = fake_rng.gen();
-        assert_eq!(val, values[7] as i32);
+        assert_eq!(val, values[5] as i32);
         let val: i16 = fake_rng.gen();
-        assert_eq!(val, values[8] as i16);
+        assert_eq!(val, values[6] as i16);
         let val: i8 = fake_rng.gen();
-        assert_eq!(val, values[9] as i8);
+        assert_eq!(val, values[7] as i8);
         let val: f64 = fake_rng.gen();
         assert_eq!(val, 0.0); // Default for f64
         let val: f32 = fake_rng.gen();
@@ -198,7 +189,7 @@ mod tests {
         let mut rng = FakeGenerator::default();
         let mut vec = vec![1, 2, 3, 4, 5];
         rng.shuffle(&mut vec);
-        assert_eq!(vec, vec![2, 3, 4, 5, 1]);
+        assert_eq!(vec, vec![5, 1, 2, 3, 4]);
     }
 
     #[test]
