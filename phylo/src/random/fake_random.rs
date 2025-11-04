@@ -89,7 +89,7 @@ impl Default for FakeRng {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod tests {
-    use rand::distr::weighted::WeightedIndex;
+    use rand::{distr::weighted::WeightedIndex, SeedableRng};
 
     use crate::random::{FakeGenerator, RandomGenerator};
 
@@ -106,6 +106,22 @@ mod tests {
         assert_eq!(val, 0.0);
         let val: bool = fake_rng.random();
         assert!(!val);
+    }
+
+    #[test]
+    fn fake_rng_from_seed() {
+        // Test new FakeGenerator from seed (seed makes no difference)
+        let fake1 = RandomGenerator::from_rng(FakeRng::seed_from_u64(42));
+        let fake2 = RandomGenerator::from_rng(FakeRng::from_seed([42; 8]));
+        let fake3 = RandomGenerator::from_rng(FakeRng::new());
+        let fake4 = FakeGenerator::default();
+        assert_eq!(fake1.seed(), 0);
+        assert_eq!(fake2.seed(), 0);
+        assert_eq!(fake3.seed(), 0);
+        assert_eq!(fake4.seed(), 0);
+        assert_eq!(fake1, fake2);
+        assert_eq!(fake1, fake3);
+        assert_eq!(fake1, fake4);
     }
 
     #[test]
