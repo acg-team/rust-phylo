@@ -80,7 +80,7 @@ where
     }
 
     /// Generate a random value of type T.
-    pub fn gen<T>(&mut self) -> T
+    pub fn random<T>(&mut self) -> T
     where
         T: 'static,
         StandardUniform: Distribution<T>,
@@ -89,7 +89,7 @@ where
     }
 
     /// Generate a random bool with probability p.
-    pub fn gen_bool(&mut self, p: f64) -> bool {
+    pub fn random_bool(&mut self, p: f64) -> bool {
         self.rng.random_bool(p)
     }
 
@@ -113,7 +113,7 @@ where
     }
 
     /// Generate a random value in the specified range.
-    pub fn gen_range<T, Range>(&mut self, range: Range) -> T
+    pub fn random_range<T, Range>(&mut self, range: Range) -> T
     where
         T: 'static + SampleUniform,
         Range: SampleRange<T>,
@@ -135,13 +135,13 @@ mod tests {
         // Test that creating new instances with the same seed produces the same sequence
         let mut rng1 = DefaultGenerator::new(42);
         assert_eq!(rng1.seed(), 42);
-        let val1: f64 = rng1.gen();
-        let val2: u32 = rng1.gen();
+        let val1: f64 = rng1.random();
+        let val2: u32 = rng1.random();
 
         let mut rng2 = DefaultGenerator::new(42);
         assert_eq!(rng2.seed(), 42);
-        let val1_repeat: f64 = rng2.gen();
-        let val2_repeat: u32 = rng2.gen();
+        let val1_repeat: f64 = rng2.random();
+        let val2_repeat: u32 = rng2.random();
 
         assert_eq!(val1, val1_repeat);
         assert_eq!(val2, val2_repeat);
@@ -153,20 +153,20 @@ mod tests {
         // generator does not panic.
         let mut rng = DefaultGenerator::new(42);
         assert_eq!(rng.seed(), 42);
-        let _val: u64 = rng.gen();
-        let _val: u32 = rng.gen();
-        let _val: u16 = rng.gen();
-        let _val: u8 = rng.gen();
-        let _val: i128 = rng.gen();
-        let _val: i64 = rng.gen();
-        let _val: i32 = rng.gen();
-        let _val: i16 = rng.gen();
-        let _val: i8 = rng.gen();
-        let _val: char = rng.gen();
-        let _val: bool = rng.gen();
-        let val: f64 = rng.gen();
+        let _val: u64 = rng.random();
+        let _val: u32 = rng.random();
+        let _val: u16 = rng.random();
+        let _val: u8 = rng.random();
+        let _val: i128 = rng.random();
+        let _val: i64 = rng.random();
+        let _val: i32 = rng.random();
+        let _val: i16 = rng.random();
+        let _val: i8 = rng.random();
+        let _val: char = rng.random();
+        let _val: bool = rng.random();
+        let val: f64 = rng.random();
         assert!(val.is_finite() && !val.is_nan());
-        let val: f32 = rng.gen();
+        let val: f32 = rng.random();
         assert!(val.is_finite() && !val.is_nan());
     }
 
@@ -175,11 +175,11 @@ mod tests {
         // Test that reseeding to the same value produces the same sample
         let mut rng = DefaultGenerator::new(42);
         assert_eq!(rng.seed(), 42);
-        let val1: f64 = rng.gen();
+        let val1: f64 = rng.random();
 
         rng.reseed(42);
         assert_eq!(rng.seed(), 42);
-        let val1_repeat: f64 = rng.gen();
+        let val1_repeat: f64 = rng.random();
 
         assert_eq!(val1, val1_repeat);
     }
@@ -188,11 +188,11 @@ mod tests {
     fn rng_functions() {
         let mut rng = DefaultGenerator::new(123);
         assert_eq!(rng.seed(), 123);
-        assert!((0.0..1.0).contains(&rng.gen::<f64>()));
-        assert!((0.0..10.0).contains(&rng.gen_range(0.0..10.0)));
-        assert!((1..100).contains(&rng.gen_range(1..100)));
+        assert!((0.0..1.0).contains(&rng.random::<f64>()));
+        assert!((0.0..10.0).contains(&rng.random_range(0.0..10.0)));
+        assert!((1..100).contains(&rng.random_range(1..100)));
 
-        let _random_bool = rng.gen_bool(0.5);
+        let _random_bool = rng.random_bool(0.5);
     }
 
     #[test]
@@ -200,7 +200,7 @@ mod tests {
         let mut rng = DefaultGenerator::new(123);
         assert_eq!(rng.seed(), 123);
         for _ in 0..10 {
-            let val: u32 = rng.gen_range(1..100);
+            let val: u32 = rng.random_range(1..100);
             assert!((1..100).contains(&val));
         }
     }
@@ -211,10 +211,10 @@ mod tests {
         // implementation, but it is extremely unlikely that it will fail.
         let mut rng = DefaultGenerator::new(1);
         assert_eq!(rng.seed(), 1);
-        let val1: f64 = rng.gen();
+        let val1: f64 = rng.random();
         rng.reseed(2);
         assert_eq!(rng.seed(), 2);
-        let val1_repeat: f64 = rng.gen();
+        let val1_repeat: f64 = rng.random();
         assert_ne!(val1, val1_repeat);
     }
 
@@ -225,13 +225,13 @@ mod tests {
         let timestamp = Timestamp::now().as_u64();
         let mut rng = DefaultGenerator::default();
         assert!(rng.seed() > timestamp);
-        let val1: u64 = rng.gen();
-        let val2: f64 = rng.gen();
+        let val1: u64 = rng.random();
+        let val2: f64 = rng.random();
         let mut rng2 = DefaultGenerator::default();
         assert!(rng2.seed() > rng.seed());
         assert!(rng2.seed() > timestamp);
-        let val1_repeat: u64 = rng2.gen();
-        let val2_repeat: f64 = rng2.gen();
+        let val1_repeat: u64 = rng2.random();
+        let val2_repeat: f64 = rng2.random();
         assert_ne!(val1, val1_repeat);
         assert_ne!(val2, val2_repeat);
     }

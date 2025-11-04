@@ -99,11 +99,11 @@ mod tests {
         // Test new FakeGenerator defaults
         let mut fake_rng = FakeGenerator::default();
         assert_eq!(fake_rng.seed(), 0);
-        let val: u64 = fake_rng.gen();
+        let val: u64 = fake_rng.random();
         assert_eq!(val, 0);
-        let val: f64 = fake_rng.gen();
+        let val: f64 = fake_rng.random();
         assert_eq!(val, 0.0);
-        let val: bool = fake_rng.gen();
+        let val: bool = fake_rng.random();
         assert!(!val);
     }
 
@@ -114,10 +114,10 @@ mod tests {
         let mut fake_rng = RandomGenerator::from_rng(FakeRng::from_u64_values(values.clone()));
         assert_eq!(fake_rng.seed(), 0);
         for i in 0..10 {
-            let val: u64 = fake_rng.gen();
+            let val: u64 = fake_rng.random();
             assert_eq!(val, values[i % values.len()]);
         }
-        let val: f64 = fake_rng.gen();
+        let val: f64 = fake_rng.random();
         assert_eq!(val, 0.0); // Default for f64
     }
 
@@ -127,27 +127,27 @@ mod tests {
         let values = vec![5, 6, 7, 8, 9, 14, 15, 16];
         let mut fake_rng = RandomGenerator::from_rng(FakeRng::from_u64_values(values.clone()));
         assert_eq!(fake_rng.seed(), 0);
-        let val: u64 = fake_rng.gen();
+        let val: u64 = fake_rng.random();
         assert_eq!(val, values[0]);
-        let val: u32 = fake_rng.gen();
+        let val: u32 = fake_rng.random();
         assert_eq!(val, values[1] as u32);
-        let val: u16 = fake_rng.gen();
+        let val: u16 = fake_rng.random();
         assert_eq!(val, values[2] as u16);
-        let val: u8 = fake_rng.gen();
+        let val: u8 = fake_rng.random();
         assert_eq!(val, values[3] as u8);
-        let val: i64 = fake_rng.gen();
+        let val: i64 = fake_rng.random();
         assert_eq!(val, values[4] as i64);
-        let val: i32 = fake_rng.gen();
+        let val: i32 = fake_rng.random();
         assert_eq!(val, values[5] as i32);
-        let val: i16 = fake_rng.gen();
+        let val: i16 = fake_rng.random();
         assert_eq!(val, values[6] as i16);
-        let val: i8 = fake_rng.gen();
+        let val: i8 = fake_rng.random();
         assert_eq!(val, values[7] as i8);
-        let val: f64 = fake_rng.gen();
+        let val: f64 = fake_rng.random();
         assert_eq!(val, 0.0); // Default for f64
-        let val: f32 = fake_rng.gen();
+        let val: f32 = fake_rng.random();
         assert_eq!(val, 0.0); // Default for f32
-        let val: bool = fake_rng.gen();
+        let val: bool = fake_rng.random();
         assert!(!val); // Default for bool
     }
 
@@ -156,12 +156,12 @@ mod tests {
         // Test that creating new instances with the same values produces the same sequence
         let values = vec![5, 7, 8, 10, 12];
         let mut rng1 = RandomGenerator::from_rng(FakeRng::from_u64_values(values.clone()));
-        let val1: u64 = rng1.gen();
-        let val2: u32 = rng1.gen();
+        let val1: u64 = rng1.random();
+        let val2: u32 = rng1.random();
 
         let mut rng2 = RandomGenerator::from_rng(FakeRng::from_u64_values(values.clone()));
-        let val1_repeat: u64 = rng2.gen();
-        let val2_repeat: u32 = rng2.gen();
+        let val1_repeat: u64 = rng2.random();
+        let val2_repeat: u32 = rng2.random();
 
         assert_eq!(val1, val1_repeat);
         assert_eq!(val2, val2_repeat);
@@ -174,11 +174,11 @@ mod tests {
         // Test that reseeding does not do anything to an empty FakeGenerator
         let mut fake_rng = FakeGenerator::default();
         assert_eq!(fake_rng.seed(), 0);
-        let val1: u64 = fake_rng.gen();
+        let val1: u64 = fake_rng.random();
 
         fake_rng.reseed(42);
         assert_eq!(fake_rng.seed(), 42);
-        let val1_repeat: u64 = fake_rng.gen();
+        let val1_repeat: u64 = fake_rng.random();
 
         assert_eq!(val1, val1_repeat);
         assert_eq!(val1, 0); // Default value after reseed

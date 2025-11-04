@@ -419,7 +419,7 @@ where
             }
         }
     }
-    arg_min[(rng.gen_range(0..arg_min.len() as u64)) as usize]
+    arg_min[(rng.random_range(0..arg_min.len() as u64)) as usize]
 }
 
 fn build_nj_tree_from_matrix_w_rng<R>(
