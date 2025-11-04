@@ -113,5 +113,5 @@ impl ParsimonySite {
 }
 
 pub(crate) fn rng_len(l: usize) -> usize {
-    (rng().random_range(0..(l as u64))) as usize
+    rng().random_range(0..l)
 }
