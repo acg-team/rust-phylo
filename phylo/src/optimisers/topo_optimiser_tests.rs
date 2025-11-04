@@ -60,7 +60,7 @@ macro_rules! define_optimise_trees {
                     }
                 } else {
                     let cost = $builder::new(model.clone(), start_info).build().unwrap();
-                    let res = TopologyOptimiser::new(cost, $move_optimiser {}, &fake_rng).run().unwrap();
+                    let res = TopologyOptimiser::new(cost, $move_optimiser {}, &mut fake_rng).run().unwrap();
                     assert!(crate::io::write_newick_to_file(
                         &[res.cost.tree().clone()],
                         tree_file
