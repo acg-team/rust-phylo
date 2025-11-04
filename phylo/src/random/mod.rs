@@ -24,6 +24,7 @@ pub use fake_random::*;
 /// let mut custom_rng: RandomGenerator<StdRng> = RandomGenerator::new(123);
 /// let custom_value: f64 = custom_rng.random();
 /// ```
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RandomGenerator<R>
 where
     R: Rng + SeedableRng + Send,
