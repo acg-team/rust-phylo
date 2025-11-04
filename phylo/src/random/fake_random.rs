@@ -97,6 +97,19 @@ mod tests {
     #[test]
     fn fake_rng_defaults() {
         // Test new FakeGenerator defaults
+        let mut fake_rng = FakeGenerator::from_rng(FakeRng::default());
+        assert_eq!(fake_rng.seed(), 0);
+        let val: u64 = fake_rng.random();
+        assert_eq!(val, 0);
+        let val: f64 = fake_rng.random();
+        assert_eq!(val, 0.0);
+        let val: bool = fake_rng.random();
+        assert!(!val);
+    }
+
+    #[test]
+    fn fake_generator_defaults() {
+        // Test new FakeGenerator defaults
         let mut fake_rng = FakeGenerator::default();
         assert_eq!(fake_rng.seed(), 0);
         let val: u64 = fake_rng.random();
