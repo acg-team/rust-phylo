@@ -34,6 +34,8 @@ where
 
 /// Type alias for the default RNG implementation which uses ChaCha8Rng which is platform-independent.
 /// Note: ChaCha8Rng is not the most secure RNG, but is fast and suitable for most phylogenetic applications.
+/// Note: This implementation is not thread-reproducible, e.g. if used in multiple threads, the sequences
+/// generated may differ between runs. Users must handle this accordingly to ensure reproducibility if needed.
 pub type DefaultGenerator = RandomGenerator<ChaCha8Rng>;
 
 impl Default for DefaultGenerator {
