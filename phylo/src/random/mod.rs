@@ -81,7 +81,6 @@ where
     /// Generate a random value of type T.
     pub fn random<T>(&mut self) -> T
     where
-        T: 'static,
         StandardUniform: Distribution<T>,
     {
         self.rng.random()
@@ -105,7 +104,6 @@ where
     /// Sample from a weighted distribution.
     pub fn sample<D, T>(&mut self, dist: &D) -> T
     where
-        T: 'static,
         D: Distribution<T>,
     {
         self.rng.sample(dist)
@@ -114,7 +112,7 @@ where
     /// Generate a random value in the specified range.
     pub fn random_range<T, Range>(&mut self, range: Range) -> T
     where
-        T: 'static + SampleUniform,
+        T: SampleUniform,
         Range: SampleRange<T>,
     {
         self.rng.random_range(range)
