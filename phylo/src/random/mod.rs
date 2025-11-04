@@ -22,7 +22,7 @@ pub use fake_random::*;
 ///
 /// // Create a custom RNG instance
 /// let mut custom_rng: RandomGenerator<StdRng> = RandomGenerator::new(123);
-/// let custom_value: f64 = custom_rng.gen();
+/// let custom_value: f64 = custom_rng.random();
 /// ```
 pub struct RandomGenerator<R>
 where
