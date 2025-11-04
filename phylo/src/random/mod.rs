@@ -2,8 +2,8 @@ use ntimestamp::Timestamp;
 use rand::distr::uniform::{SampleRange, SampleUniform};
 use rand::distr::{Distribution, StandardUniform};
 use rand::prelude::SliceRandom;
-use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 pub mod fake_random;
 pub use fake_random::*;
@@ -32,12 +32,9 @@ where
     pub rng: R,
 }
 
-/// Type alias for the default RNG implementation.
-/// Currently uses StdRng which is not platform-independent, and should be replaced with
-/// a platform-independent RNG.
-/// TODO: Replace with a platform-independent RNG implementation (at the moment `rand_pcg` and `rand_chacha`
-/// cause dependency clashes).
-pub type DefaultGenerator = RandomGenerator<StdRng>;
+/// Type alias for the default RNG implementation which uses ChaCha8Rng which is platform-independent.
+/// Note: ChaCha8Rng is not the most secure RNG, but is fast and suitable for most phylogenetic applications.
+pub type DefaultGenerator = RandomGenerator<ChaCha8Rng>;
 
 impl Default for DefaultGenerator {
     fn default() -> Self {
