@@ -3,7 +3,7 @@ use rand::distr::uniform::{SampleRange, SampleUniform};
 use rand::distr::{Distribution, StandardUniform};
 use rand::prelude::SliceRandom;
 use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use rand_pcg::Pcg32;
 
 pub mod fake_random;
 pub use fake_random::*;
@@ -33,11 +33,11 @@ where
     pub rng: R,
 }
 
-/// Type alias for the default RNG implementation which uses ChaCha8Rng which is platform-independent.
-/// Note: ChaCha8Rng is not the most secure RNG, but is fast and suitable for most phylogenetic applications.
+/// Type alias for the default RNG implementation which uses Pcg32 which is platform-independent.
+/// Note: Pcg32 is not the most secure RNG, but is fast and suitable for most phylogenetic applications.
 /// Note: This implementation is not thread-reproducible, e.g. if used in multiple threads, the sequences
 /// generated may differ between runs. Users must handle this accordingly to ensure reproducibility if needed.
-pub type DefaultGenerator = RandomGenerator<ChaCha8Rng>;
+pub type DefaultGenerator = RandomGenerator<Pcg32>;
 
 impl Default for DefaultGenerator {
     fn default() -> Self {
