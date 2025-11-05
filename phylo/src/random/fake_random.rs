@@ -2,7 +2,9 @@ use rand::{RngCore, SeedableRng};
 
 /// A fake random number generator for deterministic testing.
 /// Can return pre-configured values for unsigned (usize, u64, u32, u16, u8) and
-/// signed (isize, i64, i32, i16, i8) integer types, and defaults to 0, 0.0, or false for other types.
+/// signed (isize, i64, i32, i16, i8) integer types.
+/// Can also be set up to produce specific f64 values (up to floating point precision).
+/// If no pre-configured values are provided, it will return 0 for all integer types and 0.0 for f64.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FakeRng {
     u64_values: Vec<u64>,
@@ -80,6 +82,7 @@ impl FakeRng {
         }
     }
 
+    /// Convert f64 to u64 using the same algorithm as rand's Standard distribution
     fn f64_to_u64_for_rand(f: f64) -> u64 {
         let clamped = f.clamp(0.0, 1.0 - f64::EPSILON);
         let scaled = clamped * (1u64 << 53) as f64;
@@ -165,7 +168,7 @@ mod tests {
 
     #[test]
     fn fake_rng_with_u64_values() {
-        // Test FakeGenerator with pre-configured values
+        // FakeRng with pre-configured values
         let values = (15..25).collect::<Vec<u64>>();
         let mut fake_rng = RandomGenerator::from_rng(FakeRng::from_u64_values(values.clone()));
         assert_eq!(fake_rng.seed(), 0);
@@ -174,12 +177,12 @@ mod tests {
             assert_eq!(val, values[i % values.len()]);
         }
         let val: f64 = fake_rng.random();
-        assert_eq!(val, 0.0); // Default for f64
+        assert_eq!(val, FakeRng::u64_to_f64_for_rand(values[0]));
     }
 
     #[test]
     fn fake_rng_with_diff_types() {
-        // Test FakeGenerator with different value types
+        // FakeRng with different value types
         let values = vec![5, 6, 7, 8, 9, 14, 15, 16, u64::MAX];
         let mut fake_rng = RandomGenerator::from_rng(FakeRng::from_u64_values(values.clone()));
         assert_eq!(fake_rng.seed(), 0);
@@ -205,7 +208,7 @@ mod tests {
 
     #[test]
     fn fake_rng_reproducibility() {
-        // Test that creating new instances with the same values produces the same sequence
+        // creating new instances with the same values produces the same sequence
         let values = vec![5, 7, 8, 10, 12];
         let mut rng1 = RandomGenerator::from_rng(FakeRng::from_u64_values(values.clone()));
         let val1: u64 = rng1.random();
@@ -223,7 +226,7 @@ mod tests {
 
     #[test]
     fn fake_reseed_empty() {
-        // Test that reseeding does not do anything to an empty FakeGenerator
+        // reseeding does not do anything to an empty FakeGenerator
         let mut fake_rng = FakeGenerator::default();
         assert_eq!(fake_rng.seed(), 0);
         let val1: u64 = fake_rng.random();
@@ -246,6 +249,7 @@ mod tests {
 
     #[test]
     fn fake_sample_default() {
+        // always returns first non-zero index when no pre-configured values
         let mut rng = FakeGenerator::default();
         let dist = WeightedIndex::new([1.0, 2.0, 3.0]).unwrap();
         assert_eq!(rng.sample(&dist), 0);
@@ -253,6 +257,7 @@ mod tests {
 
     #[test]
     fn fake_sample() {
+        // always returns first non-zero index when no pre-configured values
         let mut rng = FakeGenerator::default();
         let dist = WeightedIndex::new([0.0, 3.0, 2.0, 1.0, 2.0]).unwrap();
         assert_eq!(rng.sample(&dist), 1);
@@ -272,7 +277,7 @@ mod tests {
 
     #[test]
     fn test_f64_u64_roundtrip() {
-        // Test that f64 -> u64 -> f64 conversion preserves values within floating point precision
+        // f64 -> u64 -> f64 conversion preserves values within floating point precision
         let test_values = vec![0.0, 0.1, 0.25, 0.333333, 0.5, 0.666666, 0.75, 0.9, 0.999999];
 
         for original in test_values {
@@ -284,11 +289,11 @@ mod tests {
 
     #[test]
     fn test_u64_to_f64_conversion() {
-        // Test specific u64 values to ensure they produce expected f64 values
+        // specific u64 values produce expected f64 values
         assert_relative_eq!(FakeRng::u64_to_f64_for_rand(0), 0.0);
         assert_relative_eq!(FakeRng::u64_to_f64_for_rand(u64::MAX), 1.0 - f64::EPSILON);
 
-        // Test the middle value
+        // middle value
         let mid_u64 = 1u64 << 63; // Half of the maximum value when shifted
         let mid_f64 = FakeRng::u64_to_f64_for_rand(mid_u64);
         assert_relative_eq!(mid_f64, 0.5, epsilon = 1e-15);
