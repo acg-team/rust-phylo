@@ -213,15 +213,19 @@ mod tests {
         let mut rng1 = RandomGenerator::from_rng(FakeRng::from_u64_values(values.clone()));
         let val1: u64 = rng1.random();
         let val2: u32 = rng1.random();
+        let val3: f64 = rng1.random();
 
         let mut rng2 = RandomGenerator::from_rng(FakeRng::from_u64_values(values.clone()));
         let val1_repeat: u64 = rng2.random();
         let val2_repeat: u32 = rng2.random();
+        let val3_repeat: f64 = rng2.random();
 
         assert_eq!(val1, val1_repeat);
         assert_eq!(val2, val2_repeat);
+        assert_eq!(val3, val3_repeat);
         assert_eq!(val1, values[0]);
         assert_eq!(val2, values[1] as u32);
+        assert_eq!(val3, FakeRng::u64_to_f64_for_rand(values[2]));
     }
 
     #[test]
