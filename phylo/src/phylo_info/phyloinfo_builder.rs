@@ -140,7 +140,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     /// ```
     pub fn build_w_rng<R>(self, rng: &mut RandomGenerator<R>) -> Result<PhyloInfo<A>>
     where
-        R: Rng + SeedableRng + Send,
+        R: Rng + SeedableRng,
     {
         let sequences = self.read_sequences()?;
         let tree = match &self.tree_file {
@@ -171,7 +171,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
         rng: &mut RandomGenerator<R>,
     ) -> Result<PhyloInfo<AA>>
     where
-        R: Rng + SeedableRng + Send,
+        R: Rng + SeedableRng,
     {
         let sequences = self.read_sequences()?;
         let mut tree = match &self.tree_file {

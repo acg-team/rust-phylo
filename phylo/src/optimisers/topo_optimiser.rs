@@ -36,7 +36,7 @@ pub struct TopologyOptimiser<'a, MO, C, R>
 where
     MO: MoveOptimiser,
     C: TreeSearchCost + Display + Clone + Send + Compatible<MO>,
-    R: Rng + SeedableRng + Send,
+    R: Rng + SeedableRng,
 {
     pub(crate) stop_condition: StopCondition,
     pub(crate) move_opti: MO,
@@ -48,7 +48,7 @@ impl<'a, MO, C, R> TopologyOptimiser<'a, MO, C, R>
 where
     MO: MoveOptimiser,
     C: TreeSearchCost + Display + Clone + Send + Compatible<MO>,
-    R: Rng + SeedableRng + Send,
+    R: Rng + SeedableRng,
 {
     pub fn new(cost: C, move_opti: MO, rng: &'a mut RandomGenerator<R>) -> Self {
         Self {

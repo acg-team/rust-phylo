@@ -51,8 +51,6 @@ impl SeedableRng for FakeRng {
     }
 }
 
-unsafe impl Send for FakeRng {}
-
 impl FakeRng {
     /// Create a new FakeRng with an empty u64 value sequence, will return 0 for every int value
     pub fn new() -> Self {

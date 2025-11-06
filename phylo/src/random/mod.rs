@@ -27,7 +27,7 @@ pub use fake_random::*;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RandomGenerator<R>
 where
-    R: Rng + SeedableRng + Send,
+    R: Rng + SeedableRng,
 {
     pub seed: u64,
     pub rng: R,
@@ -58,7 +58,7 @@ impl Default for FakeGenerator {
 
 impl<R> RandomGenerator<R>
 where
-    R: Rng + SeedableRng + Send,
+    R: Rng + SeedableRng,
 {
     /// Create a new RandomGenerator with the given seed.
     pub fn new(seed: u64) -> Self {

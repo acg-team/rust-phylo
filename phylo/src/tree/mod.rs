@@ -399,7 +399,7 @@ pub fn percentiles_rounded(lengths: &[f64], categories: u32, rounding: &Rounding
 
 fn argmin_wo_diagonal_w_rng<R>(q: Mat, rng: &mut RandomGenerator<R>) -> (usize, usize)
 where
-    R: Rng + SeedableRng + Send,
+    R: Rng + SeedableRng,
 {
     debug_assert!(!q.is_empty(), "The input matrix must not be empty");
     debug_assert!(
@@ -428,7 +428,7 @@ fn build_nj_tree_from_matrix_w_rng<R>(
     rng: &mut RandomGenerator<R>,
 ) -> Result<Tree>
 where
-    R: Rng + SeedableRng + Send,
+    R: Rng + SeedableRng,
 {
     let n = nj_data.distances.ncols();
     let mut tree = Tree::new(sequences)?;
@@ -459,7 +459,7 @@ pub fn build_nj_tree(sequences: &Sequences) -> Result<Tree> {
 
 pub fn build_nj_tree_w_rng<R>(sequences: &Sequences, rng: &mut RandomGenerator<R>) -> Result<Tree>
 where
-    R: Rng + SeedableRng + Send,
+    R: Rng + SeedableRng,
 {
     let nj_data = compute_distance_matrix(sequences);
     build_nj_tree_from_matrix_w_rng(nj_data, sequences, rng)
