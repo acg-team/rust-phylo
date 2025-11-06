@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use itertools::Itertools;
 use log::{debug, info};
+use rand::{Rng, SeedableRng};
 
 use crate::alignment::Alignment;
 use crate::likelihood::TreeSearchCost;
@@ -12,7 +13,7 @@ use crate::optimisers::{
 use crate::parsimony::scoring::ParsimonyScoring;
 use crate::parsimony::{BasicParsimonyCost, DolloParsimonyCost};
 use crate::pip_model::PIPCost;
-use crate::random::RandomSource;
+use crate::random::RandomGenerator;
 use crate::substitution_models::{QMatrix, SubstitutionCost};
 use crate::tree::NodeIdx;
 use crate::Result;
@@ -35,21 +36,21 @@ pub struct TopologyOptimiser<'a, MO, C, R>
 where
     MO: MoveOptimiser,
     C: TreeSearchCost + Display + Clone + Send + Compatible<MO>,
-    R: RandomSource,
+    R: Rng + SeedableRng,
 {
     pub(crate) stop_condition: StopCondition,
     pub(crate) move_opti: MO,
     pub(crate) c: C,
-    pub(crate) rng: &'a R,
+    pub(crate) rng: &'a mut RandomGenerator<R>,
 }
 
 impl<'a, MO, C, R> TopologyOptimiser<'a, MO, C, R>
 where
     MO: MoveOptimiser,
     C: TreeSearchCost + Display + Clone + Send + Compatible<MO>,
-    R: RandomSource,
+    R: Rng + SeedableRng,
 {
-    pub fn new(cost: C, move_opti: MO, rng: &'a R) -> Self {
+    pub fn new(cost: C, move_opti: MO, rng: &'a mut RandomGenerator<R>) -> Self {
         Self {
             move_opti,
             c: cost,
@@ -58,7 +59,12 @@ where
         }
     }
 
-    pub fn with_stop_condition(cost: C, move_opti: MO, rng: &'a R, stop: StopCondition) -> Self {
+    pub fn with_stop_condition(
+        cost: C,
+        move_opti: MO,
+        rng: &'a mut RandomGenerator<R>,
+        stop: StopCondition,
+    ) -> Self {
         Self {
             c: cost,
             move_opti,
@@ -92,7 +98,7 @@ where
     /// let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
     /// let c = SubstitutionCostBuilder::new(k80, info).build()?;
     /// let unopt_cost = c.cost();
-    /// let result = TopologyOptimiser::new(c, SprOptimiser {}, &DefaultGenerator::default()).run()?;
+    /// let result = TopologyOptimiser::new(c, SprOptimiser {}, &mut DefaultGenerator::default()).run()?;
     /// assert_eq!(unopt_cost, result.initial_cost);
     /// assert!(result.final_cost > result.initial_cost);
     /// assert!(result.iterations <= 100);
@@ -255,12 +261,12 @@ mod private_tests {
     ) where
         PIPCost<Q, MSA>: Compatible<MO>,
     {
-        let rng = FakeGenerator::new();
+        let mut rng = FakeGenerator::default();
         let model = PIPModel::<Q>::new(&[], &[]);
         let c = PIPCB::new(model.clone(), info.clone()).build().unwrap();
         let init_cost = c.cost();
 
-        let mut optimiser = TopologyOptimiser::new(c.clone(), move_optimiser, &rng);
+        let mut optimiser = TopologyOptimiser::new(c.clone(), move_optimiser, &mut rng);
         let optimised_cost = optimiser.single_optimisation_iteration().unwrap();
 
         assert!(optimised_cost > init_cost);
@@ -336,12 +342,12 @@ mod private_tests {
     ) where
         SubstitutionCost<Q, MSA>: Compatible<MO>,
     {
-        let rng = FakeGenerator::new();
+        let mut rng = FakeGenerator::default();
         let model = SubstModel::<Q>::new(&[], &[]);
         let c = SCB::new(model.clone(), info.clone()).build().unwrap();
         let init_cost = c.cost();
 
-        let mut optimiser = TopologyOptimiser::new(c.clone(), move_optimiser, &rng);
+        let mut optimiser = TopologyOptimiser::new(c.clone(), move_optimiser, &mut rng);
         let optimised_cost = optimiser.single_optimisation_iteration().unwrap();
 
         assert!(optimised_cost > init_cost);

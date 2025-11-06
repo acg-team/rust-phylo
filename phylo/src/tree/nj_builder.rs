@@ -1,10 +1,11 @@
 use log::{debug, info};
 use nalgebra::{DMatrix, DVector};
-use rand::distributions::weighted::WeightedIndex;
+use rand::distr::weighted::WeightedIndex;
+use rand::{Rng, SeedableRng};
 
 use crate::alignment::Sequences;
 use crate::evolutionary_distances::EvolutionaryDistance;
-use crate::random::RandomSource;
+use crate::random::RandomGenerator;
 use crate::tree::nj_matrices::DistanceMatrix;
 use crate::tree::tree_builder::TreeBuilder;
 use crate::tree::{NodeIdx, Tree};
@@ -16,13 +17,13 @@ pub enum Strategy {
     SoftmaxUniform(f64),
 }
 
-pub struct NJTreeBuilder<'a, D: EvolutionaryDistance, R: RandomSource> {
+pub struct NJTreeBuilder<'a, D: EvolutionaryDistance, R: Rng + SeedableRng> {
     randomise: Strategy,
     distance_function: D,
-    rng: &'a R,
+    rng: &'a mut RandomGenerator<R>,
 }
 
-impl<D: EvolutionaryDistance, R: RandomSource> TreeBuilder for NJTreeBuilder<'_, D, R> {
+impl<D: EvolutionaryDistance, R: Rng + SeedableRng> TreeBuilder for NJTreeBuilder<'_, D, R> {
     /// Builds a tree from the given sequences using the Neighbor Joining algorithm.
     /// This first computes the distance matrix using the provided distance function,
     /// and then constructs the tree using the NJ algorithm.
@@ -37,20 +38,20 @@ impl<D: EvolutionaryDistance, R: RandomSource> TreeBuilder for NJTreeBuilder<'_,
     /// use phylo::tree::TreeBuilder;
     /// # fn main() -> std::result::Result<(), anyhow::Error> {
     /// let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta")?);
-    /// let rng = DefaultGenerator::default();
-    /// let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
+    /// let mut rng = DefaultGenerator::default();
+    /// let mut nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &mut rng);
     /// let tree = nj_builder.build(&sequences)?;
     /// assert_eq!(tree.len(), 7);
     /// assert_eq!(tree.leaves().len(), 4);
     /// # Ok(()) }
     /// ```
-    fn build(&self, sequences: &Sequences) -> Result<Tree> {
+    fn build(&mut self, sequences: &Sequences) -> Result<Tree> {
         let distances = self.compute_distance_matrix(sequences);
         self.build_from_distances(distances, sequences)
     }
 }
 
-impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
+impl<'a, D: EvolutionaryDistance, R: Rng + SeedableRng> NJTreeBuilder<'a, D, R> {
     /// Creates a Neighbor Joining Tree Builder with ArgMax strategy, which uses argmax to minimise the tree length.
     /// This implements the classic NJ algorithm but always selects the first pair of nodes with the smallest distance.
     /// TODO: Add option to randomise ties @junniest.
@@ -65,14 +66,13 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
     /// use phylo::tree::TreeBuilder;
     /// # fn main() -> std::result::Result<(), anyhow::Error> {
     /// let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta")?);
-    /// let rng = DefaultGenerator::default();
-    /// let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {}, &rng);
-    /// let tree = nj_builder.build(&sequences)?;
+    /// let mut rng = DefaultGenerator::default();
+    /// let tree = NJTreeBuilder::new(LevenshteinDNACorrected {}, &mut rng).build(&sequences)?;
     /// assert_eq!(tree.len(), 7);
     /// assert_eq!(tree.leaves().len(), 4);
     /// # Ok(()) }
     /// ```
-    pub fn new(distance_function: D, rng: &'a R) -> Self {
+    pub fn new(distance_function: D, rng: &'a mut RandomGenerator<R>) -> Self {
         info!("Creating regular NJTreeBuilder, first argmax choice for next pair of nodes to join");
         Self {
             randomise: Strategy::ArgMax,
@@ -97,14 +97,18 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
     /// use phylo::tree::TreeBuilder;
     /// # fn main() -> std::result::Result<(), anyhow::Error> {
     /// let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta")?);
-    /// let rng = DefaultGenerator::default();
-    /// let nj_builder = NJTreeBuilder::new_with_softmax(LevenshteinDNACorrected {}, &rng, 0.5);
+    /// let mut rng = DefaultGenerator::default();
+    /// let mut nj_builder = NJTreeBuilder::new_with_softmax(LevenshteinDNACorrected {}, &mut rng, 0.5);
     /// let tree = nj_builder.build(&sequences)?;
     /// assert_eq!(tree.len(), 7);
     /// assert_eq!(tree.leaves().len(), 4);
     /// # Ok(()) }
     /// ```
-    pub fn new_with_softmax(distance_function: D, rng: &'a R, temperature: f64) -> Self {
+    pub fn new_with_softmax(
+        distance_function: D,
+        rng: &'a mut RandomGenerator<R>,
+        temperature: f64,
+    ) -> Self {
         info!("Creating NJTreeBuilder with softmax strategy and temperature {temperature}");
         if temperature > 1.0 {
             debug!("Temperature should not be greater than 1.0 (set to {temperature}), clamping to 1.0");
@@ -164,7 +168,7 @@ impl<'a, D: EvolutionaryDistance, R: RandomSource> NJTreeBuilder<'a, D, R> {
     /// TODO: does not actually need the sequences, only used to create the tree with
     /// correct leaf ids, should be refactored @junniest
     fn build_from_distances(
-        &self,
+        &mut self,
         mut distances: DistanceMatrix,
         sequences: &Sequences,
     ) -> Result<Tree> {
@@ -240,8 +244,10 @@ mod tests {
     use assert_matches::assert_matches;
     use nalgebra::{dmatrix, dvector};
 
-    use crate::evolutionary_distances::LevenshteinDNACorrected as LDNACorr;
-    use crate::random::FakeGenerator as FakeGen;
+    use crate::evolutionary_distances::{
+        LevenshteinDNACorrected as LDNACorr, LevenshteinProteinCorrected,
+    };
+    use crate::random::{FakeGenerator, FakeRng};
     use crate::tree::Node;
     use crate::tree::NodeIdx::{self, Internal as I, Leaf as L};
     use crate::{record_wo_desc as record, tree};
@@ -263,9 +269,9 @@ mod tests {
             record!("D3", b"A"),
             record!("E4", b"CC"),
         ]);
-        let rng = FakeGen::new();
-        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
-        let mat = nj_builder.compute_distance_matrix(&sequences);
+
+        let mat = NJTreeBuilder::new(LDNACorr {}, &mut FakeGenerator::default())
+            .compute_distance_matrix(&sequences);
         let true_mat = dmatrix![
         0.0, 26.728641210756745, 26.728641210756745, 26.728641210756745, 0.8239592165010822;
         26.728641210756745, 0.0, 0.8239592165010822, 0.0, 26.728641210756745;
@@ -283,9 +289,8 @@ mod tests {
             record!("C2", b"AAAAAAAAAAAAAAAAAAAAAAAAA"),
             record!("D3", b"CAAAAAAAAAAAAAAAAAAA"),
         ]);
-        let rng = FakeGen::new();
-        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
-        let mat = nj_builder.compute_distance_matrix(&sequences);
+        let mat = NJTreeBuilder::new(LDNACorr {}, &mut FakeGenerator::default())
+            .compute_distance_matrix(&sequences);
         let true_mat = dmatrix![
         0.0, 0.0, 0.2326161962278796, 0.051744653615213576;
         0.0, 0.0, 0.2326161962278796, 0.051744653615213576;
@@ -312,8 +317,8 @@ mod tests {
             ],
         };
         let sequences = Sequences::new((1..=8).map(|i| record!(&i.to_string(), b"")).collect());
-        let rng = FakeGen::new();
-        let nj_tree = NJTreeBuilder::new(LDNACorr {}, &rng)
+        let mut rng = FakeGenerator::default();
+        let nj_tree = NJTreeBuilder::new(LDNACorr {}, &mut rng)
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
         let correct_tree =
@@ -341,9 +346,8 @@ mod tests {
             record!("C", b""),
             record!("D", b""),
         ]);
-        let rng = FakeGen::new();
-        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
-        let tree = nj_builder
+        let mut rng = FakeGenerator::default();
+        let tree = NJTreeBuilder::new(LDNACorr {}, &mut rng)
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
         assert_eq!(tree.by_id("A").blen, 1.0);
@@ -376,13 +380,12 @@ mod tests {
             record!("C2", b""),
             record!("D3", b""),
         ]);
-        let rng = FakeGen::new();
+        let mut rng = FakeGenerator::default();
 
         // The DNA distance function is not valid for AA sequences but here it is needed to instantiate NJTreeBuilder
         // since the distance function is a required parameter.
         // The actual distances are provided directly so the distance function is not used.
-        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
-        let tree = nj_builder
+        let tree = NJTreeBuilder::new(LevenshteinProteinCorrected {}, &mut rng)
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
         assert_eq!(tree.len(), 7);
@@ -411,9 +414,7 @@ mod tests {
             record!("d", b""),
             record!("e", b""),
         ]);
-        let rng = FakeGen::new();
-        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
-        let tree = nj_builder
+        let tree = NJTreeBuilder::new(LDNACorr {}, &mut FakeGenerator::default())
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
         assert_eq!(tree.by_id("a").blen, 2.0);
@@ -449,9 +450,7 @@ mod tests {
             record!("D3", b""),
             record!("E4", b""),
         ]);
-        let rng = FakeGen::new();
-        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
-        let nj_tree = nj_builder
+        let nj_tree = NJTreeBuilder::new(LDNACorr {}, &mut FakeGenerator::default())
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
         let nodes = vec![
@@ -485,9 +484,8 @@ mod tests {
             record!("C2", b""),
             record!("D3", b""),
         ]);
-        let rng = FakeGen::new();
-        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
-        let nj_tree = nj_builder
+
+        let nj_tree = NJTreeBuilder::new(LDNACorr {}, &mut FakeGenerator::default())
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
         let nodes = vec![
@@ -506,20 +504,20 @@ mod tests {
 
     #[test]
     fn nj_builder_correct_creation() {
-        let rng = FakeGen::new();
-        let builder = NJTreeBuilder::new(LDNACorr {}, &rng);
+        let mut rng = FakeGenerator::default();
+        let builder = NJTreeBuilder::new(LDNACorr {}, &mut rng);
         assert_matches!(builder.randomise, Strategy::ArgMax);
-        let builder = NJTreeBuilder::new(LDNACorr {}, &rng);
+        let builder = NJTreeBuilder::new(LDNACorr {}, &mut rng);
         assert_matches!(builder.randomise, Strategy::ArgMax);
-        let builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 0.0);
+        let builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &mut rng, 0.0);
         assert_matches!(builder.randomise, Strategy::SoftmaxUniform(t) if t == 0.0);
-        let builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 1.0);
+        let builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &mut rng, 1.0);
         assert_matches!(builder.randomise, Strategy::SoftmaxUniform(t) if t == 1.0);
-        let builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 0.5);
+        let builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &mut rng, 0.5);
         assert_matches!(builder.randomise, Strategy::SoftmaxUniform(t) if t == 0.5);
-        let builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 1.5);
+        let builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &mut rng, 1.5);
         assert_matches!(builder.randomise, Strategy::SoftmaxUniform(t) if t == 1.0);
-        let builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, -1.5);
+        let builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &mut rng, -1.5);
         assert_matches!(builder.randomise, Strategy::SoftmaxUniform(t) if t == 0.0);
     }
 
@@ -563,7 +561,7 @@ mod tests {
     fn softmax() {
         let delta_tree_length = dvector![-1.3, -5.1, -2.2, -0.7, -1.1];
         let softmax_vector =
-            NJTreeBuilder::<LDNACorr, FakeGen>::softmax_from_deltas(delta_tree_length);
+            NJTreeBuilder::<LDNACorr, FakeRng>::softmax_from_deltas(delta_tree_length);
         assert_eq!(
             softmax_vector,
             dvector![
@@ -581,22 +579,22 @@ mod tests {
     fn softmax_examples() {
         // Example values from https://medium.com/@hunter-j-phillips/a-simple-introduction-to-softmax-287712d69bac
         let softmax =
-            NJTreeBuilder::<LDNACorr, FakeGen>::softmax_from_deltas(dvector![-5.0, -7.0, -10.0]);
+            NJTreeBuilder::<LDNACorr, FakeRng>::softmax_from_deltas(dvector![-5.0, -7.0, -10.0]);
         assert_relative_eq!(softmax, dvector![0.006, 0.047, 0.946], epsilon = 1e-3);
         assert_relative_eq!(softmax.sum(), 1.0, epsilon = 1e-5);
 
         let softmax =
-            NJTreeBuilder::<LDNACorr, FakeGen>::softmax_from_deltas(dvector![-1.0, -2.0, -3.0]);
+            NJTreeBuilder::<LDNACorr, FakeRng>::softmax_from_deltas(dvector![-1.0, -2.0, -3.0]);
         assert_relative_eq!(softmax, dvector![0.0900, 0.2447, 0.6652], epsilon = 1e-4);
         assert_relative_eq!(softmax.sum(), 1.0, epsilon = 1e-5);
 
         let softmax =
-            NJTreeBuilder::<LDNACorr, FakeGen>::softmax_from_deltas(dvector![-4.0, -5.0, -6.0]);
+            NJTreeBuilder::<LDNACorr, FakeRng>::softmax_from_deltas(dvector![-4.0, -5.0, -6.0]);
         assert_relative_eq!(softmax, dvector![0.0900, 0.2447, 0.6652], epsilon = 1e-4);
         assert_relative_eq!(softmax.sum(), 1.0, epsilon = 1e-5);
 
         // Example values from https://ai.gopubby.com/the-softmax-activation-function-work-with-keras-8f674b4481a5
-        let softmax = NJTreeBuilder::<LDNACorr, FakeGen>::softmax_from_deltas(dvector![
+        let softmax = NJTreeBuilder::<LDNACorr, FakeRng>::softmax_from_deltas(dvector![
             -2.0, -4.3, -1.2, 3.1
         ]);
         assert_relative_eq!(
@@ -610,9 +608,9 @@ mod tests {
     fn softmax_w_temp_regular() {
         let delta_tree_length = dvector![-1.3, -5.1, -2.2, -0.7, -1.1];
         let softmax_w_temp =
-            NJTreeBuilder::<LDNACorr, FakeGen>::softmax(delta_tree_length.clone(), 1.0);
+            NJTreeBuilder::<LDNACorr, FakeRng>::softmax(delta_tree_length.clone(), 1.0);
         let softmax_regular =
-            NJTreeBuilder::<LDNACorr, FakeGen>::softmax_from_deltas(delta_tree_length);
+            NJTreeBuilder::<LDNACorr, FakeRng>::softmax_from_deltas(delta_tree_length);
         assert_eq!(softmax_w_temp, softmax_regular);
         assert_eq!(softmax_w_temp.sum(), 1.0);
     }
@@ -620,7 +618,7 @@ mod tests {
     #[test]
     fn softmax_w_temp_uniform() {
         let delta_tree_length = dvector![-1.3, -5.1, -2.2, -0.7, -1.1];
-        let softmax_vector = NJTreeBuilder::<LDNACorr, FakeGen>::softmax(delta_tree_length, 0.0);
+        let softmax_vector = NJTreeBuilder::<LDNACorr, FakeRng>::softmax(delta_tree_length, 0.0);
         assert_eq!(softmax_vector, dvector![0.2, 0.2, 0.2, 0.2, 0.2]);
         assert_eq!(softmax_vector.sum(), 1.0);
     }
@@ -628,7 +626,7 @@ mod tests {
     #[test]
     fn softmax_w_temp_between() {
         let delta_tree_length = dvector![-1.3, -5.1, -2.2, -0.7, -1.1];
-        let softmax_vector = NJTreeBuilder::<LDNACorr, FakeGen>::softmax(delta_tree_length, 0.5);
+        let softmax_vector = NJTreeBuilder::<LDNACorr, FakeRng>::softmax(delta_tree_length, 0.5);
         assert_eq!(softmax_vector.sum(), 1.0);
     }
 
@@ -651,9 +649,10 @@ mod tests {
         };
         let sequences = Sequences::new((1..=8).map(|i| record!(&i.to_string(), b"")).collect());
 
-        // FakeGen will return values that will select the same pairs as in the original paper
-        let rng = FakeGen::from_u64_values(vec![0, 5, 5, 9, 1, 0, 0]);
-        let nj_tree = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 1.0)
+        // FakeRng will return values that will select the same pairs as in the original paper
+        let mut rng =
+            RandomGenerator::from_rng(FakeRng::from_u64_values(vec![0, 5, 5, 9, 1, 0, 0]));
+        let nj_tree = NJTreeBuilder::new_with_softmax(LDNACorr {}, &mut rng, 1.0)
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
         let correct_tree =
@@ -682,16 +681,16 @@ mod tests {
             record!("D3", b""),
         ]);
 
-        // FakeGen will return values that will select the last pair every time
-        let rng = FakeGen::from_u64_values(vec![5, 2, 0]);
-        let nj_softmax_builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 1.0);
-        let nj_softmax_tree = nj_softmax_builder
-            .build_from_distances(nj_distances.clone(), &sequences)
-            .unwrap();
+        // FakeRng will return values that will select the last pair every time
+        let nj_softmax_tree = NJTreeBuilder::new_with_softmax(
+            LDNACorr {},
+            &mut RandomGenerator::from_rng(FakeRng::from_u64_values(vec![5, 2, 0])),
+            1.0,
+        )
+        .build_from_distances(nj_distances.clone(), &sequences)
+        .unwrap();
 
-        let rng = FakeGen::new();
-        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
-        let tree = nj_builder
+        let tree = NJTreeBuilder::new(LDNACorr {}, &mut FakeGenerator::default())
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
 
@@ -719,23 +718,20 @@ mod tests {
             record!("D3", b""),
             record!("E4", b""),
         ]);
-        let rng = FakeGen::new();
-        let nj_uniform_builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 0.0);
-        let nj_uniform_tree = nj_uniform_builder
+        let mut rng = FakeGenerator::default();
+        let nj_uniform_tree = NJTreeBuilder::new_with_softmax(LDNACorr {}, &mut rng, 0.0)
             .build_from_distances(nj_distances.clone(), &sequences)
             .unwrap();
 
-        let nj_softmax_builder = NJTreeBuilder::new_with_softmax(LDNACorr {}, &rng, 1.0);
-        let nj_softmax_tree = nj_softmax_builder
+        let nj_softmax_tree = NJTreeBuilder::new_with_softmax(LDNACorr {}, &mut rng, 1.0)
             .build_from_distances(nj_distances.clone(), &sequences)
             .unwrap();
 
-        let nj_builder = NJTreeBuilder::new(LDNACorr {}, &rng);
-        let nj_tree = nj_builder
+        let nj_tree = NJTreeBuilder::new(LDNACorr {}, &mut rng)
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
 
-        // Since FakeGen always returns 0, both softmax trees should be the same
+        // Since FakeRng always returns 0, both softmax trees should be the same
         assert_eq!(nj_uniform_tree.nodes, nj_softmax_tree.nodes);
 
         // The softmax/uniform trees should be longer than the original NJ since it does not pick the optimal pair

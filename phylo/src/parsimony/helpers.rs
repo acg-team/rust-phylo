@@ -1,6 +1,6 @@
 use std::fmt::{self, Debug};
 
-use rand::random;
+use rand::{rng, Rng};
 
 use crate::alphabets::ParsimonySet;
 
@@ -113,5 +113,5 @@ impl ParsimonySite {
 }
 
 pub(crate) fn rng_len(l: usize) -> usize {
-    random::<usize>() % l
+    rng().random_range(0..l)
 }

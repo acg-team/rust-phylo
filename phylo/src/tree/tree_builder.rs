@@ -4,5 +4,5 @@ use crate::Result;
 
 /// A trait for building phylogenetic trees from a set of sequences.
 pub trait TreeBuilder {
-    fn build(&self, seqs: &Sequences) -> Result<Tree>;
+    fn build(&mut self, seqs: &Sequences) -> Result<Tree>;
 }

@@ -6,12 +6,12 @@ use approx::assert_relative_eq;
 use fixedbitset::FixedBitSet;
 use itertools::repeat_n;
 use pest::error::ErrorVariant;
-use rand::Rng;
+use rand::{rng, Rng};
+use rstest::rstest;
 
 use crate::alignment::Sequences;
 use crate::io::read_newick_from_file;
 use crate::parsimony::Rounding;
-use crate::random::DefaultGenerator;
 use crate::tree::{
     percentiles, percentiles_rounded,
     tree_parser::{from_newick, ParsingError, Rule},
@@ -457,9 +457,9 @@ fn check_getting_branch_length_percentiles() {
 
 #[test]
 fn test_node_idx_from_usize() {
-    let r1 = rand::thread_rng().gen_range(1..100);
+    let r1 = rng().random_range(1..100);
     assert_eq!(usize::from(&L(r1)), r1);
-    let r2 = rand::thread_rng().gen_range(1..100);
+    let r2 = rng().random_range(1..100);
     assert_eq!(usize::from(&I(r2)), r2);
 }
 
@@ -494,22 +494,24 @@ fn test_node_id_string() {
     }
 }
 
-#[test]
-fn test_node_idx_display() {
-    let rng = DefaultGenerator::default();
-    let r1 = rng.gen_range(1..100);
-    assert_eq!(format!("{}", L(r1)), format!("leaf node {}", r1));
-    let r2 = rng.gen_range(1..100);
-    assert_eq!(format!("{}", I(r2)), format!("internal node {}", r2));
+#[rstest]
+#[case(0)]
+#[case(1)]
+#[case(42)]
+#[case(99)]
+fn test_node_idx_display(#[case] idx: usize) {
+    assert_eq!(format!("{}", L(idx)), format!("leaf node {}", idx));
+    assert_eq!(format!("{}", I(idx)), format!("internal node {}", idx));
 }
 
-#[test]
-fn test_node_idx_debug() {
-    let rng = DefaultGenerator::default();
-    let r1 = rng.gen_range(1..100);
-    assert_eq!(format!("{:?}", L(r1)), format!("Leaf({})", r1));
-    let r2 = rng.gen_range(1..100);
-    assert_eq!(format!("{:?}", I(r2)), format!("Int({})", r2));
+#[rstest]
+#[case(0)]
+#[case(1)]
+#[case(42)]
+#[case(99)]
+fn test_node_idx_debug(#[case] idx: usize) {
+    assert_eq!(format!("{:?}", L(idx)), format!("Leaf({})", idx));
+    assert_eq!(format!("{:?}", I(idx)), format!("Int({})", idx));
 }
 
 #[test]

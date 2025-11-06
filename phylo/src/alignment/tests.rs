@@ -1,5 +1,5 @@
+use rand::rng;
 use rand::seq::IteratorRandom;
-use rand::thread_rng;
 
 use crate::alignment::{
     Alignment, AncestralAlignment, InternalAlignments, PairwiseAlignment as PA, SeqMaps, Sequences,
@@ -204,7 +204,7 @@ fn compile_msa_root() {
     let aligned_seqs = test_alignment(
         &["A0", "B1", "C2", "D3", "E4"]
             .into_iter()
-            .choose_multiple(&mut thread_rng(), 5),
+            .choose_multiple(&mut rng(), 5),
     );
     let msa = MSA::from_aligned(aligned_seqs.clone(), &tree).unwrap();
     assert_eq!(
