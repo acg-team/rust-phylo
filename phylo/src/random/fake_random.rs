@@ -116,7 +116,7 @@ impl Default for FakeRng {
 #[cfg_attr(coverage, coverage(off))]
 mod tests {
     use approx::assert_relative_eq;
-    use rand::{distr::weighted::WeightedIndex, SeedableRng};
+    use rand::{distr::weighted::WeightedIndex, RngCore, SeedableRng};
 
     use crate::random::{FakeGenerator, RandomGenerator};
 
@@ -326,5 +326,20 @@ mod tests {
         let mid_u64 = 1u64 << 63; // Half of the maximum value when shifted
         let mid_f64 = FakeRng::u64_to_f64_for_rand(mid_u64);
         assert_relative_eq!(mid_f64, 0.5, epsilon = 1e-15);
+    }
+
+    #[test]
+    fn test_fill_bytes() {
+        let values = vec![0x1122334455667788, 0x99AABBCCDDEEFF00];
+        let mut fake_rng = FakeRng::from_u64_values(values.clone());
+        let mut buffer = [0u8; 16];
+        fake_rng.fill_bytes(&mut buffer);
+
+        let expected_bytes: Vec<u8> = values
+            .iter()
+            .flat_map(|&v| v.to_le_bytes().to_vec())
+            .collect();
+
+        assert_eq!(buffer.to_vec(), expected_bytes);
     }
 }
