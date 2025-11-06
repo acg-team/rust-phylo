@@ -162,7 +162,7 @@ mod tests {
         let values = (15..25).collect::<Vec<u64>>();
         let mut fake_rng = RandomGenerator::from_rng(FakeRng::from_u64_values(values.clone()));
         assert_eq!(fake_rng.seed(), 0);
-        for i in 0..10 {
+        for i in 0..30 {
             let val: u64 = fake_rng.random();
             assert_eq!(val, values[i % values.len()]);
         }
