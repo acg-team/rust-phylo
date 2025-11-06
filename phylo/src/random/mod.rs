@@ -10,8 +10,11 @@ pub use fake_random::*;
 
 /// A generic random number generator wrapper that can work with different RNGs.
 ///
-/// This provides a reusable interface for different RNG backends (not thread-safe per se).
-/// The RNG must implement `Rng + SeedableRng + Send`.
+/// This provides a reusable interface for different RNG backends, which must implement `Rng + SeedableRng`.
+/// Note: This implementation is not thread-reproducible, i.e. if used in multiple threads, the sequences
+/// generated may differ between runs. For phylogenetic analysis reproducibility both sequential and parallel
+/// runs should produce the same results when using the same seed.
+/// Users must handle this accordingly to ensure reproducibility if needed.
 ///
 /// # Examples
 ///
@@ -35,8 +38,6 @@ where
 
 /// Type alias for the default RNG implementation which uses Pcg32 which is platform-independent.
 /// Note: Pcg32 is not the most secure RNG, but is fast and suitable for most phylogenetic applications.
-/// Note: This implementation is not thread-reproducible, e.g. if used in multiple threads, the sequences
-/// generated may differ between runs. Users must handle this accordingly to ensure reproducibility if needed.
 pub type DefaultGenerator = RandomGenerator<Pcg32>;
 
 impl Default for DefaultGenerator {
