@@ -257,6 +257,43 @@ mod tests {
         assert_eq!(rng.sample(&dist), 1);
     }
 
+    #[cfg(test)]
+    fn get_cumulative_index(weights: &[f64], value: f64) -> usize {
+        let total: f64 = weights.iter().sum();
+        let mut cumulative = 0.0;
+        for (i, &weight) in weights.iter().enumerate() {
+            cumulative += weight / total;
+            if value < cumulative {
+                return i;
+            }
+        }
+        weights.len() - 1
+    }
+
+    #[test]
+    fn fake_sample_with_values() {
+        // sampling with pre-configured float values
+        let floats = vec![
+            0.1,
+            0.25,
+            0.5,
+            0.75,
+            0.9,
+            0.99,
+            0.2 - f64::EPSILON,
+            0.2 + f64::EPSILON,
+            1.0,
+            0.0,
+        ];
+        let mut rng = RandomGenerator::from_rng(FakeRng::from_f64_values(floats.clone()));
+        let weights = vec![0.2, 0.35, 0.4, 0.05];
+        let dist = WeightedIndex::new(weights.clone()).unwrap();
+        for value in &floats {
+            let expected = get_cumulative_index(&weights, *value);
+            assert_eq!(rng.sample(&dist), expected);
+        }
+    }
+
     #[test]
     fn fake_from_desired_floats() {
         // Fake RNG that produces specific f64 values
