@@ -13,17 +13,18 @@ impl EvolutionaryDistance for LevenshteinDNACorrected {
     fn dist(&self, a: &Record, b: &Record) -> f64 {
         // Distance formula corrected using the Jukes-Cantor model
         // Formula 1.6 from "Computational Molecular Evolution" by Ziheng Yang (2006)
+        //     d = -3/4 * ln(1 - (4/3) * p)
+        // where p is the proportion of differing sites (here, Levenshtein distance / max length).
+        // To avoid infinite distance when all characters are different, the maximum
+        // proportion of different characters is capped to 3/4=0.75.
         let seq_i = a.seq();
         let seq_j = b.seq();
-        // To avoid infinite distance when all characters are different, the maximum
-        // proportion of different characters is capped to 3/4=0.75
-        let max_proportion = 3.0 / 4.0;
         let dist = levenshtein(seq_i, seq_j) as f64;
-        let proportion_diff = f64::min(
+        let p = f64::min(
             dist / (max(seq_i.len(), seq_j.len()) as f64),
-            max_proportion - f64::EPSILON,
+            3.0 / 4.0 - f64::EPSILON,
         );
-        -max_proportion * (1.0 - 1.0 / max_proportion * proportion_diff).ln()
+        -(3.0 / 4.0) * (1.0 - (4.0 / 3.0) * p).ln()
     }
 }
 
@@ -33,19 +34,21 @@ pub struct LevenshteinProteinCorrected;
 
 impl EvolutionaryDistance for LevenshteinProteinCorrected {
     fn dist(&self, a: &Record, b: &Record) -> f64 {
-        // Distance formula corrected using the the Poisson model, equivalent to Jukes-Cantor for proteins.
+        // Corrected protein distance formula equivalent to Jukes-Cantor for proteins.
         // Formula 2.3 from "Computational Molecular Evolution" by Ziheng Yang (2006)
+        //     d = -19/20 * ln(1 - (20/19) * p)
+        // where p is the proportion of differing sites (here, Levenshtein distance / max length).
+        // To avoid infinite distance when all characters are different, the maximum
+        // proportion of different characters is capped to 19/20=0.95.
+
         let seq_i = a.seq();
         let seq_j = b.seq();
-        // To avoid infinite distance when all characters are different, the maximum
-        // proportion of different characters is capped to 19/20=0.95
-        let max_proportion = 19.0 / 20.0;
         let dist = levenshtein(seq_i, seq_j) as f64;
-        let proportion_diff = f64::min(
+        let p = f64::min(
             dist / (max(seq_i.len(), seq_j.len()) as f64),
-            max_proportion - f64::EPSILON,
+            19.0 / 20.0 - f64::EPSILON,
         );
-        -max_proportion * (1.0 - 1.0 / max_proportion * proportion_diff).ln()
+        -(19.0 / 20.0) * (1.0 - (20.0 / 19.0) * p).ln()
     }
 }
 
