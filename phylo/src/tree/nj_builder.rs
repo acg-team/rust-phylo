@@ -56,8 +56,8 @@ impl<D: EvolutionaryDistance> TreeBuilder for NJTreeBuilder<D> {
 
 impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
     /// Creates a Neighbor Joining Tree Builder with ArgMax strategy, which uses argmax to minimise the tree length.
-    /// This implements the classic NJ algorithm but always selects the first pair of nodes with the smallest distance.
-    /// TODO: Add option to randomise ties @junniest.
+    /// This implements the classic NJ algorithm, where ties (multiple pairs of nodes with the smallest distance) are
+    /// broken uniformly at random.
     ///
     /// # Example
     /// ```rust
