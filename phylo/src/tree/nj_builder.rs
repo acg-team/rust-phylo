@@ -665,8 +665,9 @@ mod tests {
         let sequences = Sequences::new((1..=8).map(|i| record!(&i.to_string(), b"")).collect());
 
         // FakeRng will return values that will select the same pairs as in the original paper
-        let mut rng =
-            RandomGenerator::from_rng(FakeRng::from_u64_values(vec![0, 5, 5, 9, 1, 0, 0]));
+        let mut rng = RandomGenerator::from_rng(FakeRng::from_f64_values(vec![
+            0.01, 0.01, 0.01, 0.5, 0.4, 0.0, 0.0,
+        ]));
         let nj_tree = NJTreeBuilder::new_with_softmax(LDNACorr {}, &mut rng, 1.0)
             .build_from_distances(nj_distances, &sequences)
             .unwrap();
