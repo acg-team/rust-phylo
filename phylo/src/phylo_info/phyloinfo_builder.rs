@@ -228,10 +228,10 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
         info!("Building NJ tree from sequences");
         if sequences.alphabet() == &dna_alphabet() {
             info!("Using corrected Levenshtein DNA distance for distance calculation");
-            NJTreeBuilder::new(LevenshteinDNACorrected {}, rng).build(sequences)
+            NJTreeBuilder::new(LevenshteinDNACorrected {}).build(sequences, rng)
         } else if sequences.alphabet() == &protein_alphabet() {
             info!("Using corrected Levenshtein protein distance for distance calculation");
-            NJTreeBuilder::new(LevenshteinProteinCorrected {}, rng).build(sequences)
+            NJTreeBuilder::new(LevenshteinProteinCorrected {}).build(sequences, rng)
         } else {
             unreachable!("Unknown alphabet, should have been defined earlier");
         }
