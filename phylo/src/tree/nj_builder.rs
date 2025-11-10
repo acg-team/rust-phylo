@@ -400,9 +400,9 @@ mod tests {
             record!("D3", b""),
         ]);
 
-        // The DNA distance function is not valid for AA sequences but here it is needed to instantiate NJTreeBuilder
-        // since the distance function is a required parameter.
-        // The actual distances are provided directly so the distance function is not used.
+        // The distance function parameter is required by NJTreeBuilder but not used in this test,
+        // since distances are provided directly via build_from_distances.
+        // The choice of distance function here does not affect the test outcome.
         let tree = NJTreeBuilder::new(LevenshteinProteinCorrected {})
             .build_from_distances(nj_distances, &sequences, &mut FakeGenerator::default())
             .unwrap();
