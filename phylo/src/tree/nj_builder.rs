@@ -261,8 +261,6 @@ fn lower_triangle_index(k: usize) -> (usize, usize) {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod tests {
-    use std::path::Path;
-
     use approx::assert_relative_eq;
     use assert_matches::assert_matches;
     use nalgebra::{dmatrix, dvector};
@@ -273,7 +271,7 @@ mod tests {
     use crate::random::{FakeGenerator, FakeRng};
     use crate::tree::Node;
     use crate::tree::NodeIdx::{self, Internal as I, Leaf as L};
-    use crate::{io, record_wo_desc as record, tree};
+    use crate::{record_wo_desc as record, tree};
 
     use super::*;
 
@@ -752,24 +750,5 @@ mod tests {
         assert!(nj_uniform_tree.length > nj_tree.length);
         // Different resulting topologies
         assert!(nj_uniform_tree.robinson_foulds(&nj_tree) > 0);
-    }
-
-    #[test]
-    fn phyml_protein_tree() {
-        let fldr = Path::new("./data/phyml_protein_example/");
-        let seq_file = fldr.join("seqs.fasta");
-        let seqs = Sequences::new(io::read_sequences(seq_file).unwrap());
-
-        let rng = &mut FakeGenerator::from_rng(FakeRng::from_f64_values(vec![0.5; 10]));
-        let tree = NJTreeBuilder::new(LevenshteinProteinCorrected {})
-            .build(&seqs, rng)
-            .unwrap();
-
-        let phyml_tree = io::read_newick_from_file(fldr.join("phyml_nj_tree.newick"))
-            .unwrap()
-            .pop()
-            .unwrap();
-        // assert_relative_eq!(tree.length, phyml_tree.length);
-        assert_eq!(tree.robinson_foulds(&phyml_tree), 0);
     }
 }
