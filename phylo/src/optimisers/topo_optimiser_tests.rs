@@ -553,14 +553,16 @@ fn wag_vs_phyml_empirical_freqs() {
     // when using empirical frequencies
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
-    let tree_file = fldr.join("jati_wag_empirical.newick");
-    let start_info = PIB::new(seq_file.clone())
-        .build_w_rng(&mut FakeGenerator::default())
+    let starting_tree = fldr.join("phyml_nj_tree.newick");
+    let start_info = PIB::with_attrs(seq_file.clone(), starting_tree)
+        .build()
         .unwrap();
+
+    let rng = &mut FakeGenerator::default();
 
     let wag = SubstModel::<WAG>::new(&[], &[]);
     let o = ModelOptimiser::new(
-        SCB::new(wag.clone(), start_info).build().unwrap(),
+        SCB::new(wag.clone(), start_info.clone()).build().unwrap(),
         Empirical,
     )
     .run()
@@ -569,8 +571,14 @@ fn wag_vs_phyml_empirical_freqs() {
     assert!(o.final_cost >= o.initial_cost);
     let wag_opt = o.cost.model;
 
-    let mut fake_rng = FakeGenerator::from_rng(FakeRng::from_u64_values(vec![2, 4, 7, 3, 1, 5]));
-    let res = optimise_tree(&seq_file, &tree_file, wag_opt.clone(), &mut fake_rng);
+    let res = TopologyOptimiser::new(
+        SCB::new(wag_opt.clone(), start_info).build().unwrap(),
+        SprOptimiser {},
+        rng,
+    )
+    .run()
+    .unwrap();
+
     let tree = res.cost.tree();
     assert!(res.final_cost >= res.initial_cost);
 
@@ -636,11 +644,23 @@ fn wag_vs_phyml_fixed_freqs() {
     // when using fixed frequencies
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
-    let tree_file = fldr.join("jati_wag_fixed.newick");
+    let starting_tree = fldr.join("phyml_nj_tree.newick");
     let wag = SubstModel::<WAG>::new(&[], &[]);
+    let start_info = PIB::with_attrs(seq_file.clone(), starting_tree)
+        .build()
+        .unwrap();
 
     let rng = &mut FakeGenerator::default();
-    let res = optimise_tree(&seq_file, &tree_file, wag.clone(), rng);
+
+    let res = TopologyOptimiser::new(
+        SCB::new(wag.clone(), start_info).build().unwrap(),
+        SprOptimiser {},
+        rng,
+    )
+    .run()
+    .unwrap();
+
+    assert_relative_eq!(res.initial_cost, -5311.776363282737, epsilon = 1e-3);
     assert!(res.final_cost >= res.initial_cost);
 
     let phyml_res = PIB::with_attrs(seq_file.clone(), fldr.join("phyml_wag_fixed.newick"))
