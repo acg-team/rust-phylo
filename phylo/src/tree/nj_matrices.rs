@@ -81,7 +81,7 @@ impl DistanceMatrix {
         let n = self.distances.ncols();
         let s = self.distances.row_sum();
         let mut index = 0;
-        let mut delta_tree_len = DVector::zeros(n * (n + 1) / 2 - n);
+        let mut delta_tree_len = DVector::zeros(n * (n - 1) / 2);
         for r in 1..n {
             for c in 0..r {
                 delta_tree_len[index] = (n - 2) as f64 * self.distances[(r, c)] - s[r] - s[c];
