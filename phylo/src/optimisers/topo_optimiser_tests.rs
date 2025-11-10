@@ -485,7 +485,7 @@ fn pip_optimise_model_tree() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
 
-    let rng = &mut FakeGenerator::default();
+    let rng = &mut FakeGenerator::from_rng(FakeRng::from_u64_values(vec![u64::MAX]));
     let start_info = PIB::new(seq_file.clone()).build_w_rng(rng).unwrap();
 
     // Optimise tree starting from an NJ tree and initial model
