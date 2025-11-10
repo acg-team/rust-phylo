@@ -160,6 +160,23 @@ impl<'a, D: EvolutionaryDistance, R: Rng + SeedableRng> NJTreeBuilder<'a, D, R> 
         exp_mat
     }
 
+    fn argmin(mut delta_tree_len: DVector<f64>) -> DVector<f64> {
+        debug_assert!(
+            !delta_tree_len.is_empty(),
+            "The input vector must not be empty."
+        );
+
+        let min_value = delta_tree_len.argmin().1;
+        for elem in delta_tree_len.iter_mut() {
+            if *elem == min_value {
+                *elem = 1.0;
+            } else {
+                *elem = 0.0;
+            }
+        }
+        delta_tree_len
+    }
+
     /// Builds a tree from a given distance matrix using the Neighbor Joining algorithm.
     /// TODO: does not actually need the sequences, only used to create the tree with
     /// correct leaf ids, should be refactored @junniest
@@ -174,12 +191,14 @@ impl<'a, D: EvolutionaryDistance, R: Rng + SeedableRng> NJTreeBuilder<'a, D, R> 
         for cur_idx in n..=root_idx {
             let delta_lengths = distances.compute_delta_tree_length();
 
-            let index = match self.randomise {
-                Strategy::SoftmaxUniform(t) => self
-                    .rng
-                    .sample(&WeightedIndex::new(Self::softmax(delta_lengths, t).iter()).unwrap()),
-                Strategy::ArgMax => delta_lengths.argmin().0,
+            let distribution = match self.randomise {
+                Strategy::SoftmaxUniform(t) => Self::softmax(delta_lengths, t),
+                Strategy::ArgMax => Self::argmin(delta_lengths),
             };
+
+            let index = self
+                .rng
+                .sample(&WeightedIndex::new(distribution.iter()).unwrap());
 
             let (i, j) = lower_triangle_index(index);
             let idx_new = cur_idx;
