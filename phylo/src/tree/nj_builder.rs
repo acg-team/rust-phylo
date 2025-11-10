@@ -209,12 +209,6 @@ impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
                 blen_i,
                 blen_j,
             );
-            println!(
-                "merging nodes {} and {} into new node {}",
-                distances.idx[i],
-                distances.idx[j],
-                NodeIdx::Internal(idx_new)
-            );
 
             distances = distances
                 .add_merge_node(idx_new)
