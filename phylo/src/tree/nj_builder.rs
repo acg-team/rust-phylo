@@ -148,13 +148,9 @@ impl<'a, D: EvolutionaryDistance, R: Rng + SeedableRng> NJTreeBuilder<'a, D, R> 
             !delta_tree_len.is_empty(),
             "The input vector must not be empty."
         );
-        if delta_tree_len.len() == 1 {
-            return DVector::from_element(1, 1.0);
-        }
-        let n = delta_tree_len.len();
 
         let mut exp_mat = Self::softmax_from_deltas(delta_tree_len);
-        let uniform_weight = 1.0 / n as f64;
+        let uniform_weight = 1.0 / exp_mat.len() as f64;
 
         // Interpolated probabilities, temp = 0.0 is the uniform distribution, temp = 1.0 is the softmax of distances
         // Avoid copying the matrix by mutating in place
