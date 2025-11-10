@@ -13,7 +13,7 @@ use crate::optimisers::{
 use crate::parsimony::{scoring::ModelScoringBuilder, BasicParsimonyCost, DolloParsimonyCost};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::pip_model::{PIPCost, PIPCostBuilder as PIPCB, PIPModel};
-use crate::random::FakeGenerator;
+use crate::random::{FakeGenerator, FakeRng};
 use crate::substitution_models::{
     dna_models::*, protein_models::*, QMatrix, SubstModel, SubstitutionCost,
     SubstitutionCostBuilder as SCB,
@@ -24,31 +24,21 @@ use crate::{record_wo_desc as record, tree};
 macro_rules! define_optimise_trees {
     ($($fn_name:ident: { model = $model:ident, cost = $cost:ident, builder = $builder:ident , move_optimiser = $move_optimiser:ident }),* $(,)?) => {
         $(
-            #[cfg(not(feature = "precomputed-test-results"))]
             fn $fn_name<Q: QMatrix + Send>(
                 seq_file: &std::path::Path,
-                _: &std::path::Path,
+                _tree_precomputed_file: &std::path::Path,
                 model: $model<Q>,
+                rng: &mut FakeGenerator,
             ) -> TreeOptimisationResult<$cost<Q, MSA>> {
-                let mut fake_rng = FakeGenerator::default();
-                let start_info = PIB::new(seq_file).build_w_rng(&mut fake_rng).unwrap();
-                let cost = $builder::new(model, start_info).build().unwrap();
-                TopologyOptimiser::new(cost, $move_optimiser {}, &mut fake_rng).run().unwrap()
-            }
-
-            #[cfg(feature = "precomputed-test-results")]
-            fn $fn_name<Q: QMatrix + Send>(
-                seq_file: &std::path::Path,
-                tree_file: &std::path::Path,
-                model: $model<Q>,
-            ) -> TreeOptimisationResult<$cost<Q, MSA>> {
-                let mut fake_rng = FakeGenerator::default();
-                let start_info = PIB::new(seq_file).build_w_rng(&mut fake_rng).unwrap();
-
-                if let Ok(precomputed) =
-                    PIB::with_attrs(seq_file, tree_file).build()
+                let start_info = PIB::new(seq_file).build_w_rng(rng).unwrap();
+                let initial_cost = $builder::new(model.clone(), start_info).build().unwrap();
+cfg_if::cfg_if! {
+if #[cfg(not(feature="precomputed-test-results"))] {
+                TopologyOptimiser::new(initial_cost, $move_optimiser {}, rng).run().unwrap()
+} else {
+if let Ok(precomputed) =
+                    PIB::with_attrs(seq_file, _tree_precomputed_file).build()
                 {
-                    let initial_cost = $builder::new(model.clone(), start_info).build().unwrap();
                     let final_cost = $builder::new(model, precomputed.clone()).build().unwrap();
 
                     TreeOptimisationResult {
@@ -59,15 +49,15 @@ macro_rules! define_optimise_trees {
                         costs: vec![initial_cost.cost(), final_cost.cost()],
                     }
                 } else {
-                    let cost = $builder::new(model.clone(), start_info).build().unwrap();
-                    let res = TopologyOptimiser::new(cost, $move_optimiser {}, &mut fake_rng).run().unwrap();
+                    let res = TopologyOptimiser::new(initial_cost, $move_optimiser {}, rng).run().unwrap();
                     assert!(crate::io::write_newick_to_file(
                         &[res.cost.tree().clone()],
-                        tree_file
+                        _tree_precomputed_file
                     )
                     .is_ok());
                     res
                 }
+}}
             }
         )*
     };
@@ -302,9 +292,10 @@ fn wag_no_gaps_vs_phyml_nj_tree_start_nni() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
     let tree_file = fldr.join("jati_wag_nogap_nj_start.newick");
+    let rng = &mut FakeGenerator::default();
 
     let wag = SubstModel::<WAG>::new(&[], &[]);
-    let res = optimise_tree_nni(&seq_file, &tree_file, wag.clone());
+    let res = optimise_tree_nni(&seq_file, &tree_file, wag.clone(), rng);
     assert!(res.final_cost >= res.initial_cost);
     let wag_tree = res.cost.tree();
 
@@ -327,9 +318,10 @@ fn wag_no_gaps_vs_phyml_nj_tree_start_spr() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
     let tree_file = fldr.join("jati_wag_nogap_nj_start.newick");
+    let rng = &mut FakeGenerator::default();
 
     let wag = SubstModel::<WAG>::new(&[], &[]);
-    let res = optimise_tree(&seq_file, &tree_file, wag.clone());
+    let res = optimise_tree(&seq_file, &tree_file, wag.clone(), rng);
     assert!(res.final_cost >= res.initial_cost);
     let wag_tree = res.cost.tree();
 
@@ -352,10 +344,11 @@ fn test_nni_and_spr_find_same_tree() {
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
     let tree_file = fldr.join("jati_wag_nogap_nj_start.newick");
+    let rng = &mut FakeGenerator::default();
 
     let wag = SubstModel::<WAG>::new(&[], &[]);
-    let res_nni = optimise_tree_nni(&seq_file, &tree_file, wag.clone());
-    let res_spr = optimise_tree(&seq_file, &tree_file, wag.clone());
+    let res_nni = optimise_tree_nni(&seq_file, &tree_file, wag.clone(), rng);
+    let res_spr = optimise_tree(&seq_file, &tree_file, wag.clone(), rng);
     assert!(res_nni.final_cost >= res_nni.initial_cost);
     assert!(res_spr.final_cost >= res_spr.initial_cost);
     assert_relative_eq!(res_nni.final_cost, res_spr.final_cost, epsilon = 1e-5);
@@ -375,11 +368,13 @@ fn pip_vs_subst_dna_tree() {
     let info = PIB::with_attrs(fldr.join("K80/K80.fasta"), fldr.join("wrong_tree.newick"))
         .build()
         .unwrap();
+    let rng = &mut FakeGenerator::default();
+
     let k80 = SubstModel::<K80>::new(&[], &[4.0]);
     let k80_res = TopologyOptimiser::new(
         SCB::new(k80.clone(), info.clone()).build().unwrap(),
         SprOptimiser {},
-        &mut FakeGenerator::default(),
+        rng,
     )
     .run()
     .unwrap();
@@ -388,7 +383,7 @@ fn pip_vs_subst_dna_tree() {
     let pip_res = TopologyOptimiser::new(
         PIPCB::new(pip.clone(), info).build().unwrap(),
         SprOptimiser {},
-        &mut FakeGenerator::default(),
+        rng,
     )
     .run()
     .unwrap();
@@ -430,11 +425,13 @@ fn wag_nogaps_pip_vs_subst_tree_nj_start() {
 
     let pip = PIPModel::<WAG>::new(&[], &[50.0, 0.1]);
     let wag = SubstModel::<WAG>::new(&[], &[]);
+    let rng = &mut FakeGenerator::default();
 
     let pip_res = optimise_tree_pip(
         &seq_file,
         &fldr.join("jati_pip_nogap_pip_vs_wag.newick"),
         pip.clone(),
+        rng,
     );
     assert!(pip_res.final_cost >= pip_res.initial_cost);
     let pip_tree = pip_res.cost.tree();
@@ -443,6 +440,7 @@ fn wag_nogaps_pip_vs_subst_tree_nj_start() {
         &seq_file,
         &fldr.join("jati_wag_nogap_pip_vs_wag.newick"),
         wag.clone(),
+        rng,
     );
     assert!(wag_res.final_cost >= wag_res.initial_cost);
     let wag_tree = wag_res.cost.tree();
@@ -486,9 +484,9 @@ fn pip_optimise_model_tree() {
     // Check that tree optimisation under PIP has a better likelihood when the model is also optimised
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("seqs.fasta");
-    let start_info = PIB::new(seq_file.clone())
-        .build_w_rng(&mut FakeGenerator::default())
-        .unwrap();
+
+    let rng = &mut FakeGenerator::default();
+    let start_info = PIB::new(seq_file.clone()).build_w_rng(rng).unwrap();
 
     // Optimise tree starting from an NJ tree and initial model
     let pip = PIPModel::<WAG>::new(&[], &[1.4, 0.5]);
@@ -496,6 +494,7 @@ fn pip_optimise_model_tree() {
         &seq_file,
         &fldr.join("jati_pip_nj_start.newick"),
         pip.clone(),
+        rng,
     );
     assert!(tree_opt_result.final_cost >= tree_opt_result.initial_cost);
 
@@ -516,6 +515,7 @@ fn pip_optimise_model_tree() {
         &seq_file,
         &fldr.join("jati_pip_nj_start_model_opt.newick"),
         optimised_pip.clone(),
+        rng,
     );
 
     assert!(model_tree_opt_result.final_cost >= model_opt_result.final_cost);
@@ -569,7 +569,8 @@ fn wag_vs_phyml_empirical_freqs() {
     assert!(o.final_cost >= o.initial_cost);
     let wag_opt = o.cost.model;
 
-    let res = optimise_tree(&seq_file, &tree_file, wag_opt.clone());
+    let mut fake_rng = FakeGenerator::from_rng(FakeRng::from_u64_values(vec![2, 4, 7, 3, 1, 5]));
+    let res = optimise_tree(&seq_file, &tree_file, wag_opt.clone(), &mut fake_rng);
     let tree = res.cost.tree();
     assert!(res.final_cost >= res.initial_cost);
 
@@ -604,8 +605,9 @@ fn pip_wag_vs_phyml_empirical_freqs() {
     .run()
     .unwrap();
 
+    let rng = &mut FakeGenerator::default();
     let pip_opt = o.cost.model;
-    let res = optimise_tree_pip(&seq_file, &tree_file, pip_opt.clone());
+    let res = optimise_tree_pip(&seq_file, &tree_file, pip_opt.clone(), rng);
 
     // Optimised tree should be better than the starting tree
     assert!(res.final_cost >= o.final_cost);
@@ -637,7 +639,8 @@ fn wag_vs_phyml_fixed_freqs() {
     let tree_file = fldr.join("jati_wag_fixed.newick");
     let wag = SubstModel::<WAG>::new(&[], &[]);
 
-    let res = optimise_tree(&seq_file, &tree_file, wag.clone());
+    let rng = &mut FakeGenerator::default();
+    let res = optimise_tree(&seq_file, &tree_file, wag.clone(), rng);
     assert!(res.final_cost >= res.initial_cost);
 
     let phyml_res = PIB::with_attrs(seq_file.clone(), fldr.join("phyml_wag_fixed.newick"))
