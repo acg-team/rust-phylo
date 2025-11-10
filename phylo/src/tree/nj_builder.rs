@@ -243,9 +243,9 @@ impl<'a, D: EvolutionaryDistance, R: Rng + SeedableRng> NJTreeBuilder<'a, D, R> 
     }
 }
 
-// Convert a linear index in the lower triangle of a matrix to (i, j) coordinates
+/// Converts a linear index `k` in the lower triangle of a matrix (excluding the diagonal)
+/// to its corresponding `(i, j)` coordinates, both 0-based.
 fn lower_triangle_index(k: usize) -> (usize, usize) {
-    // 0 indexed
     let p = ((1 + 8 * k).isqrt() - 1) / 2;
     let i = p + 1;
     let j = k - p * (p + 1) / 2;
