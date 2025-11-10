@@ -38,7 +38,7 @@ impl<D: EvolutionaryDistance> TreeBuilder for NJTreeBuilder<D> {
     /// # fn main() -> std::result::Result<(), anyhow::Error> {
     /// let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta")?);
     /// let mut rng = DefaultGenerator::default();
-    /// let mut nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {});
+    /// let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {});
     /// let tree = nj_builder.build(&sequences, &mut rng)?;
     /// assert_eq!(tree.len(), 7);
     /// assert_eq!(tree.leaves().len(), 4);
@@ -100,7 +100,7 @@ impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
     /// # fn main() -> std::result::Result<(), anyhow::Error> {
     /// let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta")?);
     /// let mut rng = DefaultGenerator::default();
-    /// let mut nj_builder = NJTreeBuilder::new_with_softmax(LevenshteinDNACorrected {}, 0.5);
+    /// let nj_builder = NJTreeBuilder::new_with_softmax(LevenshteinDNACorrected {}, 0.5);
     /// let tree = nj_builder.build(&sequences, &mut rng)?;
     /// assert_eq!(tree.len(), 7);
     /// assert_eq!(tree.leaves().len(), 4);
