@@ -76,7 +76,8 @@ impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
     /// # Ok(()) }
     /// ```
     pub fn new(distance_function: D) -> Self {
-        info!("Creating regular NJTreeBuilder, first argmax choice for next pair of nodes to join");
+        info!("Creating NJTreeBuilder with the traditional strategy of selecting the best pair of nodes to join that minimise
+        tree length and breaking ties uniformly at random.");
         Self {
             randomise: Strategy::ArgMax,
             distance_function,
@@ -107,7 +108,8 @@ impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
     /// # Ok(()) }
     /// ```
     pub fn new_with_softmax(distance_function: D, temperature: f64) -> Self {
-        info!("Creating NJTreeBuilder with softmax strategy and temperature {temperature}");
+        info!("Creating NJTreeBuilder with the softmax strategy of selecting the best pair of nodes to join to increase stochasticity
+        in tree building. Using temperature {temperature} to interpolate between uniform and softmax distributions.");
         if temperature > 1.0 {
             debug!("Temperature should not be greater than 1.0 (set to {temperature}), clamping to 1.0");
         } else if temperature < 0.0 {
