@@ -59,7 +59,7 @@ impl From<NodeIdx> for usize {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Tree {
     pub root: NodeIdx,
     pub(crate) nodes: Vec<Node>,
