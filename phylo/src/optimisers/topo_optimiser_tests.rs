@@ -36,7 +36,7 @@ cfg_if::cfg_if! {
 if #[cfg(not(feature="precomputed-test-results"))] {
                 TopologyOptimiser::new(initial_cost, $move_optimiser {}, rng).run().unwrap()
 } else {
-if let Ok(precomputed) =
+                if let Ok(precomputed) =
                     PIB::with_attrs(seq_file, _tree_precomputed_file).build()
                 {
                     let final_cost = $builder::new(model, precomputed.clone()).build().unwrap();
