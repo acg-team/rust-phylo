@@ -146,16 +146,8 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
         R: Rng + SeedableRng,
     {
         let sequences = self.read_sequences()?;
-        let tree = match &self.tree_file {
-            Some(tree_file) => {
-                info!("Starting tree provided in file {}", tree_file.display());
-                self.read_tree(tree_file)?
-            }
-            None => {
-                info!("No tree file provided, building NJ tree");
-                self.build_nj_tree(rng, &sequences)?
-            }
-        };
+        let tree = self.setup_starting_tree(rng, &sequences)?;
+
         let msa = if sequences.aligned {
             info!("Sequences are aligned");
             A::from_aligned(sequences, &tree)?
@@ -180,10 +172,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
         R: Rng + SeedableRng,
     {
         let sequences = self.read_sequences()?;
-        let mut tree = match &self.tree_file {
-            Some(tree_file) => self.read_tree(tree_file)?,
-            None => self.build_nj_tree(rng, &sequences)?,
-        };
+        let mut tree = self.setup_starting_tree(rng, &sequences)?;
 
         let msa = if sequences.len() == tree.n {
             tree = set_missing_tree_node_ids(&tree)?;
@@ -214,6 +203,25 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
         }?;
 
         Ok(PhyloInfo { tree, msa })
+    }
+
+    /// Reads starting tree from file, if provided, or runs NJ tree reconstruction
+    /// to create a starting tree.
+    fn setup_starting_tree(
+        &self,
+        rng: &mut RandomGenerator<impl Rng + SeedableRng>,
+        sequences: &Sequences,
+    ) -> Result<Tree> {
+        Ok(match &self.tree_file {
+            Some(tree_file) => {
+                info!("Starting tree provided in file {}", tree_file.display());
+                self.read_tree(tree_file)?
+            }
+            None => {
+                info!("No tree file provided, building NJ tree");
+                self.build_nj_tree(rng, sequences)?
+            }
+        })
     }
 
     /// Builds an NJ tree from the provided sequences using the appropriate
