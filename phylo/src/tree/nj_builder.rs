@@ -572,10 +572,10 @@ mod tests {
 
     #[test]
     fn softmax() {
-        let delta_tree_length = dvector![-1.3, -5.1, -2.2, -0.7, -1.1];
-        let softmax_vector = NJTreeBuilder::<LDNACorr>::softmax_from_deltas(delta_tree_length);
+        let softmax =
+            NJTreeBuilder::<LDNACorr>::softmax_from_deltas(dvector![-1.3, -5.1, -2.2, -0.7, -1.1]);
         assert_eq!(
-            softmax_vector,
+            softmax,
             dvector![
                 0.020190464732580685,
                 0.9025376890165726,
@@ -584,11 +584,8 @@ mod tests {
                 0.01653055439550022
             ]
         );
-        assert_eq!(softmax_vector.sum(), 1.0);
-    }
+        assert_eq!(softmax.sum(), 1.0);
 
-    #[test]
-    fn softmax_examples() {
         // Example values from https://medium.com/@hunter-j-phillips/a-simple-introduction-to-softmax-287712d69bac
         let softmax = NJTreeBuilder::<LDNACorr>::softmax_from_deltas(dvector![-5.0, -7.0, -10.0]);
         assert_relative_eq!(softmax, dvector![0.006, 0.047, 0.946], epsilon = 1e-3);
