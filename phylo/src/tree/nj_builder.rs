@@ -260,6 +260,7 @@ mod tests {
     use approx::assert_relative_eq;
     use assert_matches::assert_matches;
     use nalgebra::{dmatrix, dvector};
+    use rstest::rstest;
 
     use crate::evolutionary_distances::{
         LevenshteinDNACorrected as LDNACorr, LevenshteinProteinCorrected,
@@ -626,11 +627,24 @@ mod tests {
         assert_eq!(softmax_vector.sum(), 1.0);
     }
 
-    #[test]
-    fn softmax_w_temp_between() {
+    #[rstest]
+    #[case(0.5)]
+    #[case(0.75)]
+    #[case(0.35)]
+    #[case(0.1)]
+    #[case(0.99)]
+    fn softmax_w_temp_between(#[case] temp: f64) {
         let delta_tree_length = dvector![-1.3, -5.1, -2.2, -0.7, -1.1];
-        let softmax_vector = NJTreeBuilder::<LDNACorr>::softmax(delta_tree_length, 0.5);
-        assert_eq!(softmax_vector.sum(), 1.0);
+        let softmax_temp = NJTreeBuilder::<LDNACorr>::softmax(delta_tree_length.clone(), temp);
+
+        let softmax = NJTreeBuilder::<LDNACorr>::softmax(delta_tree_length.clone(), 1.0);
+        let softmax_uniform = NJTreeBuilder::<LDNACorr>::softmax(delta_tree_length.clone(), 0.0);
+
+        assert_relative_eq!(softmax_temp.sum(), 1.0);
+        assert_eq!(
+            softmax_temp,
+            (softmax_uniform.scale(1.0 - temp) + softmax.scale(temp))
+        );
     }
 
     #[test]
