@@ -699,23 +699,27 @@ mod tests {
             record!("D3", b""),
         ]);
 
-        // FakeRng will return values that will select the last pair every time
         let nj_softmax_tree = NJTreeBuilder::new_with_softmax(LDNACorr {}, 1.0)
             .build_from_distances(
                 nj_distances.clone(),
                 &sequences,
-                &mut RandomGenerator::from_rng(FakeRng::from_u64_values(vec![5, 2, 0])),
+                &mut RandomGenerator::from_rng(FakeRng::from_f64_values(vec![1.0])),
             )
             .unwrap();
 
         let tree = NJTreeBuilder::new(LDNACorr {})
-            .build_from_distances(nj_distances, &sequences, &mut FakeGenerator::default())
+            .build_from_distances(
+                nj_distances,
+                &sequences,
+                &mut FakeGenerator::from_rng(FakeRng::from_f64_values(vec![1.0])),
+            )
             .unwrap();
 
         // In this case both end up the same same length
         assert_eq!(nj_softmax_tree.length, tree.length);
         // Different rooting, but rf distance 0
         assert_eq!(nj_softmax_tree.robinson_foulds(&tree), 0);
+        assert_eq!(nj_softmax_tree, tree)
     }
 
     #[test]
