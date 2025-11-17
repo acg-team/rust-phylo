@@ -159,7 +159,8 @@ impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
         exp_mat
     }
 
-    /// Computes a one-hot vector indicating the position(s) of the minimum value(s) in the input vector.
+    /// Computes a vector indicating the position(s) of the minimum value(s) in the input vector,
+    /// i.e., a vector with 1 at indices of the minimum, and 0 elsewhere.
     /// Used to uniformly select among the minimum delta tree lengths.
     fn argmin(mut delta_tree_len: DVector<f64>) -> DVector<f64> {
         debug_assert!(
