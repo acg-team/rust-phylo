@@ -639,7 +639,7 @@ mod tests {
         let softmax_temp = NJTreeBuilder::<LDNACorr>::softmax(delta_tree_length.clone(), temp);
 
         let softmax = NJTreeBuilder::<LDNACorr>::softmax(delta_tree_length.clone(), 1.0);
-        let softmax_uniform = NJTreeBuilder::<LDNACorr>::softmax(delta_tree_length.clone(), 0.0);
+        let softmax_uniform = NJTreeBuilder::<LDNACorr>::softmax(delta_tree_length, 0.0);
 
         assert_relative_eq!(softmax_temp.sum(), 1.0);
         assert_eq!(
