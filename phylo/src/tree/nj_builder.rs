@@ -586,20 +586,20 @@ mod tests {
                 0.01653055439550022
             ]
         );
-        assert_eq!(softmax.sum(), 1.0);
+        assert_relative_eq!(softmax.sum(), 1.0, epsilon = 1e-10);
 
         // Example values from https://medium.com/@hunter-j-phillips/a-simple-introduction-to-softmax-287712d69bac
         let softmax = NJTreeBuilder::<LDNACorr>::softmax_from_deltas(dvector![-5.0, -7.0, -10.0]);
         assert_relative_eq!(softmax, dvector![0.006, 0.047, 0.946], epsilon = 1e-3);
-        assert_relative_eq!(softmax.sum(), 1.0, epsilon = 1e-5);
+        assert_relative_eq!(softmax.sum(), 1.0, epsilon = 1e-10);
 
         let softmax = NJTreeBuilder::<LDNACorr>::softmax_from_deltas(dvector![-1.0, -2.0, -3.0]);
         assert_relative_eq!(softmax, dvector![0.0900, 0.2447, 0.6652], epsilon = 1e-4);
-        assert_relative_eq!(softmax.sum(), 1.0, epsilon = 1e-5);
+        assert_relative_eq!(softmax.sum(), 1.0, epsilon = 1e-10);
 
         let softmax = NJTreeBuilder::<LDNACorr>::softmax_from_deltas(dvector![-4.0, -5.0, -6.0]);
         assert_relative_eq!(softmax, dvector![0.0900, 0.2447, 0.6652], epsilon = 1e-4);
-        assert_relative_eq!(softmax.sum(), 1.0, epsilon = 1e-5);
+        assert_relative_eq!(softmax.sum(), 1.0, epsilon = 1e-10);
 
         // Example values from https://ai.gopubby.com/the-softmax-activation-function-work-with-keras-8f674b4481a5
         let softmax =
@@ -609,6 +609,7 @@ mod tests {
             dvector![0.087492, 0.872661, 0.039313, 0.000533],
             epsilon = 1e-6
         );
+        assert_relative_eq!(softmax.sum(), 1.0, epsilon = 1e-5);
     }
 
     #[test]
