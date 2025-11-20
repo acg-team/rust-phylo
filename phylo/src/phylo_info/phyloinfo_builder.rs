@@ -97,7 +97,8 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
         self
     }
 
-    /// TODO: fix docstring
+    /// Sets the alphabet for the PhyloInfoBuilder struct.
+    /// Returns the PhyloInfoBuilder struct with the required alphabet.
     ///
     /// # Example
     /// ```
