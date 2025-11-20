@@ -61,16 +61,17 @@ impl Alphabet {
         &self.conditional_probs[char.to_ascii_uppercase() as usize]
     }
 
-    pub fn empty_freqs(&self) -> FreqVector {
-        FreqVector::zeros(self.conditional_probs[AMB_CHAR as usize].nrows())
-    }
-
     pub fn index(&self, char: &u8) -> usize {
         self.index[*char as usize]
     }
 
     pub fn gap_encoding(&self) -> &FreqVector {
         &self.conditional_probs[AMB_CHAR as usize]
+    }
+
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> usize {
+        self.symbols.len()
     }
 
     pub fn parsimony_set(&self, char: &u8) -> &ParsimonySet {

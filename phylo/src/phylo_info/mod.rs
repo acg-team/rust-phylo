@@ -124,7 +124,7 @@ impl<A: Alignment> PhyloInfo<A> {
     /// ```
     pub fn freqs(&self) -> FreqVector {
         let alphabet = self.msa.alphabet();
-        let mut freqs = alphabet.empty_freqs();
+        let mut freqs = FreqVector::zeros(alphabet.len());
         for &char in alphabet.symbols().iter().chain(alphabet.ambiguous()) {
             let count = self
                 .msa
