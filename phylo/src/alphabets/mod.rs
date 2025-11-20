@@ -88,20 +88,17 @@ impl Alphabet {
         self.ambiguous
     }
 
-    /// Returns the conditional probability vector for a given character in the alphabet.
-    /// The vector represents the conditional probabilities of observing each symbol in the alphabet given the specified character.
+    /// Returns the number of symbols in the alphabet, not including ambiguous characters or gaps.
     ///
     /// Example:
     /// ```
     /// # use phylo::alphabets::Alphabet;
-    /// # use nalgebra::dvector;
-    /// let t_probs = Alphabet::dna().char_encoding(b'T');
-    /// assert_eq!(t_probs, &dvector![1.0, 0.0, 0.0, 0.0]);
-    /// let amb_probs = Alphabet::dna().char_encoding(b'X');
-    /// assert_eq!(amb_probs, &dvector![1.0, 1.0, 1.0, 1.0]);
+    /// assert_eq!(Alphabet::dna().len(), 4);
+    /// assert_eq!(Alphabet::protein().len(), 20);
     /// ```
-    pub fn char_encoding(&self, char: u8) -> &ConditionalProbs {
-        &self.conditional_probs[char.to_ascii_uppercase() as usize]
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> usize {
+        self.symbols.len()
     }
 
     /// Returns the index mapping for the alphabet.
@@ -122,6 +119,22 @@ impl Alphabet {
         self.index[*char as usize]
     }
 
+    /// Returns the conditional probability vector for a given character in the alphabet.
+    /// The vector represents the conditional probabilities of observing each symbol in the alphabet given the specified character.
+    ///
+    /// Example:
+    /// ```
+    /// # use phylo::alphabets::Alphabet;
+    /// # use nalgebra::dvector;
+    /// let t_probs = Alphabet::dna().char_encoding(b'T');
+    /// assert_eq!(t_probs, &dvector![1.0, 0.0, 0.0, 0.0]);
+    /// let amb_probs = Alphabet::dna().char_encoding(b'X');
+    /// assert_eq!(amb_probs, &dvector![1.0, 1.0, 1.0, 1.0]);
+    /// ```
+    pub fn char_encoding(&self, char: u8) -> &ConditionalProbs {
+        &self.conditional_probs[char.to_ascii_uppercase() as usize]
+    }
+
     /// Returns the conditional probability vector for the gap character in the alphabet, encoded as missing data.
     ///
     /// Example:
@@ -135,19 +148,6 @@ impl Alphabet {
     /// ```
     pub fn missing_char_encoding(&self) -> &ConditionalProbs {
         &self.conditional_probs[AMB_CHAR as usize]
-    }
-
-    /// Returns the number of symbols in the alphabet, not including ambiguous characters or gaps.
-    ///
-    /// Example:
-    /// ```
-    /// # use phylo::alphabets::Alphabet;
-    /// assert_eq!(Alphabet::dna().len(), 4);
-    /// assert_eq!(Alphabet::protein().len(), 20);
-    /// ```
-    #[allow(clippy::len_without_is_empty)]
-    pub fn len(&self) -> usize {
-        self.symbols.len()
     }
 
     /// Returns the parsimony set for a given character in the alphabet.
