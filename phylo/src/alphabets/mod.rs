@@ -38,49 +38,144 @@ impl Display for Alphabet {
 }
 
 impl Alphabet {
+    /// Returns the DNA alphabet as a static reference.
     pub fn dna() -> &'static Self {
         &DNA_ALPHABET
     }
 
+    /// Returns the protein alphabet as a static reference.
     pub fn protein() -> &'static Self {
         &PROTEIN_ALPHABET
     }
 
+    /// Checks if a word is valid in this alphabet, case-insensitive.
+    ///
+    /// Example:
+    /// ```
+    /// # use phylo::alphabets::Alphabet;
+    /// assert!(Alphabet::dna().is_word(b"ACGT"));
+    /// assert!(Alphabet::dna().is_word(b"aCgTx"));
+    /// assert!(Alphabet::protein().is_word(b"ACGTFTH"));
+    /// assert!(!Alphabet::dna().is_word(b"ACGTFTH"));
+    /// ```
     pub fn is_word(&self, word: &[u8]) -> bool {
         word.to_ascii_uppercase()
             .iter()
             .all(|c| self.valid_symbols.contains(c))
     }
 
+    /// Returns the valid and unambiguous symbols of the alphabet.
+    ///
+    /// Example:
+    /// ```
+    /// # use phylo::alphabets::Alphabet;
+    /// assert_eq!(Alphabet::dna().symbols(), b"TCAG");
+    /// assert_eq!(Alphabet::protein().symbols(), b"ARNDCQEGHILKMFPSTWYV");
+    /// ```
     pub fn symbols(&self) -> &[u8] {
         self.symbols
     }
 
+    /// Returns the ambiguous symbols of the alphabet.
+    ///
+    /// Example:
+    /// ```
+    /// # use phylo::alphabets::Alphabet;
+    /// assert_eq!(Alphabet::dna().ambiguous(), b"RYSWKMBDHVNZX");
+    /// assert_eq!(Alphabet::protein().ambiguous(), b"BJZX");
+    /// ```
     pub fn ambiguous(&self) -> &[u8] {
         self.ambiguous
     }
 
+    /// Returns the conditional probability vector for a given character in the alphabet.
+    /// The vector represents the conditional probabilities of observing each symbol in the alphabet given the specified character.
+    ///
+    /// Example:
+    /// ```
+    /// # use phylo::alphabets::Alphabet;
+    /// # use nalgebra::dvector;
+    /// let t_probs = Alphabet::dna().char_encoding(b'T');
+    /// assert_eq!(t_probs, &dvector![1.0, 0.0, 0.0, 0.0]);
+    /// let amb_probs = Alphabet::dna().char_encoding(b'X');
+    /// assert_eq!(amb_probs, &dvector![1.0, 1.0, 1.0, 1.0]);
+    /// ```
     pub fn char_encoding(&self, char: u8) -> &ConditionalProbs {
         &self.conditional_probs[char.to_ascii_uppercase() as usize]
     }
 
+    /// Returns the index mapping for the alphabet.
+    /// The index maps ASCII character codes to their respective indices in the alphabet, case-insensitive.
+    /// Used to maintain consistent ordering in frequency vectors and substitution matrices.
+    ///
+    /// Example:
+    /// ```
+    /// # use phylo::alphabets::Alphabet;
+    /// assert_eq!(Alphabet::dna().index(&b'T'), 0);
+    /// assert_eq!(Alphabet::dna().index(&b'c'), 1);
+    /// assert_eq!(Alphabet::dna().index(&b'A'), 2);
+    /// assert_eq!(Alphabet::dna().index(&b'g'), 3);
+    /// assert_eq!(Alphabet::protein().index(&b'R'), 1);
+    /// assert_eq!(Alphabet::protein().index(&b'w'), 17);
+    /// ```
     pub fn index(&self, char: &u8) -> usize {
         self.index[*char as usize]
     }
 
+    /// Returns the conditional probability vector for the gap character in the alphabet, encoded as missing data.
+    ///
+    /// Example:
+    /// ```
+    /// # use phylo::alphabets::Alphabet;
+    /// # use nalgebra::dvector;
+    /// let gap_probs = Alphabet::dna().missing_char_encoding();
+    /// assert_eq!(gap_probs, &dvector![1.0, 1.0, 1.0, 1.0]);
+    /// let amb_probs = Alphabet::dna().char_encoding(b'X');
+    /// assert_eq!(gap_probs, amb_probs);
+    /// ```
     pub fn missing_char_encoding(&self) -> &ConditionalProbs {
         &self.conditional_probs[AMB_CHAR as usize]
     }
 
+    /// Returns the number of symbols in the alphabet, not including ambiguous characters or gaps.
+    ///
+    /// Example:
+    /// ```
+    /// # use phylo::alphabets::Alphabet;
+    /// assert_eq!(Alphabet::dna().len(), 4);
+    /// assert_eq!(Alphabet::protein().len(), 20);
+    /// ```
     #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.symbols.len()
     }
 
+    /// Returns the parsimony set for a given character in the alphabet.
+    /// The parsimony set represents the set of unambiguous symbols that the character can represent.
+    /// For example, in the DNA alphabet, the character 'R' represents the set {'A', 'G'}.
+    ///
+    /// Example:
+    /// ```
+    /// # use phylo::alphabets::Alphabet;
+    /// # use phylo::alphabets::ParsimonySet;
+    /// let r_set = Alphabet::dna().parsimony_set(&b'R');
+    /// assert_eq!(format!("{r_set}"), "[AG]");
+    /// let z_set = Alphabet::protein().parsimony_set(&b'Z');
+    /// assert_eq!(format!("{z_set}"), "[EQ]");
+    /// ```
     pub fn parsimony_set(&self, char: &u8) -> &ParsimonySet {
         &self.parsimony_sets[*char as usize]
     }
 
+    /// Returns the parsimony set representing a gap character in the alphabet.
+    ///
+    /// Example:
+    /// ```
+    /// # use phylo::alphabets::Alphabet;
+    /// # use phylo::alphabets::ParsimonySet;
+    /// let gap_set = Alphabet::dna().gap_set();
+    /// assert_eq!(format!("{gap_set}"), "[-]");
+    /// ```
     pub fn gap_set(&self) -> &ParsimonySet {
         &GAP_SET
     }
