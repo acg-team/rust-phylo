@@ -1252,10 +1252,10 @@ fn setup_test_info(alphabet: &'static Alphabet) -> PhyloInfo<MSA> {
 }
 
 #[cfg(test)]
-fn dirty_tree_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: &'static Alphabet) {
+fn dirty_tree_costs_match_template<Q: QMatrix + QMatrixMaker>() {
     use crate::likelihood::TreeSearchCost;
 
-    let info = setup_test_info(alphabet);
+    let info = setup_test_info(Q::alphabet());
 
     let model = SubstModel::<Q>::new(&[], &[]);
     let mut c = SCB::new(model.clone(), info.clone()).build().unwrap();
@@ -1277,22 +1277,22 @@ fn dirty_tree_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: &'static
 
 #[test]
 fn dirty_tree_costs_match() {
-    dirty_tree_costs_match_template::<JC69>(Alphabet::dna());
-    dirty_tree_costs_match_template::<K80>(Alphabet::dna());
-    dirty_tree_costs_match_template::<HKY>(Alphabet::dna());
-    dirty_tree_costs_match_template::<TN93>(Alphabet::dna());
-    dirty_tree_costs_match_template::<GTR>(Alphabet::dna());
+    dirty_tree_costs_match_template::<JC69>();
+    dirty_tree_costs_match_template::<K80>();
+    dirty_tree_costs_match_template::<HKY>();
+    dirty_tree_costs_match_template::<TN93>();
+    dirty_tree_costs_match_template::<GTR>();
 
-    dirty_tree_costs_match_template::<WAG>(Alphabet::protein());
-    dirty_tree_costs_match_template::<HIVB>(Alphabet::protein());
-    dirty_tree_costs_match_template::<BLOSUM>(Alphabet::protein());
+    dirty_tree_costs_match_template::<WAG>();
+    dirty_tree_costs_match_template::<HIVB>();
+    dirty_tree_costs_match_template::<BLOSUM>();
 }
 
 #[cfg(test)]
-fn dirty_branch_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: &'static Alphabet) {
+fn dirty_branch_costs_match_template<Q: QMatrix + QMatrixMaker>() {
     use crate::likelihood::TreeSearchCost;
 
-    let info = setup_test_info(alphabet);
+    let info = setup_test_info(Q::alphabet());
 
     let model = SubstModel::<Q>::new(&[], &[]);
     let mut c = SCB::new(model.clone(), info.clone()).build().unwrap();
@@ -1322,22 +1322,20 @@ fn dirty_branch_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: &'stat
 
 #[test]
 fn dirty_branch_costs_match() {
-    dirty_branch_costs_match_template::<JC69>(Alphabet::dna());
-    dirty_branch_costs_match_template::<K80>(Alphabet::dna());
-    dirty_branch_costs_match_template::<HKY>(Alphabet::dna());
-    dirty_branch_costs_match_template::<TN93>(Alphabet::dna());
-    dirty_branch_costs_match_template::<GTR>(Alphabet::dna());
+    dirty_branch_costs_match_template::<JC69>();
+    dirty_branch_costs_match_template::<K80>();
+    dirty_branch_costs_match_template::<HKY>();
+    dirty_branch_costs_match_template::<TN93>();
+    dirty_branch_costs_match_template::<GTR>();
 
-    dirty_branch_costs_match_template::<WAG>(Alphabet::protein());
-    dirty_branch_costs_match_template::<HIVB>(Alphabet::protein());
-    dirty_branch_costs_match_template::<BLOSUM>(Alphabet::protein());
+    dirty_branch_costs_match_template::<WAG>();
+    dirty_branch_costs_match_template::<HIVB>();
+    dirty_branch_costs_match_template::<BLOSUM>();
 }
 
 #[cfg(test)]
-fn modify_model_params_costs_match_template<Q: QMatrix + QMatrixMaker>(
-    alphabet: &'static Alphabet,
-) {
-    let info = setup_test_info(alphabet);
+fn modify_model_params_costs_match_template<Q: QMatrix + QMatrixMaker>() {
+    let info = setup_test_info(Q::alphabet());
 
     let model = SubstModel::<Q>::new(&[], &[1.0]);
     let mut c = SCB::new(model.clone(), info.clone()).build().unwrap();
@@ -1361,18 +1359,15 @@ fn modify_model_params_costs_match_template<Q: QMatrix + QMatrixMaker>(
 #[test]
 fn modify_model_params_costs_match() {
     // does not apply to JC69, WAG, HIVB, BLOSUM which have no params
-    modify_model_params_costs_match_template::<K80>(Alphabet::dna());
-    modify_model_params_costs_match_template::<HKY>(Alphabet::dna());
-    modify_model_params_costs_match_template::<TN93>(Alphabet::dna());
-    modify_model_params_costs_match_template::<GTR>(Alphabet::dna());
+    modify_model_params_costs_match_template::<K80>();
+    modify_model_params_costs_match_template::<HKY>();
+    modify_model_params_costs_match_template::<TN93>();
+    modify_model_params_costs_match_template::<GTR>();
 }
 
 #[cfg(test)]
-fn modify_model_freqs_costs_match_template<Q: QMatrix + QMatrixMaker>(
-    alphabet: &'static Alphabet,
-    freqs: FreqVector,
-) {
-    let info = setup_test_info(alphabet);
+fn modify_model_freqs_costs_match_template<Q: QMatrix + QMatrixMaker>(freqs: FreqVector) {
+    let info = setup_test_info(Q::alphabet());
 
     let model = SubstModel::<Q>::new(&[], &[]);
     let mut c = SCB::new(model.clone(), info.clone()).build().unwrap();
@@ -1397,12 +1392,12 @@ fn modify_model_freqs_costs_match_template<Q: QMatrix + QMatrixMaker>(
 fn modify_model_freqs_costs_match() {
     // does not apply to JC69 and K80 which have no freqs
     let new_dna_freqs = frequencies!(&[0.1, 0.1, 0.1, 0.7]);
-    modify_model_freqs_costs_match_template::<HKY>(Alphabet::dna(), new_dna_freqs.clone());
-    modify_model_freqs_costs_match_template::<TN93>(Alphabet::dna(), new_dna_freqs.clone());
-    modify_model_freqs_costs_match_template::<GTR>(Alphabet::dna(), new_dna_freqs);
+    modify_model_freqs_costs_match_template::<HKY>(new_dna_freqs.clone());
+    modify_model_freqs_costs_match_template::<TN93>(new_dna_freqs.clone());
+    modify_model_freqs_costs_match_template::<GTR>(new_dna_freqs);
 
     let new_aa_freqs = frequencies!(&[0.05; 20]);
-    modify_model_freqs_costs_match_template::<WAG>(Alphabet::protein(), new_aa_freqs.clone());
-    modify_model_freqs_costs_match_template::<BLOSUM>(Alphabet::protein(), new_aa_freqs.clone());
-    modify_model_freqs_costs_match_template::<HIVB>(Alphabet::protein(), new_aa_freqs);
+    modify_model_freqs_costs_match_template::<WAG>(new_aa_freqs.clone());
+    modify_model_freqs_costs_match_template::<BLOSUM>(new_aa_freqs.clone());
+    modify_model_freqs_costs_match_template::<HIVB>(new_aa_freqs);
 }

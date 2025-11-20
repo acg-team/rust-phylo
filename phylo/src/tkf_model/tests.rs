@@ -778,10 +778,8 @@ fn tkf_indel_history_doesnt_change_felsenstein() {
 }
 
 #[cfg(test)]
-fn modify_tkf92_subst_params_costs_match_template<Q: QMatrix + QMatrixMaker>(
-    alphabet: &'static Alphabet,
-) {
-    let phylo = setup_test_phylo(alphabet);
+fn modify_tkf92_subst_params_costs_match_template<Q: QMatrix + QMatrixMaker>() {
+    let phylo = setup_test_phylo(Q::alphabet());
     let subst_original_param = 1.0;
     let subst_changed_param = 0.5;
     let subst_model = SubstModel::<Q>::new(&[], &[subst_original_param]);
@@ -810,10 +808,8 @@ fn modify_tkf92_subst_params_costs_match_template<Q: QMatrix + QMatrixMaker>(
 }
 
 #[cfg(test)]
-fn modify_tkf92_indel_params_costs_match_template<Q: QMatrix + QMatrixMaker>(
-    alphabet: &'static Alphabet,
-) {
-    let phylo = setup_test_phylo(alphabet);
+fn modify_tkf92_indel_params_costs_match_template<Q: QMatrix + QMatrixMaker>() {
+    let phylo = setup_test_phylo(Q::alphabet());
     let subst_model = SubstModel::<Q>::new(&[], &[]);
     let tkf_original_mu = 0.2;
     let tkf_changed_mu = 0.25;
@@ -843,20 +839,20 @@ fn modify_tkf92_indel_params_costs_match_template<Q: QMatrix + QMatrixMaker>(
 
 #[test]
 fn tkf92_modify_subst_model_params_costs_match() {
-    modify_tkf92_subst_params_costs_match_template::<K80>(Alphabet::dna());
-    modify_tkf92_subst_params_costs_match_template::<HKY>(Alphabet::dna());
-    modify_tkf92_subst_params_costs_match_template::<TN93>(Alphabet::dna());
-    modify_tkf92_subst_params_costs_match_template::<GTR>(Alphabet::dna());
+    modify_tkf92_subst_params_costs_match_template::<K80>();
+    modify_tkf92_subst_params_costs_match_template::<HKY>();
+    modify_tkf92_subst_params_costs_match_template::<TN93>();
+    modify_tkf92_subst_params_costs_match_template::<GTR>();
 }
 
 #[test]
 fn tkf_modify_indel_model_params_costs_match() {
-    modify_tkf92_indel_params_costs_match_template::<JC69>(Alphabet::dna());
-    modify_tkf92_indel_params_costs_match_template::<K80>(Alphabet::dna());
-    modify_tkf92_indel_params_costs_match_template::<HKY>(Alphabet::dna());
-    modify_tkf92_indel_params_costs_match_template::<TN93>(Alphabet::dna());
-    modify_tkf92_indel_params_costs_match_template::<GTR>(Alphabet::dna());
-    modify_tkf92_indel_params_costs_match_template::<WAG>(Alphabet::protein());
-    modify_tkf92_indel_params_costs_match_template::<BLOSUM>(Alphabet::protein());
-    modify_tkf92_indel_params_costs_match_template::<HIVB>(Alphabet::protein());
+    modify_tkf92_indel_params_costs_match_template::<JC69>();
+    modify_tkf92_indel_params_costs_match_template::<K80>();
+    modify_tkf92_indel_params_costs_match_template::<HKY>();
+    modify_tkf92_indel_params_costs_match_template::<TN93>();
+    modify_tkf92_indel_params_costs_match_template::<GTR>();
+    modify_tkf92_indel_params_costs_match_template::<WAG>();
+    modify_tkf92_indel_params_costs_match_template::<BLOSUM>();
+    modify_tkf92_indel_params_costs_match_template::<HIVB>();
 }
