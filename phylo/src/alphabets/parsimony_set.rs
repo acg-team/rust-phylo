@@ -7,7 +7,7 @@ use itertools::join;
 use crate::alphabets::GAP;
 
 #[repr(transparent)]
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ParsimonySet {
     pub s: HashSet<u8>,
 }

@@ -8,7 +8,7 @@ use anyhow::bail;
 use bio::io::fasta::{Reader, Record, Writer};
 use log::info;
 
-use crate::alphabets::{protein_alphabet, GAP, POSSIBLE_GAPS};
+use crate::alphabets::{Alphabet, GAP, POSSIBLE_GAPS};
 use crate::tree::{tree_parser, Tree};
 use crate::{record, Result};
 
@@ -64,7 +64,7 @@ pub fn read_sequences(path: impl AsRef<Path> + Debug) -> Result<Vec<Record>> {
             .map(|c| if POSSIBLE_GAPS.contains(c) { GAP } else { *c })
             .collect();
 
-        if !protein_alphabet().is_word(&seq) {
+        if !Alphabet::protein().is_word(&seq) {
             bail!(DataError {
                 message: format!(
                     "Invalid genetic sequence encountered: {}",

@@ -4,9 +4,7 @@ use approx::assert_relative_eq;
 use nalgebra::{DMatrix, DVector};
 
 use crate::alignment::{Alignment, Sequences, MSA};
-use crate::alphabets::{
-    dna_alphabet, protein_alphabet, Alphabet, AMINOACIDS as aas, GAP, NUCLEOTIDES as nucls,
-};
+use crate::alphabets::{Alphabet, AMINOACIDS as aas, GAP, NUCLEOTIDES as nucls};
 use crate::evolutionary_models::EvoModel;
 use crate::io::read_sequences;
 use crate::likelihood::ModelSearchCost;
@@ -842,7 +840,7 @@ fn blen_leading_to_minusinf() {
                 record!("284591", b"W"),
                 record!("284812", b"W"),
             ],
-            protein_alphabet(),
+            Alphabet::protein(),
         ),
         &tree,
     )
@@ -902,15 +900,15 @@ fn dirty_tree_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphabet
 
 #[test]
 fn dirty_tree_costs_match() {
-    dirty_tree_costs_match_template::<JC69>(dna_alphabet());
-    dirty_tree_costs_match_template::<K80>(dna_alphabet());
-    dirty_tree_costs_match_template::<HKY>(dna_alphabet());
-    dirty_tree_costs_match_template::<TN93>(dna_alphabet());
-    dirty_tree_costs_match_template::<GTR>(dna_alphabet());
+    dirty_tree_costs_match_template::<JC69>(Alphabet::dna());
+    dirty_tree_costs_match_template::<K80>(Alphabet::dna());
+    dirty_tree_costs_match_template::<HKY>(Alphabet::dna());
+    dirty_tree_costs_match_template::<TN93>(Alphabet::dna());
+    dirty_tree_costs_match_template::<GTR>(Alphabet::dna());
 
-    dirty_tree_costs_match_template::<WAG>(protein_alphabet());
-    dirty_tree_costs_match_template::<HIVB>(protein_alphabet());
-    dirty_tree_costs_match_template::<BLOSUM>(protein_alphabet());
+    dirty_tree_costs_match_template::<WAG>(Alphabet::protein());
+    dirty_tree_costs_match_template::<HIVB>(Alphabet::protein());
+    dirty_tree_costs_match_template::<BLOSUM>(Alphabet::protein());
 }
 
 #[cfg(test)]
@@ -948,15 +946,15 @@ fn dirty_branch_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphab
 
 #[test]
 fn dirty_branch_costs_match() {
-    dirty_branch_costs_match_template::<JC69>(dna_alphabet());
-    dirty_branch_costs_match_template::<K80>(dna_alphabet());
-    dirty_branch_costs_match_template::<HKY>(dna_alphabet());
-    dirty_branch_costs_match_template::<TN93>(dna_alphabet());
-    dirty_branch_costs_match_template::<GTR>(dna_alphabet());
+    dirty_branch_costs_match_template::<JC69>(Alphabet::dna());
+    dirty_branch_costs_match_template::<K80>(Alphabet::dna());
+    dirty_branch_costs_match_template::<HKY>(Alphabet::dna());
+    dirty_branch_costs_match_template::<TN93>(Alphabet::dna());
+    dirty_branch_costs_match_template::<GTR>(Alphabet::dna());
 
-    dirty_branch_costs_match_template::<WAG>(protein_alphabet());
-    dirty_branch_costs_match_template::<HIVB>(protein_alphabet());
-    dirty_branch_costs_match_template::<BLOSUM>(protein_alphabet());
+    dirty_branch_costs_match_template::<WAG>(Alphabet::protein());
+    dirty_branch_costs_match_template::<HIVB>(Alphabet::protein());
+    dirty_branch_costs_match_template::<BLOSUM>(Alphabet::protein());
 }
 
 #[cfg(test)]
@@ -985,10 +983,10 @@ fn modify_model_params_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet:
 #[test]
 fn modify_model_params_costs_match() {
     // does not apply to JC69, WAG, HIVB, BLOSUM which have no params
-    modify_model_params_costs_match_template::<K80>(dna_alphabet());
-    modify_model_params_costs_match_template::<HKY>(dna_alphabet());
-    modify_model_params_costs_match_template::<TN93>(dna_alphabet());
-    modify_model_params_costs_match_template::<GTR>(dna_alphabet());
+    modify_model_params_costs_match_template::<K80>(Alphabet::dna());
+    modify_model_params_costs_match_template::<HKY>(Alphabet::dna());
+    modify_model_params_costs_match_template::<TN93>(Alphabet::dna());
+    modify_model_params_costs_match_template::<GTR>(Alphabet::dna());
 }
 
 #[cfg(test)]
@@ -1021,12 +1019,12 @@ fn modify_model_freqs_costs_match_template<Q: QMatrix + QMatrixMaker>(
 fn modify_model_freqs_costs_match() {
     // does not apply to JC69 and K80 which have no freqs
     let new_dna_freqs = frequencies!(&[0.1, 0.1, 0.1, 0.7]);
-    modify_model_freqs_costs_match_template::<HKY>(dna_alphabet(), new_dna_freqs.clone());
-    modify_model_freqs_costs_match_template::<TN93>(dna_alphabet(), new_dna_freqs.clone());
-    modify_model_freqs_costs_match_template::<GTR>(dna_alphabet(), new_dna_freqs);
+    modify_model_freqs_costs_match_template::<HKY>(Alphabet::dna(), new_dna_freqs.clone());
+    modify_model_freqs_costs_match_template::<TN93>(Alphabet::dna(), new_dna_freqs.clone());
+    modify_model_freqs_costs_match_template::<GTR>(Alphabet::dna(), new_dna_freqs);
 
     let new_aa_freqs = frequencies!(&[0.05; 20]);
-    modify_model_freqs_costs_match_template::<WAG>(protein_alphabet(), new_aa_freqs.clone());
-    modify_model_freqs_costs_match_template::<BLOSUM>(protein_alphabet(), new_aa_freqs.clone());
-    modify_model_freqs_costs_match_template::<HIVB>(protein_alphabet(), new_aa_freqs);
+    modify_model_freqs_costs_match_template::<WAG>(Alphabet::protein(), new_aa_freqs.clone());
+    modify_model_freqs_costs_match_template::<BLOSUM>(Alphabet::protein(), new_aa_freqs.clone());
+    modify_model_freqs_costs_match_template::<HIVB>(Alphabet::protein(), new_aa_freqs);
 }

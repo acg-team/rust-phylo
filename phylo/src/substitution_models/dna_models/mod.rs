@@ -5,7 +5,7 @@ use std::iter;
 use approx::relative_eq;
 use log::warn;
 
-use crate::alphabets::{dna_alphabet, Alphabet, NUCLEOTIDE_INDEX};
+use crate::alphabets::{Alphabet, NUCLEOTIDE_INDEX};
 use crate::frequencies;
 use crate::likelihood::{ParamRange, PARAM_RANGE_DUMMY, PARAM_RANGE_POSITIVE};
 use crate::substitution_models::{FreqVector, QMatrix, QMatrixMaker, SubstMatrix};
@@ -48,7 +48,7 @@ impl QMatrixMaker for JC69 {
         JC69 {
             freqs: frequencies!(&[1.0 / DNA_N as f64; DNA_N]),
             q,
-            alphabet: dna_alphabet(),
+            alphabet: Alphabet::dna(),
         }
     }
 }
@@ -114,7 +114,7 @@ impl QMatrixMaker for K80 {
             freqs: frequencies!(&[1.0 / DNA_N as f64; DNA_N]),
             q,
             kappa: vec![kappa],
-            alphabet: dna_alphabet(),
+            alphabet: Alphabet::dna(),
         }
     }
 }
@@ -210,7 +210,7 @@ impl QMatrixMaker for HKY {
             freqs,
             q,
             kappa: vec![kappa],
-            alphabet: dna_alphabet(),
+            alphabet: Alphabet::dna(),
         }
     }
 }
@@ -322,7 +322,7 @@ impl QMatrixMaker for TN93 {
             freqs,
             q,
             params,
-            alphabet: dna_alphabet(),
+            alphabet: Alphabet::dna(),
         }
     }
 }
@@ -437,7 +437,7 @@ impl QMatrixMaker for GTR {
             freqs,
             q,
             params,
-            alphabet: dna_alphabet(),
+            alphabet: Alphabet::dna(),
         }
     }
 }

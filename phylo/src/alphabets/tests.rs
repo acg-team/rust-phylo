@@ -1,8 +1,7 @@
 use rstest::*;
 
 use crate::alphabets::{
-    dna_alphabet, protein_alphabet, ParsimonySet, AMB_AMINOACIDS, AMB_NUCLEOTIDES, AMINOACIDS,
-    NUCLEOTIDES,
+    Alphabet, ParsimonySet, AMB_AMINOACIDS, AMB_NUCLEOTIDES, AMINOACIDS, NUCLEOTIDES,
 };
 use crate::record_wo_desc as record;
 
@@ -14,7 +13,7 @@ fn parsimony_set_iters() {
     let from_into_iter = set.into_iter().collect::<Vec<u8>>();
     assert_eq!(from_into_iter.len(), 4);
 
-    let set = dna_alphabet().parsimony_set(&b'X').clone();
+    let set = Alphabet::dna().parsimony_set(&b'X').clone();
     let from_iter = set.iter().cloned().collect::<Vec<u8>>();
     assert_eq!(from_iter.len(), 4);
     let from_into_iter = set.into_iter().collect::<Vec<u8>>();
@@ -28,7 +27,7 @@ fn dna_sets() {
     let sets = record
         .seq()
         .iter()
-        .map(|c| dna_alphabet().parsimony_set(c).clone())
+        .map(|c| Alphabet::dna().parsimony_set(c).clone())
         .collect::<Vec<_>>();
     assert_eq!(sets.len(), 11);
     assert_eq!(sets[0], sets[1]);
@@ -49,7 +48,7 @@ fn protein_sets() {
     let sets = record
         .seq()
         .iter()
-        .map(|c| protein_alphabet().parsimony_set(c).clone())
+        .map(|c| Alphabet::protein().parsimony_set(c).clone())
         .collect::<Vec<_>>();
     assert_eq!(sets.len(), 11);
     assert_eq!(sets[0], sets[1]);
@@ -62,7 +61,7 @@ fn protein_sets() {
 
 #[test]
 fn dna_characters() {
-    let dna = dna_alphabet();
+    let dna = Alphabet::dna();
     assert_eq!(dna.parsimony_set(&b'N'), dna.parsimony_set(&b'X'));
     assert_eq!(
         &(dna.parsimony_set(&b'A') | dna.parsimony_set(&b'C'))
@@ -93,7 +92,7 @@ fn dna_characters() {
 
 #[test]
 fn protein_characters() {
-    let prot = protein_alphabet();
+    let prot = Alphabet::protein();
     assert_eq!(prot.parsimony_set(&b'X'), prot.parsimony_set(&b'O'));
     assert_eq!(prot.parsimony_set(&b'-'), &ParsimonySet::gap());
     assert!(prot
@@ -129,7 +128,7 @@ fn test_parsimony_set_printing(#[case] input: &[u8], #[case] output: &str) {
 
 #[test]
 fn full_sets() {
-    let dna = dna_alphabet();
+    let dna = Alphabet::dna();
     let full_set = dna.full_set();
     for char in NUCLEOTIDES.iter() {
         assert!(full_set.contains(char));
@@ -138,7 +137,7 @@ fn full_sets() {
         assert!(!(full_set & dna.parsimony_set(char)).is_empty());
     }
 
-    let prot = protein_alphabet();
+    let prot = Alphabet::protein();
     let full_set = prot.full_set();
     for char in AMINOACIDS.iter() {
         assert!(full_set.contains(char));

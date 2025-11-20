@@ -5,7 +5,7 @@ use bio::io::fasta::Record;
 use bitvec::vec::BitVec;
 use hashbrown::HashSet;
 
-use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet, GAP};
+use crate::alphabets::{Alphabet, GAP};
 use crate::{record, Result};
 
 #[derive(Debug, Clone)]
@@ -41,10 +41,10 @@ impl Display for Sequences {
 
 impl Sequences {
     fn detect_alphabet(sequences: &[Record]) -> Alphabet {
-        let dna_alphabet = dna_alphabet();
+        let dna_alphabet = Alphabet::dna();
         for record in sequences.iter() {
             if !dna_alphabet.is_word(record.seq()) {
-                return protein_alphabet();
+                return Alphabet::protein();
             }
         }
         dna_alphabet
@@ -185,7 +185,7 @@ mod private_tests {
     fn dna_type_test(#[case] input: &str) {
         let seqs = read_sequences(input).unwrap();
         let alphabet = Sequences::detect_alphabet(&seqs);
-        assert_eq!(alphabet, dna_alphabet());
+        assert_eq!(alphabet, Alphabet::dna());
         assert!(format!("{alphabet}").contains("DNA"));
     }
 
@@ -195,7 +195,7 @@ mod private_tests {
     fn protein_type_test(#[case] input: &str) {
         let seqs = read_sequences(input).unwrap();
         let alphabet = Sequences::detect_alphabet(&seqs);
-        assert_eq!(alphabet, protein_alphabet());
+        assert_eq!(alphabet, Alphabet::protein());
         assert!(format!("{alphabet}").contains("protein"));
     }
 

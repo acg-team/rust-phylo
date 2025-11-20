@@ -2,7 +2,7 @@ use approx::assert_relative_eq;
 use nalgebra::DVector;
 
 use crate::alignment::{Alignment, AncestralAlignment, Mapping, Sequences, MASA};
-use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet};
+use crate::alphabets::Alphabet;
 use crate::likelihood::{
     ModelSearchCost, PARAM_RANGE_POSITIVE, PARAM_RANGE_UNIT_INTERVAL_EXCLUSIVE,
 };
@@ -293,7 +293,7 @@ pub(super) fn setup_test_phylo(alphabet: Alphabet) -> PhyloInfo<MASA> {
 #[test]
 fn tkf_indel_get_and_set_params_and_freqs() {
     let mut tkf_indel_cost =
-        TKF92IndelCostBuilder::new(1.0, 2.0, 0.3, setup_test_phylo(dna_alphabet()))
+        TKF92IndelCostBuilder::new(1.0, 2.0, 0.3, setup_test_phylo(Alphabet::dna()))
             .build()
             .unwrap();
     // params
@@ -313,17 +313,22 @@ fn tkf_indel_get_and_set_params_and_freqs() {
     assert_eq!(tkf_indel_cost.freqs(), &*DUMMY_FREQS);
     assert_eq!(
         tkf_indel_cost.empirical_freqs(),
-        setup_test_phylo(dna_alphabet()).freqs()
+        setup_test_phylo(Alphabet::dna()).freqs()
     );
 }
 
 #[test]
 fn tkf_get_and_set_params() {
     let subst_model = SubstModel::<GTR>::new(&[0.1, 0.2, 0.3, 0.4], &[0.5, 0.6, 0.7, 0.8, 0.9]);
-    let mut tkf_cost =
-        TKF92CostBuilder::new(1.0, 2.0, 0.3, subst_model, setup_test_phylo(dna_alphabet()))
-            .build()
-            .unwrap();
+    let mut tkf_cost = TKF92CostBuilder::new(
+        1.0,
+        2.0,
+        0.3,
+        subst_model,
+        setup_test_phylo(Alphabet::dna()),
+    )
+    .build()
+    .unwrap();
     assert_eq!(tkf_cost.param_count(), 8);
     assert_eq!(tkf_cost.param(0), 1.0);
     assert_eq!(tkf_cost.param(1), 2.0);
@@ -350,13 +355,13 @@ fn tkf_get_and_set_params() {
 
     assert_eq!(
         tkf_cost.empirical_freqs(),
-        setup_test_phylo(dna_alphabet()).freqs()
+        setup_test_phylo(Alphabet::dna()).freqs()
     );
 }
 
 #[test]
 fn tkf91_indel_cost_fmt() {
-    let tkf_indel_cost = TKF91IndelCostBuilder::new(1.0, 2.0, setup_test_phylo(dna_alphabet()))
+    let tkf_indel_cost = TKF91IndelCostBuilder::new(1.0, 2.0, setup_test_phylo(Alphabet::dna()))
         .build()
         .unwrap();
 
@@ -368,7 +373,7 @@ fn tkf91_indel_cost_fmt() {
 #[test]
 fn tkf91_cost_fmt() {
     let subst_model = SubstModel::<JC69>::new(&[], &[]);
-    let tkf_cost = TKF91CostBuilder::new(1.0, 2.0, subst_model, setup_test_phylo(dna_alphabet()))
+    let tkf_cost = TKF91CostBuilder::new(1.0, 2.0, subst_model, setup_test_phylo(Alphabet::dna()))
         .build()
         .unwrap();
 
@@ -380,7 +385,7 @@ fn tkf91_cost_fmt() {
 #[test]
 fn tkf92_indel_cost_fmt() {
     let tkf_indel_cost =
-        TKF92IndelCostBuilder::new(1.0, 2.0, 0.3, setup_test_phylo(dna_alphabet()))
+        TKF92IndelCostBuilder::new(1.0, 2.0, 0.3, setup_test_phylo(Alphabet::dna()))
             .build()
             .unwrap();
 
@@ -392,10 +397,15 @@ fn tkf92_indel_cost_fmt() {
 #[test]
 fn tkf92_cost_fmt() {
     let subst_model = SubstModel::<JC69>::new(&[], &[]);
-    let tkf_cost =
-        TKF92CostBuilder::new(1.0, 2.0, 0.3, subst_model, setup_test_phylo(dna_alphabet()))
-            .build()
-            .unwrap();
+    let tkf_cost = TKF92CostBuilder::new(
+        1.0,
+        2.0,
+        0.3,
+        subst_model,
+        setup_test_phylo(Alphabet::dna()),
+    )
+    .build()
+    .unwrap();
 
     let fmt = format!("{}", tkf_cost);
 
@@ -405,10 +415,15 @@ fn tkf92_cost_fmt() {
 #[test]
 fn tkf_get_and_set_freqs() {
     let subst_model = SubstModel::<GTR>::new(&[0.1, 0.2, 0.3, 0.4], &[0.5, 0.6, 0.7, 0.8, 0.9]);
-    let mut tkf_cost =
-        TKF92CostBuilder::new(1.0, 2.0, 0.3, subst_model, setup_test_phylo(dna_alphabet()))
-            .build()
-            .unwrap();
+    let mut tkf_cost = TKF92CostBuilder::new(
+        1.0,
+        2.0,
+        0.3,
+        subst_model,
+        setup_test_phylo(Alphabet::dna()),
+    )
+    .build()
+    .unwrap();
     assert_eq!(tkf_cost.freqs().as_slice(), &[0.1, 0.2, 0.3, 0.4]);
     tkf_cost.set_freqs(frequencies!(&[0.4, 0.3, 0.2, 0.1]));
     assert_eq!(tkf_cost.freqs().as_slice(), &[0.4, 0.3, 0.2, 0.1]);
@@ -417,7 +432,7 @@ fn tkf_get_and_set_freqs() {
 #[test]
 fn tkf91_param_range() {
     let subst_model = SubstModel::<GTR>::new(&[], &[]);
-    let tkf_cost = TKF91CostBuilder::new(1.0, 2.0, subst_model, setup_test_phylo(dna_alphabet()))
+    let tkf_cost = TKF91CostBuilder::new(1.0, 2.0, subst_model, setup_test_phylo(Alphabet::dna()))
         .build()
         .unwrap();
     let lambda_range = tkf_cost.param_range(usize::from(TKF92Parameters::Lambda));
@@ -437,10 +452,15 @@ fn tkf91_param_range() {
 #[test]
 fn tkf92_param_range() {
     let subst_model = SubstModel::<GTR>::new(&[], &[]);
-    let tkf_cost =
-        TKF92CostBuilder::new(1.0, 2.0, 0.3, subst_model, setup_test_phylo(dna_alphabet()))
-            .build()
-            .unwrap();
+    let tkf_cost = TKF92CostBuilder::new(
+        1.0,
+        2.0,
+        0.3,
+        subst_model,
+        setup_test_phylo(Alphabet::dna()),
+    )
+    .build()
+    .unwrap();
     let lambda_range = tkf_cost.param_range(usize::from(TKF92Parameters::Lambda));
     let true_lambda_range = (f64::EPSILON, 2.0 - f64::EPSILON);
     assert_eq!(lambda_range, true_lambda_range);
@@ -617,7 +637,7 @@ fn tkf92_indel_logl() {
 
 #[test]
 fn tkf91_cost_builder_fails() {
-    let phylo = setup_test_phylo(protein_alphabet());
+    let phylo = setup_test_phylo(Alphabet::protein());
     let subst_model = SubstModel::<GTR>::new(&[], &[]);
 
     let tkf91_err_msg = TKF91CostBuilder::new(0.1, 0.2, subst_model, phylo)
@@ -633,7 +653,7 @@ fn tkf91_cost_builder_fails() {
 
 #[test]
 fn tkf92_cost_builder_fails() {
-    let phylo = setup_test_phylo(protein_alphabet());
+    let phylo = setup_test_phylo(Alphabet::protein());
     let subst_model = SubstModel::<GTR>::new(&[], &[]);
 
     let tkf92_err_msg = TKF92CostBuilder::new(0.1, 0.2, 0.3, subst_model, phylo)
@@ -650,7 +670,7 @@ fn tkf92_cost_builder_fails() {
 #[test]
 fn tkf91_logl_with_substitution() {
     // arrange
-    let phylo = setup_test_phylo(dna_alphabet());
+    let phylo = setup_test_phylo(Alphabet::dna());
     let subst_model = SubstModel::<GTR>::new(&[0.1, 0.3, 0.4, 0.2], &[1.2, 0.5, 5.0, 1.0, 1.0]);
     let subst_cost = SCB::new(subst_model.clone(), phylo.clone())
         .build()
@@ -676,7 +696,7 @@ fn tkf91_logl_with_substitution() {
 #[test]
 fn tkf92_logl_with_substitution() {
     // arrange
-    let phylo = setup_test_phylo(dna_alphabet());
+    let phylo = setup_test_phylo(Alphabet::dna());
     let subst_model = SubstModel::<GTR>::new(&[0.1, 0.3, 0.4, 0.2], &[1.2, 0.5, 5.0, 1.0, 1.0]);
     let subst_cost = SCB::new(subst_model.clone(), phylo.clone())
         .build()
@@ -819,20 +839,20 @@ fn modify_tkf92_indel_params_costs_match_template<Q: QMatrix + QMatrixMaker>(alp
 
 #[test]
 fn tkf92_modify_subst_model_params_costs_match() {
-    modify_tkf92_subst_params_costs_match_template::<K80>(dna_alphabet());
-    modify_tkf92_subst_params_costs_match_template::<HKY>(dna_alphabet());
-    modify_tkf92_subst_params_costs_match_template::<TN93>(dna_alphabet());
-    modify_tkf92_subst_params_costs_match_template::<GTR>(dna_alphabet());
+    modify_tkf92_subst_params_costs_match_template::<K80>(Alphabet::dna());
+    modify_tkf92_subst_params_costs_match_template::<HKY>(Alphabet::dna());
+    modify_tkf92_subst_params_costs_match_template::<TN93>(Alphabet::dna());
+    modify_tkf92_subst_params_costs_match_template::<GTR>(Alphabet::dna());
 }
 
 #[test]
 fn tkf_modify_indel_model_params_costs_match() {
-    modify_tkf92_indel_params_costs_match_template::<JC69>(dna_alphabet());
-    modify_tkf92_indel_params_costs_match_template::<K80>(dna_alphabet());
-    modify_tkf92_indel_params_costs_match_template::<HKY>(dna_alphabet());
-    modify_tkf92_indel_params_costs_match_template::<TN93>(dna_alphabet());
-    modify_tkf92_indel_params_costs_match_template::<GTR>(dna_alphabet());
-    modify_tkf92_indel_params_costs_match_template::<WAG>(protein_alphabet());
-    modify_tkf92_indel_params_costs_match_template::<BLOSUM>(protein_alphabet());
-    modify_tkf92_indel_params_costs_match_template::<HIVB>(protein_alphabet());
+    modify_tkf92_indel_params_costs_match_template::<JC69>(Alphabet::dna());
+    modify_tkf92_indel_params_costs_match_template::<K80>(Alphabet::dna());
+    modify_tkf92_indel_params_costs_match_template::<HKY>(Alphabet::dna());
+    modify_tkf92_indel_params_costs_match_template::<TN93>(Alphabet::dna());
+    modify_tkf92_indel_params_costs_match_template::<GTR>(Alphabet::dna());
+    modify_tkf92_indel_params_costs_match_template::<WAG>(Alphabet::protein());
+    modify_tkf92_indel_params_costs_match_template::<BLOSUM>(Alphabet::protein());
+    modify_tkf92_indel_params_costs_match_template::<HIVB>(Alphabet::protein());
 }

@@ -6,7 +6,7 @@ use log::{info, warn};
 use rand::{Rng, SeedableRng};
 
 use crate::alignment::{Aligner, Alignment, AncestralAlignment, Sequences, MASA, MSA};
-use crate::alphabets::{dna_alphabet, protein_alphabet, Alphabet};
+use crate::alphabets::Alphabet;
 use crate::asr::AncestralSequenceReconstruction;
 use crate::evolutionary_distances::{LevenshteinDNACorrected, LevenshteinProteinCorrected};
 use crate::io::{self, DataError};
@@ -105,8 +105,8 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     /// use phylo::phylo_info::PhyloInfoBuilder;
     /// use phylo::alignment::{Alignment};
     /// # fn main() -> std::result::Result<(), anyhow::Error> {
-    /// let info = PhyloInfoBuilder::new("./examples/data/sequences_DNA_small.fasta").alphabet(Some(protein_alphabet())).build()?;
-    /// assert_eq!(info.msa.alphabet(), &protein_alphabet());
+    /// let info = PhyloInfoBuilder::new("./examples/data/sequences_DNA_small.fasta").alphabet(Some(Alphabet::protein())).build()?;
+    /// assert_eq!(info.msa.alphabet(), &Alphabet::protein());
     /// # Ok(()) }
     /// ```
     pub fn alphabet(mut self, alphabet: Option<Alphabet>) -> PhyloInfoBuilder<A, AA> {
@@ -234,10 +234,10 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
         sequences: &Sequences,
     ) -> Result<Tree> {
         info!("Building NJ tree from sequences");
-        if sequences.alphabet() == &dna_alphabet() {
+        if sequences.alphabet() == &Alphabet::dna() {
             info!("Using corrected Levenshtein DNA distance for distance calculation");
             NJTreeBuilder::new(LevenshteinDNACorrected {}).build(sequences, rng)
-        } else if sequences.alphabet() == &protein_alphabet() {
+        } else if sequences.alphabet() == &Alphabet::protein() {
             info!("Using corrected Levenshtein protein distance for distance calculation");
             NJTreeBuilder::new(LevenshteinProteinCorrected {}).build(sequences, rng)
         } else {

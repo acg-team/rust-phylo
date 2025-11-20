@@ -3,7 +3,7 @@ use std::fmt::Display;
 use approx::relative_eq;
 use log::warn;
 
-use crate::alphabets::{protein_alphabet, Alphabet, AMINOACID_INDEX};
+use crate::alphabets::{Alphabet, AMINOACID_INDEX};
 use crate::frequencies;
 use crate::likelihood::{ParamRange, PARAM_RANGE_DUMMY};
 use crate::substitution_models::{FreqVector, QMatrix, QMatrixMaker, SubstMatrix};
@@ -64,7 +64,7 @@ macro_rules! define_protein_model {
                     freqs,
                     q,
                     exchangeability,
-                    alphabet: protein_alphabet().clone(),
+                    alphabet: Alphabet::protein().clone(),
                 }
             }
         }

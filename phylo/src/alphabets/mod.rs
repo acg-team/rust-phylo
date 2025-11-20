@@ -17,7 +17,7 @@ pub static AMB_CHAR: u8 = b'X';
 pub static GAP: u8 = b'-';
 pub static POSSIBLE_GAPS: &[u8] = b"_*-";
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Alphabet {
     name: &'static str,
     symbols: &'static [u8],
@@ -35,7 +35,39 @@ impl Display for Alphabet {
     }
 }
 
+impl Default for Alphabet {
+    fn default() -> Self {
+        Alphabet::dna()
+    }
+}
+
 impl Alphabet {
+    pub fn dna() -> Self {
+        Alphabet {
+            name: "DNA",
+            symbols: NUCLEOTIDES,
+            ambiguous: AMB_NUCLEOTIDES,
+            index: &NUCLEOTIDE_INDEX,
+            valid_symbols: &VALID_NUCLEOTIDES,
+            conditional_probs: &NUCL_COND_PROBS,
+            parsimony_sets: &NUCL_PARSIMONY_SETS,
+            full_set: &NUCL_FULL_SET,
+        }
+    }
+
+    pub fn protein() -> Self {
+        Alphabet {
+            name: "protein",
+            symbols: AMINOACIDS,
+            ambiguous: AMB_AMINOACIDS,
+            index: &AMINOACID_INDEX,
+            valid_symbols: &VALID_AMINOACIDS,
+            conditional_probs: &AA_COND_PROBS,
+            parsimony_sets: &AA_PARSIMONY_SETS,
+            full_set: &AA_FULL_SET,
+        }
+    }
+
     pub fn is_word(&self, word: &[u8]) -> bool {
         word.to_ascii_uppercase()
             .iter()

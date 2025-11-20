@@ -5,7 +5,7 @@ use crate::alignment::{
     Alignment, AncestralAlignment, InternalAlignments, PairwiseAlignment as PA, SeqMaps, Sequences,
     MASA, MSA,
 };
-use crate::alphabets::{dna_alphabet, protein_alphabet, AMINOACIDS, NUCLEOTIDES};
+use crate::alphabets::{Alphabet, AMINOACIDS, NUCLEOTIDES};
 use crate::io::read_sequences;
 use crate::phylo_info::PhyloInfo;
 use crate::tree::{
@@ -109,15 +109,15 @@ fn sequences_with_alphabet() {
         record!("E4", Some("E4 sequence"), b"-A-AAA"),
     ];
 
-    let dna_seqs = Sequences::with_alphabet(records.clone(), dna_alphabet());
+    let dna_seqs = Sequences::with_alphabet(records.clone(), Alphabet::dna());
     assert_eq!(dna_seqs.alphabet().symbols(), NUCLEOTIDES);
     assert_ne!(dna_seqs.alphabet().symbols(), AMINOACIDS);
-    assert_eq!(*dna_seqs.alphabet(), dna_alphabet());
+    assert_eq!(*dna_seqs.alphabet(), Alphabet::dna());
 
-    let protein_seqs = Sequences::with_alphabet(records.clone(), protein_alphabet());
+    let protein_seqs = Sequences::with_alphabet(records.clone(), Alphabet::protein());
     assert_eq!(protein_seqs.alphabet().symbols(), AMINOACIDS);
     assert_ne!(protein_seqs.alphabet().symbols(), NUCLEOTIDES);
-    assert_eq!(*protein_seqs.alphabet(), protein_alphabet());
+    assert_eq!(*protein_seqs.alphabet(), Alphabet::protein());
 }
 
 #[test]

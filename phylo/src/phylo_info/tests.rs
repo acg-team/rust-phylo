@@ -5,7 +5,7 @@ use approx::assert_relative_eq;
 use assert_matches::assert_matches;
 
 use crate::alignment::{Alignment, AncestralAlignment, Sequences, MSA};
-use crate::alphabets::{dna_alphabet, protein_alphabet, NUCLEOTIDES};
+use crate::alphabets::{Alphabet, NUCLEOTIDES};
 use crate::io::{read_sequences, DataError};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::substitution_models::FreqVector;
@@ -355,14 +355,14 @@ fn force_protein_alphabet() {
     // If data is severely subsampled it might look like DNA even though it's really protein
     let fldr = Path::new("./data");
     let info = PIB::new(fldr.join("p226.msa.fa")).build().unwrap();
-    assert_eq!(info.msa.alphabet(), &dna_alphabet());
+    assert_eq!(info.msa.alphabet(), &Alphabet::dna());
 
     let fldr = Path::new("./data");
     let info = PIB::new(fldr.join("p226.msa.fa"))
-        .alphabet(Some(protein_alphabet()))
+        .alphabet(Some(Alphabet::protein()))
         .build()
         .unwrap();
-    assert_eq!(info.msa.alphabet(), &protein_alphabet());
+    assert_eq!(info.msa.alphabet(), &Alphabet::protein());
 }
 
 #[test]
