@@ -326,7 +326,7 @@ impl<Q: QMatrix> SubstModelInfo<Q> {
                 if let Some(c) = alignment_map[i] {
                     site_info.copy_from(info.msa.alphabet().char_encoding(seq[c]));
                 } else {
-                    site_info.copy_from(info.msa.alphabet().gap_encoding());
+                    site_info.copy_from(info.msa.alphabet().missing_char_encoding());
                 }
             }
             leaf_seq_info.insert(node.idx, leaf_seq_w_gaps);

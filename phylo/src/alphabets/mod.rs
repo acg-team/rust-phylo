@@ -2,12 +2,15 @@ use std::fmt::Display;
 
 use hashbrown::HashSet;
 use lazy_static::lazy_static;
+use nalgebra::DVector;
 
 use crate::frequencies;
 use crate::substitution_models::FreqVector;
 
 pub mod parsimony_set;
 pub use parsimony_set::*;
+
+type ConditionalProbs = DVector<f64>;
 
 pub static AMINOACIDS: &[u8] = b"ARNDCQEGHILKMFPSTWYV";
 pub static AMB_AMINOACIDS: &[u8] = b"BJZX";
@@ -57,7 +60,7 @@ impl Alphabet {
         self.ambiguous
     }
 
-    pub fn char_encoding(&self, char: u8) -> &FreqVector {
+    pub fn char_encoding(&self, char: u8) -> &ConditionalProbs {
         &self.conditional_probs[char.to_ascii_uppercase() as usize]
     }
 
@@ -65,7 +68,7 @@ impl Alphabet {
         self.index[*char as usize]
     }
 
-    pub fn gap_encoding(&self) -> &FreqVector {
+    pub fn missing_char_encoding(&self) -> &ConditionalProbs {
         &self.conditional_probs[AMB_CHAR as usize]
     }
 
