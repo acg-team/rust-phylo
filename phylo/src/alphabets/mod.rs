@@ -26,7 +26,6 @@ pub struct Alphabet {
     valid_symbols: &'static HashSet<u8>,
     conditional_probs: &'static [FreqVector],
     parsimony_sets: &'static [ParsimonySet],
-    full_set: &'static ParsimonySet,
 }
 
 impl Display for Alphabet {
@@ -78,10 +77,6 @@ impl Alphabet {
         &self.parsimony_sets[*char as usize]
     }
 
-    pub fn full_set(&self) -> &ParsimonySet {
-        self.full_set
-    }
-
     pub fn gap_set(&self) -> &ParsimonySet {
         &GAP_SET
     }
@@ -96,7 +91,6 @@ lazy_static! {
         valid_symbols: &VALID_NUCLEOTIDES,
         conditional_probs: &NUCL_COND_PROBS,
         parsimony_sets: &NUCL_PARSIMONY_SETS,
-        full_set: &NUCL_FULL_SET,
     };
     pub static ref PROTEIN_ALPHABET: Alphabet = Alphabet {
         name: "protein",
@@ -106,7 +100,6 @@ lazy_static! {
         valid_symbols: &VALID_AMINOACIDS,
         conditional_probs: &AA_COND_PROBS,
         parsimony_sets: &AA_PARSIMONY_SETS,
-        full_set: &AA_FULL_SET,
     };
     pub static ref NUCLEOTIDE_INDEX: [usize; 255] = {
         let mut index = [0; 255];
@@ -140,7 +133,6 @@ lazy_static! {
         }
         map
     };
-    pub static ref NUCL_FULL_SET: ParsimonySet = ParsimonySet::from_slice(NUCLEOTIDES);
     pub static ref GAP_SET: ParsimonySet = ParsimonySet::from_slice(&[GAP]);
 }
 
@@ -219,7 +211,6 @@ lazy_static! {
         }
         map
     };
-    pub static ref AA_FULL_SET: ParsimonySet = ParsimonySet::from_slice(AMINOACIDS);
 }
 
 fn aa_cond_probs(char: u8) -> FreqVector {

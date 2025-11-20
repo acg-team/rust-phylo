@@ -127,9 +127,10 @@ fn test_parsimony_set_printing(#[case] input: &[u8], #[case] output: &str) {
 }
 
 #[test]
-fn full_sets() {
+fn ambiguous_sets() {
     let dna = Alphabet::dna();
-    let full_set = dna.full_set();
+    let full_set = dna.parsimony_set(&b'X');
+    assert_eq!(full_set, dna.parsimony_set(&b'N'));
     for char in NUCLEOTIDES.iter() {
         assert!(full_set.contains(char));
     }
@@ -138,7 +139,7 @@ fn full_sets() {
     }
 
     let prot = Alphabet::protein();
-    let full_set = prot.full_set();
+    let full_set = prot.parsimony_set(&b'X');
     for char in AMINOACIDS.iter() {
         assert!(full_set.contains(char));
     }
