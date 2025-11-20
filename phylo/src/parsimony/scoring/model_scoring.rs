@@ -3,7 +3,8 @@ use std::fmt::Display;
 use log::{debug, info};
 use ordered_float::OrderedFloat;
 
-use crate::alphabets::{Alphabet, ParsimonySet};
+use crate::alphabets::ParsimonySet;
+use crate::evolutionary_models::EvoModel;
 use crate::parsimony::{
     CostMatrix, DiagonalZeros, GapCost, ParsimonyModel, ParsimonyScoring, Rounding,
 };
@@ -18,7 +19,7 @@ pub struct ModelScoringBuilder<P: ParsimonyModel> {
     times: Vec<f64>,
 }
 
-impl<P: ParsimonyModel> ModelScoringBuilder<P> {
+impl<P: ParsimonyModel + EvoModel> ModelScoringBuilder<P> {
     pub fn new(model: P) -> Self {
         ModelScoringBuilder {
             model,
@@ -87,7 +88,6 @@ impl<P: ParsimonyModel> ModelScoringBuilder<P> {
         );
         debug!("The scoring matrices are: {costs:?}");
         Ok(ModelScoring {
-            alphabet: *self.model.alphabet(),
             model: self.model,
             gap: self.gap,
             costs,
@@ -97,7 +97,6 @@ impl<P: ParsimonyModel> ModelScoringBuilder<P> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ModelScoring<P: ParsimonyModel> {
-    alphabet: Alphabet,
     model: P,
     gap: GapCost,
     costs: Vec<(OrderedFloat<f64>, TimeCosts)>,
@@ -145,9 +144,9 @@ impl<P: ParsimonyModel> ModelScoring<P> {
     }
 }
 
-impl<P: ParsimonyModel> ParsimonyScoring for ModelScoring<P> {
+impl<P: ParsimonyModel + EvoModel> ParsimonyScoring for ModelScoring<P> {
     fn r#match(&self, blen: f64, i: &u8, j: &u8) -> f64 {
-        self.scoring(OrderedFloat(blen)).c[(self.alphabet.index(i), self.alphabet.index(j))]
+        self.scoring(OrderedFloat(blen)).c[(P::alphabet().index(i), P::alphabet().index(j))]
     }
 
     fn min_match(&self, blen: f64, i: &ParsimonySet, j: &ParsimonySet) -> f64 {

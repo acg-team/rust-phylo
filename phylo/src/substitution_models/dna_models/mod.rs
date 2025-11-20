@@ -34,7 +34,6 @@ fn set_dna_freqs(freqs: FreqVector) -> FreqVector {
 pub struct JC69 {
     freqs: FreqVector,
     q: SubstMatrix,
-    alphabet: Alphabet,
 }
 
 impl QMatrixMaker for JC69 {
@@ -48,7 +47,6 @@ impl QMatrixMaker for JC69 {
         JC69 {
             freqs: frequencies!(&[1.0 / DNA_N as f64; DNA_N]),
             q,
-            alphabet: Alphabet::dna(),
         }
     }
 }
@@ -74,8 +72,8 @@ impl QMatrix for JC69 {
     fn n(&self) -> usize {
         DNA_N
     }
-    fn alphabet(&self) -> &Alphabet {
-        &self.alphabet
+    fn alphabet() -> &'static Alphabet {
+        Alphabet::dna()
     }
 }
 
@@ -90,7 +88,6 @@ pub struct K80 {
     freqs: FreqVector,
     q: SubstMatrix,
     kappa: Vec<f64>,
-    alphabet: Alphabet,
 }
 
 impl QMatrixMaker for K80 {
@@ -114,7 +111,6 @@ impl QMatrixMaker for K80 {
             freqs: frequencies!(&[1.0 / DNA_N as f64; DNA_N]),
             q,
             kappa: vec![kappa],
-            alphabet: Alphabet::dna(),
         }
     }
 }
@@ -143,8 +139,8 @@ impl QMatrix for K80 {
     fn n(&self) -> usize {
         DNA_N
     }
-    fn alphabet(&self) -> &Alphabet {
-        &self.alphabet
+    fn alphabet() -> &'static Alphabet {
+        Alphabet::dna()
     }
 }
 
@@ -184,7 +180,6 @@ pub struct HKY {
     freqs: FreqVector,
     q: SubstMatrix,
     kappa: Vec<f64>,
-    alphabet: Alphabet,
 }
 
 impl QMatrixMaker for HKY {
@@ -210,7 +205,6 @@ impl QMatrixMaker for HKY {
             freqs,
             q,
             kappa: vec![kappa],
-            alphabet: Alphabet::dna(),
         }
     }
 }
@@ -242,8 +236,8 @@ impl QMatrix for HKY {
     fn n(&self) -> usize {
         DNA_N
     }
-    fn alphabet(&self) -> &Alphabet {
-        &self.alphabet
+    fn alphabet() -> &'static Alphabet {
+        Alphabet::dna()
     }
 }
 
@@ -295,7 +289,6 @@ pub struct TN93 {
     freqs: FreqVector,
     pub(crate) q: SubstMatrix,
     params: Vec<f64>,
-    alphabet: Alphabet,
 }
 
 impl QMatrixMaker for TN93 {
@@ -318,12 +311,7 @@ impl QMatrixMaker for TN93 {
 
         let mut q = SubstMatrix::zeros(DNA_N, DNA_N);
         tn93_q(&mut q, &freqs, &params);
-        TN93 {
-            freqs,
-            q,
-            params,
-            alphabet: Alphabet::dna(),
-        }
+        TN93 { freqs, q, params }
     }
 }
 
@@ -354,8 +342,8 @@ impl QMatrix for TN93 {
     fn n(&self) -> usize {
         DNA_N
     }
-    fn alphabet(&self) -> &Alphabet {
-        &self.alphabet
+    fn alphabet() -> &'static Alphabet {
+        Alphabet::dna()
     }
 }
 
@@ -413,7 +401,6 @@ pub struct GTR {
     freqs: FreqVector,
     q: SubstMatrix,
     params: Vec<f64>,
-    alphabet: Alphabet,
 }
 
 impl QMatrixMaker for GTR {
@@ -433,12 +420,7 @@ impl QMatrixMaker for GTR {
         }
         let mut q = SubstMatrix::zeros(DNA_N, DNA_N);
         gtr_q(&mut q, &freqs, &params);
-        GTR {
-            freqs,
-            q,
-            params,
-            alphabet: Alphabet::dna(),
-        }
+        GTR { freqs, q, params }
     }
 }
 
@@ -469,8 +451,8 @@ impl QMatrix for GTR {
     fn n(&self) -> usize {
         DNA_N
     }
-    fn alphabet(&self) -> &Alphabet {
-        &self.alphabet
+    fn alphabet() -> &'static Alphabet {
+        Alphabet::dna()
     }
 }
 

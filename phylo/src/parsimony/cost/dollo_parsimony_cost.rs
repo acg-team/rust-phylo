@@ -232,6 +232,7 @@ impl DolloParsimonyInfo {
 #[cfg_attr(coverage, coverage(off))]
 mod private_tests {
     use crate::alignment::{Alignment, Sequences, MSA};
+    use crate::alphabets::Alphabet;
     use crate::likelihood::TreeSearchCost;
     use crate::parsimony::{DolloParsimonyCost, GapCost, SimpleScoring};
     use crate::phylo_info::PhyloInfo;
@@ -337,7 +338,7 @@ mod private_tests {
                 record!("C", b"-"),
                 record!("D", b"-"),
             ],
-            crate::alphabets::dna_alphabet(),
+            Alphabet::dna(),
         );
 
         let tree = tree!("(((D:1,(A:1,C:0.5)I1:0.5)I4:1,B:2)I0:0);");

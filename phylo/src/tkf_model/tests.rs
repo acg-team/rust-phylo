@@ -271,7 +271,7 @@ fn tkf92_get_blocks() {
 }
 
 #[cfg(test)]
-pub(super) fn setup_test_phylo(alphabet: Alphabet) -> PhyloInfo<MASA> {
+pub(super) fn setup_test_phylo(alphabet: &'static Alphabet) -> PhyloInfo<MASA> {
     let tree = tree!("(((A1:2.0,B2:2.0)I3:0.3,C4:2.0)R5:1.0);");
     let msa = MASA::from_aligned_with_ancestral(
         Sequences::with_alphabet(
@@ -778,7 +778,9 @@ fn tkf_indel_history_doesnt_change_felsenstein() {
 }
 
 #[cfg(test)]
-fn modify_tkf92_subst_params_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphabet) {
+fn modify_tkf92_subst_params_costs_match_template<Q: QMatrix + QMatrixMaker>(
+    alphabet: &'static Alphabet,
+) {
     let phylo = setup_test_phylo(alphabet);
     let subst_original_param = 1.0;
     let subst_changed_param = 0.5;
@@ -808,7 +810,9 @@ fn modify_tkf92_subst_params_costs_match_template<Q: QMatrix + QMatrixMaker>(alp
 }
 
 #[cfg(test)]
-fn modify_tkf92_indel_params_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphabet) {
+fn modify_tkf92_indel_params_costs_match_template<Q: QMatrix + QMatrixMaker>(
+    alphabet: &'static Alphabet,
+) {
     let phylo = setup_test_phylo(alphabet);
     let subst_model = SubstModel::<Q>::new(&[], &[]);
     let tkf_original_mu = 0.2;

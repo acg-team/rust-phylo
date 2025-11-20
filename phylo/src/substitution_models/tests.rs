@@ -789,7 +789,7 @@ fn protein_example_likelihood() {
 }
 
 #[cfg(test)]
-fn simple_reroot_info(alphabet: &Alphabet) -> (PhyloInfo<MSA>, PhyloInfo<MSA>) {
+fn simple_reroot_info(alphabet: &'static Alphabet) -> (PhyloInfo<MSA>, PhyloInfo<MSA>) {
     let tree = tree!("((A:2.0,B:2.0):1.0,C:2.0):0.0;");
     let seqs = Sequences::with_alphabet(
         vec![
@@ -797,7 +797,7 @@ fn simple_reroot_info(alphabet: &Alphabet) -> (PhyloInfo<MSA>, PhyloInfo<MSA>) {
             record!("B", b"ATATATATAAIHL"),
             record!("C", b"TTATATATATIJL"),
         ],
-        *alphabet,
+        alphabet,
     );
 
     let info = PhyloInfo {
@@ -816,7 +816,7 @@ fn simple_reroot_info(alphabet: &Alphabet) -> (PhyloInfo<MSA>, PhyloInfo<MSA>) {
 #[cfg(test)]
 fn logl_revers_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64], epsilon: f64) {
     let model = SubstModel::<Q>::new(freqs, params);
-    let (info, info_rerooted) = simple_reroot_info(model.qmatrix.alphabet());
+    let (info, info_rerooted) = simple_reroot_info(Q::alphabet());
 
     let c = SCB::new(model.clone(), info).build().unwrap();
     let c_rerooted = SCB::new(model, info_rerooted).build().unwrap();
@@ -928,7 +928,7 @@ fn one_site_one_char_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: 
             record!("three", b"-"),
             record!("four", b"-"),
         ],
-        *model.qmatrix.alphabet(),
+        Q::alphabet(),
     );
     let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
     let info = PhyloInfo {
@@ -1103,7 +1103,7 @@ fn x_fully_likely_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f
             record!("C", b"X"),
             record!("D", b"X"),
         ],
-        *model.alphabet(),
+        Q::alphabet(),
     );
     let info = PhyloInfo {
         msa: MSA::from_aligned(seqs, &tree).unwrap(),
@@ -1233,7 +1233,7 @@ fn dna_zero_diag_scores() {
 }
 
 #[cfg(test)]
-fn setup_test_info(alphabet: Alphabet) -> PhyloInfo<MSA> {
+fn setup_test_info(alphabet: &'static Alphabet) -> PhyloInfo<MSA> {
     let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let msa = MSA::from_aligned(
         Sequences::with_alphabet(
@@ -1252,7 +1252,7 @@ fn setup_test_info(alphabet: Alphabet) -> PhyloInfo<MSA> {
 }
 
 #[cfg(test)]
-fn dirty_tree_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphabet) {
+fn dirty_tree_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: &'static Alphabet) {
     use crate::likelihood::TreeSearchCost;
 
     let info = setup_test_info(alphabet);
@@ -1289,7 +1289,7 @@ fn dirty_tree_costs_match() {
 }
 
 #[cfg(test)]
-fn dirty_branch_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphabet) {
+fn dirty_branch_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: &'static Alphabet) {
     use crate::likelihood::TreeSearchCost;
 
     let info = setup_test_info(alphabet);
@@ -1334,7 +1334,9 @@ fn dirty_branch_costs_match() {
 }
 
 #[cfg(test)]
-fn modify_model_params_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphabet) {
+fn modify_model_params_costs_match_template<Q: QMatrix + QMatrixMaker>(
+    alphabet: &'static Alphabet,
+) {
     let info = setup_test_info(alphabet);
 
     let model = SubstModel::<Q>::new(&[], &[1.0]);
@@ -1367,7 +1369,7 @@ fn modify_model_params_costs_match() {
 
 #[cfg(test)]
 fn modify_model_freqs_costs_match_template<Q: QMatrix + QMatrixMaker>(
-    alphabet: Alphabet,
+    alphabet: &'static Alphabet,
     freqs: FreqVector,
 ) {
     let info = setup_test_info(alphabet);

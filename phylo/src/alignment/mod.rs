@@ -188,7 +188,7 @@ impl Alignment for MSA {
     /// # Ok(()) }
     ///
     fn alphabet(&self) -> &Alphabet {
-        &self.seqs.alphabet
+        self.seqs.alphabet
     }
 
     fn seqs(&self) -> &Sequences {
@@ -349,7 +349,7 @@ impl Display for MASA {
 
 impl Alignment for MASA {
     fn alphabet(&self) -> &Alphabet {
-        &self.leaf_seqs.alphabet
+        self.leaf_seqs.alphabet
     }
 
     fn seqs(&self) -> &Sequences {

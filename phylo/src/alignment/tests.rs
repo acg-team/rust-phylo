@@ -112,12 +112,12 @@ fn sequences_with_alphabet() {
     let dna_seqs = Sequences::with_alphabet(records.clone(), Alphabet::dna());
     assert_eq!(dna_seqs.alphabet().symbols(), NUCLEOTIDES);
     assert_ne!(dna_seqs.alphabet().symbols(), AMINOACIDS);
-    assert_eq!(*dna_seqs.alphabet(), Alphabet::dna());
+    assert_eq!(dna_seqs.alphabet(), Alphabet::dna());
 
     let protein_seqs = Sequences::with_alphabet(records.clone(), Alphabet::protein());
     assert_eq!(protein_seqs.alphabet().symbols(), AMINOACIDS);
     assert_ne!(protein_seqs.alphabet().symbols(), NUCLEOTIDES);
-    assert_eq!(*protein_seqs.alphabet(), Alphabet::protein());
+    assert_eq!(protein_seqs.alphabet(), Alphabet::protein());
 }
 
 #[test]

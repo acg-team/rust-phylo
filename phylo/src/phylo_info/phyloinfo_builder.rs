@@ -26,7 +26,7 @@ pub struct PhyloInfoBuilder<A: Alignment, AA: AncestralAlignment> {
     // but since we access the alignment on a regular basis (or do we actually? Since we instead use the encoding)
     aligner: Option<Box<dyn Aligner<A>>>,
     asr: Option<Box<dyn AncestralSequenceReconstruction<A, AA>>>,
-    alphabet: Option<Alphabet>,
+    alphabet: Option<&'static Alphabet>,
 }
 
 impl PhyloInfoBuilder<MSA, MASA> {
@@ -109,7 +109,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     /// assert_eq!(info.msa.alphabet(), &Alphabet::protein());
     /// # Ok(()) }
     /// ```
-    pub fn alphabet(mut self, alphabet: Option<Alphabet>) -> PhyloInfoBuilder<A, AA> {
+    pub fn alphabet(mut self, alphabet: Option<&'static Alphabet>) -> PhyloInfoBuilder<A, AA> {
         self.alphabet = alphabet;
         self
     }
@@ -234,10 +234,10 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
         sequences: &Sequences,
     ) -> Result<Tree> {
         info!("Building NJ tree from sequences");
-        if sequences.alphabet() == &Alphabet::dna() {
+        if sequences.alphabet() == Alphabet::dna() {
             info!("Using corrected Levenshtein DNA distance for distance calculation");
             NJTreeBuilder::new(LevenshteinDNACorrected {}).build(sequences, rng)
-        } else if sequences.alphabet() == &Alphabet::protein() {
+        } else if sequences.alphabet() == Alphabet::protein() {
             info!("Using corrected Levenshtein protein distance for distance calculation");
             NJTreeBuilder::new(LevenshteinProteinCorrected {}).build(sequences, rng)
         } else {

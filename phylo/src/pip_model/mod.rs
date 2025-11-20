@@ -150,8 +150,8 @@ impl<Q: QMatrix> EvoModel for PIPModel<Q> {
         self.subst_q.n() + 1
     }
 
-    fn alphabet(&self) -> &Alphabet {
-        self.subst_q.alphabet()
+    fn alphabet() -> &'static Alphabet {
+        Q::alphabet()
     }
 }
 
@@ -235,7 +235,7 @@ impl<Q: QMatrix, A: Alignment> PIPCostBuilder<Q, A> {
     }
 
     pub fn build(self) -> Result<PIPCost<Q, A>> {
-        if self.info.msa.alphabet() != self.model.alphabet() {
+        if self.info.msa.alphabet() != Q::alphabet() {
             bail!("Alphabet mismatch between model and alignment");
         }
 

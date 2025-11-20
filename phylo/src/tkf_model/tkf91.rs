@@ -6,7 +6,6 @@ use log::warn;
 use num_enum::{FromPrimitive, IntoPrimitive};
 
 use crate::alignment::AncestralAlignment;
-use crate::evolutionary_models::EvoModel;
 use crate::likelihood::ParamRange;
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{QMatrix, SubstModel, SubstitutionCostBuilder as SCB};
@@ -160,7 +159,7 @@ impl<Q: QMatrix, AA: AncestralAlignment> TKF91CostBuilder<Q, AA> {
     }
 
     pub fn build(self) -> Result<TKFCost<Q, TKF91IndelModel, AA>> {
-        if self.phylo.msa.alphabet() != self.subst_model.alphabet() {
+        if self.phylo.msa.alphabet() != Q::alphabet() {
             bail!("Alphabet mismatch between model and alignment");
         }
 

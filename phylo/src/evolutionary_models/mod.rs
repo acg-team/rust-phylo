@@ -21,7 +21,9 @@ pub trait EvoModel: Display + DynClone {
     fn freqs(&self) -> &FreqVector;
     fn set_freqs(&mut self, pi: FreqVector);
     fn n(&self) -> usize;
-    fn alphabet(&self) -> &Alphabet;
+    fn alphabet() -> &'static Alphabet
+    where
+        Self: Sized;
 }
 
 dyn_clone::clone_trait_object!(EvoModel);

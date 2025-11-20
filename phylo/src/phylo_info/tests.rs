@@ -355,14 +355,14 @@ fn force_protein_alphabet() {
     // If data is severely subsampled it might look like DNA even though it's really protein
     let fldr = Path::new("./data");
     let info = PIB::new(fldr.join("p226.msa.fa")).build().unwrap();
-    assert_eq!(info.msa.alphabet(), &Alphabet::dna());
+    assert_eq!(info.msa.alphabet(), Alphabet::dna());
 
     let fldr = Path::new("./data");
     let info = PIB::new(fldr.join("p226.msa.fa"))
         .alphabet(Some(Alphabet::protein()))
         .build()
         .unwrap();
-    assert_eq!(info.msa.alphabet(), &Alphabet::protein());
+    assert_eq!(info.msa.alphabet(), Alphabet::protein());
 }
 
 #[test]

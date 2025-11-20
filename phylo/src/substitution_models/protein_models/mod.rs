@@ -48,7 +48,6 @@ macro_rules! define_protein_model {
             freqs: FreqVector,
             q: SubstMatrix,
             exchangeability: SubstMatrix,
-            alphabet: Alphabet,
         }
         impl QMatrixMaker for $name {
             fn create(freqs: &[f64], _: &[f64]) -> $name {
@@ -64,7 +63,6 @@ macro_rules! define_protein_model {
                     freqs,
                     q,
                     exchangeability,
-                    alphabet: Alphabet::protein().clone(),
                 }
             }
         }
@@ -99,8 +97,8 @@ macro_rules! define_protein_model {
             fn rate(&self, i: u8, j: u8) -> f64 {
                 self.q[(AMINOACID_INDEX[i as usize], AMINOACID_INDEX[j as usize])]
             }
-            fn alphabet(&self) -> &Alphabet {
-                &self.alphabet
+            fn alphabet() -> &'static Alphabet {
+                Alphabet::protein()
             }
         }
 

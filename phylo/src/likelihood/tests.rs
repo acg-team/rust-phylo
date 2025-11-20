@@ -20,7 +20,7 @@ fn search_costs_equal_template<C: ModelSearchCost + TreeSearchCost>(cost: C) {
 
 #[cfg(test)]
 fn test_subst_model<Q: QMatrix + QMatrixMaker>(
-    alpha: Alphabet,
+    alpha: &'static Alphabet,
     freqs: &[f64],
     params: &[f64],
 ) -> SubstitutionCost<Q, MSA> {
@@ -71,7 +71,7 @@ fn protein_search_costs_equal() {
 
 #[cfg(test)]
 fn test_pip_model<Q: QMatrix + QMatrixMaker>(
-    alpha: Alphabet,
+    alpha: &'static Alphabet,
     freqs: &[f64],
     params: &[f64],
 ) -> PIPCost<Q, MSA> {
@@ -146,7 +146,7 @@ fn protein_pip_search_costs_equal() {
 
 #[cfg(test)]
 fn alphabet_mismatch_subst_model_template<Q: QMatrix + QMatrixMaker>(
-    alpha: Alphabet,
+    alpha: &'static Alphabet,
     freqs: &[f64],
     params: &[f64],
 ) {
@@ -189,7 +189,7 @@ fn alphabet_mismatch_subst_model() {
 
 #[cfg(test)]
 fn alphabet_mismatch_subst_pip_template<Q: QMatrix + QMatrixMaker>(
-    alpha: Alphabet,
+    alpha: &'static Alphabet,
     freqs: &[f64],
     params: &[f64],
 ) {

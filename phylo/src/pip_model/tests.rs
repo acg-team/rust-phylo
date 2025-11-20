@@ -856,7 +856,7 @@ fn blen_leading_to_minusinf() {
 }
 
 #[cfg(test)]
-fn setup_test_info(alphabet: Alphabet) -> PhyloInfo<MSA> {
+fn setup_test_info(alphabet: &'static Alphabet) -> PhyloInfo<MSA> {
     let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let msa = MSA::from_aligned(
         Sequences::with_alphabet(
@@ -875,7 +875,7 @@ fn setup_test_info(alphabet: Alphabet) -> PhyloInfo<MSA> {
 }
 
 #[cfg(test)]
-fn dirty_tree_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphabet) {
+fn dirty_tree_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: &'static Alphabet) {
     use crate::likelihood::TreeSearchCost;
 
     let info = setup_test_info(alphabet);
@@ -912,7 +912,7 @@ fn dirty_tree_costs_match() {
 }
 
 #[cfg(test)]
-fn dirty_branch_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphabet) {
+fn dirty_branch_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: &'static Alphabet) {
     use crate::likelihood::TreeSearchCost;
 
     let info = setup_test_info(alphabet);
@@ -958,7 +958,9 @@ fn dirty_branch_costs_match() {
 }
 
 #[cfg(test)]
-fn modify_model_params_costs_match_template<Q: QMatrix + QMatrixMaker>(alphabet: Alphabet) {
+fn modify_model_params_costs_match_template<Q: QMatrix + QMatrixMaker>(
+    alphabet: &'static Alphabet,
+) {
     let info = setup_test_info(alphabet);
 
     let model = PIPModel::<Q>::new(&[], &[1.0]);
@@ -991,7 +993,7 @@ fn modify_model_params_costs_match() {
 
 #[cfg(test)]
 fn modify_model_freqs_costs_match_template<Q: QMatrix + QMatrixMaker>(
-    alphabet: Alphabet,
+    alphabet: &'static Alphabet,
     freqs: FreqVector,
 ) {
     let info = setup_test_info(alphabet);

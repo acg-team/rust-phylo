@@ -4,7 +4,7 @@ use std::path::Path;
 use approx::assert_relative_eq;
 
 use crate::alignment::{Alignment, Sequences, MSA};
-use crate::alphabets::protein_alphabet;
+use crate::alphabets::Alphabet;
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{BranchOptimiser, StopCondition};
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
@@ -147,7 +147,7 @@ fn only_gap_sequence() {
     let msa: MSA = Alignment::from_aligned(
         Sequences::with_alphabet(
             vec![record!("284812", b"-"), record!("5207", b"V")],
-            protein_alphabet(),
+            Alphabet::protein(),
         ),
         &tree,
     )

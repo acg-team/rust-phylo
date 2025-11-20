@@ -35,37 +35,13 @@ impl Display for Alphabet {
     }
 }
 
-impl Default for Alphabet {
-    fn default() -> Self {
-        Alphabet::dna()
-    }
-}
-
 impl Alphabet {
-    pub fn dna() -> Self {
-        Alphabet {
-            name: "DNA",
-            symbols: NUCLEOTIDES,
-            ambiguous: AMB_NUCLEOTIDES,
-            index: &NUCLEOTIDE_INDEX,
-            valid_symbols: &VALID_NUCLEOTIDES,
-            conditional_probs: &NUCL_COND_PROBS,
-            parsimony_sets: &NUCL_PARSIMONY_SETS,
-            full_set: &NUCL_FULL_SET,
-        }
+    pub fn dna() -> &'static Self {
+        &DNA_ALPHABET
     }
 
-    pub fn protein() -> Self {
-        Alphabet {
-            name: "protein",
-            symbols: AMINOACIDS,
-            ambiguous: AMB_AMINOACIDS,
-            index: &AMINOACID_INDEX,
-            valid_symbols: &VALID_AMINOACIDS,
-            conditional_probs: &AA_COND_PROBS,
-            parsimony_sets: &AA_PARSIMONY_SETS,
-            full_set: &AA_FULL_SET,
-        }
+    pub fn protein() -> &'static Self {
+        &PROTEIN_ALPHABET
     }
 
     pub fn is_word(&self, word: &[u8]) -> bool {
@@ -111,8 +87,8 @@ impl Alphabet {
     }
 }
 
-pub fn dna_alphabet() -> Alphabet {
-    Alphabet {
+lazy_static! {
+    pub static ref DNA_ALPHABET: Alphabet = Alphabet {
         name: "DNA",
         symbols: NUCLEOTIDES,
         ambiguous: AMB_NUCLEOTIDES,
@@ -121,11 +97,8 @@ pub fn dna_alphabet() -> Alphabet {
         conditional_probs: &NUCL_COND_PROBS,
         parsimony_sets: &NUCL_PARSIMONY_SETS,
         full_set: &NUCL_FULL_SET,
-    }
-}
-
-pub fn protein_alphabet() -> Alphabet {
-    Alphabet {
+    };
+    pub static ref PROTEIN_ALPHABET: Alphabet = Alphabet {
         name: "protein",
         symbols: AMINOACIDS,
         ambiguous: AMB_AMINOACIDS,
@@ -134,10 +107,7 @@ pub fn protein_alphabet() -> Alphabet {
         conditional_probs: &AA_COND_PROBS,
         parsimony_sets: &AA_PARSIMONY_SETS,
         full_set: &AA_FULL_SET,
-    }
-}
-
-lazy_static! {
+    };
     pub static ref NUCLEOTIDE_INDEX: [usize; 255] = {
         let mut index = [0; 255];
         for (i, char) in NUCLEOTIDES.iter().enumerate() {

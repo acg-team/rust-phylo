@@ -12,7 +12,7 @@ use crate::{record, Result};
 pub struct Sequences {
     pub(crate) s: Vec<Record>,
     pub(crate) aligned: bool,
-    pub(crate) alphabet: Alphabet,
+    pub(crate) alphabet: &'static Alphabet,
 }
 
 impl PartialEq for Sequences {
@@ -40,26 +40,16 @@ impl Display for Sequences {
 }
 
 impl Sequences {
-    fn detect_alphabet(sequences: &[Record]) -> Alphabet {
-        let dna_alphabet = Alphabet::dna();
-        for record in sequences.iter() {
-            if !dna_alphabet.is_word(record.seq()) {
-                return Alphabet::protein();
-            }
-        }
-        dna_alphabet
-    }
-
     /// Creates a new Sequences object from a vector of bio::io::fasta::Record.
     /// The Sequences object is considered aligned if all sequences have the same length.
     pub fn new(s: Vec<Record>) -> Sequences {
-        let alphabet = Self::detect_alphabet(&s);
+        let alphabet = detect_alphabet(&s);
         Self::with_alphabet(s, alphabet)
     }
 
     /// Creates a new Sequences object from a vector of bio::io::fasta::Record and a provided alphabet.
     /// The Sequences object is considered aligned if all sequences have the same length.
-    pub fn with_alphabet(s: Vec<Record>, alphabet: Alphabet) -> Sequences {
+    pub fn with_alphabet(s: Vec<Record>, alphabet: &'static Alphabet) -> Sequences {
         let potential_msa_len = if s.is_empty() { 0 } else { s[0].seq().len() };
         // Sequences are aligned if all sequences are the same length
         let aligned = s.iter().skip(1).all(|r| r.seq().len() == potential_msa_len);
@@ -106,8 +96,8 @@ impl Sequences {
         }
     }
 
-    pub fn alphabet(&self) -> &Alphabet {
-        &self.alphabet
+    pub fn alphabet(&self) -> &'static Alphabet {
+        self.alphabet
     }
 
     /// Removes all gaps from the sequences and returns a new Sequences object.
@@ -128,7 +118,7 @@ impl Sequences {
         Sequences {
             s: seqs,
             aligned: false,
-            alphabet: *self.alphabet(),
+            alphabet: self.alphabet,
         }
     }
 
@@ -170,6 +160,16 @@ impl Sequences {
     }
 }
 
+fn detect_alphabet(sequences: &[Record]) -> &'static Alphabet {
+    let dna_alphabet = Alphabet::dna();
+    for record in sequences.iter() {
+        if !dna_alphabet.is_word(record.seq()) {
+            return Alphabet::protein();
+        }
+    }
+    dna_alphabet
+}
+
 #[cfg(test)]
 mod private_tests {
     use rstest::rstest;
@@ -184,7 +184,7 @@ mod private_tests {
     #[case::long("./data/sequences_long.fasta")]
     fn dna_type_test(#[case] input: &str) {
         let seqs = read_sequences(input).unwrap();
-        let alphabet = Sequences::detect_alphabet(&seqs);
+        let alphabet = detect_alphabet(&seqs);
         assert_eq!(alphabet, Alphabet::dna());
         assert!(format!("{alphabet}").contains("DNA"));
     }
@@ -194,7 +194,7 @@ mod private_tests {
     #[case("./data/sequences_protein2.fasta")]
     fn protein_type_test(#[case] input: &str) {
         let seqs = read_sequences(input).unwrap();
-        let alphabet = Sequences::detect_alphabet(&seqs);
+        let alphabet = detect_alphabet(&seqs);
         assert_eq!(alphabet, Alphabet::protein());
         assert!(format!("{alphabet}").contains("protein"));
     }

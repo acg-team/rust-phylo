@@ -118,7 +118,7 @@ impl<'a, PS: ParsimonyScoring + Clone> ParsimonyAligner<PS> {
                     Record::with_attrs(rec.id(), rec.desc(), &aligned_seq)
                 })
                 .collect(),
-            *seqs.alphabet(),
+            seqs.alphabet(),
         );
         let alignment = A::from_aligned_unchecked(aligned_seqs, tree);
 
