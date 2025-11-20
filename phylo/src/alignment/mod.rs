@@ -172,9 +172,8 @@ impl Alignment for MSA {
     /// # Example
     /// ```
     /// # use bio::io::fasta::Record;
-    /// use phylo::alignment::{MSA, Alignment};
-    /// use phylo::alignment::Sequences;
-    /// use phylo::alphabets::dna_alphabet;
+    /// use phylo::alignment::{Alignment, MSA, Sequences};
+    /// use phylo::alphabets::Alphabet;
     /// use phylo::{record, tree};
     /// # fn main() -> std::result::Result<(), anyhow::Error> {
     /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
@@ -184,7 +183,7 @@ impl Alignment for MSA {
     ///     record!("C2", Some("C2 sequence"), b"AA--"),
     /// ], Alphabet::dna());
     /// let msa = MSA::from_aligned(seqs, &tree)?;
-    /// assert_eq!(*msa.alphabet(), Alphabet::dna());
+    /// assert_eq!(msa.alphabet(), Alphabet::dna());
     /// # Ok(()) }
     ///
     fn alphabet(&self) -> &Alphabet {

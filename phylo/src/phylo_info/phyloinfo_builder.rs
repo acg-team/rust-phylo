@@ -101,12 +101,12 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     ///
     /// # Example
     /// ```
-    /// use phylo::alphabets::protein_alphabet;
+    /// use phylo::alphabets::Alphabet;
     /// use phylo::phylo_info::PhyloInfoBuilder;
     /// use phylo::alignment::{Alignment};
     /// # fn main() -> std::result::Result<(), anyhow::Error> {
     /// let info = PhyloInfoBuilder::new("./examples/data/sequences_DNA_small.fasta").alphabet(Some(Alphabet::protein())).build()?;
-    /// assert_eq!(info.msa.alphabet(), &Alphabet::protein());
+    /// assert_eq!(info.msa.alphabet(), Alphabet::protein());
     /// # Ok(()) }
     /// ```
     pub fn alphabet(mut self, alphabet: Option<&'static Alphabet>) -> PhyloInfoBuilder<A, AA> {
