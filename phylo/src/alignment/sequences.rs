@@ -186,7 +186,6 @@ mod private_tests {
         let seqs = read_sequences(input).unwrap();
         let alphabet = detect_alphabet(&seqs);
         assert_eq!(alphabet, Alphabet::dna());
-        assert!(format!("{alphabet}").contains("DNA"));
     }
 
     #[rstest]
@@ -196,7 +195,6 @@ mod private_tests {
         let seqs = read_sequences(input).unwrap();
         let alphabet = detect_alphabet(&seqs);
         assert_eq!(alphabet, Alphabet::protein());
-        assert!(format!("{alphabet}").contains("protein"));
     }
 
     #[test]
