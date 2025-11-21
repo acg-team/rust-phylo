@@ -33,7 +33,37 @@ pub struct Alphabet {
 
 impl Display for Alphabet {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name)
+        let capitalised_name = {
+            let mut c = self.name.chars();
+            match c.next() {
+                None => String::new(),
+                Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+            }
+        };
+        writeln!(
+            f,
+            "{} sequence alphabet of length {}",
+            capitalised_name,
+            self.len()
+        )?;
+        writeln!(
+            f,
+            "Valid symbols: {}",
+            String::from_utf8_lossy(self.symbols)
+        )?;
+        writeln!(f, "Ambiguous symbols:")?;
+        for &char in self.ambiguous {
+            writeln!(
+                f,
+                "\t{}: {} ",
+                char as char, self.parsimony_sets[char as usize]
+            )?;
+        }
+        writeln!(
+            f,
+            "Possible gap representations: {}",
+            String::from_utf8_lossy(POSSIBLE_GAPS)
+        )
     }
 }
 
