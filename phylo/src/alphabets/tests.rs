@@ -1,7 +1,7 @@
 use rstest::*;
 
 use crate::alphabets::{
-    Alphabet, ParsimonySet, AMB_AMINOACIDS, AMB_NUCLEOTIDES, AMINOACIDS, NUCLEOTIDES,
+    Alphabet, ParsimonySet, AMB_AMINOACIDS, AMB_NUCLEOTIDES, AMINOACIDS, NUCLEOTIDES, POSSIBLE_GAPS,
 };
 use crate::record_wo_desc as record;
 
@@ -145,5 +145,47 @@ fn ambiguous_sets() {
     }
     for char in AMB_AMINOACIDS.iter() {
         assert!(!(full_set & prot.parsimony_set(char)).is_empty());
+    }
+}
+
+#[test]
+fn dna_alphabet_display() {
+    let dna = Alphabet::dna();
+    let display = format!("{dna}");
+    let mut lines = display.split('\n');
+    let name = lines.next().unwrap();
+    assert!(name.contains("DNA"));
+    assert!(name.contains("length 4"));
+
+    let valid_symbols_display = lines.next().unwrap();
+    assert!(valid_symbols_display.contains("Valid symbols:"));
+    for char in NUCLEOTIDES {
+        assert!(valid_symbols_display.contains(&(*char as char).to_string()));
+    }
+
+    let other_symbol_display = lines.collect::<String>();
+    for char in AMB_NUCLEOTIDES.iter().chain(POSSIBLE_GAPS.iter()) {
+        assert!(other_symbol_display.contains(&(*char as char).to_string()));
+    }
+}
+
+#[test]
+fn protein_alphabet_display() {
+    let prot = Alphabet::protein();
+    let display = format!("{prot}");
+    let mut lines = display.split('\n');
+    let name = lines.next().unwrap();
+    assert!(name.contains("Protein"));
+    assert!(name.contains("length 20"));
+
+    let valid_symbols_display = lines.next().unwrap();
+    assert!(valid_symbols_display.contains("Valid symbols:"));
+    for char in AMINOACIDS {
+        assert!(valid_symbols_display.contains(&(*char as char).to_string()));
+    }
+
+    let other_symbol_display = lines.collect::<String>();
+    for char in AMB_AMINOACIDS.iter().chain(POSSIBLE_GAPS.iter()) {
+        assert!(other_symbol_display.contains(&(*char as char).to_string()));
     }
 }
