@@ -232,9 +232,7 @@ impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
         let mut distances = DMatrix::zeros(nseqs, nseqs);
         for i in 0..nseqs {
             for j in (i + 1)..nseqs {
-                let dist = self
-                    .distance_function
-                    .dist(sequences.record(i), sequences.record(j));
+                let dist = self.distance_function.dist(&sequences[i], &sequences[j]);
                 distances[(i, j)] = dist;
                 distances[(j, i)] = dist;
             }

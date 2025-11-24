@@ -69,7 +69,7 @@ fn sequences_from_aligned() {
     assert!(!sequences.is_empty());
     assert!(sequences.aligned);
     for (i, rec) in seqs.iter().enumerate() {
-        assert_eq!(sequences.record(i), rec);
+        assert_eq!(&sequences[i], rec);
     }
 }
 
@@ -87,7 +87,7 @@ fn sequences_from_unaligned() {
     assert!(!sequences.is_empty());
     assert!(!sequences.aligned);
     for (i, rec) in seqs.iter().enumerate() {
-        assert_eq!(sequences.record(i), rec);
+        assert_eq!(&sequences[i], rec);
     }
 }
 

@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::ops::{Index, IndexMut};
 
 use anyhow::bail;
 use bio::io::fasta::Record;
@@ -36,6 +37,20 @@ impl Display for Sequences {
             write!(f, "{record}")?;
         }
         Ok(())
+    }
+}
+
+impl Index<usize> for Sequences {
+    type Output = Record;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.s[index]
+    }
+}
+
+impl IndexMut<usize> for Sequences {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.s[index]
     }
 }
 
