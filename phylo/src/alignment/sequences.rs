@@ -88,14 +88,6 @@ impl Sequences {
         self.s.is_empty()
     }
 
-    pub fn record(&self, idx: usize) -> &Record {
-        &self.s[idx]
-    }
-
-    pub fn record_mut(&mut self, idx: usize) -> &mut Record {
-        &mut self.s[idx]
-    }
-
     pub fn record_by_id(&self, id: &str) -> &Record {
         self.s
             .iter()
