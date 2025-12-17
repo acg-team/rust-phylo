@@ -21,8 +21,7 @@ fn align_two_first_outcome() {
     let (_info, alignment, score) = aligner.pairwise_align(&x_leaf, 1.0, &y_leaf, 1.0, |l| l - 1);
 
     assert_eq!(score, 3.5);
-    assert_eq!(alignment.map_x.len(), 4);
-    assert_eq!(alignment.map_y.len(), 4);
+    assert_eq!(alignment.len(), 4);
     assert_eq!(alignment.map_x(), &align!(b"0123"));
     assert_eq!(alignment.map_y(), &align!(b"01--"));
 }
@@ -46,8 +45,7 @@ fn align_two_second_outcome() {
     let (_info, alignment, score) = aligner.pairwise_align(&x_leaf, 1.0, &y_leaf, 1.0, |_| 0);
 
     assert_eq!(score, 3.5);
-    assert_eq!(alignment.map_x.len(), 4);
-    assert_eq!(alignment.map_y.len(), 4);
+    assert_eq!(alignment.len(), 4);
     assert_eq!(alignment.map_x(), &align!(b"0123"));
     assert_eq!(alignment.map_y(), &align!(b"0--1"));
 }
@@ -65,8 +63,7 @@ fn align_two_on_tree() {
 
     assert_eq!(score[Into::<usize>::into(tree.root)], 3.5);
     let alignment = &alignment.internal_alignments()[&tree.root];
-    assert_eq!(alignment.map_x.len(), 4);
-    assert_eq!(alignment.map_y.len(), 4);
+    assert_eq!(alignment.len(), 4);
 }
 
 #[test]
@@ -158,22 +155,22 @@ fn align_four_on_tree() {
     // first cherry
     let idx = &tree.by_id("A").parent.unwrap();
     assert_eq!(score[usize::from(idx)], 3.5);
-    assert_eq!(alignment.internal_alignments()[idx].map_x.len(), 4);
+    assert_eq!(alignment.internal_alignments()[idx].len(), 4);
 
     // second cherry
     let idx = &tree.by_id("C").parent.unwrap();
     assert_eq!(score[usize::from(idx)], 2.0);
-    assert_eq!(alignment.internal_alignments()[idx].map_x.len(), 2);
+    assert_eq!(alignment.internal_alignments()[idx].len(), 2);
 
     // root, three possible alignments
     let idx = &tree.root;
     assert!(score[usize::from(idx)] == 1.0 || score[usize::from(idx)] == 2.0);
     if score[2] == 1.0 {
-        assert_eq!(alignment.internal_alignments()[idx].map_x.len(), 4);
+        assert_eq!(alignment.internal_alignments()[idx].len(), 4);
     } else {
         assert!(
-            alignment.internal_alignments()[idx].map_x.len() == 4
-                || alignment.internal_alignments()[idx].map_x.len() == 5
+            alignment.internal_alignments()[idx].len() == 4
+                || alignment.internal_alignments()[idx].len() == 5
         );
     }
 }

@@ -47,6 +47,11 @@ impl PairwiseAlignment {
     pub fn map_y(&self) -> &Mapping {
         &self.map_y
     }
+
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> usize {
+        self.map_x.len()
+    }
 }
 
 /// Represents an alignment of sequences that are associated with the leaves of a phylogenetic tree.
