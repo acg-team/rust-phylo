@@ -9,6 +9,11 @@ use hashbrown::HashSet;
 use crate::alphabets::{Alphabet, GAP};
 use crate::{record, Result};
 
+/// Container for a set of sequences, which may or may not be aligned.
+///
+/// This struct holds a collection of `bio::io::fasta::Record`s and provides methods
+/// for managing them, including alphabet detection and validation of sequence ID uniqueness.
+/// Ttracks whether the sequences are currently aligned (all have the same length).
 #[derive(Debug, Clone)]
 pub struct Sequences {
     pub(crate) s: Vec<Record>,
@@ -55,15 +60,42 @@ impl IndexMut<usize> for Sequences {
 }
 
 impl Sequences {
-    /// Creates a new Sequences object from a vector of bio::io::fasta::Record.
-    /// The Sequences object is considered aligned if all sequences have the same length.
+    /// Creates a new `Sequences` object from a vector of `bio::io::fasta::Record`.
+    ///
+    /// The alphabet is automatically detected from the sequences.
+    /// The `Sequences` object is considered aligned if all sequences have the same length.
+    ///
+    /// # Example:
+    /// ```
+    /// use phylo::alignment::Sequences;
+    /// use phylo::record;
+    ///
+    /// let records = vec![
+    ///     record!("seq1", None, b"ACGT"),
+    ///     record!("seq2", None, b"ACGT"),
+    /// ];
+    /// let seqs = Sequences::new(records);
+    /// assert_eq!(seqs.len(), 2);
+    /// ```
     pub fn new(s: Vec<Record>) -> Sequences {
         let alphabet = detect_alphabet(&s);
         Self::with_alphabet(s, alphabet)
     }
 
-    /// Creates a new Sequences object from a vector of bio::io::fasta::Record and a provided alphabet.
-    /// The Sequences object is considered aligned if all sequences have the same length.
+    /// Creates a new `Sequences` object from a vector of `bio::io::fasta::Record` and a provided alphabet.
+    ///
+    /// The `Sequences` object is considered aligned if all sequences have the same length.
+    ///
+    /// # Example:
+    /// ```
+    /// use phylo::alignment::Sequences;
+    /// use phylo::alphabets::Alphabet;
+    /// use phylo::record;
+    ///
+    /// let records = vec![record!("seq1", None, b"ACGT")];
+    /// let seqs = Sequences::with_alphabet(records, Alphabet::dna());
+    /// assert_eq!(seqs.alphabet(), Alphabet::dna());
+    /// ```
     pub fn with_alphabet(s: Vec<Record>, alphabet: &'static Alphabet) -> Sequences {
         let potential_msa_len = if s.is_empty() { 0 } else { s[0].seq().len() };
         // Sequences are aligned if all sequences are the same length
@@ -75,19 +107,66 @@ impl Sequences {
         }
     }
 
+    /// Returns an iterator over the sequences.
+    ///
+    /// # Example:
+    /// ```
+    /// use phylo::alignment::Sequences;
+    /// use phylo::record as record;
+    ///
+    /// let records = vec![record!("seq1", None, b"A")];
+    /// let seqs = Sequences::new(records);
+    /// for record in seqs.iter() {
+    ///     println!("{}", record.id());
+    /// }
+    /// ```
     pub fn iter(&self) -> impl Iterator<Item = &Record> {
         self.s.iter()
     }
 
-    /// Returns the number of sequences
+    /// Returns the number of sequences.
+    ///
+    /// # Example:
+    /// ```
+    /// use phylo::alignment::Sequences;
+    ///
+    /// let seqs = Sequences::new(vec![]);
+    /// assert_eq!(seqs.len(), 0);
+    /// ```
     pub fn len(&self) -> usize {
         self.s.len()
     }
 
+    /// Returns `true` if there are no sequences.
+    ///
+    /// # Example:
+    /// ```
+    /// use phylo::alignment::Sequences;
+    ///
+    /// let seqs = Sequences::new(vec![]);
+    /// assert!(seqs.is_empty());
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.s.is_empty()
     }
 
+    /// Returns a reference to the record with the given ID.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no sequence with the given ID is found.
+    /// Use [`Sequences::try_record_by_id`] for a non-panicking version.
+    ///
+    /// # Example:
+    /// ```
+    /// use phylo::alignment::Sequences;
+    /// use phylo::record;
+    ///
+    /// let records = vec![record!("seq1", None, b"A")];
+    /// let seqs = Sequences::new(records);
+    /// let rec = seqs.record_by_id("seq1");
+    /// assert_eq!(rec.id(), "seq1");
+    /// ```
     pub fn record_by_id(&self, id: &str) -> &Record {
         self.s
             .iter()
@@ -95,6 +174,18 @@ impl Sequences {
             .unwrap_or_else(|| panic!("Sequence with id {id} not found"))
     }
 
+    /// Returns a reference to the record with the given ID, or an error if not found.
+    ///
+    /// # Example:
+    /// ```
+    /// use phylo::alignment::Sequences;
+    /// use phylo::record;
+    ///
+    /// let records = vec![record!("seq1", None, b"A")];
+    /// let seqs = Sequences::new(records);
+    /// assert!(seqs.try_record_by_id("seq1").is_ok());
+    /// assert!(seqs.try_record_by_id("seq2").is_err());
+    /// ```
     pub fn try_record_by_id(&self, id: &str) -> Result<&Record> {
         let rec = self.s.iter().find(|r| r.id() == id);
         match rec {
@@ -103,11 +194,34 @@ impl Sequences {
         }
     }
 
+    /// Returns the alphabet of the sequences.
+    ///
+    /// # Example:
+    /// ```
+    /// use phylo::alignment::Sequences;
+    /// use phylo::alphabets::Alphabet;
+    /// use phylo::record;
+    ///
+    /// let records = vec![record!("seq1", None, b"A")];
+    /// let seqs = Sequences::new(records);
+    /// assert_eq!(seqs.alphabet(), Alphabet::dna());
+    /// ```
     pub fn alphabet(&self) -> &'static Alphabet {
         self.alphabet
     }
 
-    /// Removes all gaps from the sequences and returns a new Sequences object.
+    /// Removes all gaps from the sequences and returns a new `Sequences` object.
+    ///
+    /// # Example:
+    /// ```
+    /// use phylo::alignment::Sequences;
+    /// use phylo::record;
+    ///
+    /// let records = vec![record!("seq1", None, b"A-C")];
+    /// let seqs = Sequences::new(records);
+    /// let gapless = seqs.into_gapless();
+    /// assert_eq!(gapless.record_by_id("seq1").seq(), b"AC");
+    /// ```
     pub fn into_gapless(&self) -> Sequences {
         let seqs = self
             .s
@@ -130,6 +244,24 @@ impl Sequences {
     }
 
     /// Removes all columns that only contain gaps from the sequences.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the sequences are not aligned.
+    ///
+    /// # Example:
+    /// ```
+    /// use phylo::alignment::Sequences;
+    /// use phylo::record;
+    ///
+    /// let records = vec![
+    ///     record!("seq1", None, b"A-C"),
+    ///     record!("seq2", None, b"T-G"),
+    /// ];
+    /// let mut seqs = Sequences::new(records);
+    /// seqs.remove_gap_cols();
+    /// assert_eq!(seqs.record_by_id("seq1").seq(), b"AC");
+    /// ```
     pub fn remove_gap_cols(&mut self) {
         assert!(
             self.aligned,
@@ -155,6 +287,22 @@ impl Sequences {
         self.s = new_seqs.collect();
     }
 
+    /// Checks if all sequence IDs are unique.
+    ///
+    /// Returns `Ok(())` if all IDs are unique, or an error if duplicates are found.
+    ///
+    /// # Example:
+    /// ```
+    /// use phylo::alignment::Sequences;
+    /// use phylo::record;
+    ///
+    /// let records = vec![
+    ///     record!("seq1", None, b"A"),
+    ///     record!("seq2", None, b"C"),
+    /// ];
+    /// let seqs = Sequences::new(records);
+    /// assert!(seqs.ids_are_unique().is_ok());
+    /// ```
     pub fn ids_are_unique(&self) -> Result<()> {
         let mut seen = HashSet::new();
         for record in self.iter() {
