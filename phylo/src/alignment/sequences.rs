@@ -24,16 +24,20 @@ pub struct Sequences {
 
 impl PartialEq for Sequences {
     fn eq(&self, other: &Self) -> bool {
-        self.s.len() == other.s.len()
-            && self.aligned == other.aligned
-            && self.alphabet == other.alphabet
-            && {
-                let mut self_records = self.s.clone();
-                let mut other_records = other.s.clone();
-                self_records.sort_by(|a, b| a.id().cmp(b.id()));
-                other_records.sort_by(|a, b| a.id().cmp(b.id()));
-                self_records == other_records
-            }
+        if self.s.len() != other.s.len()
+            || self.aligned != other.aligned
+            || self.alphabet != other.alphabet
+        {
+            return false;
+        }
+
+        let mut self_refs: Vec<&Record> = self.s.iter().collect();
+        let mut other_refs: Vec<&Record> = other.s.iter().collect();
+
+        self_refs.sort_by_key(|r| r.id());
+        other_refs.sort_by_key(|r| r.id());
+
+        self_refs == other_refs
     }
 }
 
@@ -418,5 +422,19 @@ mod private_tests {
             .unwrap_err()
             .to_string()
             .contains("Duplicate record id (on) found in the sequences"));
+    }
+
+    #[test]
+    fn equality_test() {
+        let seqs1 = Sequences::new(vec![record!("seq1", b"ACGT"), record!("seq2", b"ACGT")]);
+        let seqs2 = Sequences::new(vec![record!("seq2", b"ACGT"), record!("seq1", b"ACGT")]);
+        assert_eq!(seqs1, seqs2);
+    }
+
+    #[test]
+    fn inequality_test() {
+        let seqs1 = Sequences::new(vec![record!("seq1", b"ACGT"), record!("seq2", b"ACGT")]);
+        let seqs2 = Sequences::new(vec![record!("seq2", b"ACGT"), record!("seq1", b"ACGA")]);
+        assert_ne!(seqs1, seqs2);
     }
 }
