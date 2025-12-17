@@ -1,5 +1,6 @@
 use std::fmt::Display;
 use std::ops::{Index, IndexMut};
+use std::slice;
 
 use anyhow::bail;
 use bio::io::fasta::Record;
@@ -56,6 +57,34 @@ impl Index<usize> for Sequences {
 impl IndexMut<usize> for Sequences {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.s[index]
+    }
+}
+
+/// Iterator over the records in a `Sequences` object.
+pub struct Iter<'a> {
+    iter: slice::Iter<'a, Record>,
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = &'a Record;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl<'a> ExactSizeIterator for Iter<'a> {}
+
+impl<'a> IntoIterator for &'a Sequences {
+    type Item = &'a Record;
+    type IntoIter = Iter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 
@@ -120,8 +149,10 @@ impl Sequences {
     ///     println!("{}", record.id());
     /// }
     /// ```
-    pub fn iter(&self) -> impl Iterator<Item = &Record> {
-        self.s.iter()
+    pub fn iter(&self) -> Iter<'_> {
+        Iter {
+            iter: self.s.iter(),
+        }
     }
 
     /// Returns the number of sequences.
