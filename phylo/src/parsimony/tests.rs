@@ -23,8 +23,8 @@ fn align_two_first_outcome() {
     assert_eq!(score, 3.5);
     assert_eq!(alignment.map_x.len(), 4);
     assert_eq!(alignment.map_y.len(), 4);
-    assert_eq!(alignment.map_x, align!(b"0123"));
-    assert_eq!(alignment.map_y, align!(b"01--"));
+    assert_eq!(alignment.map_x(), &align!(b"0123"));
+    assert_eq!(alignment.map_y(), &align!(b"01--"));
 }
 
 #[test]
@@ -48,8 +48,8 @@ fn align_two_second_outcome() {
     assert_eq!(score, 3.5);
     assert_eq!(alignment.map_x.len(), 4);
     assert_eq!(alignment.map_y.len(), 4);
-    assert_eq!(alignment.map_x, align!(b"0123"));
-    assert_eq!(alignment.map_y, align!(b"0--1"));
+    assert_eq!(alignment.map_x(), &align!(b"0123"));
+    assert_eq!(alignment.map_y(), &align!(b"0--1"));
 }
 
 #[test]
@@ -88,8 +88,8 @@ fn internal_alignment_first_outcome() {
     let (_info, alignment, score) = aligner.pairwise_align(&x_leaf, 1.0, &y_leaf, 1.0, |l| l - 1);
 
     assert_eq!(score, 1.0);
-    assert_eq!(alignment.map_x, align!(b"0123"));
-    assert_eq!(alignment.map_y, align!(b"01--"));
+    assert_eq!(alignment.map_x(), &align!(b"0123"));
+    assert_eq!(alignment.map_y(), &align!(b"01--"));
 }
 
 #[test]

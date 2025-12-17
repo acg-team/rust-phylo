@@ -30,14 +30,22 @@ pub type SeqMaps = HashMap<NodeIdx, Mapping>;
 /// Represents a pairwise alignment of two sequences or MSAs. Used in [`InternalAlignments`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct PairwiseAlignment {
-    pub map_x: Mapping,
-    pub map_y: Mapping,
+    pub(crate) map_x: Mapping,
+    pub(crate) map_y: Mapping,
 }
 
 impl PairwiseAlignment {
     pub fn new(map_x: Mapping, map_y: Mapping) -> PairwiseAlignment {
         debug_assert!((map_x.len() == map_y.len()) || map_y.is_empty());
         PairwiseAlignment { map_x, map_y }
+    }
+
+    pub fn map_x(&self) -> &Mapping {
+        &self.map_x
+    }
+
+    pub fn map_y(&self) -> &Mapping {
+        &self.map_y
     }
 }
 
