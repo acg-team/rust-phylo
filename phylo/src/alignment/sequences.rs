@@ -81,7 +81,7 @@ impl<'a> Iterator for Iter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for Iter<'a> {}
+impl ExactSizeIterator for Iter<'_> {}
 
 impl<'a> IntoIterator for &'a Sequences {
     type Item = &'a Record;
