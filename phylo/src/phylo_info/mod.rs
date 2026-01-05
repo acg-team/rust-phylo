@@ -129,7 +129,7 @@ impl<A: Alignment> PhyloInfo<A> {
             let count = self
                 .msa
                 .seqs()
-                .iter()
+                .into_iter()
                 .map(|rec| rec.seq().iter().filter(|&c| c == &char).count())
                 .sum::<usize>() as f64;
             let mut char_freq = alphabet.char_encoding(char).clone();

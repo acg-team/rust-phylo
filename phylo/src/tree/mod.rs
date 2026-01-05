@@ -92,13 +92,16 @@ impl Tree {
             postorder: Vec::new(),
             preorder: Vec::new(),
             nodes: (0..n)
-                .zip(sequences.iter().map(|seq| seq.id().to_string()))
+                .zip(sequences.into_iter().map(|seq| seq.id().to_string()))
                 .map(|(idx, id)| Node::new_leaf(idx, None, 0.0, id))
                 .collect(),
             complete: false,
             n,
             length: 0.0,
-            leaf_ids: sequences.iter().map(|seq| seq.id().to_string()).collect(),
+            leaf_ids: sequences
+                .into_iter()
+                .map(|seq| seq.id().to_string())
+                .collect(),
             dirty: FixedBitSet::with_capacity(2 * n - 1),
         })
     }

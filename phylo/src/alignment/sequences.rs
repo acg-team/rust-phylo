@@ -134,7 +134,7 @@ impl Sequences {
     ///     println!("{}", record.id());
     /// }
     /// ```
-    pub fn iter(&self) -> slice::Iter<'_, Record> {
+    fn iter(&self) -> slice::Iter<'_, Record> {
         self.s.iter()
     }
 

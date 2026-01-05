@@ -185,7 +185,7 @@ fn setup_aligned_msa() {
     .build()
     .unwrap();
     assert_eq!(info.msa.len(), 5);
-    info.msa.seqs().iter().for_each(|rec| {
+    info.msa.seqs().into_iter().for_each(|rec| {
         assert!(!rec.seq().is_empty());
         assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
     });
@@ -204,7 +204,7 @@ fn correct_setup_when_sequences_empty() {
     .build()
     .unwrap();
     assert_eq!(info.msa.len(), 1);
-    info.msa.seqs().iter().for_each(|rec| {
+    info.msa.seqs().into_iter().for_each(|rec| {
         assert_eq!(rec.seq().to_ascii_uppercase(), rec.seq());
     });
     let sequences =

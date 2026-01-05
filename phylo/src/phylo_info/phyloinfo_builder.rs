@@ -320,7 +320,7 @@ pub(crate) fn set_missing_tree_node_ids(tree: &Tree) -> Result<Tree> {
 pub fn validate_taxa_ids(tree: &Tree, sequences: &Sequences) -> Result<()> {
     let tip_ids: HashSet<String> = HashSet::from_iter(tree.leaf_ids());
     let sequence_ids: HashSet<String> =
-        HashSet::from_iter(sequences.iter().map(|rec| rec.id().to_string()));
+        HashSet::from_iter(sequences.into_iter().map(|rec| rec.id().to_string()));
     info!("Checking that tree tip and sequence IDs match");
     let mut missing_tips = sequence_ids.difference(&tip_ids).collect::<Vec<_>>();
     if !missing_tips.is_empty() {
@@ -348,7 +348,7 @@ pub fn validate_ids_with_ancestors(tree: &Tree, sequences: &Sequences) -> Result
             .map(|node_idx| tree.node_id(node_idx).to_string()),
     );
     let sequence_ids: HashSet<String> =
-        HashSet::from_iter(sequences.iter().map(|rec| rec.id().to_string()));
+        HashSet::from_iter(sequences.into_iter().map(|rec| rec.id().to_string()));
     info!("Checking that tree and sequence IDs match");
     let mut missing_nodes = sequence_ids.difference(&tree_ids).collect::<Vec<_>>();
     if !missing_nodes.is_empty() {

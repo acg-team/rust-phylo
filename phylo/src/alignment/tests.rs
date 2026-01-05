@@ -400,7 +400,7 @@ fn masa_compile_subroot() {
     let subroot_id = "C";
     let mut true_compiled = Sequences::new(
         sequences
-            .iter()
+            .into_iter()
             .filter(|f| f.id() == subroot_id)
             .cloned()
             .collect(),
@@ -428,7 +428,7 @@ fn removing_gap_cols() {
     ]);
     seqs.remove_gap_cols();
     assert_eq!(seqs.len(), 5);
-    for seq in seqs.iter() {
+    for seq in &seqs {
         assert_eq!(seq.seq().len(), 6);
     }
 
@@ -439,13 +439,13 @@ fn removing_gap_cols() {
         record!("D3", Some("D3 sequence"), b"-----A--A"),
         record!("E4", Some("E4 sequence"), b"--A--AA-A"),
     ]);
-    for seq in seqs2.iter() {
+    for seq in &seqs2 {
         assert_eq!(seq.seq().len(), 9);
     }
 
     seqs2.remove_gap_cols();
     assert_eq!(seqs2.len(), 5);
-    for seq in seqs2.iter() {
+    for seq in &seqs2 {
         assert_eq!(seq.seq().len(), 6);
     }
     assert_eq!(seqs, seqs2)
