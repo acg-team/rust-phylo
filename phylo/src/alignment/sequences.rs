@@ -487,4 +487,32 @@ mod private_tests {
         let seqs2 = seqs1.clone().into_gapless();
         assert_ne!(seqs1, seqs2);
     }
+
+    #[test]
+    fn record_access() {
+        let raw_seqs = vec![
+            record!("seq1", b"ACGT"),
+            record!("seq2", b"CCCC"),
+            record!("seq3", b"TTAA"),
+            record!("seq4", b"GGGG"),
+        ];
+        let seqs = Sequences::new(raw_seqs.clone());
+        for (i, rec) in raw_seqs.iter().enumerate() {
+            assert_eq!(seqs[i], *rec);
+        }
+    }
+
+    #[test]
+    fn mut_record_access() {
+        let raw_seqs = vec![
+            record!("seq1", b"ACGT"),
+            record!("seq2", b"CCCC"),
+            record!("seq3", b"TTAA"),
+            record!("seq4", b"GGGG"),
+        ];
+        let mut seqs = Sequences::new(raw_seqs.clone());
+        assert_eq!(seqs[1].seq(), b"CCCC");
+        seqs[1] = record!("seq2", b"AAAA");
+        assert_eq!(seqs[1].seq(), b"AAAA");
+    }
 }
