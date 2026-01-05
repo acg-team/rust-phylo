@@ -54,6 +54,7 @@ impl PairwiseAlignment {
 
     #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
+        debug_assert_eq!(self.map_x.len(), self.map_y.len());
         self.map_x.len()
     }
 }
