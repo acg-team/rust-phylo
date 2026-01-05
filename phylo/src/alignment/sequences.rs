@@ -409,16 +409,82 @@ mod private_tests {
     }
 
     #[test]
-    fn equality_test() {
-        let seqs1 = Sequences::new(vec![record!("seq1", b"ACGT"), record!("seq2", b"ACGT")]);
-        let seqs2 = Sequences::new(vec![record!("seq2", b"ACGT"), record!("seq1", b"ACGT")]);
+    fn equality() {
+        let mut raw_seqs = vec![
+            record!("seq1", b"ACGT"),
+            record!("seq2", b"CCCC"),
+            record!("seq3", b"TTAA"),
+            record!("seq4", b"GGGG"),
+        ];
+        let seqs1 = Sequences::new(raw_seqs.clone());
+        raw_seqs.reverse();
+        let seqs2 = Sequences::new(raw_seqs);
         assert_eq!(seqs1, seqs2);
     }
 
     #[test]
-    fn inequality_test() {
-        let seqs1 = Sequences::new(vec![record!("seq1", b"ACGT"), record!("seq2", b"ACGT")]);
-        let seqs2 = Sequences::new(vec![record!("seq2", b"ACGT"), record!("seq1", b"ACGA")]);
+    fn inequality() {
+        let mut raw_seqs = vec![
+            record!("seq1", b"ACGT"),
+            record!("seq2", b"CCCC"),
+            record!("seq3", b"TTAA"),
+            record!("seq4", b"GGGG"),
+        ];
+        let seqs1 = Sequences::new(raw_seqs.clone());
+        raw_seqs[1] = record!("seq2", b"CCCA");
+        let seqs2 = Sequences::new(raw_seqs);
+        assert_ne!(seqs1, seqs2);
+    }
+    #[test]
+    fn inequality_diff_lengths() {
+        let mut raw_seqs = vec![
+            record!("seq1", b"ACGT"),
+            record!("seq2", b"CCCC"),
+            record!("seq3", b"TTAA"),
+            record!("seq4", b"GGGG"),
+        ];
+        let seqs1 = Sequences::new(raw_seqs.clone());
+        raw_seqs.pop();
+        let seqs2 = Sequences::new(raw_seqs);
+        assert_ne!(seqs1, seqs2);
+    }
+
+    #[test]
+    fn inequality_diff_alphabets() {
+        let raw_seqs = vec![
+            record!("seq1", b"ACGT"),
+            record!("seq2", b"CCCC"),
+            record!("seq3", b"TTAA"),
+            record!("seq4", b"GGGG"),
+        ];
+        let seqs1 = Sequences::new(raw_seqs.clone());
+        let seqs2 = Sequences::with_alphabet(raw_seqs, Alphabet::protein());
+        assert_ne!(seqs1, seqs2);
+    }
+
+    #[test]
+    fn equality_unaligned() {
+        let raw_seqs = vec![
+            record!("seq1", b"ACGT"),
+            record!("seq2", b"CCC"),
+            record!("seq3", b"TTAAAAA"),
+            record!("seq4", b"GGGBG"),
+        ];
+        let seqs1 = Sequences::new(raw_seqs.clone());
+        let seqs2 = Sequences::new(raw_seqs);
+        assert_eq!(seqs1, seqs2);
+    }
+
+    #[test]
+    fn inequality_unaligned_vs_aligned() {
+        let raw_seqs = vec![
+            record!("seq1", b"A-C-T"),
+            record!("seq2", b"C-CCC"),
+            record!("seq3", b"T--AA"),
+            record!("seq4", b"GGG-G"),
+        ];
+        let seqs1 = Sequences::new(raw_seqs.clone());
+        let seqs2 = seqs1.clone().into_gapless();
         assert_ne!(seqs1, seqs2);
     }
 }
