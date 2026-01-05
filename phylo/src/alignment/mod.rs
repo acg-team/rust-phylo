@@ -36,7 +36,11 @@ pub struct PairwiseAlignment {
 
 impl PairwiseAlignment {
     pub fn new(map_x: Mapping, map_y: Mapping) -> PairwiseAlignment {
-        debug_assert!(map_x.len() == map_y.len());
+        assert_eq!(
+            map_x.len(),
+            map_y.len(),
+            "Mappings must have the same length"
+        );
         PairwiseAlignment { map_x, map_y }
     }
 
