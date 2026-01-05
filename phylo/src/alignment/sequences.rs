@@ -500,13 +500,16 @@ mod private_tests {
     }
 
     #[test]
-    fn iterator_access() {
-        let records = vec![record!("seq1", b"A"), record!("seq2", b"C")];
-        let seqs = Sequences::new(records);
-        let mut iter = seqs.into_iter();
-        assert_eq!(iter.next().unwrap().id(), "seq1");
-        let second = iter.next();
-        assert!(second.is_some());
-        assert_eq!(second.unwrap().id(), "seq2");
+    fn private_iterator_access() {
+        let raw_seqs = vec![
+            record!("seq1", b"ACGT"),
+            record!("seq2", b"CCCC"),
+            record!("seq3", b"TTAA"),
+            record!("seq4", b"GGGG"),
+        ];
+        let seqs = Sequences::new(raw_seqs.clone());
+        for (i, rec) in seqs.iter().enumerate() {
+            assert_eq!(raw_seqs[i], *rec);
+        }
     }
 }
