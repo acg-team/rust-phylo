@@ -64,19 +64,14 @@ impl IndexMut<usize> for Sequences {
     }
 }
 
-impl<'a> Iterator for &'a Sequences {
+impl<'a> IntoIterator for &'a Sequences {
     type Item = &'a Record;
+    type IntoIter = slice::Iter<'a, Record>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter().next()
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter().size_hint()
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
-
-impl ExactSizeIterator for &'_ Sequences {}
 
 impl Sequences {
     /// Creates a new `Sequences` object from a vector of `bio::io::fasta::Record`.
@@ -514,5 +509,16 @@ mod private_tests {
         assert_eq!(seqs[1].seq(), b"CCCC");
         seqs[1] = record!("seq2", b"AAAA");
         assert_eq!(seqs[1].seq(), b"AAAA");
+    }
+
+    #[test]
+    fn iterator_access() {
+        let records = vec![record!("seq1", b"A"), record!("seq2", b"C")];
+        let seqs = Sequences::new(records);
+        let mut iter = seqs.into_iter();
+        assert_eq!(iter.next().unwrap().id(), "seq1");
+        let second = iter.next();
+        assert!(second.is_some());
+        assert_eq!(second.unwrap().id(), "seq2");
     }
 }
