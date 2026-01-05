@@ -463,3 +463,14 @@ fn removing_gap_cols_on_unaligned() {
     ]);
     seqs.remove_gap_cols();
 }
+
+#[test]
+fn sequence_iterator_access() {
+    let records = vec![record!("seq1", None, b"A"), record!("seq2", None, b"C")];
+    let seqs = Sequences::new(records);
+    let mut iter = seqs.into_iter();
+    assert_eq!(iter.next().unwrap().id(), "seq1");
+    let second = iter.next();
+    assert!(second.is_some());
+    assert_eq!(second.unwrap().id(), "seq2");
+}
