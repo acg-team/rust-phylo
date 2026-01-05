@@ -14,7 +14,7 @@ use crate::{record, Result};
 ///
 /// This struct holds a collection of `bio::io::fasta::Record`s and provides methods
 /// for managing them, including alphabet detection and validation of sequence ID uniqueness.
-/// Ttracks whether the sequences are currently aligned (all have the same length).
+/// Tracks whether the sequences are currently aligned (all have the same length).
 #[derive(Debug, Clone)]
 pub struct Sequences {
     pub(crate) s: Vec<Record>,
