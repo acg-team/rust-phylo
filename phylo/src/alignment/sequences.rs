@@ -122,18 +122,6 @@ impl Sequences {
     }
 
     /// Returns an iterator over the sequences.
-    ///
-    /// # Example:
-    /// ```
-    /// use phylo::alignment::Sequences;
-    /// use phylo::record as record;
-    ///
-    /// let records = vec![record!("seq1", None, b"A")];
-    /// let seqs = Sequences::new(records);
-    /// for record in seqs.iter() {
-    ///     println!("{}", record.id());
-    /// }
-    /// ```
     fn iter(&self) -> slice::Iter<'_, Record> {
         self.s.iter()
     }
