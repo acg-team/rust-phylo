@@ -356,7 +356,7 @@ mod private_tests {
     #[case::aligned("./data/sequences_DNA1.fasta")]
     #[case::unaligned("./data/sequences_DNA2_unaligned.fasta")]
     #[case::long("./data/sequences_long.fasta")]
-    fn dna_type_test(#[case] input: &str) {
+    fn dna_type_correct(#[case] input: &str) {
         let seqs = read_sequences(input).unwrap();
         let alphabet = detect_alphabet(&seqs);
         assert_eq!(alphabet, Alphabet::dna());
@@ -365,14 +365,14 @@ mod private_tests {
     #[rstest]
     #[case("./data/sequences_protein1.fasta")]
     #[case("./data/sequences_protein2.fasta")]
-    fn protein_type_test(#[case] input: &str) {
+    fn protein_type_correct(#[case] input: &str) {
         let seqs = read_sequences(input).unwrap();
         let alphabet = detect_alphabet(&seqs);
         assert_eq!(alphabet, Alphabet::protein());
     }
 
     #[test]
-    fn test_seq_ids_are_uniq() {
+    fn ids_are_unique() {
         // arrange
         let seqs = Sequences::new(vec![
             record!("on", b"X"),
@@ -389,7 +389,7 @@ mod private_tests {
     }
 
     #[test]
-    fn test_seq_ids_are_not_uniq() {
+    fn ids_are_not_unique() {
         // arrange
         let seqs = Sequences::new(vec![
             record!("on", b"X"),
