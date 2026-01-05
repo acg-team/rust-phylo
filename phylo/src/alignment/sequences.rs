@@ -64,33 +64,19 @@ impl IndexMut<usize> for Sequences {
     }
 }
 
-/// Iterator over the records in a `Sequences` object.
-pub struct Iter<'a> {
-    iter: slice::Iter<'a, Record>,
-}
-
-impl<'a> Iterator for Iter<'a> {
+impl<'a> Iterator for &'a Sequences {
     type Item = &'a Record;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
+        self.iter().next()
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
+        self.iter().size_hint()
     }
 }
 
-impl ExactSizeIterator for Iter<'_> {}
-
-impl<'a> IntoIterator for &'a Sequences {
-    type Item = &'a Record;
-    type IntoIter = Iter<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
+impl ExactSizeIterator for &'_ Sequences {}
 
 impl Sequences {
     /// Creates a new `Sequences` object from a vector of `bio::io::fasta::Record`.
@@ -153,10 +139,8 @@ impl Sequences {
     ///     println!("{}", record.id());
     /// }
     /// ```
-    pub fn iter(&self) -> Iter<'_> {
-        Iter {
-            iter: self.s.iter(),
-        }
+    pub fn iter(&self) -> slice::Iter<'_, Record> {
+        self.s.iter()
     }
 
     /// Returns the number of sequences.
