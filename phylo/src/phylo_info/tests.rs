@@ -89,24 +89,15 @@ fn setup_info_mismatched_ids_missing_sequences() {
 fn setup_info_missing_sequence_file() {
     let fldr = Path::new("./data");
     let seq_file = fldr.join("sequences_DNA_nonexistent.fasta");
-    let error = PIB::with_attrs(
-        &seq_file,
-        fldr.join("tree_diff_branch_lengths_1.newick"),
-    )
-    .build();
-    assert_matches!(error, Err(Error::Other(msg)) if 
-        msg.to_string().contains(&format!("Failed to read fasta from {:?}", seq_file)));
+    let error = PIB::with_attrs(&seq_file, fldr.join("tree_diff_branch_lengths_1.newick")).build();
+    assert_matches!(error, Err(Error::Other(msg)) if msg.to_string().contains(&format!("Failed to read fasta from {:?}", seq_file)));
 }
 
 #[test]
 fn setup_info_empty_sequence_file() {
     let fldr = Path::new("./data");
     let seq_file = fldr.join("sequences_empty.fasta");
-    let error = PIB::with_attrs(
-        &seq_file,
-        fldr.join("tree_diff_branch_lengths_1.newick"),
-    )
-    .build();
+    let error = PIB::with_attrs(&seq_file, fldr.join("tree_diff_branch_lengths_1.newick")).build();
     assert_matches!(error, Err(Error::Io(msg)) if msg.contains(&format!("no sequences found in file {}", seq_file.display())));
 }
 
