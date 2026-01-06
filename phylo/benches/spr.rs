@@ -22,7 +22,7 @@ fn single_spr_cycle<C: TreeSearchCost + Clone + Display + Send + Compatible<SprO
     mut cost_fn: C,
     prune_locations: &[&NodeIdx],
     spr_optimiser: SprOptimiser,
-) -> anyhow::Result<f64> {
+) -> phylo::Result<f64> {
     TopologyOptimiser::<SprOptimiser, C, FakeRng>::fold_improving_moves(
         &mut cost_fn,
         &spr_optimiser,
