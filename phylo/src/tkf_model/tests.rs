@@ -641,12 +641,10 @@ fn tkf91_cost_builder_fails() {
     let phylo = setup_test_phylo(Alphabet::protein());
     let subst_model = SubstModel::<GTR>::new(&[], &[]);
 
-    let tkf91_err = TKF91CostBuilder::new(0.1, 0.2, subst_model, phylo)
-        .build()
-        .unwrap_err();
+    let tkf91_err = TKF91CostBuilder::new(0.1, 0.2, subst_model, phylo).build();
 
     assert_matches!(
-        tkf91_err, Error::Alphabet(msg) if msg.contains(
+        tkf91_err, Err(Error::Alphabet(msg)) if msg.contains(
         "alphabet mismatch between model and alignment")
     );
 }
@@ -656,12 +654,10 @@ fn tkf92_cost_builder_fails() {
     let phylo = setup_test_phylo(Alphabet::protein());
     let subst_model = SubstModel::<GTR>::new(&[], &[]);
 
-    let tkf92_err = TKF92CostBuilder::new(0.1, 0.2, 0.3, subst_model, phylo)
-        .build()
-        .unwrap_err();
+    let tkf92_err = TKF92CostBuilder::new(0.1, 0.2, 0.3, subst_model, phylo).build();
 
     assert_matches!(
-        tkf92_err, Error::Alphabet(msg) if msg.contains(
+        tkf92_err, Err(Error::Alphabet(msg)) if msg.contains(
         "alphabet mismatch between model and alignment")
     );
 }

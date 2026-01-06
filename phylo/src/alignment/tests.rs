@@ -1,3 +1,4 @@
+use assert_matches::assert_matches;
 use rand::rng;
 use rand::seq::IteratorRandom;
 
@@ -12,7 +13,7 @@ use crate::tree::{
     NodeIdx::{Internal as I, Leaf as L},
     Tree,
 };
-use crate::{align, record, tree};
+use crate::{align, record, tree, Error};
 
 #[cfg(test)]
 fn test_alignment(ids: &[&str]) -> Sequences {
@@ -159,11 +160,11 @@ fn test_try_record_by_id() {
     assert_eq!(rec.seq(), b"AAAAAA");
 
     let err = sequences.try_record_by_id("ZZ");
-    assert!(err.is_err());
-    assert!(err
-        .unwrap_err()
-        .to_string()
-        .contains("Sequence with id ZZ not found"));
+
+    assert_matches!(
+        err,
+        Err(Error::Sequence(msg)) if msg.contains("Sequence with id ZZ not found")
+    );
 }
 
 #[test]
@@ -363,17 +364,15 @@ fn display_ancestral_alignment() {
 
 #[test]
 fn from_aligned_with_ancestral_fails() {
-    // arrange
     let tree = tree!("((C:0.1,D:0.2)I01:0.3,(A:0.4,B:0.5)I02:0.6)Root;");
     let seqs = Sequences::new(read_sequences("./data/sequences_DNA2_unaligned.fasta").unwrap());
 
-    // act
-    let error_msg = MASA::from_aligned_with_ancestral(seqs, &tree)
-        .unwrap_err()
-        .to_string();
+    let err = MASA::from_aligned_with_ancestral(seqs, &tree);
 
-    // assert
-    assert!(error_msg.contains("must be aligned"));
+    assert_matches!(
+        err,
+        Err(Error::Alignment(msg)) if msg.contains("must be aligned")
+    );
 }
 
 #[test]

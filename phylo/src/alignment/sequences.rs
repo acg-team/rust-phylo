@@ -332,9 +332,10 @@ fn detect_alphabet(sequences: &[Record]) -> &'static Alphabet {
 
 #[cfg(test)]
 mod private_tests {
+    use assert_matches::assert_matches;
     use rstest::rstest;
 
-    use crate::{io::read_sequences, record_wo_desc as record};
+    use crate::{io::read_sequences, record_wo_desc as record, Error::Sequence};
 
     use super::*;
 
@@ -376,7 +377,6 @@ mod private_tests {
 
     #[test]
     fn ids_are_not_unique() {
-        // arrange
         let seqs = Sequences::new(vec![
             record!("on", b"X"),
             record!("tw", b"X"),
@@ -384,14 +384,12 @@ mod private_tests {
             record!("fo", b"N"),
         ]);
 
-        // act
         let result = seqs.ids_are_unique();
 
-        // assert
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Duplicate record id (on) found in the sequences"));
+        assert_matches!(
+            result,
+            Err(Sequence(msg)) if msg.contains("Duplicate record id (on) found in the sequences")
+        );
     }
 
     #[test]

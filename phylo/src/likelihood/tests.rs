@@ -1,6 +1,8 @@
 use std::fs;
 use std::path::Path;
 
+use assert_matches::assert_matches;
+
 use crate::alignment::{Alignment, Sequences, MSA};
 use crate::alphabets::Alphabet;
 use crate::io::read_sequences;
@@ -11,7 +13,7 @@ use crate::substitution_models::{
     dna_models::*, protein_models::*, QMatrix, QMatrixMaker, SubstModel, SubstitutionCost,
     SubstitutionCostBuilder as SCB,
 };
-use crate::tree;
+use crate::{tree, Error};
 
 #[cfg(test)]
 fn search_costs_equal_template<C: ModelSearchCost + TreeSearchCost>(cost: C) {
@@ -127,12 +129,11 @@ fn alphabet_mismatch_subst_model_template<Q: QMatrix + QMatrixMaker>(
 
     let model = SubstModel::<Q>::new(freqs, params);
     let res = SCB::new(model, info).build();
-    assert!(res.is_err());
-    assert!(res
-        .unwrap_err()
-        .to_string()
-        .to_lowercase()
-        .contains("alphabet mismatch"));
+
+    assert_matches!(
+        res,
+        Err(Error::Alphabet(msg)) if msg.contains("alphabet mismatch")
+    );
 }
 
 #[test]
@@ -174,12 +175,11 @@ fn alphabet_mismatch_subst_pip_template<Q: QMatrix + QMatrixMaker>(
     let info = PhyloInfo { msa, tree };
     let model = PIPModel::<Q>::new(freqs, params);
     let res = PIPCB::new(model, info).build();
-    assert!(res.is_err());
-    assert!(res
-        .unwrap_err()
-        .to_string()
-        .to_lowercase()
-        .contains("alphabet mismatch"));
+
+    assert_matches!(
+        res,
+        Err(Error::Alphabet(msg)) if msg.contains("alphabet mismatch")
+    );
 }
 
 #[test]

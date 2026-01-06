@@ -1,11 +1,12 @@
 use std::fs::File;
 use std::io::Read;
 
+use assert_matches::assert_matches;
 use rstest::*;
 use tempfile::tempdir;
 
 use crate::io::{read_sequences, write_newick_to_file, write_sequences_to_file};
-use crate::{record_wo_desc as record, tree};
+use crate::{record_wo_desc as record, tree, Error};
 
 #[test]
 fn reading_correct_fasta() {
@@ -35,13 +36,15 @@ fn reading_correct_fasta() {
 )]
 fn reading_incorrect_fasta(#[case] input: &str, #[case] exp_error: &str) {
     let res = read_sequences(input);
-    assert!(res.is_err());
-    assert!(res.unwrap_err().to_string().contains(exp_error));
+    assert_matches!(res, Err(Error::Io(msg)) if msg.contains(exp_error));
 }
 
 #[test]
 fn reading_nonexistent_fasta() {
-    assert!(read_sequences("./data/sequences_nonexistent.fasta").is_err());
+    assert_matches!(
+        read_sequences("./data/sequences_nonexistent.fasta"),
+        Err(Error::Other(_))
+    );
 }
 
 #[test]

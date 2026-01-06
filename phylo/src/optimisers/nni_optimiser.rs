@@ -1,13 +1,15 @@
 use std::f64;
 use std::fmt::Display;
 
+use assert_matches::assert_matches;
+
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{optimise_branch, MoveCostInfo, MoveOptimiser};
 use crate::tree::{
     NodeIdx::{self, Leaf},
     Tree,
 };
-use crate::{bail, Result};
+use crate::{bail, Error, Result};
 
 #[derive(Clone)]
 pub struct NniOptimiser {}
@@ -222,41 +224,41 @@ mod private_nni_tests {
 
     #[test]
     fn nni_node_is_root() {
-        // arrange
         let tree = tree!("((((A:1.0,B:1.0)F:1.0,C:2.0)G:1.0,D:3.0)H:1.0,E:4.0)I:1.0;");
         let node_id = "I";
 
-        // act
-        let err = rooted_nni(&tree, &tree.by_id(node_id).idx, &Leaf(0)).unwrap_err();
+        let err = rooted_nni(&tree, &tree.by_id(node_id).idx, &Leaf(0));
 
-        // assert
-        assert!(err.to_string().contains("root"));
+        assert_matches!(
+            err,
+            Err(Error::TreeMove(msg)) if msg.contains("root")
+        );
     }
 
     #[test]
     fn nni_node_is_leaf() {
-        // arrange
         let tree = tree!("((((A:1.0,B:1.0)F:1.0,C:2.0)G:1.0,D:3.0)H:1.0,E:4.0)I:1.0;");
         let node_id = "A";
 
-        // act
-        let err = rooted_nni(&tree, &tree.by_id(node_id).idx, &Leaf(0)).unwrap_err();
+        let err = rooted_nni(&tree, &tree.by_id(node_id).idx, &Leaf(0));
 
-        // assert
-        assert!(err.to_string().contains("leaf"));
+        assert_matches!(
+            err,
+            Err(Error::TreeMove(msg)) if msg.contains("leaf")
+        );
     }
+
     #[test]
     fn nni_child_is_invalid() {
-        // arrange
         let tree = tree!("((((A:1.0,B:1.0)F:1.0,C:2.0)G:1.0,D:3.0)H:1.0,E:4.0)I:1.0;");
         let node_id = "G";
         let child_id = "A";
 
-        // act
-        let err =
-            rooted_nni(&tree, &tree.by_id(node_id).idx, &tree.by_id(child_id).idx).unwrap_err();
+        let err = rooted_nni(&tree, &tree.by_id(node_id).idx, &tree.by_id(child_id).idx);
 
-        // assert
-        assert!(err.to_string().contains("must be the parent"));
+        assert_matches!(
+            err,
+            Err(Error::TreeMove(msg)) if msg.contains("must be the parent")
+        );
     }
 }

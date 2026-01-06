@@ -97,14 +97,13 @@ fn idx_by_id_valid() {
 
 #[test]
 fn node_ids_not_unique() {
-    // arrange
     let tree = tree!("(((A:1.0,B:1.0)E:2.0,C:1.0)B:1.0,D:1.0)G:2.0;");
 
-    // act
-    let error_msg = tree.node_ids_are_unique().unwrap_err().to_string();
+    let error = tree.node_ids_are_unique();
 
-    // assert
-    assert!(error_msg.contains("not unique"))
+    assert_matches!(
+        error, Err(Error::Tree(msg)) if msg.contains("not unique")
+    );
 }
 
 #[test]
@@ -386,19 +385,19 @@ fn make_parsing_error(rules: &[Rule]) -> ErrorVariant<Rule> {
 fn newick_garbage() {
     let trees = from_newick(";");
     let error = make_parsing_error(&[Rule::newick]);
-    assert_matches!(trees.unwrap_err(), Error::TreeParsing(msg, err) if err.variant == error && msg.contains("malformed newick string"));
+    assert_matches!(trees, Err(Error::TreeParsing(msg, err)) if err.variant == error && msg.contains("malformed newick string"));
 
-    // check_parsing_error(trees.unwrap_err(), &[Rule::newick]);
     let trees = from_newick("()()();");
     let error = make_parsing_error(&[Rule::tree, Rule::internal, Rule::label]);
-    assert_matches!(trees.unwrap_err(), Error::TreeParsing(msg, err) if err.variant == error && msg.contains("malformed newick string"));
+    assert_matches!(trees, Err(Error::TreeParsing(msg, err)) if err.variant == error && msg.contains("malformed newick string"));
 
     let trees = from_newick("((A:1.0,B:1.0);");
     let error = make_parsing_error(&[Rule::label, Rule::branch_length]);
-    assert_matches!(trees.unwrap_err(), Error::TreeParsing(msg, err) if err.variant == error && msg.contains("malformed newick string"));
+    assert_matches!(trees, Err(Error::TreeParsing(msg, err)) if err.variant == error && msg.contains("malformed newick string"));
+
     let trees = from_newick("(:1.0,:2.0)E:5.1;");
     let error = make_parsing_error(&[Rule::tree, Rule::internal, Rule::label]);
-    assert_matches!(trees.unwrap_err(), Error::TreeParsing(msg, err) if err.variant == error && msg.contains("malformed newick string"));
+    assert_matches!(trees, Err(Error::TreeParsing(msg, err)) if err.variant == error && msg.contains("malformed newick string"));
 }
 
 #[test]

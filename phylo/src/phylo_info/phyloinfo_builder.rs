@@ -371,13 +371,15 @@ pub fn validate_ids_with_ancestors(tree: &Tree, sequences: &Sequences) -> Result
 mod private_tests {
     use std::path::Path;
 
+    use assert_matches::assert_matches;
+
     use crate::alignment::Sequences;
     use crate::phylo_info::{
         phyloinfo_builder::{set_missing_tree_node_ids, PhyloInfoBuilder as PIB},
         validate_ids_with_ancestors,
     };
     use crate::random::FakeGenerator;
-    use crate::{record_wo_desc as record, tree};
+    use crate::{record_wo_desc as record, tree, Error};
 
     #[test]
     fn builder_setters() {
@@ -445,21 +447,18 @@ mod private_tests {
 
     #[test]
     fn set_missing_tree_node_ids_finds_duplicate() {
-        // arrange
         let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, A1:1.0) I9:1.0):1.0):1.0;");
 
-        // act
-        let error = set_missing_tree_node_ids(&tree).unwrap_err();
+        let error = set_missing_tree_node_ids(&tree);
 
-        // assert
-        assert!(error
-            .to_string()
-            .contains("duplicate id (A1) found in the leaves of the tree"))
+        assert_matches!(
+            error,
+            Err(Error::Tree(msg)) if msg.contains("duplicate id (A1) found in the leaves of the tree")
+        );
     }
 
     #[test]
     fn not_valid_ids_with_ancestors() {
-        // arrange
         let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0)I10:1.0):1.0;");
         let seqs = Sequences::new(vec![
             record!("A1", b"X"),
@@ -472,11 +471,12 @@ mod private_tests {
             record!("", b"X"),
         ]);
 
-        // act
-        let error = validate_ids_with_ancestors(&tree, &seqs).unwrap_err();
+        let error = validate_ids_with_ancestors(&tree, &seqs);
 
-        // assert
-        assert!(error.to_string().contains("[\"C2\"]"));
+        assert_matches!(
+            error,
+            Err(Error::Tree(msg)) if msg.contains("[\"C2\"]")
+        );
     }
 
     #[test]
