@@ -160,11 +160,11 @@ macro_rules! bail {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod tests {
-    use crate::{
-        parsimony::{ParsimonySite, SiteFlag},
-        tree::Tree,
-        Record,
-    };
+    use assert_matches::assert_matches;
+
+    use crate::parsimony::{ParsimonySite, SiteFlag};
+    use crate::tree::Tree;
+    use crate::{Error::*, Record, Result};
 
     #[test]
     fn test_record_macro() {
@@ -442,5 +442,160 @@ mod tests {
         let _site = site!(b"ATCG", SiteFlag::NoGap); // Should still work
         assert_eq!(ParsimonySite, "not_a_site"); // Local variable unchanged
         assert_eq!(ParsimonySet, "not_a_set"); // Local variable unchanged
+    }
+
+    #[test]
+    fn bail_macro_formatting() {
+        // Test bail! with format args
+        fn fail_formatted() -> Result<()> {
+            bail!(Io, "Formatted error: {}", 42);
+        }
+        assert_matches!(
+            fail_formatted(),
+            Err(Io(msg)) if msg == "Formatted error: 42"
+        );
+
+        // Test bail! with literal string
+        fn fail_literal() -> Result<()> {
+            bail!(Io, "Literal error");
+        }
+        assert_matches!(
+            fail_literal(),
+            Err(Io(msg)) if msg == "Literal error"
+        );
+
+        // Test bail! with variable
+        fn fail_variable() -> Result<()> {
+            let msg = "Variable error";
+            bail!(Io, msg);
+        }
+        assert_matches!(
+            fail_variable(),
+            Err(Io(msg)) if msg == "Variable error"
+        );
+    }
+
+    #[test]
+    fn bail_macro_in_loops() {
+        fn fail_in_loop(n: usize) -> Result<()> {
+            for i in 0..n {
+                if i == 3 {
+                    bail!(Io, "Error at i={}", i);
+                }
+            }
+            Ok(())
+        }
+
+        assert_matches!(
+            fail_in_loop(5),
+            Err(Io(msg)) if msg == "Error at i=3"
+        );
+    }
+
+    #[test]
+    fn bail_macro_in_nested_functions() {
+        fn outer_function() -> Result<()> {
+            fn inner_function() -> Result<()> {
+                bail!(Io, "Inner function error");
+            }
+            inner_function()
+        }
+
+        assert_matches!(
+            outer_function(),
+            Err(Io(msg)) if msg == "Inner function error"
+        );
+    }
+
+    #[test]
+    fn bail_macro_with_different_error_variants() {
+        fn fail_alignment() -> Result<()> {
+            bail!(Alignment, "Alignment error occurred");
+        }
+        assert_matches!(
+            fail_alignment(),
+            Err(Alignment(msg)) if msg == "Alignment error occurred"
+        );
+    }
+
+    #[test]
+    fn bail_macro_string_variants_display() {
+        fn fail_io() -> Result<()> {
+            bail!(Io, "test error");
+        }
+        let err = fail_io().unwrap_err();
+        assert_matches!(err, Io(ref s) if s == "test error");
+        assert_eq!(err.to_string(), "IO error: test error");
+
+        fn fail_alphabet() -> Result<()> {
+            bail!(Alphabet, "test error");
+        }
+        let err = fail_alphabet().unwrap_err();
+        assert_matches!(err, Alphabet(ref s) if s == "test error");
+        assert_eq!(err.to_string(), "Alphabet error: test error");
+
+        fn fail_sequence() -> Result<()> {
+            bail!(Sequence, "test error");
+        }
+        let err = fail_sequence().unwrap_err();
+        assert_matches!(err, Sequence(ref s) if s == "test error");
+        assert_eq!(err.to_string(), "Sequence error: test error");
+
+        fn fail_alignment() -> Result<()> {
+            bail!(Alignment, "test error");
+        }
+        let err = fail_alignment().unwrap_err();
+        assert_matches!(err, Alignment(ref s) if s == "test error");
+        assert_eq!(err.to_string(), "Alignment error: test error");
+
+        fn fail_ancestral() -> Result<()> {
+            bail!(AncestralAlignment, "test error");
+        }
+        let err = fail_ancestral().unwrap_err();
+        assert_matches!(err, AncestralAlignment(ref s) if s == "test error");
+        assert_eq!(err.to_string(), "Ancestral alignment error: test error");
+
+        fn fail_tree() -> Result<()> {
+            bail!(Tree, "test error");
+        }
+        let err = fail_tree().unwrap_err();
+        assert_matches!(err, Tree(ref s) if s == "test error");
+        assert_eq!(err.to_string(), "Tree error: test error");
+
+        fn fail_tree_move() -> Result<()> {
+            bail!(TreeMove, "test error");
+        }
+        let err = fail_tree_move().unwrap_err();
+        assert_matches!(err, TreeMove(ref s) if s == "test error");
+        assert_eq!(err.to_string(), "Tree move error: test error");
+    }
+
+    #[test]
+    fn bail_macro_treeparsing_display() {
+        use crate::tree::tree_parser::Rule;
+        use pest::error::{Error as PestError, ErrorVariant};
+
+        fn fail_tree_parsing() -> Result<()> {
+            let pest_err = PestError::<Rule>::new_from_span(
+                ErrorVariant::CustomError {
+                    message: String::from("pest error"),
+                },
+                pest::Span::new("input", 0, 1).unwrap(),
+            );
+            bail!(TreeParsing, "parsing error", pest_err);
+        }
+        let err = fail_tree_parsing().unwrap_err();
+        assert_matches!(err, TreeParsing(ref s, _) if s == "parsing error");
+        assert_eq!(err.to_string(), "Tree parsing error: parsing error");
+    }
+
+    #[test]
+    fn bail_macro_other_display() {
+        fn fail_other() -> Result<()> {
+            bail!(Other, anyhow::anyhow!("external error"));
+        }
+        let err = fail_other().unwrap_err();
+        assert_matches!(err, Other(ref e) if e.to_string() == "external error");
+        assert_eq!(err.to_string(), "external error");
     }
 }
