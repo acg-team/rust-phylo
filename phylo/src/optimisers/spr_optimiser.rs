@@ -1,6 +1,5 @@
 use std::fmt::Display;
 
-use anyhow::bail;
 use approx::relative_eq;
 use itertools::Itertools;
 use log::{debug, info};
@@ -9,7 +8,7 @@ use crate::likelihood::TreeSearchCost;
 use crate::optimisers::move_optimiser::{MoveCostInfo, MoveOptimiser};
 use crate::optimisers::optimise_branch;
 use crate::tree::{NodeIdx, Tree};
-use crate::Result;
+use crate::{bail, Result};
 
 #[derive(Clone)]
 pub struct SprOptimiser {}
@@ -235,28 +234,34 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
 fn rooted_spr(tree: &Tree, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Result<Tree> {
     // Prune and regraft nodes must be different
     if prune_idx == regraft_idx {
-        bail!("Prune and regraft nodes must be different");
+        bail!(TreeMove, "prune and regraft nodes must be different");
     }
     if tree.is_subtree(regraft_idx, prune_idx) {
-        bail!("Prune node cannot be a subtree of the regraft node");
+        bail!(
+            TreeMove,
+            "prune node cannot be a subtree of the regraft node"
+        );
     }
 
     let prune = tree.node(prune_idx);
     // Pruned node must have a parent, it is the one being reattached
     if prune.parent.is_none() {
-        bail!("Cannot prune the root node");
+        bail!(TreeMove, "cannot prune the root node");
     }
     // Cannot prune direct child of the root node, otherwise branch lengths are undefined
     if tree.node(&prune.parent.unwrap()).parent.is_none() {
-        bail!("Cannot prune direct child of the root node");
+        bail!(TreeMove, "cannot prune direct child of the root node");
     }
     let regraft = tree.node(regraft_idx);
     // Regrafted node must have a parent, the prune parent is attached to that branch
     if regraft.parent.is_none() {
-        bail!("Cannot regraft to root node");
+        bail!(TreeMove, "cannot regraft to root node");
     }
     if regraft.parent == prune.parent {
-        bail!("Prune and regraft nodes must have different parents");
+        bail!(
+            TreeMove,
+            "prune and regraft nodes must have different parents"
+        );
     }
 
     Ok(rooted_spr_unchecked(tree, prune_idx, regraft_idx))

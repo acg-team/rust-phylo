@@ -128,7 +128,11 @@ fn alphabet_mismatch_subst_model_template<Q: QMatrix + QMatrixMaker>(
     let model = SubstModel::<Q>::new(freqs, params);
     let res = SCB::new(model, info).build();
     assert!(res.is_err());
-    assert!(res.err().unwrap().to_string().contains("Alphabet mismatch"));
+    assert!(res
+        .unwrap_err()
+        .to_string()
+        .to_lowercase()
+        .contains("alphabet mismatch"));
 }
 
 #[test]
@@ -171,7 +175,11 @@ fn alphabet_mismatch_subst_pip_template<Q: QMatrix + QMatrixMaker>(
     let model = PIPModel::<Q>::new(freqs, params);
     let res = PIPCB::new(model, info).build();
     assert!(res.is_err());
-    assert!(res.err().unwrap().to_string().contains("Alphabet mismatch"));
+    assert!(res
+        .unwrap_err()
+        .to_string()
+        .to_lowercase()
+        .contains("alphabet mismatch"));
 }
 
 #[test]

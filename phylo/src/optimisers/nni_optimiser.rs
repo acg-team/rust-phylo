@@ -1,15 +1,13 @@
 use std::f64;
 use std::fmt::Display;
 
-use anyhow::bail;
-
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{optimise_branch, MoveCostInfo, MoveOptimiser};
 use crate::tree::{
     NodeIdx::{self, Leaf},
     Tree,
 };
-use crate::Result;
+use crate::{bail, Result};
 
 #[derive(Clone)]
 pub struct NniOptimiser {}
@@ -88,13 +86,19 @@ fn calc_nni_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
 
 fn rooted_nni(tree: &Tree, node_idx: &NodeIdx, child_idx: &NodeIdx) -> Result<Tree> {
     if node_idx == &tree.root {
-        bail!("For the rooted NNI the node mustn't be the root of the tree");
+        bail!(
+            TreeMove,
+            "for rooted NNI the node must not be the root of the tree"
+        );
     }
     if matches!(node_idx, Leaf(_)) {
-        bail!("For the rooted NNI the node mustn't be a leaf");
+        bail!(TreeMove, "for rooted NNI the node must not be a leaf");
     }
     if tree.node(child_idx).parent.is_none() || tree.node(child_idx).parent.unwrap() != *node_idx {
-        bail!("The node {node_idx} must be the parent of the {child_idx}");
+        bail!(
+            TreeMove,
+            "the node {node_idx} must be the parent of the {child_idx}"
+        );
     }
 
     Ok(rooted_nni_unchecked(tree, node_idx, child_idx))

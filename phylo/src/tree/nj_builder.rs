@@ -9,7 +9,7 @@ use crate::random::RandomGenerator;
 use crate::tree::nj_matrices::DistanceMatrix;
 use crate::tree::tree_builder::TreeBuilder;
 use crate::tree::{NodeIdx, Tree};
-use crate::Result;
+use crate::{Error, Result};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Strategy {
@@ -199,7 +199,7 @@ impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
                 Strategy::ArgMax => Self::argmin(delta_lengths),
             };
 
-            let index = rng.sample(&WeightedIndex::new(distribution.iter())?);
+            let index = rng.sample(&WeightedIndex::new(distribution.iter()).map_err(|e| Error::from(anyhow::Error::from(e)))?);
 
             let (i, j) = lower_triangle_index(index);
             let idx_new = cur_idx;

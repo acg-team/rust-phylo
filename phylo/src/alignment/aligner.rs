@@ -1,9 +1,7 @@
-use anyhow::bail;
-
 use crate::alignment::{Alignment, Sequences};
 use crate::phylo_info::validate_taxa_ids;
 use crate::tree::Tree;
-use crate::Result;
+use crate::{bail, Result};
 
 /// Trait for aligning sequences, optionally using a phylogenetic tree as guidance.
 pub trait Aligner<A: Alignment> {
@@ -14,7 +12,7 @@ pub trait Aligner<A: Alignment> {
     ///  - if the sequence IDs in the alignment match the taxa IDs in the tree ([`validate_taxa_ids`])
     fn align(&self, seqs: &Sequences, tree: &Tree) -> Result<A> {
         if seqs.aligned {
-            bail!("Sequences must not be aligned");
+            bail!(Alignment, "Sequences must be aligned");
         }
         seqs.ids_are_unique()?;
         validate_taxa_ids(tree, seqs)?;

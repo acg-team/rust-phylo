@@ -1,18 +1,18 @@
 use std::cell::RefCell;
 use std::fmt::Display;
 
-use anyhow::bail;
 use hashbrown::HashSet;
 use log::warn;
 use num_enum::{FromPrimitive, IntoPrimitive};
 
+use crate::alignment::AncestralAlignment;
 use crate::likelihood::{ParamRange, PARAM_RANGE_UNIT_INTERVAL_EXCLUSIVE};
+use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{QMatrix, SubstModel, SubstitutionCostBuilder as SCB};
 use crate::tkf_model::{
-    validate_lambda_and_mu, TKFCost, TKFIndelCost, TKFIndelModelInfo, DEFAULT_R,
+    validate_lambda_and_mu, TKFCost, TKFIndelCost, TKFIndelModelInfo, TKFModel, DEFAULT_R,
 };
-use crate::Result;
-use crate::{alignment::AncestralAlignment, phylo_info::PhyloInfo, tkf_model::TKFModel};
+use crate::{bail, Result};
 
 #[derive(Debug, Eq, PartialEq, FromPrimitive, IntoPrimitive)]
 #[repr(usize)]
@@ -213,7 +213,7 @@ impl<Q: QMatrix, AA: AncestralAlignment> TKF92CostBuilder<Q, AA> {
 
     pub fn build(self) -> Result<TKFCost<Q, TKF92IndelModel, AA>> {
         if self.phylo.msa.alphabet() != Q::alphabet() {
-            bail!("Alphabet mismatch between model and alignment");
+            bail!(Alphabet, "alphabet mismatch between model and alignment");
         }
 
         let (lambda, mu) = validate_lambda_and_mu(self.lambda, self.mu);

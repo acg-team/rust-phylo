@@ -3,7 +3,6 @@ use std::fmt::{Debug, Display};
 use std::marker::PhantomData;
 use std::ops::Mul;
 
-use anyhow::bail;
 use hashbrown::HashMap;
 use nalgebra::{DMatrix, DVector};
 
@@ -17,7 +16,7 @@ use crate::tree::{
     NodeIdx::{self, Internal, Leaf},
     Tree,
 };
-use crate::{Result, MAX_BLEN};
+use crate::{bail, Result, MAX_BLEN};
 
 pub mod dna_models;
 pub use dna_models::*;
@@ -135,7 +134,7 @@ impl<Q: QMatrix, A: Alignment> SubstitutionCostBuilder<Q, A> {
 
     pub fn build(self) -> Result<SubstitutionCost<Q, A>> {
         if self.info.msa.alphabet() != Q::alphabet() {
-            bail!("Alphabet mismatch between model and alignment");
+            bail!(Alphabet, "alphabet mismatch between model and alignment");
         }
 
         let tmp = RefCell::new(SubstModelInfo::new(&self.info, &self.model).unwrap());

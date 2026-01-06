@@ -1,6 +1,5 @@
 use std::fmt::{Debug, Display};
 
-use anyhow::bail;
 use hashbrown::HashMap;
 
 use crate::alphabets::Alphabet;
@@ -10,7 +9,7 @@ use crate::phylo_info::{
     set_missing_tree_node_ids, validate_ids_with_ancestors, validate_taxa_ids,
 };
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
-use crate::{align, aligned_seq, record, Result};
+use crate::{align, aligned_seq, bail, record, Result};
 
 pub mod sequences;
 pub use sequences::*;
@@ -84,7 +83,7 @@ pub trait Alignment: Display + Clone + Debug {
     /// - bails if sequence IDs do not match the taxa IDs in the tree ([`validate_taxa_ids`])
     fn from_aligned(mut sequences: Sequences, tree: &Tree) -> Result<Self> {
         if !sequences.aligned {
-            bail!("Sequences are not aligned")
+            bail!(Alignment, "Sequences must be aligned")
         }
         sequences.ids_are_unique()?;
         validate_taxa_ids(tree, &sequences)?;
@@ -123,7 +122,7 @@ pub trait AncestralAlignment: Alignment {
     /// may lead to unexpected panics or wrong results.
     fn from_aligned_with_ancestral(mut all_seqs: Sequences, tree: &Tree) -> Result<Self> {
         if !all_seqs.aligned {
-            bail!("Sequences are not aligned")
+            bail!(Alignment, "Sequences must be aligned")
         }
         all_seqs.ids_are_unique()?;
         validate_ids_with_ancestors(tree, &all_seqs)?;

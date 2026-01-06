@@ -1,31 +1,14 @@
-use std::error::Error;
-use std::fmt::{self, Debug};
+use std::fmt::Debug;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
 
-use anyhow::bail;
 use bio::io::fasta::{Reader, Record, Writer};
 use log::info;
 
 use crate::alphabets::{Alphabet, GAP, POSSIBLE_GAPS};
 use crate::tree::{tree_parser, Tree};
-use crate::{record, Result};
-
-pub(crate) struct DataError {
-    pub(crate) message: String,
-}
-impl fmt::Debug for DataError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-impl fmt::Display for DataError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-impl Error for DataError {}
+use crate::{bail, record, Error::Io, Result};
 
 /// Reads sequences from a fasta file, returning a vector of fasta records.
 /// All sequences are converted to uppercase.
@@ -47,16 +30,21 @@ impl Error for DataError {}
 /// ```
 pub fn read_sequences(path: impl AsRef<Path> + Debug) -> Result<Vec<Record>> {
     info!("Reading sequences from file {}", path.as_ref().display());
-    let reader = Reader::from_file(path)?;
+    let reader = Reader::from_file(&path)?;
     let mut sequences = Vec::new();
 
-    for result in reader.records() {
-        let rec = result?;
+    for record in reader.records() {
+        let rec = record.map_err(|e| {
+            Io(format!(
+                "error reading fasta record from {}: {}",
+                path.as_ref().display(),
+                e
+            ))
+        })?;
         if let Err(e) = rec.check() {
-            bail!(DataError {
-                message: e.to_string()
-            });
+            bail!(Io, e)
         }
+
         let seq: Vec<u8> = rec
             .seq()
             .to_ascii_uppercase()
@@ -65,20 +53,22 @@ pub fn read_sequences(path: impl AsRef<Path> + Debug) -> Result<Vec<Record>> {
             .collect();
 
         if !Alphabet::protein().is_word(&seq) {
-            bail!(DataError {
-                message: format!(
-                    "Invalid genetic sequence encountered: {}",
+            bail!(
+                Io,
+                format!(
+                    "invalid genetic sequence encountered: {}",
                     String::from_utf8(seq).unwrap()
                 )
-            });
+            )
         }
 
         sequences.push(record!(rec.id(), rec.desc(), &seq));
     }
     if sequences.is_empty() {
-        bail!(DataError {
-            message: String::from("No sequences found in file")
-        });
+        bail!(
+            Io,
+            format!("no sequences found in file {}", path.as_ref().display())
+        );
     }
 
     info!("Read sequences successfully");
@@ -120,9 +110,7 @@ pub fn read_sequences(path: impl AsRef<Path> + Debug) -> Result<Vec<Record>> {
 pub fn write_sequences_to_file(sequences: &[Record], path: impl AsRef<Path>) -> Result<()> {
     info!("Writing sequences/MSA to file {}", path.as_ref().display());
     if path.as_ref().exists() {
-        bail!(DataError {
-            message: String::from("File already exists")
-        });
+        bail!(Io, "file already exists")
     }
     let mut writer = Writer::to_file(path)?;
     for rec in sequences {
@@ -186,9 +174,7 @@ pub fn read_newick_from_file(path: impl AsRef<Path>) -> Result<Vec<Tree>> {
 pub fn write_newick_to_file(trees: &[Tree], path: impl AsRef<Path>) -> Result<()> {
     info!("Writing newick trees to file {}", path.as_ref().display());
     if path.as_ref().exists() {
-        bail!(DataError {
-            message: String::from("File already exists")
-        });
+        bail!(Io, "file already exists")
     }
     let mut writer = File::create(path)?;
     for tree in trees {

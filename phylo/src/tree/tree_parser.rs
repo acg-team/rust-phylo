@@ -1,7 +1,5 @@
-use std::fmt;
 use std::result::Result as stdResult;
 
-use anyhow::bail;
 use fixedbitset::FixedBitSet;
 use log::{info, warn};
 use pest::{error::Error as PestError, iterators::Pair, Parser};
@@ -12,29 +10,24 @@ use crate::tree::{
     NodeIdx::{self, Internal as Int, Leaf},
     Tree,
 };
+use crate::Error::TreeParsing;
 use crate::Result;
 
 #[derive(Parser)]
 #[grammar = "./tree/newick.pest"]
 pub struct NewickParser;
 
-#[derive(Debug)]
-pub(crate) struct ParsingError(pub(crate) Box<PestError<Rule>>);
-
-impl fmt::Display for ParsingError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Malformed newick string")?;
-        write!(f, "{}", self.0)
-    }
-}
-
 pub fn from_newick(newick: &str) -> Result<Vec<Tree>> {
     info!("Parsing newick trees");
     let mut trees = Vec::new();
     let newick_tree_res = NewickParser::parse(Rule::newick, newick);
-    if newick_tree_res.is_err() {
-        bail!(ParsingError(Box::new(newick_tree_res.err().unwrap())));
+    if let Err(e) = newick_tree_res {
+        return Err(TreeParsing(
+            "malformed newick string".to_string(),
+            Box::new(e),
+        ));
     }
+
     let newick_tree_rule = newick_tree_res.unwrap().next().unwrap();
     match newick_tree_rule.as_rule() {
         Rule::newick => {
@@ -47,8 +40,8 @@ pub fn from_newick(newick: &str) -> Result<Vec<Tree>> {
                         Rule::unrooted => tree.parse_unrooted_rule(rule),
                         _ => unimplemented!(),
                     };
-                    if res.is_err() {
-                        bail!(ParsingError(res.err().unwrap()));
+                    if let Err(e) = res {
+                        return Err(TreeParsing("malformed newick string".to_string(), e));
                     }
 
                     trees.push(tree);

@@ -2,13 +2,12 @@ use std::fmt::Display;
 use std::ops::{Index, IndexMut};
 use std::slice;
 
-use anyhow::bail;
 use bio::io::fasta::Record;
 use bitvec::vec::BitVec;
 use hashbrown::HashSet;
 
 use crate::alphabets::{Alphabet, GAP};
-use crate::{record, Result};
+use crate::{bail, record, Result};
 
 /// Container for a set of sequences, which may or may not be aligned.
 ///
@@ -192,7 +191,7 @@ impl Sequences {
         let rec = self.s.iter().find(|r| r.id() == id);
         match rec {
             Some(r) => Ok(r),
-            None => bail!("Sequence with id {id} not found"),
+            None => bail!(Sequence, "Sequence with id {id} not found"),
         }
     }
 
@@ -310,7 +309,11 @@ impl Sequences {
         for record in self.iter() {
             let id = record.id();
             if !seen.insert(id) {
-                bail!("Duplicate record id ({}) found in the sequences", id);
+                bail!(
+                    Alignment,
+                    "Duplicate record id ({}) found in the sequences",
+                    id
+                )
             }
         }
         Ok(())

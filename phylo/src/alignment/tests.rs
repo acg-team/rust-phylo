@@ -373,7 +373,7 @@ fn from_aligned_with_ancestral_fails() {
         .to_string();
 
     // assert
-    assert!(error_msg.contains("not aligned"));
+    assert!(error_msg.contains("must be aligned"));
 }
 
 #[test]

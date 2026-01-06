@@ -5,7 +5,6 @@ use std::marker::PhantomData;
 use std::ops::Mul;
 use std::vec;
 
-use anyhow::bail;
 use hashbrown::HashMap;
 use lazy_static::lazy_static;
 use log::warn;
@@ -21,7 +20,7 @@ use crate::tree::{
     NodeIdx::{self, Internal as Int, Leaf},
     Tree,
 };
-use crate::Result;
+use crate::{bail, Result};
 
 // (2.0 * PI).ln() / 2.0;
 pub static SHIFT: f64 = 0.9189385332046727;
@@ -236,7 +235,7 @@ impl<Q: QMatrix, A: Alignment> PIPCostBuilder<Q, A> {
 
     pub fn build(self) -> Result<PIPCost<Q, A>> {
         if self.info.msa.alphabet() != Q::alphabet() {
-            bail!("Alphabet mismatch between model and alignment");
+            bail!(Alphabet, "alphabet mismatch between model and alignment");
         }
 
         let tmp = RefCell::new(PIPModelInfo::new(&self.info, &self.model).unwrap());

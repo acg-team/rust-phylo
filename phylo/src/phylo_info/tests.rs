@@ -1,4 +1,3 @@
-use std::fmt::{Debug, Display};
 use std::path::Path;
 
 use approx::assert_relative_eq;
@@ -6,18 +5,10 @@ use assert_matches::assert_matches;
 
 use crate::alignment::{Alignment, AncestralAlignment, Sequences, MSA};
 use crate::alphabets::{Alphabet, NUCLEOTIDES};
-use crate::io::{read_sequences, DataError};
+use crate::io::read_sequences;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
 use crate::substitution_models::FreqVector;
-use crate::tree::tree_parser::ParsingError;
-use crate::{frequencies, record_wo_desc as record, tree};
-
-#[cfg(test)]
-fn downcast_error<T: Display + Debug + Send + Sync + 'static>(
-    result: &Result<PhyloInfo<impl Alignment>, anyhow::Error>,
-) -> &T {
-    (result.as_ref().unwrap_err()).downcast_ref::<T>().unwrap()
-}
+use crate::{frequencies, record_wo_desc as record, tree, Error};
 
 #[test]
 fn empirical_frequencies_easy() {
@@ -75,80 +66,78 @@ fn setup_info_correct_unaligned() {
 #[test]
 fn setup_info_mismatched_ids_missing_tips() {
     let fldr = Path::new("./data");
-    let info = PIB::with_attrs(
+    let error = PIB::with_attrs(
         fldr.join("sequences_DNA2_unaligned.fasta"),
         fldr.join("tree_diff_branch_lengths_1.newick"),
     )
-    .build();
-    let error_msg = downcast_error::<DataError>(&info).to_string();
-    assert!(error_msg.contains("tree tip IDs: [\"C\", \"D\"]"));
+    .build()
+    .unwrap_err();
+    assert!(error.to_string().contains("node IDs: [\"C\", \"D\"]"));
 }
 
 #[test]
 fn setup_info_mismatched_ids_missing_sequences() {
     let fldr = Path::new("./data");
-    let info = PIB::with_attrs(
+    let error = PIB::with_attrs(
         fldr.join("sequences_DNA2_unaligned.fasta"),
         fldr.join("tree_diff_branch_lengths_3.newick"),
     )
-    .build();
-    let error_msg = downcast_error::<DataError>(&info).to_string();
-    assert!(error_msg.contains("sequence IDs: [\"E\", \"F\"]"));
+    .build()
+    .unwrap_err();
+    assert!(error.to_string().contains("sequence IDs: [\"E\", \"F\"]"));
 }
 
 #[test]
 fn setup_info_missing_sequence_file() {
     let fldr = Path::new("./data");
-    let info = PIB::with_attrs(
-        fldr.join("sequences_DNA_nonexistent.fasta"),
+    let seq_file = fldr.join("sequences_DNA_nonexistent.fasta");
+    let error = PIB::with_attrs(
+        &seq_file,
         fldr.join("tree_diff_branch_lengths_1.newick"),
     )
-    .build();
-    assert_matches!(
-        info.unwrap_err().to_string().as_str(),
-        "Failed to read fasta from \"./data/sequences_DNA_nonexistent.fasta\""
-    );
+    .build()
+    .unwrap_err();
+    assert_matches!(error, Error::Other(msg) if 
+        msg.to_string().contains(&format!("Failed to read fasta from {:?}", seq_file)));
 }
 
 #[test]
 fn setup_info_empty_sequence_file() {
     let fldr = Path::new("./data");
-    let info = PIB::with_attrs(
-        fldr.join("sequences_empty.fasta"),
+    let seq_file = fldr.join("sequences_empty.fasta");
+    let error = PIB::with_attrs(
+        &seq_file,
         fldr.join("tree_diff_branch_lengths_1.newick"),
     )
-    .build();
-    assert_matches!(
-        downcast_error::<DataError>(&info).to_string().as_str(),
-        "No sequences found in file"
-    );
+    .build()
+    .unwrap_err();
+    assert_matches!(error, Error::Io(msg) if msg.contains(&format!("no sequences found in file {}", seq_file.display())));
 }
 
 #[test]
 fn setup_info_empty_tree_file() {
     let fldr = Path::new("./data");
-    let info = PIB::with_attrs(
+    let error = PIB::with_attrs(
         fldr.join("sequences_DNA2_unaligned.fasta"),
         fldr.join("tree_empty.newick"),
     )
-    .build();
-    assert_matches!(
-        downcast_error::<DataError>(&info).to_string().as_str(),
-        "No trees in the tree file, aborting"
-    );
+    .build()
+    .unwrap_err();
+
+    assert_matches!(error, Error::Tree(msg) if msg.contains("no trees provided"));
 }
 
 #[test]
 fn setup_info_malformed_tree_file() {
     let fldr = Path::new("./data");
-    let info = PIB::with_attrs(
+    let error = PIB::with_attrs(
         fldr.join("sequences_DNA2_unaligned.fasta"),
         fldr.join("tree_malformed.newick"),
     )
-    .build();
-    assert!(downcast_error::<ParsingError>(&info)
-        .to_string()
-        .contains("Malformed newick string"));
+    .build()
+    .unwrap_err();
+
+    assert_matches!(error, Error::TreeParsing(msg, _) if msg.to_string().as_str() == "malformed newick string");
 }
 
 #[test]
@@ -367,21 +356,17 @@ fn force_protein_alphabet() {
 
 #[test]
 fn build_ancestral_alignment_from_aligned_leaf_seqs_missing_record() {
-    // arrange
     let fldr = Path::new("./data");
     let builder = PIB::with_attrs(
         fldr.join("sequences_DNA1_missing_record.fasta"),
         fldr.join("tree_diff_branch_lengths_2.newick"),
     );
-
-    // act
     let res_info = builder.build_with_ancestors();
 
-    // assert
-    let error_msg = res_info.unwrap_err().to_string();
-    assert!(
-        error_msg.contains("The number of sequences (3) does not match the number of leaves (4) nor the number of nodes (7) in the tree")
-    );
+    let error = res_info.unwrap_err();
+    let expected_msg = "the number of sequences (3) does not match the number \
+        of leaves (4) nor the number of nodes (7) in the tree";
+    assert_matches!(error, Error::Tree(msg) if msg.contains(expected_msg));
 }
 
 #[test]
@@ -439,7 +424,7 @@ fn build_ancestral_alignment_from_aligned_leaf_seqs_mismatched_ids() {
 
     // assert
     let error_msg = res_info.unwrap_err().to_string();
-    assert!(error_msg.contains("missing tree tip IDs: [\"Z\"]"));
+    assert!(error_msg.contains("missing node IDs: [\"Z\"]"));
 }
 
 #[test]
@@ -476,7 +461,7 @@ fn build_ancestral_alignment_from_unaligned_leaf_seqs_mismatched_ids() {
 
     // assert
     let error_msg = res_info.unwrap_err().to_string();
-    assert!(error_msg.contains("missing tree tip IDs: [\"Z\"]"));
+    assert!(error_msg.contains("missing node IDs: [\"Z\"]"));
 }
 
 #[test]
@@ -513,7 +498,7 @@ fn build_ancestral_alignment_from_aligned_seqs_mismatched_ids() {
 
     // assert
     let error_msg = res_info.unwrap_err().to_string();
-    assert!(error_msg.contains("missing tree IDs: [\"Z\"]"));
+    assert!(error_msg.contains("missing node IDs: [\"Z\"]"));
 }
 
 #[test]
@@ -530,5 +515,5 @@ fn build_ancestral_alignment_from_unaligned_seqs() {
 
     // assert
     let error_msg = res_info.unwrap_err().to_string();
-    assert!(error_msg.contains("Building an ancestral alignment from unaligned sequences (including ancestral_sequencess) is not support"));
+    assert!(error_msg.contains("building an ancestral alignment from unaligned sequences (including ancestral sequences) is not supported"));
 }

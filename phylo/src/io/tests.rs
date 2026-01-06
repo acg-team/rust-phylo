@@ -31,7 +31,7 @@ fn reading_correct_fasta() {
 )]
 #[case::weird_chars(
     "./data/sequences_garbage_weird_symbols.fasta",
-    "Invalid genetic sequence"
+    "invalid genetic sequence"
 )]
 fn reading_incorrect_fasta(#[case] input: &str, #[case] exp_error: &str) {
     let res = read_sequences(input);
