@@ -199,7 +199,10 @@ impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
                 Strategy::ArgMax => Self::argmin(delta_lengths),
             };
 
-            let index = rng.sample(&WeightedIndex::new(distribution.iter()).map_err(|e| Error::from(anyhow::Error::from(e)))?);
+            let index = rng.sample(
+                &WeightedIndex::new(distribution.iter())
+                    .map_err(|e| Error::from(anyhow::Error::from(e)))?,
+            );
 
             let (i, j) = lower_triangle_index(index);
             let idx_new = cur_idx;
