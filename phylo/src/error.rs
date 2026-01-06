@@ -16,9 +16,6 @@ pub enum Error {
     #[error("Alignment error: {0}")]
     Alignment(String),
 
-    #[error("Invalid parameter: {0}")]
-    InvalidParameter(String),
-
     #[error("Ancestral alignment error: {0}")]
     AncestralAlignment(String),
 
