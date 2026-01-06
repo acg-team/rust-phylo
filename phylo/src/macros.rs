@@ -133,6 +133,30 @@ macro_rules! site {
     }};
 }
 
+#[macro_export]
+macro_rules! bail {
+    // Usage: bail!(TreeParsing, "message", pest_error)
+    (TreeParsing, $fmt:literal, $pest_err:expr $(, $arg:expr)*) => {
+        return Err($crate::Error::TreeParsing(format!($fmt $(, $arg)*), Box::new($pest_err)))
+    };
+    // Usage: bail!(TreeParsing, some_string_variable, pest_error)
+    (TreeParsing, $msg:expr, $pest_err:expr) => {
+        return Err($crate::Error::TreeParsing($msg.to_string(), Box::new($pest_err)))
+    };
+    // Usage: bail!(Other, anyhow_error)
+    (Other, $err:expr) => {
+        return Err($crate::Error::Other($err.into()))
+    };
+    // Usage: bail!(Alignment, "Sequences must be aligned")
+    ($variant:ident, $fmt:literal $(, $arg:expr)*) => {
+        return Err($crate::Error::$variant(format!($fmt $(, $arg)*)))
+    };
+    // Usage: bail!(Alignment, some_string_variable)
+    ($variant:ident, $err:expr) => {
+        return Err($crate::Error::$variant($err.to_string()))
+    };
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod tests {
