@@ -1,15 +1,13 @@
 use std::f64;
 use std::fmt::Display;
 
-use assert_matches::assert_matches;
-
 use crate::likelihood::TreeSearchCost;
 use crate::optimisers::{optimise_branch, MoveCostInfo, MoveOptimiser};
 use crate::tree::{
     NodeIdx::{self, Leaf},
     Tree,
 };
-use crate::{bail, Error, Result};
+use crate::{bail, Result};
 
 #[derive(Clone)]
 pub struct NniOptimiser {}
@@ -155,9 +153,11 @@ fn rooted_nni_unchecked(tree: &Tree, node_idx: &NodeIdx, child_idx: &NodeIdx) ->
 #[cfg_attr(coverage, coverage(off))]
 mod private_nni_tests {
 
+    use assert_matches::assert_matches;
+
     use super::*;
-    use crate::tree;
     use crate::tree::Tree;
+    use crate::{tree, Error};
 
     #[cfg(test)]
     fn compare_trees(tree: &Tree, true_tree: Tree) {
