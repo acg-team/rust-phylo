@@ -310,7 +310,7 @@ impl Sequences {
             let id = record.id();
             if !seen.insert(id) {
                 bail!(
-                    Alignment,
+                    Sequence,
                     "Duplicate record id ({}) found in the sequences",
                     id
                 )
