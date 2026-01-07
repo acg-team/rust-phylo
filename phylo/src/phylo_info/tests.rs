@@ -483,5 +483,5 @@ fn build_ancestral_alignment_from_unaligned_seqs() {
 
     let expected_msg = "building an ancestral alignment from unaligned sequences (including \
         ancestral sequences) is not supported";
-    assert_matches!(error, Err(Error::Tree(msg)) if msg.contains(expected_msg));
+    assert_matches!(error, Err(Error::AncestralAlignment(msg)) if msg.contains(expected_msg));
 }
