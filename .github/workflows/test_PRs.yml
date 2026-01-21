@@ -51,11 +51,20 @@ jobs:
     - uses: dtolnay/rust-toolchain@nightly
     - name: install cargo2junit
       run: |
-          cargo install cargo2junit
-    - name: tests with cargo2junit
+        cargo install cargo2junit
+    - name: Running cargo tests 
       run: |
-        cargo test --manifest-path ./phylo/Cargo.toml -- -Z unstable-options --format json --report-time | cargo2junit > results.xml
-    - name: Debug print of results to see failed test names
+        cargo test --manifest-path ./phylo/Cargo.toml -- -Z unstable-options --format json --report-time > cargo_test.out
+    - name: Display cargo test output
+      if: always()
+      run: |
+        cat cargo_test.out
+    - name: Running cargo2junit
+      if: always()
+      run: |
+        cargo2junit < cargo_test.out > results.xml
+    - name: Display cargo2junit output
+      if: always()
       run: |
         cat results.xml
     - name: Publish test results
