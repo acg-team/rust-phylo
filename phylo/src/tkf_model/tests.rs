@@ -856,8 +856,3 @@ fn tkf_modify_indel_model_params_costs_match() {
     modify_tkf92_indel_params_costs_match_template::<BLOSUM>();
     modify_tkf92_indel_params_costs_match_template::<HIVB>();
 }
-
-#[test]
-fn failing_test_to_see_github_action_output() {
-    assert_eq!(1, 3);
-}

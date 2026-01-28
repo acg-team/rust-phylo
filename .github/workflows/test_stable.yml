@@ -49,9 +49,21 @@ jobs:
     - name: install cargo2junit
       run: |
           cargo install cargo2junit
-    - name: tests with cargo2junit
+    - name: Running cargo tests 
       run: |
-        cargo test --manifest-path ./phylo/Cargo.toml -- -Z unstable-options --format json --report-time | cargo2junit > results.xml
+        cargo test --manifest-path ./phylo/Cargo.toml -- -Z unstable-options --format json --report-time > cargo_test.out
+    - name: Display cargo test output
+      if: always()
+      run: |
+        cat cargo_test.out
+    - name: Running cargo2junit
+      if: always()
+      run: |
+        cargo2junit < cargo_test.out > results.xml
+    - name: Display cargo2junit output
+      if: always()
+      run: |
+        cat results.xml
     - name: Publish test results
       uses: EnricoMi/publish-unit-test-result-action@v2
       if: always()
@@ -70,9 +82,21 @@ jobs:
     - name: install cargo2junit
       run: |
           cargo install cargo2junit
-    - name: tests with cargo2junit
+    - name: Running cargo tests 
       run: |
-        cargo test --manifest-path ./phylo/Cargo.toml --features par-regraft-chunk -- -Z unstable-options --format json --report-time | cargo2junit > results.xml
+        cargo test --manifest-path ./phylo/Cargo.toml --features par-regraft-chunk -- -Z unstable-options --format json --report-time > cargo_test.out
+    - name: Display cargo test output
+      if: always()
+      run: |
+        cat cargo_test.out
+    - name: Running cargo2junit
+      if: always()
+      run: |
+        cargo2junit < cargo_test.out > results.xml
+    - name: Display cargo2junit output
+      if: always()
+      run: |
+        cat results.xml
 
   test_par_regraft_manual:
     name: cargo test par-regraft-manual
@@ -85,6 +109,18 @@ jobs:
     - name: install cargo2junit
       run: |
           cargo install cargo2junit
-    - name: tests with cargo2junit
+    - name: Running cargo tests 
       run: |
-        cargo test --manifest-path ./phylo/Cargo.toml --features par-regraft-manual -- -Z unstable-options --format json --report-time | cargo2junit > results.xml
+        cargo test --manifest-path ./phylo/Cargo.toml --features par-regraft-manual -- -Z unstable-options --format json --report-time > cargo_test.out
+    - name: Display cargo test output
+      if: always()
+      run: |
+        cat cargo_test.out
+    - name: Running cargo2junit
+      if: always()
+      run: |
+        cargo2junit < cargo_test.out > results.xml
+    - name: Display cargo2junit output
+      if: always()
+      run: |
+        cat results.xml
