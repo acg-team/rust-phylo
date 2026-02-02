@@ -420,14 +420,14 @@ impl Alignment for MASA {
     /// assert_eq!(aligned_seqs, seqs);
     /// // checking ancestral sequences
     /// let root_seq = phylo_info.msa.ancestral_seqs().record_by_id("I2").seq();
-    /// let root_seq = std::str::from_utf8(root_seq).unwrap().to_string();
+    /// let root_seq = String::from_utf8_lossy(root_seq);
     /// assert_eq!(root_seq, "XX");
     /// let root_map = phylo_info.msa.ancestral_map(&phylo_info.tree.root);
     /// assert_eq!(root_map, &vec![Some(0), Some(1), None, None]);
     /// // Ancestral sequences are inferred by (hard coded) ParsimonyPresenceAbsence.
     /// // Alternatively, you may call MSA::from_aligned and then call ASR on that.
     /// let i1_seq = phylo_info.msa.ancestral_seqs().record_by_id("I1").seq();
-    /// let i1_seq = std::str::from_utf8(i1_seq).unwrap().to_string();
+    /// let i1_seq = String::from_utf8_lossy(i1_seq);
     /// assert_eq!(i1_seq, "XXX");
     /// let i1_map = phylo_info.msa.ancestral_map(&phylo_info.tree.by_id("I1").idx);
     /// assert_eq!(i1_map, &vec![Some(0), Some(1), None, Some(2)]);
