@@ -196,7 +196,10 @@ fn fail_from_unaligned_sequences() {
     ]);
     let tree = test_tree();
     let msa = MSA::from_aligned(seqs, &tree);
-    assert!(msa.is_err());
+    assert_matches!(
+        msa,
+        Err(Error::Alignment(msg)) if msg.contains("sequences must be aligned")
+    );
 }
 
 #[test]
