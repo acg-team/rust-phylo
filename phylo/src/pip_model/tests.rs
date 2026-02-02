@@ -747,7 +747,6 @@ fn pip_logl_correct_w_diff_info() {
 }
 
 #[test]
-#[ignore]
 #[cfg_attr(feature = "ci_coverage", ignore)]
 fn hiv_subset_valid_pip_likelihood() {
     let fldr = Path::new("./data/real_examples/");
