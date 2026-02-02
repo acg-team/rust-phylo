@@ -314,13 +314,19 @@ impl<T: TKFModel, AA: AncestralAlignment> TKFIndelCost<T, AA> {
     /// Determines the event that happened on the edge above `node_idx` for the given `block_id`
     /// based on the ancestral alignment.
     fn determine_event(&self, node_idx: &NodeIdx, block_id: usize) -> Event {
-        let parent_idx = self.phylo.tree.node(node_idx).parent.unwrap();
+        // the caller ensures that this is not the root
+        let parent_idx = self
+            .phylo
+            .tree
+            .node(node_idx)
+            .parent
+            .expect("a non-root node must always have a parent");
         // the presence or absence of characters is the same for all sites in a block
         // so we can just check the last site of the block
         let site = self.model_info.borrow().blocks[block_id] - 1;
         let parent_is_gap = match parent_idx {
             Internal(_) => self.phylo.msa.ancestral_map(&parent_idx)[site].is_none(),
-            _ => unreachable!("The parent of a node cannot be a leaf."),
+            _ => unreachable!("the parent of a node cannot be a leaf"),
         };
         let current_is_gap = match node_idx {
             Internal(_) => self.phylo.msa.ancestral_map(node_idx)[site].is_none(),
