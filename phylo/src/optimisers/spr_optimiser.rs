@@ -376,6 +376,12 @@ mod private_spr_tests {
     }
 
     #[test]
+    fn spr_regraft_same() {
+        let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
+        assert!(rooted_spr(&tree, &tree.idx("C"), &tree.idx("C")).is_err());
+    }
+
+    #[test]
     #[should_panic]
     fn spr_regraft_root_unchecked() {
         let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
