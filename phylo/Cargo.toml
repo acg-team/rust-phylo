@@ -15,7 +15,7 @@ description = "A Rust library for phylogenetic analysis and multiple sequence al
 categories = ["science", "science::bioinformatics", "algorithms"]
 exclude = ["data/", ".github/", "benches/", "target/"]
 
-rust-version = "1.88.0"
+rust-version = "1.84.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
