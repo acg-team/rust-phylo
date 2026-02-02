@@ -1,6 +1,9 @@
-use crate::alignment::{Alignment, Sequences, MSA};
+use assert_matches::assert_matches;
+
+use crate::alignment::{Aligner, Alignment, Sequences, MSA};
 use crate::parsimony::{GapCost, ParsimonyAligner, SimpleScoring, SiteFlag::*};
 use crate::{align, record_wo_desc as rec, site, tree};
+use crate::{Error, Result};
 
 #[test]
 fn align_two_first_outcome() {
@@ -183,4 +186,23 @@ fn parsimony_site_debug() {
     assert!(format!("{:?}", site!(b"T", GapOpen)).contains("GapOpen"));
     assert!(format!("{:?}", site!(b"G", NoGap)).contains("NoGap"));
     assert!(format!("{:?}", site!(b"-", GapExt)).contains("GapExt"));
+}
+
+#[test]
+fn try_aligning_aligned_sequences() {
+    let scoring = SimpleScoring::new(1.0, GapCost::new(2.0, 0.5));
+
+    let seqs = Sequences::new(vec![
+        rec!("A", b"A--ACT"),
+        rec!("B", b"A--C--"),
+        rec!("C", b"AA--CT"),
+    ]);
+    let tree = tree!("((A:1.0, B:1.0):1.0, C:2.0);");
+    let aligner = ParsimonyAligner::new(scoring);
+    let alignment: Result<MSA> = aligner.align(&seqs, &tree);
+
+    assert_matches!(
+        alignment,
+        Err(Error::Alignment(msg)) if msg.contains("sequences must not be already aligned")
+    );
 }

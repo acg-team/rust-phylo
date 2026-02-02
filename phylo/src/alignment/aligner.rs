@@ -12,7 +12,7 @@ pub trait Aligner<A: Alignment> {
     ///  - if the sequence IDs in the alignment match the taxa IDs in the tree ([`validate_taxa_ids`])
     fn align(&self, seqs: &Sequences, tree: &Tree) -> Result<A> {
         if seqs.aligned {
-            bail!(Alignment, "Sequences must not be already aligned");
+            bail!(Alignment, "sequences must not be already aligned");
         }
         seqs.ids_are_unique()?;
         validate_taxa_ids(tree, seqs)?;
