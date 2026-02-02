@@ -371,7 +371,8 @@ mod private_spr_tests {
     #[test]
     fn spr_regraft_root() {
         let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-        assert!(rooted_spr(&tree, &tree.idx("A"), &tree.idx("G")).is_err());
+        let root = tree.root;
+        assert!(rooted_spr(&tree, &tree.idx("A"), &root).is_err());
     }
 
     #[test]
