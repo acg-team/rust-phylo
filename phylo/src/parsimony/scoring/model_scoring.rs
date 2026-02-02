@@ -153,8 +153,7 @@ impl<P: ParsimonyModel + EvoModel> ParsimonyScoring for ModelScoring<P> {
         // Find minimal score among all pairs of chars in the sets (all to all)
         i.iter()
             .flat_map(|&a| j.iter().map(move |&b| self.r#match(blen, &a, &b)))
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap_or(0.0)
+            .fold(f64::INFINITY, f64::min)
     }
 
     fn gap_open(&self, blen: f64) -> f64 {
