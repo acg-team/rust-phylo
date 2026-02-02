@@ -89,9 +89,7 @@ impl SprOptimiser {
             .collect_vec();
 
         info!("Node {prune_location:?}: trying to regraft");
-        let best_regraft =
-            calc_best_regraft_cost(base_cost, *prune_location, regraft_locations, cost)?;
-        Ok(best_regraft)
+        calc_best_regraft_cost(base_cost, *prune_location, regraft_locations, cost)
     }
 }
 
@@ -111,7 +109,8 @@ fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
         .map(move |(regraft, cost_fn)| {
             calc_spr_cost_with_blen_opt(prune_location, regraft, base_cost, cost_fn.clone())
         })
-        .try_reduce_with(|left, right| Ok(if left.cost > right.cost {left} else {right})).expect("at least one regraft location")
+        .try_reduce_with(|left, right| Ok(if left.cost > right.cost {left} else {right}))
+        .unwrap_or_else(|| Ok(MoveCostInfo::new(base_cost, cost.tree().clone())))
 }
 } else if #[cfg(feature="par-regraft-chunk")] {
 /// NOTE: seems to be faster than full on parallel for few taxa
@@ -146,7 +145,8 @@ fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
             }
             Ok(max.expect("at least one regraft location"))
         })
-        .try_reduce_with(|left, right| Ok(if left.cost > right.cost {left} else {right})).expect("at least one regraft location")
+        .try_reduce_with(|left, right| Ok(if left.cost > right.cost {left} else {right}))
+        .unwrap_or_else(|| Ok(MoveCostInfo::new(base_cost, cost.tree().clone())))
 }
 } else if #[cfg(feature="par-regraft-manual")] {
 fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
@@ -155,6 +155,9 @@ fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
     regraft_locations: Vec<NodeIdx>,
     cost: &C,
 ) -> Result<MoveCostInfo> {
+    if regraft_locations.is_empty() {
+        return Ok(MoveCostInfo::new(base_cost, cost.tree().clone()));
+    }
     #[derive(Clone)]
     struct RecursiveForkJoinRegrafter<C: TreeSearchCost + Clone + Display + Send> {
         cost_fn: C,
@@ -198,7 +201,7 @@ fn calc_best_regraft_cost<C: TreeSearchCost + Clone + Display + Send>(
             Err(error) => return Err(error),
         }
     }
-    Ok(max.expect("at least one regraft location"))
+    Ok(max.unwrap_or_else(|| MoveCostInfo::new(base_cost, cost.tree().clone())))
 }
 }}
 
