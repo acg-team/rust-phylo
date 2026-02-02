@@ -44,7 +44,7 @@ use phylo::likelihood::TreeSearchCost;
 use phylo::optimisers::TopologyOptimiser;
 use phylo::phylo_info::PhyloInfoBuilder;
 use phylo::substitution_models::{K80, SubstModel, SubstitutionCostBuilder};
-use crate::Result;
+use phylo::Result;
 
 fn main() -> Result<()> {
     // Note: This example uses test data from the repository
