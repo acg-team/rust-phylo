@@ -1,3 +1,4 @@
+use anyhow::Context;
 use log::{debug, info};
 use nalgebra::{DMatrix, DVector};
 use rand::distr::weighted::WeightedIndex;
@@ -9,7 +10,7 @@ use crate::random::RandomGenerator;
 use crate::tree::nj_matrices::DistanceMatrix;
 use crate::tree::tree_builder::TreeBuilder;
 use crate::tree::{NodeIdx, Tree};
-use crate::{Error, Result};
+use crate::Result;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Strategy {
@@ -201,7 +202,7 @@ impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
 
             let index = rng.sample(
                 &WeightedIndex::new(distribution.iter())
-                    .map_err(|e| Error::from(anyhow::Error::from(e)))?,
+                    .context("Failed to generate WeightedIndex from distribution")?,
             );
 
             let (i, j) = lower_triangle_index(index);
