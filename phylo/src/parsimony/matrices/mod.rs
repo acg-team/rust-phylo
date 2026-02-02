@@ -122,16 +122,14 @@ impl<'a> ParsimonyAlignmentMatrices<'a> {
     fn min_score(&self, blen: f64, set: &ParsimonySet, ancestor: &u8) -> f64 {
         set.iter()
             .map(|child| self.scoring.r#match(blen, ancestor, child))
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap()
+            .fold(f64::INFINITY, f64::min)
     }
 
     fn score_match_one_branch(&self, blen: f64, a_set: &ParsimonySet, c_set: &ParsimonySet) -> f64 {
         a_set
             .iter()
             .map(|ancestor| self.min_score(blen, c_set, ancestor))
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap()
+            .fold(f64::INFINITY, f64::min)
     }
 
     fn select_direction(&self, sm: f64, sx: f64, sy: f64) -> (f64, Direction) {
@@ -255,8 +253,7 @@ impl<'a> ParsimonyAlignmentMatrices<'a> {
                 self.min_score(self.x_blen, x_set, ancestor)
                     + self.min_score(self.y_blen, y_set, ancestor)
             })
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap()
+            .fold(f64::INFINITY, f64::min)
     }
 
     fn score_match_gap_cost_adjustment(&self, i: usize, j: usize) -> (f64, f64) {
