@@ -4,7 +4,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("IO error: {0}")]
-    // Io(#[from] std::io::Error),
+
     Io(String),
 
     #[error("Alphabet error: {0}")]
