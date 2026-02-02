@@ -3,12 +3,13 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::Path;
 
+use anyhow::Context;
 use bio::io::fasta::{Reader, Record, Writer};
 use log::info;
 
 use crate::alphabets::{Alphabet, GAP, POSSIBLE_GAPS};
 use crate::tree::{tree_parser, Tree};
-use crate::{bail, record, Error::Io, Result};
+use crate::{bail, record, Result};
 
 /// Reads sequences from a fasta file, returning a vector of fasta records.
 /// All sequences are converted to uppercase.
@@ -34,13 +35,10 @@ pub fn read_sequences(path: impl AsRef<Path> + Debug) -> Result<Vec<Record>> {
     let mut sequences = Vec::new();
 
     for record in reader.records() {
-        let rec = record.map_err(|e| {
-            Io(format!(
-                "error reading fasta record from {}: {}",
-                path.as_ref().display(),
-                e
-            ))
-        })?;
+        let rec = record.context(format!(
+            "Failed to read fasta record from file {}",
+            path.as_ref().display()
+        ))?;
         if let Err(e) = rec.check() {
             bail!(Io, e)
         }
@@ -57,7 +55,7 @@ pub fn read_sequences(path: impl AsRef<Path> + Debug) -> Result<Vec<Record>> {
                 Io,
                 format!(
                     "invalid genetic sequence encountered: {}",
-                    String::from_utf8(seq).unwrap()
+                    String::from_utf8_lossy(&seq)
                 )
             )
         }
