@@ -243,7 +243,10 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
             info!("Using corrected Levenshtein protein distance for distance calculation");
             NJTreeBuilder::new(LevenshteinProteinCorrected {}).build(sequences, rng)
         } else {
-            unreachable!("Unknown alphabet, should have been defined earlier");
+            bail!(
+                Alphabet,
+                "unknown alphabet, should have been defined earlier"
+            );
         }
     }
 
