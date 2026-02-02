@@ -43,9 +43,10 @@ MSRV detected using [`cargo-msrv`]( https://github.com/foresterre/cargo-msrv ).
 use phylo::likelihood::TreeSearchCost;
 use phylo::optimisers::TopologyOptimiser;
 use phylo::phylo_info::PhyloInfoBuilder;
-use phylo::substitution_models::{SubstModel, SubstitutionCostBuilder, K80};
+use phylo::substitution_models::{K80, SubstModel, SubstitutionCostBuilder};
+use crate::Result;
 
-fn main() -> std::result::Result<(), anyhow::Error> {
+fn main() -> Result<()> {
     // Note: This example uses test data from the repository
     let info = PhyloInfoBuilder::new("./examples/data/K80.fasta").build()?;
     let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);

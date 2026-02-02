@@ -188,11 +188,12 @@ impl Alignment for MSA {
     ///
     /// # Example
     /// ```
-    /// # use bio::io::fasta::Record;
     /// use phylo::alignment::{Alignment, MSA, Sequences};
     /// use phylo::alphabets::Alphabet;
     /// use phylo::{record, tree};
-    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// # use phylo::Result;
+    ///
+    /// # fn main() -> Result<()> {
     /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
     /// let seqs = Sequences::with_alphabet(vec![
     ///     record!("A0", Some("A0 sequence"), b"AAAA"),
@@ -215,11 +216,11 @@ impl Alignment for MSA {
     ///
     /// # Example
     /// ```
-    /// # use bio::io::fasta::Record;
-    /// use phylo::alignment::{Alignment, MSA};
-    /// use phylo::alignment::Sequences;
+    /// use phylo::alignment::{Alignment, MSA, Sequences};
     /// use phylo::{record, tree};
-    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// # use phylo::Result;
+    ///
+    /// # fn main() -> Result<()> {
     /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
     /// let seqs = Sequences::new(vec![
     ///     record!("A0", Some("A0 sequence"), b"AAAA"),
@@ -243,11 +244,11 @@ impl Alignment for MSA {
     ///
     /// # Example
     /// ```
-    /// # use bio::io::fasta::Record;
-    /// use phylo::alignment::{MSA, Alignment};
-    /// use phylo::alignment::Sequences;
+    /// use phylo::alignment::{Alignment, MSA, Sequences};
     /// use phylo::{record, tree};
-    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// # use phylo::Result;
+    ///
+    /// # fn main() -> Result<()> {
     /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
     /// let seqs = Sequences::new(vec![
     ///     record!("A0", Some("A0 sequence"), b"AAAA"),
@@ -278,12 +279,12 @@ impl Alignment for MSA {
     ///
     /// # Example
     /// ```
-    /// # use bio::io::fasta::Record;
-    /// use phylo::alignment::{MSA, Alignment};
-    /// use phylo::alignment::Sequences;
+    /// use phylo::alignment::{Alignment, MSA, Sequences};
     /// use phylo::phylo_info::PhyloInfo;
     /// use phylo::{record, tree};
-    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// # use phylo::Result;
+    ///
+    /// # fn main() -> Result<()> {
     /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
     /// let seqs = Sequences::new(vec![
     ///     record!("A0", Some("A0 sequence"), b"AAAA"),
@@ -399,12 +400,12 @@ impl Alignment for MASA {
 
     /// # Example
     /// ```
-    /// # use bio::io::fasta::Record;
-    /// use phylo::alignment::{MASA, Alignment, AncestralAlignment};
-    /// use phylo::alignment::Sequences;
+    /// use phylo::alignment::{Alignment, AncestralAlignment, MASA, Sequences};
     /// use phylo::phylo_info::PhyloInfo;
     /// use phylo::{record, tree};
-    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// # use phylo::Result;
+    ///
+    /// # fn main() -> Result<()> {
     /// let tree = tree!("(((A0:1.0,B1:1.0)I1:1.0,C2:1.0)I2:1.0);");
     /// let seqs = Sequences::new(vec![
     ///     record!("A0", Some("A0 sequence"), b"AAAA"),
@@ -484,12 +485,12 @@ impl AncestralAlignment for MASA {
 
     /// # Example
     /// ```
-    /// # use bio::io::fasta::Record;
-    /// use phylo::alignment::{MASA, Alignment, AncestralAlignment};
-    /// use phylo::alignment::Sequences;
+    /// use phylo::alignment::{Alignment, AncestralAlignment, MASA, Sequences};
     /// use phylo::phylo_info::PhyloInfo;
     /// use phylo::{record, tree};
-    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// # use phylo::Result;
+    ///
+    /// # fn main() -> Result<()> {
     /// let tree = tree!("(((A0:1.0,B1:1.0)I1:1.0,C2:1.0)I2:1.0);");
     /// let seqs = Sequences::new(vec![
     ///     record!("A0", Some("A0 sequence"), b"AG-T"),

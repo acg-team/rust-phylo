@@ -20,7 +20,9 @@ use crate::{bail, record, Result};
 /// # Example
 /// ```
 /// use phylo::io::read_sequences;
-/// # fn main() -> std::result::Result<(), anyhow::Error> {
+/// # use phylo::Result;
+///
+/// # fn main() -> Result<()> {
 /// let records = read_sequences("./examples/data/sequences_DNA_small.fasta")?;
 /// assert_eq!(records.len(), 4);
 /// for rec in records {
@@ -90,7 +92,9 @@ pub fn read_sequences(path: impl AsRef<Path> + Debug) -> Result<Vec<Record>> {
 ///
 /// use phylo::io::write_sequences_to_file;
 /// use phylo::record;
-/// # fn main() -> std::result::Result<(), anyhow::Error> {
+/// # use phylo::Result;
+///
+/// # fn main() -> Result<()> {
 /// let sequences = vec![
 ///    record!("seq1", None, b"ATGC"),
 ///    record!("seq2", None, b"CGTA"),
@@ -131,7 +135,9 @@ pub fn write_sequences_to_file(sequences: &[Record], path: impl AsRef<Path>) -> 
 /// # Example
 /// ```
 /// use phylo::io::read_newick_from_file;
-/// # fn main() -> std::result::Result<(), anyhow::Error> {
+/// # use phylo::Result;
+///
+/// # fn main() -> Result<()> {
 /// let trees = read_newick_from_file("./examples/data/tree.newick")?;
 /// assert_eq!(trees.len(), 1);
 /// assert_eq!(trees[0].leaves().len(), 4);
@@ -155,11 +161,11 @@ pub fn read_newick_from_file(path: impl AsRef<Path>) -> Result<Vec<Tree>> {
 /// # use std::fs::{File, remove_file};
 /// # use std::io::Read;
 ///
-/// use phylo::tree::tree_parser::from_newick;
-/// use phylo::tree::Tree;
+/// use phylo::tree::{tree_parser::from_newick, Tree};
 /// use phylo::io::write_newick_to_file;
+/// # use phylo::Result;
 ///
-/// # fn main() -> std::result::Result<(), anyhow::Error> {
+/// # fn main() -> Result<()> {
 /// let output_path = "./examples/data/doctest_tmp_output.newick";
 /// let trees = from_newick("((A:1.0,B:2.0):1,(D:1.0,E:2.0):1):0.0;")?;
 /// write_newick_to_file(&trees, output_path)?;

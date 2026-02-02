@@ -919,8 +919,9 @@ fn example_main_from_readme() {
     use crate::optimisers::TopologyOptimiser;
     use crate::phylo_info::PhyloInfoBuilder;
     use crate::substitution_models::{SubstModel, SubstitutionCostBuilder, K80};
+    use crate::Result;
 
-    fn main() -> std::result::Result<(), anyhow::Error> {
+    fn main() -> Result<()> {
         // Note: This example uses test data from the repository
         let info = PhyloInfoBuilder::new("./examples/data/K80.fasta").build()?;
         let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);

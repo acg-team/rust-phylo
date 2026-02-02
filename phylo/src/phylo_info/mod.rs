@@ -112,7 +112,9 @@ impl<A: Alignment> PhyloInfo<A> {
     /// use phylo::frequencies;
     /// use phylo::phylo_info::PhyloInfoBuilder;
     /// use phylo::substitution_models::FreqVector;
-    /// # fn main() -> std::result::Result<(), anyhow::Error> {
+    /// # use phylo::Result;
+    ///
+    /// # fn main() -> Result<()> {
     /// let info = PhyloInfoBuilder::with_attrs(
     ///     "./examples/data/sequences_DNA1.fasta",
     ///     "./examples/data/tree_diff_branch_lengths_2.newick")

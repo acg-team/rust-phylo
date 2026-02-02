@@ -90,13 +90,14 @@ where
     ///
     /// # Example
     /// ```rust
-    /// # fn main() -> std::result::Result<(), anyhow::Error> {
     /// use phylo::likelihood::TreeSearchCost;
     /// use phylo::optimisers::{SprOptimiser, TopologyOptimiser};
     /// use phylo::phylo_info::PhyloInfoBuilder;
     /// use phylo::random::DefaultGenerator;
-    /// use phylo::substitution_models::{SubstModel, SubstitutionCostBuilder, K80};
+    /// use phylo::substitution_models::{K80, SubstModel, SubstitutionCostBuilder};
+    /// # use phylo::Result;
     ///
+    /// # fn main() -> Result<()> {
     /// let info = PhyloInfoBuilder::new("./examples/data/K80.fasta").build()?;
     /// let k80 = SubstModel::<K80>::new(&[], &[4.0, 1.0]);
     /// let c = SubstitutionCostBuilder::new(k80, info).build()?;
