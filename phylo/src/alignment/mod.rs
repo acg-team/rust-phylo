@@ -109,7 +109,7 @@ pub trait AncestralAlignment: Alignment {
     fn ancestral_seqs(&self) -> &Sequences;
     fn ancestral_map(&self, node_idx: &NodeIdx) -> &Mapping;
     fn ancestral_maps(&self) -> &SeqMaps;
-    fn update_ancestral_map(&mut self, node_idx: &NodeIdx, map: Mapping);
+    fn update_ancestral_map(&mut self, node_idx: &NodeIdx, map: Mapping) -> Result<()>;
     /// Checks if inputs are compatible and calls [`Self::from_aligned_with_ancestral_unchecked`].  
     /// Checks:
     /// - if sequences are aligned
@@ -470,11 +470,15 @@ impl AncestralAlignment for MASA {
 
     // This is needed because with the TKF models we need to re-estimate the ancestral maps after
     // a tree move is applied.
-    fn update_ancestral_map(&mut self, node_idx: &NodeIdx, map: Mapping) {
+    fn update_ancestral_map(&mut self, node_idx: &NodeIdx, map: Mapping) -> Result<()> {
         if let Some(anc_map) = self.ancestral_maps.get_mut(node_idx) {
             *anc_map = map;
+            Ok(())
         } else {
-            panic!("NodeIdx {node_idx} is not an internal node");
+            bail!(
+                AncestralAlignment,
+                format!("NodeIdx {node_idx} is not an internal node")
+            )
         }
     }
 
