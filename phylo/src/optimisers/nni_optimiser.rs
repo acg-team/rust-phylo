@@ -55,7 +55,11 @@ impl MoveOptimiser for NniOptimiser {
                 max_cost_info = Some(move_cost_info);
             }
         }
-        Ok(max_cost_info.expect("at least one NNI move should be possible"))
+        if let Some(info) = max_cost_info {
+            Ok(info)
+        } else {
+            bail!(TreeMove, "at least one NNI move should be possible")
+        }
     }
 }
 
