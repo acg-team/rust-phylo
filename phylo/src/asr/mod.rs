@@ -19,7 +19,7 @@ pub trait AncestralSequenceReconstruction<A: Alignment, AA: AncestralAlignment> 
         if leaf_alignment.seq_count() != tree.n {
             bail!(
                 AncestralAlignment,
-                "Alignment has {} sequences, but tree has {} leaves",
+                "alignment has {} sequences, but tree has {} leaves",
                 leaf_alignment.seq_count(),
                 tree.n
             );
