@@ -83,7 +83,7 @@ pub trait Alignment: Display + Clone + Debug {
     /// - bails if sequence IDs do not match the taxa IDs in the tree ([`validate_taxa_ids`])
     fn from_aligned(mut sequences: Sequences, tree: &Tree) -> Result<Self> {
         if !sequences.aligned {
-            bail!(Alignment, "Sequences must be aligned")
+            bail!(Alignment, "sequences must be aligned")
         }
         sequences.ids_are_unique()?;
         validate_taxa_ids(tree, &sequences)?;
@@ -122,7 +122,7 @@ pub trait AncestralAlignment: Alignment {
     /// may lead to unexpected panics or wrong results.
     fn from_aligned_with_ancestral(mut all_seqs: Sequences, tree: &Tree) -> Result<Self> {
         if !all_seqs.aligned {
-            bail!(Alignment, "Sequences must be aligned")
+            bail!(Alignment, "sequences must be aligned")
         }
         all_seqs.ids_are_unique()?;
         validate_ids_with_ancestors(tree, &all_seqs)?;
@@ -478,7 +478,7 @@ impl AncestralAlignment for MASA {
         } else {
             bail!(
                 AncestralAlignment,
-                format!("NodeIdx {node_idx} is not an internal node")
+                "node index {node_idx} is not an internal node"
             )
         }
     }

@@ -191,7 +191,7 @@ impl Sequences {
         let rec = self.s.iter().find(|r| r.id() == id);
         match rec {
             Some(r) => Ok(r),
-            None => bail!(Sequence, "Sequence with id {id} not found"),
+            None => bail!(Sequence, "sequence with id {id} not found"),
         }
     }
 
@@ -311,8 +311,7 @@ impl Sequences {
             if !seen.insert(id) {
                 bail!(
                     Sequence,
-                    "Duplicate record id ({}) found in the sequences",
-                    id
+                    "duplicate record id ({id}) found in the sequences"
                 )
             }
         }
