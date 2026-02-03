@@ -4,6 +4,7 @@ use std::fmt::{Debug, Display};
 use anyhow::bail;
 use fixedbitset::FixedBitSet;
 use inc_stats::Percentiles;
+use log::warn;
 
 use crate::alignment::Sequences;
 use crate::parsimony::Rounding;
@@ -66,6 +67,7 @@ pub struct Tree {
     postorder: Vec<NodeIdx>,
     preorder: Vec<NodeIdx>,
     leaf_ids: Vec<String>,
+    // TODO: what is meant by this?
     pub complete: bool,
     /// The number of leaves in the tree.
     pub n: usize,
@@ -167,6 +169,7 @@ impl Tree {
         partitions
     }
 
+    /// Returns true if `query` is in the subtree rooted at `node`.
     pub(crate) fn is_subtree(&self, query: &NodeIdx, node: &NodeIdx) -> bool {
         let order = self.preorder_subroot(node);
         order.contains(query)
@@ -375,6 +378,100 @@ impl Tree {
             }
         }
         Ok(())
+    }
+
+    /// Compares two trees for approximate equality, allowing for small differences in branch
+    /// lengths. This comparison does not care about the order of nodes in the internal representation
+    /// or correspondence of [`Node`]s and [`NodeIdx`]s. The order of children of a node is ignored,
+    /// i.e., they are compared as sets. It returns `false` in the case of `NaN` branch lengths.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the ids of the leaves are not unique;
+    pub fn almost_eq(&self, other: &Self, epsilon: f64) -> bool {
+        if self.n != self.leaf_ids.iter().collect::<HashSet<_>>().len() {
+            panic!("Self tree has non-unique leaf ids");
+        }
+        if other.n != other.leaf_ids.iter().collect::<HashSet<_>>().len() {
+            panic!("Other tree has non-unique leaf ids");
+        }
+
+        if self.length.is_nan()
+            || other.length.is_nan()
+            || (self.length - other.length).abs() > epsilon
+        {
+            warn!("Tree lengths differ: {} vs {}", self.length, other.length);
+            return false;
+        }
+        if self.n != other.n
+            || self.complete != other.complete
+            || self.nodes.len() != other.nodes.len()
+        {
+            warn!(
+                "Tree structures differ: n (= number of leaves): {} vs {}, complete: {} vs {}, number of nodes: {} vs {}",
+                self.n,
+                other.n,
+                self.complete,
+                other.complete,
+                self.nodes.len(),
+                other.nodes.len()
+            );
+            return false;
+        }
+
+        // For each leaf, traverse up to the root and compare the nodes along the way
+        for leaf_id in &self.leaf_ids {
+            // this is never None
+            let mut n1_option = self.nodes.iter().find(|node| node.id == *leaf_id);
+            // this might be None
+            let mut n2_option = other.nodes.iter().find(|node| node.id == *leaf_id);
+
+            if n2_option.is_none() {
+                warn!("Leaf id '{}' not found in other tree", leaf_id);
+                return false;
+            }
+            while let Some(n1) = n1_option {
+                let n2 = match n2_option {
+                    Some(n) => n,
+                    None => {
+                        warn!("Lineage for leaf '{}' is shorter in other tree", leaf_id);
+                        return false;
+                    }
+                };
+                // checking the ids
+                if n1.id != n2.id {
+                    warn!(
+                        "Node ids differ: '{}' vs '{}', in the lineage for leaf '{}'",
+                        n1.id, n2.id, leaf_id
+                    );
+                    return false;
+                }
+                // checking the branch lengths
+                if n1.blen.is_nan() || n2.blen.is_nan() || (n1.blen - n2.blen).abs() > epsilon {
+                    warn!(
+                        "Branch lengths differ for node '{}': {} vs {}, in the lineage for leaf '{}'",
+                        n1.id, n1.blen, n2.blen, leaf_id
+                    );
+                    return false;
+                }
+                // continue with the parents
+                n1_option = match n1.parent {
+                    Some(parent_idx) => Some(self.node(&parent_idx)),
+                    None => None,
+                };
+                n2_option = match n2.parent {
+                    Some(parent_idx) => Some(other.node(&parent_idx)),
+                    None => None,
+                };
+            }
+            if n2_option.is_some() {
+                warn!("Lineage for leaf id '{}' is longer in other tree", leaf_id);
+                return false;
+            }
+        }
+
+        // not comparing Tree.dirty as it is crate internal
+        true
     }
 }
 

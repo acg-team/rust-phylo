@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[test]
-fn reconstruct_ancestral_seqs_n_seqs_not_same_as_leaves() {
+fn asr_n_seqs_not_same_as_leaves() {
     // arrange
     let tree = tree!("root:1.0;");
     let seqs = Sequences::new(vec![record!("root", Some("seq with 4 nucls"), b"AA--AAA")]);
