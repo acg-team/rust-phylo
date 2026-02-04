@@ -160,6 +160,8 @@ macro_rules! bail {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod tests {
+    use std::error::Error;
+
     use assert_matches::assert_matches;
 
     use crate::parsimony::{ParsimonySite, SiteFlag};
@@ -575,13 +577,16 @@ mod tests {
         }
         let err = fail_tree_parsing().unwrap_err();
         assert_matches!(err, TreeParsing(ref s, _) if s == "parsing error");
-        assert_eq!(err.to_string(), "Tree parsing error: parsing error");
-        match err {
-            TreeParsing(_, pest_err) => {
-                assert_matches!(pest_err.as_ref(), PestError { variant: ErrorVariant::CustomError { message }, .. } if message == "pest error");
-            }
-            _ => panic!("expected custom pest error"),
-        }
+        assert!(err
+            .to_string()
+            .contains("Tree parsing error: parsing error"));
+        assert!(err.to_string().contains("pest error"));
+        let pest_err = err
+            .source()
+            .unwrap()
+            .downcast_ref::<Box<PestError<Rule>>>()
+            .unwrap();
+        assert_matches!(pest_err.as_ref(), PestError { variant: ErrorVariant::CustomError { message }, .. } if message == "pest error");
     }
 
     #[test]
