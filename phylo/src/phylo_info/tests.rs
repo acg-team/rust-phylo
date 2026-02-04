@@ -82,7 +82,7 @@ fn setup_info_mismatched_ids_missing_sequences() {
         fldr.join("tree_diff_branch_lengths_3.newick"),
     )
     .build();
-    assert_matches!(error, Err(Error::Tree(msg)) if msg.contains("missing sequence IDs: [\"E\", \"F\"]"));
+    assert_matches!(error, Err(Error::Sequence(msg)) if msg.contains("missing sequence IDs: [\"E\", \"F\"]"));
 }
 
 #[test]

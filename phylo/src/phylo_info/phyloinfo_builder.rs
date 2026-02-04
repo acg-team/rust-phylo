@@ -481,7 +481,7 @@ mod private_tests {
 
         assert_matches!(
             error,
-            Err(Error::Tree(msg)) if msg.contains("[\"C2\"]")
+            Err(Error::Sequence(msg)) if msg.contains("[\"C2\"]")
         );
     }
 
