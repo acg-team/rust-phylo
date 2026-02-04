@@ -365,7 +365,7 @@ pub fn validate_ids_with_ancestors(tree: &Tree, sequences: &Sequences) -> Result
     if !missing_seqs.is_empty() {
         missing_seqs.sort();
         bail!(
-            Tree,
+            Sequence,
             "mismatched IDs found, missing sequence IDs: {missing_seqs:?}"
         );
     }
