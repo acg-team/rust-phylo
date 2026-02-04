@@ -260,7 +260,7 @@ fn rooted_spr(tree: &Tree, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Result
     let regraft = tree.node(regraft_idx);
     // Regrafted node must have a parent, the prune parent is attached to that branch
     if regraft.parent.is_none() {
-        bail!(TreeMove, "cannot regraft to root node");
+        bail!(TreeMove, "cannot regraft to the root node");
     }
     if regraft.parent == prune.parent {
         bail!(
