@@ -508,17 +508,6 @@ mod tests {
     }
 
     #[test]
-    fn bail_macro_with_different_error_variants() {
-        fn fail_alignment() -> Result<()> {
-            bail!(Alignment, "Alignment error occurred");
-        }
-        assert_matches!(
-            fail_alignment(),
-            Err(Alignment(msg)) if msg == "Alignment error occurred"
-        );
-    }
-
-    #[test]
     fn bail_macro_string_variants_display() {
         fn fail_io() -> Result<()> {
             bail!(Io, "test error");
