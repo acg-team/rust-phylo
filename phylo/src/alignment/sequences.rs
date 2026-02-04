@@ -387,7 +387,7 @@ mod private_tests {
 
         assert_matches!(
             result,
-            Err(Sequence(msg)) if msg.contains("Duplicate record id (on) found in the sequences")
+            Err(Sequence(msg)) if msg.contains("duplicate record id (on) found in the sequences")
         );
     }
 
