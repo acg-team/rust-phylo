@@ -5,12 +5,12 @@ use log::{info, warn};
 use pest::{error::Error as PestError, iterators::Pair, Parser};
 use pest_derive::Parser;
 
+use crate::bail;
 use crate::tree::{
     Node,
     NodeIdx::{self, Internal as Int, Leaf},
     Tree,
 };
-use crate::Error::TreeParsing;
 use crate::Result;
 
 #[derive(Parser)]
@@ -23,10 +23,7 @@ pub fn from_newick(newick: &str) -> Result<Vec<Tree>> {
     let mut trees = Vec::new();
     let newick_tree_res = NewickParser::parse(Rule::newick, newick);
     if let Err(e) = newick_tree_res {
-        return Err(TreeParsing(
-            "malformed newick string".to_string(),
-            Box::new(e),
-        ));
+        bail!(TreeParsing, "malformed newick string", Box::new(e));
     }
 
     let newick_tree_rule = newick_tree_res.unwrap().next().unwrap();
@@ -42,7 +39,7 @@ pub fn from_newick(newick: &str) -> Result<Vec<Tree>> {
                         _ => unimplemented!(),
                     };
                     if let Err(e) = res {
-                        return Err(TreeParsing("malformed newick string".to_string(), e));
+                        bail!(TreeParsing, "malformed newick string", e);
                     }
 
                     trees.push(tree);

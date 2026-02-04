@@ -137,11 +137,11 @@ macro_rules! site {
 macro_rules! bail {
     // Usage: bail!(TreeParsing, "message", pest_error)
     (TreeParsing, $fmt:literal, $pest_err:expr $(, $arg:expr)*) => {
-        return Err($crate::Error::TreeParsing(format!($fmt $(, $arg)*), Box::new($pest_err)))
+        return Err($crate::Error::TreeParsing(format!($fmt $(, $arg)*), $pest_err))
     };
     // Usage: bail!(TreeParsing, some_string_variable, pest_error)
     (TreeParsing, $msg:expr, $pest_err:expr) => {
-        return Err($crate::Error::TreeParsing($msg.to_string(), Box::new($pest_err)))
+        return Err($crate::Error::TreeParsing($msg.to_string(), $pest_err))
     };
     // Usage: bail!(Other, anyhow_error)
     (Other, $err:expr) => {
@@ -573,7 +573,7 @@ mod tests {
                 },
                 pest::Span::new("input", 0, 1).unwrap(),
             );
-            bail!(TreeParsing, "parsing error", pest_err);
+            bail!(TreeParsing, "parsing error", Box::new(pest_err));
         }
         let err = fail_tree_parsing().unwrap_err();
         assert_matches!(err, TreeParsing(ref s, _) if s == "parsing error");
