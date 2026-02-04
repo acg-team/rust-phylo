@@ -243,10 +243,12 @@ fn rooted_spr(tree: &Tree, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Result
     if prune_idx == regraft_idx {
         bail!(TreeMove, "prune and regraft nodes must be different");
     }
+    // Regraft node cannot be a subtree of the prune node as that will break the tree
+    // into disconnected pieces
     if tree.is_subtree(regraft_idx, prune_idx) {
         bail!(
             TreeMove,
-            "prune node cannot be a subtree of the regraft node"
+            "regraft node cannot be a subtree of the prune node"
         );
     }
 
