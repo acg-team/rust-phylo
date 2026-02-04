@@ -341,22 +341,28 @@ fn rooted_spr_unchecked(tree: &Tree, prune_idx: &NodeIdx, regraft_idx: &NodeIdx)
 #[cfg_attr(coverage, coverage(off))]
 mod private_spr_tests {
     use approx::assert_relative_eq;
+    use assert_matches::assert_matches;
 
     use crate::optimisers::spr_optimiser::{rooted_spr, rooted_spr_unchecked};
     use crate::tree;
+    use crate::Error;
 
     #[test]
     fn spr_siblings() {
         let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-        assert!(rooted_spr(&tree, &tree.idx("A"), &tree.idx("B")).is_err());
+        let res = rooted_spr(&tree, &tree.idx("A"), &tree.idx("B"));
+        assert_matches!(res, Err(Error::TreeMove(msg)) if msg.contains("prune and regraft nodes must have different parents"));
     }
 
     #[test]
     fn spr_prune_root_or_children() {
         let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-        assert!(rooted_spr(&tree, &tree.idx("G"), &tree.idx("B")).is_err());
-        assert!(rooted_spr(&tree, &tree.idx("E"), &tree.idx("B")).is_err());
-        assert!(rooted_spr(&tree, &tree.idx("F"), &tree.idx("B")).is_err());
+        assert_matches!(rooted_spr(&tree, &tree.idx("G"), &tree.idx("B")),
+            Err(Error::TreeMove(msg)) if msg.contains("cannot prune the root node"));
+        assert_matches!(rooted_spr(&tree, &tree.idx("E"), &tree.idx("F")),
+            Err(Error::TreeMove(msg)) if msg.contains("cannot prune direct child of the root node"));
+        assert_matches!(rooted_spr(&tree, &tree.idx("F"), &tree.idx("E")),
+            Err(Error::TreeMove(msg)) if msg.contains("cannot prune direct child of the root node"));
     }
 
     #[test]
@@ -377,13 +383,15 @@ mod private_spr_tests {
     fn spr_regraft_root() {
         let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
         let root = tree.root;
-        assert!(rooted_spr(&tree, &tree.idx("A"), &root).is_err());
+        assert_matches!(rooted_spr(&tree, &tree.idx("A"), &root),
+            Err(Error::TreeMove(msg)) if msg.contains("cannot regraft to the root node"));
     }
 
     #[test]
     fn spr_regraft_same() {
         let tree = tree!("(((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3);");
-        assert!(rooted_spr(&tree, &tree.idx("C"), &tree.idx("C")).is_err());
+        assert_matches!(rooted_spr(&tree, &tree.idx("C"), &tree.idx("C")),
+               Err(Error::TreeMove(msg)) if msg.contains("prune and regraft nodes must be different"));
     }
 
     #[test]
@@ -396,7 +404,8 @@ mod private_spr_tests {
     #[test]
     fn spr_regraft_subtree() {
         let tree = tree!("((((A:1.0,B:1.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3,H:1.0)K:1.0);");
-        assert!(rooted_spr(&tree, &tree.idx("E"), &tree.idx("B")).is_err());
+        assert_matches!(rooted_spr(&tree, &tree.idx("E"), &tree.idx("B")),
+            Err(Error::TreeMove(msg)) if msg.contains("regraft node cannot be a subtree of the prune node"));
     }
 
     #[test]
