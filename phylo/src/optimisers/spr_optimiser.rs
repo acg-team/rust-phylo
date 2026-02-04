@@ -235,6 +235,10 @@ fn calc_spr_cost_with_blen_opt<C: TreeSearchCost + Clone + Display>(
 }
 
 fn rooted_spr(tree: &Tree, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Result<Tree> {
+    // Pruned node must have a parent, it is the one being reattached
+    if prune_idx == &tree.root {
+        bail!(TreeMove, "cannot prune the root node");
+    }
     // Prune and regraft nodes must be different
     if prune_idx == regraft_idx {
         bail!(TreeMove, "prune and regraft nodes must be different");
@@ -247,10 +251,6 @@ fn rooted_spr(tree: &Tree, prune_idx: &NodeIdx, regraft_idx: &NodeIdx) -> Result
     }
 
     let prune = tree.node(prune_idx);
-    // Pruned node must have a parent, it is the one being reattached
-    if prune.parent.is_none() {
-        bail!(TreeMove, "cannot prune the root node");
-    }
     // Cannot prune direct child of the root node, otherwise branch lengths are undefined
     if tree.node(&prune.parent.unwrap()).parent.is_none() {
         bail!(TreeMove, "cannot prune direct child of the root node");
