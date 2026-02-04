@@ -25,7 +25,10 @@ pub enum Error {
     TreeMove(String),
 
     #[error("Tree parsing error: {0}")]
-    TreeParsing(String, Box<PestError<crate::tree::tree_parser::Rule>>),
+    TreeParsing(
+        String,
+        #[source] Box<PestError<crate::tree::tree_parser::Rule>>,
+    ),
 
     // Wrapper for external errors
     #[error(transparent)]
