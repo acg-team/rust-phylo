@@ -17,6 +17,7 @@ use crate::Result;
 #[grammar = "./tree/newick.pest"]
 pub struct NewickParser;
 
+/// Only binary trees (rooted or unrooted) are supported.
 pub fn from_newick(newick: &str) -> Result<Vec<Tree>> {
     info!("Parsing newick trees");
     let mut trees = Vec::new();
