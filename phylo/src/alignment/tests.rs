@@ -163,7 +163,7 @@ fn test_try_record_by_id() {
 
     assert_matches!(
         err,
-        Err(Error::Sequence(msg)) if msg.contains("Sequence with id ZZ not found")
+        Err(Error::Sequence(msg)) if msg.contains("sequence with id ZZ not found")
     );
 }
 
