@@ -152,6 +152,12 @@ impl Display for MSA {
             let aligned_seq = aligned_seq!(seq_map, record.seq());
             aligned_records.push(record!(id, record.desc(), &aligned_seq));
         }
+        // sort records to have a consistent output
+        aligned_records.sort_by(|a, b| {
+            a.id()
+                .cmp(b.id())
+                .then(a.desc().cmp(&b.desc()).then(a.seq().cmp(b.seq())))
+        });
         write!(f, "{}", Sequences::new(aligned_records))
     }
 }
@@ -351,6 +357,8 @@ pub struct MASA {
 impl Display for MASA {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let both_maps = self.leaf_maps.iter().chain(self.ancestral_maps.iter());
+        let mut aligned_records =
+            Vec::with_capacity(self.leaf_seqs.len() + self.ancestral_seqs.len());
         for (node_idx, seq_map) in both_maps {
             let id = &self.idx_to_id[usize::from(node_idx)];
             let record = match node_idx {
@@ -358,9 +366,15 @@ impl Display for MASA {
                 Leaf(_) => self.leaf_seqs.record_by_id(id),
             };
             let aligned_seq = aligned_seq!(seq_map, record.seq());
-            write!(f, "{}", record!(id, record.desc(), &aligned_seq))?;
+            aligned_records.push(record!(id, record.desc(), &aligned_seq));
         }
-        Ok(())
+        // sort records to have a consistent output
+        aligned_records.sort_by(|a, b| {
+            a.id()
+                .cmp(b.id())
+                .then(a.desc().cmp(&b.desc()).then(a.seq().cmp(b.seq())))
+        });
+        write!(f, "{}", Sequences::new(aligned_records))
     }
 }
 

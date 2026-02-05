@@ -4,7 +4,9 @@ use std::io::Read;
 use rstest::*;
 use tempfile::tempdir;
 
-use crate::io::{read_sequences, write_newick_to_file, write_sequences_to_file};
+use crate::alignment::{Alignment, AncestralAlignment, Sequences, MASA, MSA};
+use crate::io::{read_sequences, write_msa_to_file, write_newick_to_file, write_sequences_to_file};
+use crate::random::{FakeGenerator, FakeRng};
 use crate::{record_wo_desc as record, tree};
 
 #[test]
@@ -155,4 +157,53 @@ fn read_sequences_weird_gap_chars() {
         assert_eq!(seq.seq(), sequences_underscore[i].seq());
         assert_eq!(seq.seq(), sequences_asterisk[i].seq());
     }
+}
+
+#[test]
+fn write_msa() {
+    // arrange
+    let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
+    let mut rng = FakeGenerator::from_rng(FakeRng::from_u64_values(vec![29, 1, 8, 47]));
+    let mut records = read_sequences("./data/sequences_DNA1.fasta").unwrap();
+    rng.shuffle(&mut records);
+    let msa = MSA::from_aligned(Sequences::new(records), &tree).unwrap();
+    let temp_dir = tempdir().unwrap();
+    let output_path = temp_dir.path().join("output.fasta");
+    let true_content = std::fs::read_to_string("./data/sequences_DNA1.fasta").unwrap();
+
+    // act
+    write_msa_to_file(&msa, output_path.clone()).unwrap();
+
+    // assert
+    let mut file_content = String::new();
+    std::fs::File::open(output_path)
+        .unwrap()
+        .read_to_string(&mut file_content)
+        .unwrap();
+    assert_eq!(file_content.trim(), true_content);
+}
+
+#[test]
+fn write_masa() {
+    // arrange
+    let tree = tree!("((C:0.1,D:0.2)I01:0.3,(A:0.4,B:0.5)I02:0.6)Root;");
+    let mut rng = FakeGenerator::from_rng(FakeRng::from_u64_values(vec![29, 1, 8, 47]));
+    let mut records = read_sequences("./data/sequences_DNA1_with_ancestors.fasta").unwrap();
+    rng.shuffle(&mut records);
+    let msa = MASA::from_aligned_with_ancestral(Sequences::new(records), &tree).unwrap();
+    let temp_dir = tempdir().unwrap();
+    let output_path = temp_dir.path().join("output.fasta");
+    let true_content =
+        std::fs::read_to_string("./data/sequences_DNA1_with_ancestors.fasta").unwrap();
+
+    // act
+    write_msa_to_file(&msa, output_path.clone()).unwrap();
+
+    // assert
+    let mut file_content = String::new();
+    std::fs::File::open(output_path)
+        .unwrap()
+        .read_to_string(&mut file_content)
+        .unwrap();
+    assert_eq!(file_content, true_content);
 }

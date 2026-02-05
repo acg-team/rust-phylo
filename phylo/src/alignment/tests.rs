@@ -8,6 +8,7 @@ use crate::alignment::{
 use crate::alphabets::{Alphabet, AMINOACIDS, NUCLEOTIDES};
 use crate::io::read_sequences;
 use crate::phylo_info::PhyloInfo;
+use crate::random::{FakeGenerator, FakeRng};
 use crate::tree::{
     NodeIdx::{Internal as I, Leaf as L},
     Tree,
@@ -306,18 +307,18 @@ fn display_unaligned_sequences() {
 fn fmt_alignment() {
     // arrange
     let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
-    let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta").unwrap());
-    let msa = MSA::from_aligned(sequences, &tree).unwrap();
+    let mut rng = FakeGenerator::from_rng(FakeRng::from_u64_values(vec![29, 1, 8, 47]));
+    let mut records = read_sequences("./data/sequences_DNA1.fasta").unwrap();
+    rng.shuffle(&mut records);
+    let msa = MSA::from_aligned(Sequences::new(records), &tree).unwrap();
     let true_content = std::fs::read_to_string("./data/sequences_DNA1.fasta").unwrap();
-    let mut true_lines = true_content.lines().collect::<Vec<_>>();
-    true_lines.sort();
+    let true_lines = true_content.lines().collect::<Vec<_>>();
 
     // act
     let s = format!("{msa}");
 
     // assert
-    let mut lines = s.lines().collect::<Vec<_>>();
-    lines.sort();
+    let lines = s.lines().collect::<Vec<_>>();
     assert_eq!(lines.len(), 8);
     assert_eq!(lines, true_lines);
 }
@@ -325,17 +326,17 @@ fn fmt_alignment() {
 #[test]
 fn display_alignment() {
     let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001):0.08716381);");
-    let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta").unwrap());
-    let msa = MSA::from_aligned(sequences, &tree).unwrap();
+    let mut rng = FakeGenerator::from_rng(FakeRng::from_u64_values(vec![29, 1, 8, 47]));
+    let mut records = read_sequences("./data/sequences_DNA1.fasta").unwrap();
+    rng.shuffle(&mut records);
+    let msa = MSA::from_aligned(Sequences::new(records), &tree).unwrap();
 
     let s = format!("{msa}");
-    let mut lines = s.lines().collect::<Vec<_>>();
-    lines.sort();
+    let lines = s.lines().collect::<Vec<_>>();
     assert_eq!(lines.len(), 8);
 
     let s = std::fs::read_to_string("./data/sequences_DNA1.fasta").unwrap();
-    let mut true_lines = s.lines().collect::<Vec<_>>();
-    true_lines.sort();
+    let true_lines = s.lines().collect::<Vec<_>>();
 
     assert_eq!(lines, true_lines);
 }
@@ -344,19 +345,19 @@ fn display_alignment() {
 fn display_ancestral_alignment() {
     // arrange
     let tree = tree!("((C:0.1,D:0.2)I01:0.3,(A:0.4,B:0.5)I02:0.6)Root;");
-    let sequences =
-        Sequences::new(read_sequences("./data/sequences_DNA1_with_ancestors.fasta").unwrap());
-    let msa = MASA::from_aligned_with_ancestral(sequences, &tree).unwrap();
+    let mut rng =
+        FakeGenerator::from_rng(FakeRng::from_u64_values(vec![29, 1, 8, 47, 99, 23, 56, 78]));
+    let mut records = read_sequences("./data/sequences_DNA1_with_ancestors.fasta").unwrap();
+    rng.shuffle(&mut records);
+    let msa = MASA::from_aligned_with_ancestral(Sequences::new(records), &tree).unwrap();
     let true_lines = std::fs::read_to_string("./data/sequences_DNA1_with_ancestors.fasta").unwrap();
-    let mut true_lines = true_lines.lines().collect::<Vec<_>>();
-    true_lines.sort();
+    let true_lines = true_lines.lines().collect::<Vec<_>>();
 
     // act
     let lines = format!("{msa}");
 
     // assert
-    let mut lines = lines.lines().collect::<Vec<_>>();
-    lines.sort();
+    let lines = lines.lines().collect::<Vec<_>>();
     assert_eq!(lines.len(), 14);
     assert_eq!(lines, true_lines);
 }
