@@ -6,6 +6,7 @@ use crate::Result;
 
 /// This is the result of a move operation in a phylogenetic tree, i.e. the result of
 /// a call to [`MoveOptimiser::best_move_at_location`].
+#[derive(Debug, Clone)]
 pub struct MoveCostInfo {
     pub cost: f64,
     // The tree contains a tree.dirty FixedBitSet which should mark all the nodes affected by the move,
