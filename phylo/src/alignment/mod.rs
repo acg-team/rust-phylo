@@ -74,7 +74,7 @@ pub trait Alignment: Display + Clone + Debug {
     fn leaf_map(&self, node: &NodeIdx) -> &Mapping;
     fn leaf_maps(&self) -> &SeqMaps;
     fn internal_alignments(&self) -> &InternalAlignments;
-    /// Checks if inputs are compatible, removes columns with only gaps and calls [`Self::from_aligned_unchecked`].  
+    /// Checks if inputs are compatible, removes columns with only gaps and calls [`Self::from_aligned_unchecked`].
     ///
     /// # Errors
     ///
@@ -110,7 +110,7 @@ pub trait AncestralAlignment: Alignment {
     fn ancestral_map(&self, node_idx: &NodeIdx) -> &Mapping;
     fn ancestral_maps(&self) -> &SeqMaps;
     fn update_ancestral_map(&mut self, node_idx: &NodeIdx, map: Mapping) -> Result<()>;
-    /// Checks if inputs are compatible and calls [`Self::from_aligned_with_ancestral_unchecked`].  
+    /// Checks if inputs are compatible and calls [`Self::from_aligned_with_ancestral_unchecked`].
     /// Checks:
     /// - if sequences are aligned
     /// - if sequence IDs are unique ([`Sequences::ids_are_unique`])
