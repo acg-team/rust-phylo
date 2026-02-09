@@ -476,3 +476,41 @@ fn sequence_iterator_access() {
     assert!(second.is_some());
     assert_eq!(second.unwrap().id(), "seq2");
 }
+
+#[test]
+fn update_ancestral_map_nonexistent_internal() {
+    let tree = tree!("((C:0.1,D:0.2)I01:0.3,(A:0.4,B:0.5)I02:0.6)Root;");
+    let sequences =
+        Sequences::new(read_sequences("./data/sequences_DNA1_with_ancestors.fasta").unwrap());
+    let mut msa = MASA::from_aligned_with_ancestral(sequences, &tree).unwrap();
+    let err = msa.update_ancestral_map(&I(10), align!(b"ACGT"));
+    assert_matches!(
+        err,
+        Err(Error::AncestralAlignment(msg)) if msg.contains("node 10 is not a valid internal node in the tree")
+    );
+}
+
+#[test]
+fn update_ancestral_map_leaf() {
+    let tree = tree!("((C:0.1,D:0.2)I01:0.3,(A:0.4,B:0.5)I02:0.6)Root;");
+    let sequences =
+        Sequences::new(read_sequences("./data/sequences_DNA1_with_ancestors.fasta").unwrap());
+    let mut msa = MASA::from_aligned_with_ancestral(sequences, &tree).unwrap();
+    let err = msa.update_ancestral_map(&L(2), align!(b"ACGT"));
+    assert_matches!(
+        err,
+        Err(Error::AncestralAlignment(msg)) if msg.contains("ancestral map cannot be set for a leaf node")
+    );
+}
+
+#[test]
+fn update_ancestral_map_valid() {
+    let tree = tree!("((C:0.1,D:0.2)I01:0.3,(A:0.4,B:0.5)I02:0.6)Root;");
+    let sequences =
+        Sequences::new(read_sequences("./data/sequences_DNA1_with_ancestors.fasta").unwrap());
+    let mut msa = MASA::from_aligned_with_ancestral(sequences, &tree).unwrap();
+    assert_eq!(msa.ancestral_maps.get(&I(1)).unwrap(), &align!(b"A-CCA"));
+    let result = msa.update_ancestral_map(&I(1), align!(b"A---A"));
+    assert_matches!(result, Ok(_));
+    assert_eq!(msa.ancestral_maps.get(&I(1)).unwrap(), &align!(b"A---A"));
+}
