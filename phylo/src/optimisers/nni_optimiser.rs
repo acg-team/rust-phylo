@@ -114,7 +114,7 @@ fn rooted_nni(tree: &Tree, node_idx: &NodeIdx, child_idx: &NodeIdx) -> Result<Tr
 /// .  --node--      sibling
 /// .  |      |
 /// .  .    child
-///     
+///
 /// Swapping child with sibling.
 fn rooted_nni_unchecked(tree: &Tree, node_idx: &NodeIdx, child_idx: &NodeIdx) -> Tree {
     let mut new_tree = tree.clone();
@@ -160,8 +160,11 @@ mod private_nni_tests {
     use assert_matches::assert_matches;
 
     use super::*;
+    use crate::alignment::{Alignment, Sequences, MSA};
+    use crate::phylo_info::PhyloInfo;
+    use crate::substitution_models::{SubstModel, SubstitutionCostBuilder as SCB, JC69};
     use crate::tree::Tree;
-    use crate::{tree, Error};
+    use crate::{record_wo_desc as record, tree, Error};
 
     #[cfg(test)]
     fn compare_trees(tree: &Tree, true_tree: Tree) {
@@ -264,5 +267,51 @@ mod private_nni_tests {
             err,
             Err(Error::TreeMove(msg)) if msg.contains("must be the parent")
         );
+    }
+
+    #[test]
+    fn no_nnis_possible() {
+        let tree = tree!("(((A0:1.0,B1:1.0)I1:1.0,C2:1.0)I2:1.0);");
+        let seqs = Sequences::new(vec![
+            record!("A0", b"AAAA"),
+            record!("B1", b"---A"),
+            record!("C2", b"AA--"),
+        ]);
+        let msa = MSA::from_aligned(seqs, &tree).unwrap();
+        let info = PhyloInfo { msa, tree };
+        let node_id = "A0";
+
+        let cost = SCB::new(SubstModel::<JC69>::new(&[], &[]), info)
+            .build()
+            .unwrap();
+
+        let err =
+            NniOptimiser::new().best_move_at_location(0.0, &cost, &cost.tree().by_id(node_id).idx);
+        assert_matches!(
+            err,
+            Err(Error::TreeMove(msg)) if msg.contains("at least one NNI move should be possible")
+        );
+    }
+
+    #[test]
+    fn nni_possible() {
+        let tree = tree!("(((A0:1.0,B1:1.0)I1:1.0,(C2:1.0,D3:1.0))I2:1.0);");
+        let seqs = Sequences::new(vec![
+            record!("A0", b"AAAA"),
+            record!("B1", b"---A"),
+            record!("C2", b"AA--"),
+            record!("D3", b"AA--"),
+        ]);
+        let msa = MSA::from_aligned(seqs, &tree).unwrap();
+        let info = PhyloInfo { msa, tree };
+        let node_id = "I1";
+
+        let cost = SCB::new(SubstModel::<JC69>::new(&[], &[]), info)
+            .build()
+            .unwrap();
+
+        let res =
+            NniOptimiser::new().best_move_at_location(0.0, &cost, &cost.tree().by_id(node_id).idx);
+        assert!(res.is_ok());
     }
 }
