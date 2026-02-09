@@ -476,10 +476,16 @@ impl AncestralAlignment for MASA {
             *anc_map = map;
             Ok(())
         } else {
-            bail!(
-                AncestralAlignment,
-                "node index {node_idx} is not an internal node"
-            )
+            match node_idx {
+                Int(_) => bail!(
+                    AncestralAlignment,
+                    "{node_idx} is not a valid internal node in the tree"
+                ),
+                Leaf(_) => bail!(
+                    AncestralAlignment,
+                    "ancestral map cannot be set for a leaf node like {node_idx}"
+                ),
+            }
         }
     }
 
