@@ -265,6 +265,20 @@ lazy_static! {
     pub static ref GAP_SET: ParsimonySet = ParsimonySet::from_slice(&[GAP]);
 }
 
+#[cfg(test)]
+lazy_static! {
+    pub static ref EMPTY_SYMBOLS: HashSet<u8> = HashSet::new();
+    pub static ref UNKNOWN_ALPHABET: Alphabet = Alphabet {
+        name: "unknown",
+        symbols: &[],
+        ambiguous: &[],
+        index: &[0; 255],
+        valid_symbols: &EMPTY_SYMBOLS,
+        conditional_probs: &[],
+        parsimony_sets: &[]
+    };
+}
+
 fn nucl_cond_probs(char: u8) -> FreqVector {
     let char = char.to_ascii_uppercase();
     match char {
