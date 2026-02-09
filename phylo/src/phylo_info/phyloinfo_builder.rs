@@ -380,6 +380,7 @@ mod private_tests {
     use assert_matches::assert_matches;
 
     use crate::alignment::Sequences;
+    use crate::alphabets::UNKNOWN_ALPHABET;
     use crate::phylo_info::{
         phyloinfo_builder::{set_missing_tree_node_ids, PhyloInfoBuilder as PIB},
         validate_ids_with_ancestors,
@@ -506,5 +507,16 @@ mod private_tests {
 
         // assert
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn invalid_alphabet_error() {
+        let builder =
+            PIB::new("./examples/data/sequences_DNA_small.fasta").alphabet(Some(&UNKNOWN_ALPHABET));
+        let error = builder.build();
+        assert_matches!(
+            error,
+            Err(Error::Alphabet(msg)) if msg.contains("unknown alphabet")
+        );
     }
 }
