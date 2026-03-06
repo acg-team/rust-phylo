@@ -1,6 +1,7 @@
 use std::result::Result as stdResult;
 
 use fixedbitset::FixedBitSet;
+use hashbrown::HashSet;
 use log::{info, warn};
 use pest::{error::Error as PestError, iterators::Pair, Parser};
 use pest_derive::Parser;
@@ -34,12 +35,23 @@ pub fn from_newick(newick: &str) -> Result<Vec<Tree>> {
                 if let Some(rule) = tmp {
                     let mut tree = Tree::new_empty();
                     let res = match rule.as_rule() {
-                        Rule::rooted => tree.parse_rooted_rule(rule),
-                        Rule::unrooted => tree.parse_unrooted_rule(rule),
+                        Rule::rooted => tree.parse_rooted_rule(rule.clone()),
+                        Rule::unrooted => tree.parse_unrooted_rule(rule.clone()),
                         _ => unimplemented!(),
                     };
                     if let Err(e) = res {
                         bail!(TreeParsing, "malformed newick string", e);
+                    }
+                    if tree.n != tree.leaf_ids.iter().collect::<HashSet<_>>().len() {
+                        return Err(TreeParsing(
+                            "duplicate leaf IDs found in newick string".to_string(),
+                            Box::new(PestError::new_from_span(
+                                pest::error::ErrorVariant::CustomError {
+                                    message: "duplicate leaf IDs".to_string(),
+                                },
+                                rule.as_span(),
+                            )),
+                        ));
                     }
 
                     trees.push(tree);
