@@ -732,3 +732,9 @@ fn rf_distance_against_raxml() {
     assert_eq!(tree_phyml.robinson_foulds(tree_from_nj), 0);
     assert_eq!(tree.robinson_foulds(tree_from_nj), 0);
 }
+
+#[test]
+fn parse_with_duplicate_ids() {
+    let tree = from_newick("((A:1.0,B:1.0)E:5.1,(A:3.0,A:4.0)F:6.2)G:7.3;");
+    assert!(tree.is_err());
+}
