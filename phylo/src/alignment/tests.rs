@@ -548,7 +548,7 @@ fn update_ancestral_map_nonexistent_internal() {
     let err = msa.update_ancestral_map(&I(10), align!(b"-ACGT"));
     assert_matches!(
         err,
-        Err(Error::AncestralAlignment(msg)) if msg.contains("node 10 is not a valid internal node in the tree")
+        Err(Error::AncestralAlignment(msg)) if msg.contains("no ancestral map found for: internal node 10")
     );
 }
 

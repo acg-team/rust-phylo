@@ -9,9 +9,9 @@ use crate::random::RandomGenerator;
 use crate::tkf_model::reestimate::cache::{
     possible_assignments_of_edge, possible_del_or_not, prev_compatible_del_or_not,
 };
-use crate::tkf_model::{log_i1, Event, TKFIndelCost, TKFIndelModelInfo, TKFModel};
+use crate::tkf_model::{log_i1, Blocks, Event, TKFIndelCost, TKFIndelModelInfo, TKFModel};
 use crate::tree::NodeIdx::{self, Internal, Leaf};
-use crate::{bail, Result};
+use crate::{bail, Result, REPORT_ISSUES_URL};
 
 mod cache;
 
@@ -291,10 +291,14 @@ where
         self.fill_dp_table();
         let backtrack_res = self.backtrack();
         self.set_invalid();
-        self.update_mappings(&backtrack_res);
+        self.update_masa(&backtrack_res);
         debug_assert!(self.cost.phylo.check_dollos_constraint().is_ok());
-        self.make_valid_for_further_reestimate_calls();
-        backtrack_res.logl
+        if self.update_table_sizes() {
+            self.cost.logl()
+        } else {
+            self.make_valid_for_further_reestimate_calls();
+            backtrack_res.logl
+        }
     }
 
     /// Resets the DP and backtracking tables. Initialises the [`QuartetEdges`]. Removes the old
@@ -345,19 +349,35 @@ where
         }
     }
 
-    fn update_mappings(&mut self, backtrack_res: &BackTrackingResult) {
-        let block_lengths = &self.cost.model_info.borrow().block_lengths;
+    fn update_masa(&mut self, backtrack_res: &BackTrackingResult) {
         let seq_len = self.cost.phylo.msa.len();
-        let v1_mapping = mapping_from_node_seq(&backtrack_res.v1_bitset, block_lengths, seq_len);
-        let v2_mapping = mapping_from_node_seq(&backtrack_res.v2_bitset, block_lengths, seq_len);
-        let msa = &mut self.cost.phylo.msa;
-        assert!(v1_mapping.len() == msa.len());
-        assert!(v2_mapping.len() == msa.len());
-        // The expect() are never get triggered, unless something is seriously wrong with the algo.
-        msa.update_ancestral_map(self.quartet_edges.v1(), v1_mapping)
-            .expect("Failed to update ancestral map for v1");
-        msa.update_ancestral_map(self.quartet_edges.v2(), v2_mapping)
-            .expect("Failed to update ancestral map for v2");
+        let (v1_mapping, v2_mapping) = {
+            let blocks = &self.cost.model_info.borrow().blocks;
+            (
+                mapping_from_node_seq(&backtrack_res.v1_bitset, blocks, seq_len),
+                mapping_from_node_seq(&backtrack_res.v2_bitset, blocks, seq_len),
+            )
+        };
+        self.cost.update_mappings_and_model_info(self.quartet_edges.v1(), v1_mapping)
+            .unwrap_or_else(|err| panic!("Failed to update ancestral map for v1. Please report this at {REPORT_ISSUES_URL}. Error details: {err}"));
+        // Here we assume that after potential updating of the blocking of the msa the v2_mapping
+        // also conforms to this new blocking. Due to the nature of the re-estimation and tkf
+        // likelihood, this should always be the case. If this ever turns out to not be the case,
+        // then a new method "update_mappings_and_model_info_batch" could be implemented.
+        self.cost.update_mappings_and_model_info(self.quartet_edges.v2(), v2_mapping)
+            .unwrap_or_else(|err| panic!("Failed to update ancestral map for v2. Please report this at {REPORT_ISSUES_URL}. Error details: {err}"));
+    }
+
+    fn update_table_sizes(&mut self) -> bool {
+        let old_num_blocks = self.dp_table.len();
+        let new_num_blocks = self.cost.model_info.borrow().blocks.len();
+        assert!(
+            new_num_blocks <= old_num_blocks,
+            "The number of blocks should not increase after re-estimation. Please report this at {REPORT_ISSUES_URL}"
+        );
+        self.dp_table.truncate(new_num_blocks);
+        self.backtracking_table.truncate(new_num_blocks);
+        old_num_blocks != new_num_blocks
     }
 
     /// Updates the tmp values of the model info such that there are valid for further
@@ -401,7 +421,7 @@ where
         let n_blocks = self.cost.model_info.borrow().blocks.len();
         for block_id in 0..n_blocks {
             let mut found_at_least_one = false;
-            let site = self.cost.model_info.borrow().blocks[block_id] - 1;
+            let site = self.cost.model_info.borrow().blocks[block_id].rep_site();
             for assignment in self.possible_assignments(site) {
                 let events = self.event_for_assignment(assignment, block_id);
                 let event_prob = self.integrated_root_event_prob(&events, block_id);
@@ -471,7 +491,7 @@ where
         // See issue #151 https://github.com/acg-team/rust-phylo/issues/151
         let previous_block = block_id - 1;
         let model_info = self.cost.model_info.borrow();
-        let site = model_info.blocks[previous_block] - 1;
+        let site = model_info.blocks[previous_block].rep_site();
         for prev_assignment in self.possible_assignments(site) {
             // TODO: here it is not checked whether the `prev_del_or_not` matches the `prev_assignment`
             // which will lead to -inf which is then skipped.
@@ -522,7 +542,7 @@ where
     fn integrated_root_event_prob(&self, events: &QuartetEvents, block_id: usize) -> f64 {
         let root_id = usize::from(self.cost.phylo.tree.root);
         let model_info = self.cost.model_info.borrow();
-        let block_len = model_info.block_lengths[block_id];
+        let block_len = model_info.blocks[block_id].len();
         let mut x = model_info.subtree_event_factor[(root_id, block_id)];
         x *= self.quartet_event_factor(events);
         self.cost.model.block_prob(x, block_len)
@@ -560,7 +580,7 @@ where
     }
 
     fn event_for_assignment(&self, assignment: &EdgeAssignment, block_id: usize) -> QuartetEvents {
-        let site = self.cost.model_info.borrow().blocks[block_id] - 1;
+        let site = self.cost.model_info.borrow().blocks[block_id].rep_site();
         let mut events = [Event::Nothing; N_EDGES_IN_QUARTET];
         let v1_has_char = assignment.0;
         let v2_has_char = assignment.1;
@@ -647,15 +667,15 @@ where
 }
 
 #[inline]
-fn mapping_from_node_seq(node_seq: &NodeSeq, block_lens: &[usize], seq_len: usize) -> Mapping {
+fn mapping_from_node_seq(node_seq: &NodeSeq, blocks: &Blocks, seq_len: usize) -> Mapping {
     debug_assert!(
-        block_lens.iter().sum::<usize>() == seq_len,
+        blocks.iter().map(|b| b.len()).sum::<usize>() == seq_len,
         "Block lengths do not sum up to the sequence length."
     );
     let mut mapping = Vec::with_capacity(seq_len);
     let mut count = 0;
-    for (i, &block_len) in block_lens.iter().enumerate() {
-        for _ in 0..block_len {
+    for (i, &block) in blocks.iter().enumerate() {
+        for _ in 0..block.len() {
             if node_seq.contains(i) {
                 mapping.push(Some(count));
                 count += 1;

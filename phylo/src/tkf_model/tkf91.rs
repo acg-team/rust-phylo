@@ -9,8 +9,8 @@ use crate::likelihood::ParamRange;
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{QMatrix, SubstModel, SubstitutionCostBuilder as SCB};
 use crate::tkf_model::{
-    TKFCost, TKFIndelCost, TKFIndelModelInfo, TKFModel, DEFAULT_LAMBDA, DEFAULT_LAMBDA_MU_RATIO,
-    DEFAULT_MU,
+    Block, NumBlockAppearances, TKFCost, TKFIndelCost, TKFIndelModelInfo, TKFModel, DEFAULT_LAMBDA,
+    DEFAULT_LAMBDA_MU_RATIO, DEFAULT_MU,
 };
 use crate::{bail, Result};
 
@@ -79,8 +79,10 @@ impl TKFModel for TKF91IndelModel {
     }
 
     /// Since TKF91 is a single-residue indel model, each position is its own block.
-    fn get_blocks<AA: AncestralAlignment>(&self, msa: &AA) -> Vec<usize> {
-        (1..msa.len() + 1).collect()
+    fn get_blocks<AA: AncestralAlignment>(&self, msa: &AA) -> Vec<super::Block> {
+        (1..msa.len() + 1)
+            .map(|pos| Block::new(pos, pos - 1, 1, NumBlockAppearances::Fixed))
+            .collect()
     }
 }
 

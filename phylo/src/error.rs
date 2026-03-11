@@ -21,6 +21,9 @@ pub enum Error {
     #[error("Edge sequence re-estimation error: {0}")]
     EdgeSeqsReestimator(String),
 
+    #[error("TKF indel model error: {0}")]
+    TKF(String),
+
     #[error("Tree error: {0}")]
     Tree(String),
 

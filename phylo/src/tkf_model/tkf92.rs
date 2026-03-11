@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::fmt::Display;
 
-use hashbrown::HashSet;
+use hashbrown::HashMap;
 use log::warn;
 use num_enum::{FromPrimitive, IntoPrimitive};
 
@@ -10,8 +10,8 @@ use crate::likelihood::{ParamRange, PARAM_RANGE_UNIT_INTERVAL_EXCLUSIVE};
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{QMatrix, SubstModel, SubstitutionCostBuilder as SCB};
 use crate::tkf_model::{
-    validate_lambda_and_mu, TKFCost, TKFIndelCost, TKFIndelModelInfo, TKFModel, DEFAULT_LAMBDA,
-    DEFAULT_MU, DEFAULT_R,
+    validate_lambda_and_mu, Block, Blocks, NumBlockAppearances, TKFCost, TKFIndelCost,
+    TKFIndelModelInfo, TKFModel, DEFAULT_LAMBDA, DEFAULT_MU, DEFAULT_R,
 };
 use crate::{bail, Result};
 
@@ -106,7 +106,7 @@ impl TKFModel for TKF92IndelModel {
         }
     }
 
-    fn get_blocks<AA: AncestralAlignment>(&self, msa: &AA) -> Vec<usize> {
+    fn get_blocks<AA: AncestralAlignment>(&self, msa: &AA) -> Blocks {
         blocks_of_alignment(msa)
     }
 }
@@ -226,11 +226,10 @@ impl<Q: QMatrix, AA: AncestralAlignment> TKF92CostBuilder<Q, AA> {
     }
 }
 
-/// Determines the block borders from the alignment. A block border is defined as a
-/// position where any sequence changes from gap to non-gap or vice versa. Returns a sorted
-/// vector of the right exclusive block borders.
-pub(crate) fn blocks_of_alignment<AA: AncestralAlignment>(msa: &AA) -> Vec<usize> {
-    let mut blocks: HashSet<usize> = HashSet::new();
+/// Determines the blocks from the alignment. A block border is defined as a
+/// position where any sequence changes from gap to non-gap or vice versa.
+pub(super) fn blocks_of_alignment<AA: AncestralAlignment>(msa: &AA) -> Blocks {
+    let mut blocks_with_counts = HashMap::new();
     if msa.len() == 0 {
         return vec![];
     }
@@ -244,15 +243,42 @@ pub(crate) fn blocks_of_alignment<AA: AncestralAlignment>(msa: &AA) -> Vec<usize
             let current_is_char = c.is_some();
             // whenever there is a change from gap to not gap or vice versa, we have a block border
             if previous_is_char ^ current_is_char {
-                blocks.insert(i + 1);
+                *blocks_with_counts.entry(i + 1).or_insert(0) += 1;
             }
             previous_is_char = current_is_char;
         }
-        blocks.insert(map.len());
     }
-    let mut blocks: Vec<usize> = blocks.iter().copied().collect();
-    blocks.sort();
-    blocks
+    let total_num_seqs = msa.seq_count() + msa.ancestral_seqs().len();
+    blocks_with_counts.insert(msa.len(), total_num_seqs);
+    let mut block_right_borders: Vec<usize> = blocks_with_counts.keys().copied().collect();
+    block_right_borders.sort();
+    let block_lens = get_block_lengths(&block_right_borders);
+    block_right_borders
+        .into_iter()
+        .zip(block_lens)
+        .map(|(border, len)| {
+            Block::new(
+                border,
+                border - 1,
+                len,
+                NumBlockAppearances::Variable(blocks_with_counts[&border]),
+            )
+        })
+        .collect()
+}
+
+/// Given the right exclusive block borders, returns the lengths of the blocks.
+/// For example, given [3, 5, 8], the block lengths are [3, 2, 3].
+fn get_block_lengths(blocks: &[usize]) -> Vec<usize> {
+    let mut block_lens = vec![0; blocks.len()];
+    for (i, block) in blocks.iter().enumerate() {
+        block_lens[i] = if i == 0 {
+            *block
+        } else {
+            block - blocks[i - 1]
+        };
+    }
+    block_lens
 }
 
 #[cfg(test)]

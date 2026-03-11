@@ -16,10 +16,9 @@ use crate::random::FakeGenerator;
 use crate::tkf_model::reestimate::cache::possible_assignments_of_edge;
 use crate::tkf_model::reestimate::mapping_from_node_seq;
 use crate::tkf_model::tests::get_mapping_for_any_node;
-use crate::tkf_model::{
-    EdgeSeqsReestimator, TKF92IndelAddBlocksCostBuilder, TKF92IndelCostBuilder, TKFIndelCost,
-    TKFModel,
-};
+#[cfg(test)]
+use crate::tkf_model::Blocks;
+use crate::tkf_model::{EdgeSeqsReestimator, TKF92IndelCostBuilder, TKFIndelCost, TKFModel};
 use crate::tree::NodeIdx;
 
 /// Given all possible edge assignment for each block in the alignment returns a specific edge
@@ -85,11 +84,11 @@ fn test_edge_seqs() {
 #[cfg(test)]
 fn edge_seqs_to_mappings(
     edge_seqs: &[(bool, bool)],
-    block_lens: &[usize],
+    blocks: &Blocks,
     seq_len: usize,
 ) -> (Vec<Option<usize>>, Vec<Option<usize>>) {
-    let mut v2_fixed_bit_set = FixedBitSet::with_capacity(block_lens.len());
-    let mut v1_fixed_bit_set = FixedBitSet::with_capacity(block_lens.len());
+    let mut v2_fixed_bit_set = FixedBitSet::with_capacity(blocks.len());
+    let mut v1_fixed_bit_set = FixedBitSet::with_capacity(blocks.len());
     for (site, edge_assignment) in edge_seqs.iter().enumerate() {
         if edge_assignment.0 {
             v1_fixed_bit_set.insert(site);
@@ -98,8 +97,8 @@ fn edge_seqs_to_mappings(
             v2_fixed_bit_set.insert(site);
         }
     }
-    let new_v1_mapping = mapping_from_node_seq(&v1_fixed_bit_set, block_lens, seq_len);
-    let new_v2_mapping = mapping_from_node_seq(&v2_fixed_bit_set, block_lens, seq_len);
+    let new_v1_mapping = mapping_from_node_seq(&v1_fixed_bit_set, blocks, seq_len);
+    let new_v2_mapping = mapping_from_node_seq(&v2_fixed_bit_set, blocks, seq_len);
     (new_v1_mapping, new_v2_mapping)
 }
 
@@ -145,25 +144,21 @@ fn make_nodes_dirty<T: TKFModel>(cost: &mut TKFIndelCost<T, MASA>, v2_idx: &Node
 #[cfg(test)]
 fn cost_for_edge_seqs<T: TKFModel>(
     v2_idx: &NodeIdx,
-    cost: &mut TKFIndelCost<T, MASA>,
+    mut cost: TKFIndelCost<T, MASA>,
     edge_seqs: &[(bool, bool)],
 ) -> f64 {
     let v1_idx = &cost.phylo.tree.node(v2_idx).parent.unwrap();
-    let block_lens = cost.model_info.borrow().block_lengths.clone();
     let seq_len = cost.phylo.msa.len();
 
-    let (new_v1_mapping, new_v2_mapping) = edge_seqs_to_mappings(edge_seqs, &block_lens, seq_len);
+    let (new_v1_mapping, new_v2_mapping) =
+        edge_seqs_to_mappings(edge_seqs, &cost.model_info.borrow().blocks, seq_len);
     // The expect() are never triggered, unless something is seriously wrong with the algo.
-    cost.phylo
-        .msa
-        .update_ancestral_map(v1_idx, new_v1_mapping)
+    cost.update_mappings_and_model_info(v1_idx, new_v1_mapping)
         .expect("Could not update ancestral map for v1");
-    cost.phylo
-        .msa
-        .update_ancestral_map(v2_idx, new_v2_mapping)
+    cost.update_mappings_and_model_info(v2_idx, new_v2_mapping)
         .expect("Could not update ancestral map for v2");
 
-    make_nodes_dirty(cost, v2_idx);
+    make_nodes_dirty(&mut cost, v2_idx);
 
     cost.logl()
 }
@@ -191,7 +186,7 @@ fn get_edge_assignment_possibilities(
     let t4_mapping = get_mapping_for_any_node(&cost.phylo.msa, &tree.children(v2_idx)[1]);
 
     for (block_id, possible_edge_assignment) in possible_edge_assignments.iter_mut().enumerate() {
-        let site = blocks[block_id] - 1;
+        let site = blocks[block_id].rep_site();
         let t1_is_char = if let Some(t1_map) = &t1_mapping {
             t1_map[site].is_some()
         } else {
@@ -214,14 +209,14 @@ fn get_edge_assignment_possibilities(
 fn brute_force_max_for_possibilities_single_thread<T: TKFModel>(
     possible_edge_assignments: Vec<Vec<(bool, bool)>>,
     number_of_possibilities: usize,
-    cost: &mut TKFIndelCost<T, MASA>,
+    cost: TKFIndelCost<T, MASA>,
     v2_idx: &NodeIdx,
 ) -> f64 {
     let mut max: f64 = f64::MIN;
     for i in 0..number_of_possibilities {
         print_progress(i, number_of_possibilities);
         let possibility = edge_seqs(i, &possible_edge_assignments);
-        let current = cost_for_edge_seqs(v2_idx, cost, &possibility);
+        let current = cost_for_edge_seqs(v2_idx, cost.clone(), &possibility);
         max = max.max(current);
     }
     clear_progress_line();
@@ -231,7 +226,7 @@ fn brute_force_max_for_possibilities_single_thread<T: TKFModel>(
 // single thread calculation
 #[cfg(test)]
 #[cfg(not(feature = "multithread-brute-force-asr"))]
-fn brute_force_max<T: TKFModel + Send>(mut cost: TKFIndelCost<T, MASA>, v2_idx: &NodeIdx) -> f64 {
+fn brute_force_max<T: TKFModel + Send>(cost: TKFIndelCost<T, MASA>, v2_idx: &NodeIdx) -> f64 {
     let possible_edge_assignments = get_edge_assignment_possibilities(&cost, v2_idx);
     let number_of_possibilities = number_of_possibilities(&possible_edge_assignments);
     println!(
@@ -241,7 +236,7 @@ fn brute_force_max<T: TKFModel + Send>(mut cost: TKFIndelCost<T, MASA>, v2_idx: 
     brute_force_max_for_possibilities_single_thread(
         possible_edge_assignments,
         number_of_possibilities,
-        &mut cost,
+        cost,
         v2_idx,
     )
 }
@@ -265,14 +260,14 @@ fn brute_force_max_for_possibilities_multi_thread(
         .enumerate()
         .zip(cost_clones)
         .into_par_iter()
-        .map(move |((chunk_id, chunk), mut thread_cost)| {
+        .map(move |((chunk_id, chunk), thread_cost)| {
             let mut max: f64 = f64::MIN;
             for i in chunk {
                 if chunk_id == 0 {
                     print_progress(i, number_of_possibilities / num_threads);
                 }
                 let possibility = edge_seqs(i, &possible_edge_assignments);
-                let current = cost_for_edge_seqs(v2_idx, &mut thread_cost, &possibility);
+                let current = cost_for_edge_seqs(v2_idx, thread_cost.clone(), &possibility);
                 max = max.max(current);
             }
             max
@@ -285,7 +280,7 @@ fn brute_force_max_for_possibilities_multi_thread(
 // multi thread  calculation
 #[cfg(test)]
 #[cfg(feature = "multithread-brute-force-asr")]
-fn brute_force_max<T: TKFModel + Send>(mut cost: TKFIndelCost<T, MASA>, v2_idx: &NodeIdx) -> f64 {
+fn brute_force_max<T: TKFModel + Send>(cost: TKFIndelCost<T, MASA>, v2_idx: &NodeIdx) -> f64 {
     let possible_edge_assignments = get_edge_assignment_possibilities(&cost, v2_idx);
     let number_of_possibilities = number_of_possibilities(&possible_edge_assignments);
     println!(
@@ -293,13 +288,15 @@ fn brute_force_max<T: TKFModel + Send>(mut cost: TKFIndelCost<T, MASA>, v2_idx: 
         number_of_possibilities,
         cost.phylo.tree.node(v2_idx).id,
     );
-    let num_threads = rayon::current_num_threads() / 2;
+    let num_threads = rayon::current_num_threads();
+    // initialising the tmp values in the cost.model_info
+    let _ = cost.cost();
     // if the number of possibilities is small, do single thread
     if number_of_possibilities < num_threads * 2 {
         brute_force_max_for_possibilities_single_thread(
             possible_edge_assignments,
             number_of_possibilities,
-            &mut cost,
+            cost,
             v2_idx,
         )
     } else {
@@ -445,24 +442,18 @@ fn tkf92_reestimate_large_tree_for_file_iterative() {
         .collect::<Vec<_>>()
         .repeat(repeat);
 
-    // Since the inference of the observed blocks may change after reestimation (an so does the
-    // cost calculation of a clean cost struct that we use to compare against), we store the
-    // initial blocks here and create the clean cost to compare against with these as additional
-    // blocks.
-    let initial_msa_blocking = reestimator.cost.model_info.borrow().blocks.clone();
     for (iteration, node) in nodes.into_iter().enumerate() {
+        println!(
+            "Iteration {iteration}, reestimating node {}",
+            phylo.tree.node(node).id
+        );
         // Perform Dynamic Programming reestimation
         let max_dp = reestimator.reestimate_unchecked(node);
         // Perform brute force calculation
-        let cost_for_brute_force = TKF92IndelAddBlocksCostBuilder::new(
-            lambda,
-            mu,
-            r,
-            initial_msa_blocking.clone(),
-            reestimator.phylo().clone(),
-        )
-        .build()
-        .unwrap();
+        let cost_for_brute_force =
+            TKF92IndelCostBuilder::new(lambda, mu, r, reestimator.phylo().clone())
+                .build()
+                .unwrap();
         let _ = cost_for_brute_force.cost();
         let max_brute_force = calc_or_lookup_brute_force_max(
             iteration,
@@ -472,15 +463,10 @@ fn tkf92_reestimate_large_tree_for_file_iterative() {
             node,
         );
         // Create a clean cost to compare against
-        let clean_cost = TKF92IndelAddBlocksCostBuilder::new(
-            lambda,
-            mu,
-            r,
-            initial_msa_blocking.clone(),
-            reestimator.phylo().clone(),
-        )
-        .build()
-        .unwrap();
+        let clean_cost = TKF92IndelCostBuilder::new(lambda, mu, r, reestimator.phylo().clone())
+            .build()
+            .unwrap();
+
         let logl_from_clean_cost = clean_cost.cost();
 
         assert_relative_eq!(max_dp, logl_from_clean_cost, epsilon = 1e-10);

@@ -10,7 +10,7 @@ use crate::phylo_info::{
     set_missing_tree_node_ids, validate_ids_with_ancestors, validate_taxa_ids,
 };
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
-use crate::{align, aligned_seq, bail, record, Result};
+use crate::{align, aligned_seq, bail, record, Result, REPORT_ISSUES_URL};
 
 pub mod sequences;
 pub use sequences::*;
@@ -110,7 +110,40 @@ pub trait AncestralAlignment: Alignment {
     fn ancestral_seqs(&self) -> &Sequences;
     fn ancestral_map(&self, node_idx: &NodeIdx) -> &Mapping;
     fn ancestral_maps(&self) -> &SeqMaps;
-    fn update_ancestral_map(&mut self, node_idx: &NodeIdx, map: Mapping) -> Result<()>;
+    /// This is needed because with the [TKF models](`crate::tkf_model::TKFModel`),
+    /// we need to [re-estimate](`crate::tkf_model::reestimate::EdgeSeqsReestimator::reestimate`)
+    /// the ancestral maps after a [tree move](crate::likelihood::TreeSearchCost::update_tree) was applied.
+    /// Iterating through the aligned sequence (i.e., the old and new mappings), if the
+    /// presence of a character is maintained the actual character from the old sequence is taken.
+    /// If a character is newly introduced (i.e., was a gap before), an [ambiguous character](`AMB_CHAR`) is inserted.
+    ///
+    /// # Errors
+    /// - bails if the length of the new map does not match the MSA length
+    /// - bails if the node index does not correspond to an internal node in the tree
+    fn update_ancestral_map(&mut self, node_idx: &NodeIdx, map: Mapping) -> Result<()> {
+        if map.len() != self.len() {
+            bail!(
+                AncestralAlignment,
+                "Mapping length {} does not match MSA length {}",
+                map.len(),
+                self.len()
+            );
+        }
+        if self.ancestral_maps().get(node_idx).is_some() {
+            self.update_ancestral_map_unchecked(node_idx, map);
+            Ok(())
+        } else {
+            match node_idx {
+                Int(_) => bail!(AncestralAlignment, "no ancestral map found for: {node_idx}"),
+                Leaf(_) => bail!(
+                    AncestralAlignment,
+                    "ancestral map cannot be set for a leaf node like {node_idx}"
+                ),
+            }
+        }
+    }
+    /// This is the unchecked version of [`AncestralAlignment::update_ancestral_map`].
+    fn update_ancestral_map_unchecked(&mut self, node_idx: &NodeIdx, map: Mapping);
     /// Checks if inputs are compatible and calls [`Self::from_aligned_with_ancestral_unchecked`].
     /// Checks:
     /// - if sequences are aligned
@@ -477,37 +510,47 @@ impl AncestralAlignment for MASA {
         &self.ancestral_maps
     }
 
-    /// This is needed because with the [TKF models](`crate::tkf_model::TKFModel`),
-    /// we need to [re-estimate](`crate::tkf_model::reestimate::EdgeSeqsReestimator::reestimate`)
-    /// the ancestral maps after a [tree move](crate::likelihood::TreeSearchCost::update_tree) was applied.
-    /// Iterating through the aligned sequence (i.e., the old and new mappings), if the
-    /// presence of a character is maintained the actual character from the old sequence is
-    /// taken. If a character is newly introduced (i.e., was a gap before), an ambiguous
-    /// character is inserted.
-    fn update_ancestral_map(&mut self, node_idx: &NodeIdx, map: Mapping) -> Result<()> {
-        if map.len() != self.len() {
-            bail!(
-                AncestralAlignment,
-                "Mapping length {} does not match MSA length {}",
-                map.len(),
-                self.len()
-            );
-        }
-        if self.ancestral_maps.get(node_idx).is_some() {
-            self.update_ancestral_map_unchecked(node_idx, map);
-            Ok(())
-        } else {
-            match node_idx {
-                Int(_) => bail!(
-                    AncestralAlignment,
-                    "{node_idx} is not a valid internal node in the tree"
-                ),
-                Leaf(_) => bail!(
-                    AncestralAlignment,
-                    "ancestral map cannot be set for a leaf node like {node_idx}"
-                ),
+    fn update_ancestral_map_unchecked(&mut self, node_idx: &NodeIdx, new_map: Mapping) {
+        let old_map = self
+            .ancestral_maps
+            .get_mut(node_idx)
+            .expect("node_idx should exist in ancestral_maps");
+        let id = &self.idx_to_id[usize::from(*node_idx)];
+        let old_record = self.ancestral_seqs.record_by_id(id);
+        let old_seq = old_record.seq();
+        // The length of this 'new_seq' vector will be equal to the number 'of Some(_)' in 'map'
+        // which indicates the presence of characters. We can therefore pre-allocate memory that is
+        // needed in the maximal case and then shrink later.
+        let mut new_seq = Vec::with_capacity(new_map.len());
+        for (old_site, new_site) in old_map.iter_mut().zip(new_map.iter()) {
+            if let Some(old_site_id) = old_site {
+                // The presence of the character is maintained
+                if new_site.is_some() {
+                    // Character is kept
+                    new_seq.push(old_seq[*old_site_id]);
+                }
+                // The presence of the character is not maintained, no character is added to new_seq
+            }
+            // A character is newly introduced
+            else if new_site.is_some() {
+                // Through the parameter 'map' we only know that a character is introduced, but
+                // not which. Therefore, we insert an ambiguous character.
+                new_seq.push(AMB_CHAR);
             }
         }
+        *old_map = new_map;
+        new_seq.shrink_to_fit();
+        // TODO: avoid creating a new record here, see issue #143 https://github.com/acg-team/rust-phylo/issues/143
+        let new_record = record!(id, old_record.desc(), &new_seq);
+        self.ancestral_seqs
+            .update_record(id, new_record)
+            .unwrap_or_else(|e| {
+                panic!(
+                    "updating ancestral record failed. \
+                    Please report this at {REPORT_ISSUES_URL}. \
+                    Error: {e}"
+                )
+            });
     }
 
     /// # Example
@@ -567,8 +610,8 @@ impl AncestralAlignment for MASA {
         let ancestral_seqs = ancestral_seqs.into_gapless();
 
         // TODO: internal_alignments still missing. How do they work if there are seqs at internal nodes?
-        //       see also MASA::from_aligned
-        //       See issue #150 https://github.com/acg-team/rust-phylo/issues/150
+        // see also MASA::from_aligned
+        // See issue #150 https://github.com/acg-team/rust-phylo/issues/150
         MASA {
             leaf_seqs,
             ancestral_seqs,
@@ -577,42 +620,6 @@ impl AncestralAlignment for MASA {
             idx_to_id,
             internal_alignments: HashMap::<NodeIdx, PairwiseAlignment>::new(),
         }
-    }
-}
-
-impl MASA {
-    fn update_ancestral_map_unchecked(&mut self, node_idx: &NodeIdx, new_map: Mapping) {
-        let old_map = self.ancestral_maps.get_mut(node_idx).unwrap();
-        let id = &self.idx_to_id[usize::from(*node_idx)];
-        let old_record = self.ancestral_seqs.record_by_id(id);
-        let old_seq = old_record.seq();
-        // The length of this 'new_seq' vector will be equal to the number 'of Some(_)' in 'map'
-        // which indicates the presence of characters. We can therefore pre-allocate memory that is
-        // needed in the maximal case and then shrink later.
-        let mut new_seq = Vec::with_capacity(new_map.len());
-        for (old_site, new_site) in old_map.iter_mut().zip(new_map.iter()) {
-            if let Some(old_site_id) = old_site {
-                // The presence of the character is maintained
-                if new_site.is_some() {
-                    // Character is kept
-                    new_seq.push(old_seq[*old_site_id]);
-                }
-                // The presence of the character is not maintained, no character is added to new_seq
-            }
-            // A character is newly introduced
-            else if new_site.is_some() {
-                // Through the parameter 'map' we only know that a character is introduced, but
-                // not which. Therefore, we insert an ambiguous character.
-                new_seq.push(AMB_CHAR);
-            }
-        }
-        *old_map = new_map;
-        new_seq.shrink_to_fit();
-        // TODO: avoid creating a new record here, see issue #143 https://github.com/acg-team/rust-phylo/issues/143
-        let new_record = record!(id, old_record.desc(), &new_seq);
-        self.ancestral_seqs
-            .update_record(id, new_record)
-            .expect("updating ancestral record failed. Please report this at https://github.com/acg-team/rust-phylo/issues");
     }
 }
 

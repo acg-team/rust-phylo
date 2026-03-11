@@ -7,7 +7,7 @@ use itertools::Itertools;
 use lazy_static::lazy_static;
 use nalgebra::{DMatrix, DVector};
 
-use crate::alignment::AncestralAlignment;
+use crate::alignment::{AncestralAlignment, Mapping};
 use crate::likelihood::{ModelSearchCost, ParamRange, TreeSearchCost};
 use crate::phylo_info::PhyloInfo;
 use crate::random::FakeGenerator;
@@ -15,6 +15,7 @@ use crate::substitution_models::FreqVector;
 use crate::tkf_model::reestimate::EdgeSeqsReestimator;
 use crate::tree::NodeIdx::{self, Internal, Leaf};
 use crate::tree::Tree;
+use crate::{bail, Result, REPORT_ISSUES_URL};
 
 lazy_static! {
     pub(super) static ref DUMMY_FREQS: DVector<f64> = DVector::<f64>::zeros(0);
@@ -32,6 +33,92 @@ pub(super) enum Event {
     Deletion,
     Homolog,
     Nothing,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub(super) enum NumBlockAppearances {
+    Variable(usize),
+    Fixed,
+}
+
+/// All the [blocks](`Block`) in an [alignment](`AncestralAlignment`).
+pub type Blocks = Vec<Block>;
+
+/// A block is a contiguous segment of the alignment where the presence or absence of characters in
+/// the ancestral mappings is uniform within every sequence.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Block {
+    /// The right exclusive interval border of the block.
+    /// For example, if the block is [3, 5), the block border is 5.
+    border: usize,
+    /// Since within a block the presence or absence of characters in the ancestral mappings are the same,
+    /// we can just use one representative site to determine the [event](`Event`) for the whole block.
+    rep_site: usize,
+    /// The length of the block, i.e., border - previous block border.
+    len: usize,
+    /// Either the number of times this block's border appears in the alignment, or whether it should be
+    /// treated as a fixed block independently of the number of appearances.
+    /// Under the [`crate::tkf_model::TKF91IndelModel`] all blocks are
+    /// [fixed](`NumBlockAppearances::Fixed`), since it's a single site model.
+    /// Under the [`crate::tkf_model::TKF92IndelModel`] the blocks are
+    /// [variable](`NumBlockAppearances::Variable`), since during
+    /// [re-estimation](`EdgeSeqsReestimator`) the block borders can change and we need to keep
+    /// track of how many times they appear in the alignment to know when to merge blocks.
+    num_appearances: NumBlockAppearances,
+}
+
+impl Block {
+    /// Creates a new [`Block`], panicking if any invariant is violated:
+    /// - `border > 0`
+    /// - `len > 0`
+    /// - `rep_site` is within the half-open interval `[border - len, border)`
+    pub(super) fn new(
+        border: usize,
+        rep_site: usize,
+        len: usize,
+        num_appearances: NumBlockAppearances,
+    ) -> Self {
+        assert!(border > 0, "Block border must be greater than 0.");
+        assert!(len > 0, "Block length must be greater than 0.");
+        assert!(
+            rep_site >= border - len && rep_site < border,
+            "Block rep_site {rep_site} must lie within [{}, {border}).",
+            border - len
+        );
+        Block {
+            border,
+            rep_site,
+            len,
+            num_appearances,
+        }
+    }
+
+    pub(super) fn rep_site(&self) -> usize {
+        self.rep_site
+    }
+
+    /// Returns a mutable reference to the number of appearances of this block's border (i.e., [`Self::coordinates`]\().1) in the alignment.
+    pub(super) fn num_appearances_mut(&mut self) -> &mut NumBlockAppearances {
+        &mut self.num_appearances
+    }
+
+    #[cfg(test)]
+    pub(super) fn num_appearances(&self) -> NumBlockAppearances {
+        self.num_appearances
+    }
+
+    /// Returns the coordinates of the block as a tuple [start, end)
+    pub fn coordinates(&self) -> (usize, usize) {
+        let start = self.border - self.len;
+        let end = self.border;
+        (start, end)
+    }
+
+    /// Returns the length of the block (which is always greater than 0).
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> usize {
+        self.len
+    }
 }
 
 /// Trait for TKF indel models (i.e., [TKF91IndelModel](`crate::tkf_model::TKF91IndelModel`),
@@ -56,12 +143,12 @@ pub trait TKFModel: Clone + Display {
     /// Returns the factor corresponding to an insertion event at a non-root node.
     fn insertion_factor_at_non_root(&self, beta: f64) -> f64;
     /// Given the subtree event factor for the root (i.e., the tree event factor)
-    /// and the block length, returns the log probability of the [block](`TKFModel::get_blocks`) under the model.
+    /// and the [block length](`Block::len`), returns the log probability of the [block](`TKFModel::get_blocks`) under the model.
     fn block_prob(&self, tree_event_factor: f64, block_len: usize) -> f64;
-    /// For every block (i.e., an alignment slice) as determined by this method and factors
+    /// For every [block](`Block`) (i.e., an alignment slice) as determined by this method and factors
     /// corresponding to the evolutionary events in this block [`TKFModel::block_prob`] computes
     /// the log probability of the block under the model.
-    fn get_blocks<AA: AncestralAlignment>(&self, msa: &AA) -> Vec<usize>;
+    fn get_blocks<AA: AncestralAlignment>(&self, msa: &AA) -> Blocks;
 }
 
 // TODO: link our paper once it is published. For now see original TKF92 paper: https://doi.org/10.1007/bf00163848
@@ -107,12 +194,9 @@ pub(super) struct TKFIndelModelInfo {
     /// See [`eta`] function.
     pub(super) eta: Vec<f64>,
 
-    /// The right exclusive interval borders of the blocks.
-    /// See [`TKFModel::get_blocks`].
-    pub(super) blocks: Vec<usize>,
-    /// The lengths of the blocks.
-    /// See [`get_block_lengths`].
-    pub(super) block_lengths: Vec<usize>,
+    /// The blocks in the alignment, which are determined by
+    /// [`TKFModel::get_blocks`]
+    pub(super) blocks: Blocks,
 
     /// previous_event_deletion[node] = true if the last event was a deletion for a that <node>.
     /// See [`TKFIndelCost::determine_event`] and [`TKFIndelCost::update_previous_event`].
@@ -133,7 +217,6 @@ impl TKFIndelModelInfo {
         phylo: &PhyloInfo<AA>,
     ) -> TKFIndelModelInfo {
         let blocks = model.get_blocks(&phylo.msa);
-        let block_lengths = get_block_lengths(&blocks);
         let n_blocks = blocks.len();
         let n_nodes = phylo.tree.len();
         TKFIndelModelInfo {
@@ -147,7 +230,6 @@ impl TKFIndelModelInfo {
             insertion: vec![0.0; n_nodes],
             eta: vec![0.0; n_nodes],
             blocks,
-            block_lengths,
             previous_event_deletion: FixedBitSet::with_capacity(n_nodes),
             valid: FixedBitSet::with_capacity(n_nodes),
             valid_for_reestimation: FixedBitSet::with_capacity(n_nodes),
@@ -213,11 +295,10 @@ impl<T: TKFModel, AA: AncestralAlignment> TKFIndelCost<T, AA> {
         for node in self.phylo.tree.preorder().iter().skip(1) {
             logl += log_i1(lambda, model_info.beta[usize::from(node)]);
         }
-        for block_id in 0..model_info.blocks.len() {
-            let block_len = model_info.block_lengths[block_id];
+        for (block_id, block) in model_info.blocks.iter().enumerate() {
             logl += model_info.subtree_eta[(root_id, block_id)];
             let tree_event_factor = model_info.subtree_event_factor[(root_id, block_id)];
-            logl += self.model.block_prob(tree_event_factor, block_len);
+            logl += self.model.block_prob(tree_event_factor, block.len);
         }
         logl
     }
@@ -329,16 +410,17 @@ impl<T: TKFModel, AA: AncestralAlignment> TKFIndelCost<T, AA> {
     pub(super) fn determine_event(&self, node_idx: &NodeIdx, block_id: usize) -> Event {
         // the presence or absence of characters is the same for all sites in a block
         // so we can just check the last site of the block
-        let site = self.model_info.borrow().blocks[block_id] - 1;
+        let site = self.model_info.borrow().blocks[block_id].rep_site;
 
         let parent_is_gap = match self.phylo.tree.node(node_idx).parent {
             Some(parent_idx) => match parent_idx {
                 Internal(_) => self.phylo.msa.ancestral_map(&parent_idx)[site].is_none(),
-                _ => unreachable!("The parent of a node cannot be a leaf."),
+                _ => unreachable!("The parent of a node cannot be a leaf. Please report this at {REPORT_ISSUES_URL}"),
             },
-            None => true, // root has no parent, so we treat the position as a gap, then if there is
-                          // a character at the root the event will be determined as an insertion,
-                          // which is correct under the TKF model
+            // root has no parent, so we treat the position as a gap, then if there is
+            // a character at the root the event will be determined as an insertion,
+            // which is correct under the TKF model
+            None => true,
         };
 
         let current_is_gap = match node_idx {
@@ -366,11 +448,9 @@ impl<T: TKFModel, AA: AncestralAlignment> TKFIndelCost<T, AA> {
         }
     }
 
-    /// Returns eta if the current event is an insertion and the previous one was a deletion, 0
-    /// otherwise.
+    /// Returns eta if the current event is an insertion and the previous one was a deletion, 0 otherwise.
     /// See [`eta`] function.
-    /// Since there can't be a deletion at the root (it has no parent),
-    /// this function is only for non-root nodes.
+    /// Since there can't be a deletion at the root (it has no parent), this function is only for non-root nodes.
     pub(super) fn eta_for_non_root(&self, node_idx: &NodeIdx, event: Event) -> f64 {
         let model_info = self.model_info.borrow();
         if matches!(event, Event::Insertion)
@@ -379,6 +459,173 @@ impl<T: TKFModel, AA: AncestralAlignment> TKFIndelCost<T, AA> {
             model_info.eta[usize::from(node_idx)]
         } else {
             0.0
+        }
+    }
+
+    /// Checks whether the new mapping conforms to the current blocking of the alignment, i.e.,
+    /// presence or absence of characters in the ancestral mapping is uniform within every block.
+    /// If this is not the case, an error is returned.
+    fn mapping_conforms_to_blocking(&self, mapping: &Mapping) -> Result<()> {
+        let blocks = &self.model_info.borrow().blocks;
+        for block in blocks {
+            let (start, end) = block.coordinates();
+            let mapping_slice = &mapping[start..end];
+            if let Some((first, rest)) = mapping_slice.split_first() {
+                let required_state = first.is_some();
+                if !rest.iter().all(|x| x.is_some() == required_state) {
+                    bail!(
+                    TKF,
+                    "the new mapping does not conform to the current blocking of the alignment, \
+                     i.e., presence or absence of characters in the ancestral mapping \
+                     is not uniform within every block."
+                );
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Given the new ancestral mapping and comparing it to the old one, checks whether
+    /// the block border at `block_id` is still enforced by the alignment. It does this by
+    /// decreasing the count of appearances for this block border and if it reaches zero, i.e.,
+    /// the alignment no longer enforces this block border, it returns true, which is a signal to
+    /// merge the two blocks around this block border, see [`Self::update_mappings_and_model_info`].
+    /// Since we are only checking sites at block borders, we can only merge blocks and not split them.
+    fn decrease_count_and_is_zero(&self, old: &Mapping, new: &Mapping, block_id: usize) -> bool {
+        let blocks = &mut self.model_info.borrow_mut().blocks;
+        let prev_site = blocks[block_id - 1].rep_site;
+        let curr_site = blocks[block_id].rep_site;
+        let transition_in_old = old[prev_site].is_some() ^ old[curr_site].is_some();
+        let transition_in_new = new[prev_site].is_some() ^ new[curr_site].is_some();
+
+        if transition_in_old && !transition_in_new {
+            match &mut blocks[block_id - 1].num_appearances_mut() {
+                NumBlockAppearances::Variable(count) => {
+                    assert!(
+                        *count > 0,
+                        "Tried to subtract one from already zero count of block appearances. \
+                         Please report this at {REPORT_ISSUES_URL}"
+                    );
+                    *count -= 1;
+                    return *count == 0;
+                }
+                NumBlockAppearances::Fixed => {
+                    return false;
+                }
+            }
+        }
+        false
+    }
+
+    /// Given a new ancestral mapping for a node updates the mapping in the alignment and updates
+    /// the model info accordingly, i.e., merges blocks if necessary and adjusts model info matrix
+    /// dimensions in that case and sets the tmp values for the node and its children as invalid,
+    /// since the [events](Event) on these edges might have changed due to the updated mapping.
+    ///
+    /// # Errors
+    /// - bails if the length of the new mapping does not match the alignment length
+    /// - bails if the node is not an internal one of the [`PhyloInfo`]s tree
+    /// - bails if the new mapping does not [conform to the current blocking](`Self::mapping_conforms_to_blocking`) of the alignment
+    ///
+    /// # Notes
+    /// If all initial ancestral mappings do not [enforce any block borders](TKFModel::get_blocks)
+    /// that are not already enforced by the leaf mappings, this method will never merge blocks and
+    /// therefore never change the dimensions of the [`TKFIndelModelInfo`] matrices, since the
+    /// [NumBlockAppearances] will never [reach zero](`Self::decrease_count_and_is_zero`).
+    /// So, in the case where the ancestral mappings are estimated with column i.i.d. methods
+    /// from the leaf alignment, this method will not merge blocks.
+    /// However, if the ancestral mappings are taken from simulation for example,
+    /// then ancestral mappings might enforce block borders that are not enforced by the leaf mappings,
+    /// and then during re-estimation these blocks might need to be merged if the new ancestral mapping
+    /// no longer enforces the block border.
+    pub(super) fn update_mappings_and_model_info(
+        &mut self,
+        node_idx: &NodeIdx,
+        new_map: Mapping,
+    ) -> Result<()> {
+        if self.phylo.msa.ancestral_maps().get(node_idx).is_none() {
+            match node_idx {
+                Internal(_) => bail!(AncestralAlignment, "no ancestral map found for: {node_idx}"),
+                Leaf(_) => bail!(
+                    AncestralAlignment,
+                    "ancestral map cannot be set for a leaf node like {node_idx}"
+                ),
+            }
+        }
+        if new_map.len() != self.phylo.msa.len() {
+            bail!(
+                AncestralAlignment,
+                "mapping length {} does not match MSA length {}",
+                new_map.len(),
+                self.phylo.msa.len()
+            );
+        }
+        self.mapping_conforms_to_blocking(&new_map)?;
+        self.update_mappings_and_model_info_unchecked(node_idx, new_map);
+        Ok(())
+    }
+
+    /// This is the unchecked version of [`Self::update_mappings_and_model_info`].
+    pub(super) fn update_mappings_and_model_info_unchecked(
+        &mut self,
+        node_idx: &NodeIdx,
+        new_map: Mapping,
+    ) {
+        let prev_map = self.phylo.msa.ancestral_map(node_idx).clone();
+        self.phylo
+            .msa
+            .update_ancestral_map_unchecked(node_idx, new_map);
+
+        let mut block_id = 1;
+        let mut num_blocks = self.model_info.borrow().blocks.len();
+        let mut merged = false;
+        while block_id < num_blocks {
+            let new_map = self.phylo.msa.ancestral_map(node_idx);
+            let merge_blocks = self.decrease_count_and_is_zero(&prev_map, new_map, block_id);
+            if merge_blocks {
+                self.merge_blocks_and_adjust_dimensions(block_id);
+                merged = true;
+                num_blocks -= 1;
+            } else {
+                block_id += 1;
+            }
+        }
+        if merged {
+            // the node_eta of all nodes need to be correctly updated next time the logl is called
+            self.model_info.borrow_mut().valid.clear();
+        } else {
+            // setting the node and its children tmp values as invalid, since the events on these edges might have
+            // changed due to the updated mapping
+            self.set_affected_nodes_as_invalid(node_idx);
+        }
+    }
+
+    fn merge_blocks_and_adjust_dimensions(&mut self, block_id: usize) {
+        let mut model_info = self.model_info.borrow_mut();
+        // updating the blocks in the model_info, i.e., merge the previous block with the current one
+        let additional_len = model_info.blocks[block_id - 1].len;
+        model_info.blocks.remove(block_id - 1);
+        model_info.blocks[block_id - 1].len += additional_len;
+
+        // updating the dimensions of the model_info matrices
+        // model_info.node_event_factor.remove_column(block_id - 1); does not work
+        // since: cannot move out of dereference of `std::cell::RefMut<'_, tkf_model::tkf_indel::TKFIndelModelInfo>`
+        // so instead we do this mem trick
+        let remove_col = |matrix: &mut DMatrix<f64>| {
+            let old = std::mem::replace(matrix, DMatrix::zeros(0, 0));
+            *matrix = old.remove_column(block_id - 1);
+        };
+        remove_col(&mut model_info.node_event_factor);
+        remove_col(&mut model_info.subtree_event_factor);
+        remove_col(&mut model_info.node_eta);
+        remove_col(&mut model_info.subtree_eta);
+    }
+
+    fn set_affected_nodes_as_invalid(&self, node_idx: &NodeIdx) {
+        let mut model_info = self.model_info.borrow_mut();
+        model_info.valid.set(usize::from(node_idx), false);
+        for child in &self.phylo.tree.node(node_idx).children {
+            model_info.valid.set(usize::from(child), false);
         }
     }
 }
@@ -520,20 +767,6 @@ pub(super) fn eta(lambda: f64, mu: f64, beta: f64, n0: f64, time: f64) -> f64 {
     eta -= (lambda * beta).ln();
     eta -= n0.ln();
     eta
-}
-
-/// Given the right exclusive block borders, returns the lengths of the blocks.
-/// For example, given [3, 5, 8], the block lengths are [3, 2, 3].
-pub(super) fn get_block_lengths(blocks: &[usize]) -> Vec<usize> {
-    let mut block_lens = vec![0; blocks.len()];
-    for (i, block) in blocks.iter().enumerate() {
-        block_lens[i] = if i == 0 {
-            *block
-        } else {
-            block - blocks[i - 1]
-        };
-    }
-    block_lens
 }
 
 #[cfg(test)]

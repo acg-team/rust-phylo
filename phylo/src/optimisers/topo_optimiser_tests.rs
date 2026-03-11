@@ -18,7 +18,7 @@ use crate::substitution_models::{
     dna_models::*, protein_models::*, QMatrix, SubstModel, SubstitutionCost,
     SubstitutionCostBuilder as SCB,
 };
-use crate::tkf_model::{blocks_of_alignment, TKF92CostBuilder, TKF92IndelAddBlocksCostBuilder};
+use crate::tkf_model::{TKF92CostBuilder, TKF92IndelCostBuilder};
 use crate::{record_wo_desc as record, tree};
 
 // Macros for tests where precomputed results can be used to speed up local testing
@@ -958,7 +958,6 @@ fn tkf92_topo_opti() {
     let mut prev_cost = tkf_cost.clone();
     assert_ne!(unopt_cost, f64::NEG_INFINITY);
     let mut rng = FakeGenerator::default();
-    let initial_msa_blocking = blocks_of_alignment(&phylo.msa);
     for _ in 0..5 {
         let result = TopologyOptimiser::with_stop_condition(
             prev_cost.clone(),
@@ -973,15 +972,9 @@ fn tkf92_topo_opti() {
             msa: masa,
             tree: result.cost.tree().clone(),
         };
-        let new_indel_cost = TKF92IndelAddBlocksCostBuilder::new(
-            lambda,
-            mu,
-            r,
-            initial_msa_blocking.clone(),
-            new_phylo.clone(),
-        )
-        .build()
-        .unwrap();
+        let new_indel_cost = TKF92IndelCostBuilder::new(lambda, mu, r, new_phylo.clone())
+            .build()
+            .unwrap();
         let new_subst_cost = SCB::new(subst_model.clone(), new_phylo).build().unwrap();
         let new_cost = new_indel_cost.cost() + new_subst_cost.cost();
 

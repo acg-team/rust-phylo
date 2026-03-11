@@ -1,6 +1,7 @@
 use approx::assert_relative_eq;
 use assert_matches::assert_matches;
 use nalgebra::DVector;
+use rstest::rstest;
 
 use crate::alignment::{Alignment, AncestralAlignment, Mapping, Sequences, MASA};
 use crate::alphabets::Alphabet;
@@ -122,15 +123,10 @@ fn tkf92_indel_logl_without_aggregation<AA: AncestralAlignment>(
     let mut last_event_deletion = vec![false; tree.len()];
     for (i, fragment) in blocks.iter().enumerate() {
         let mut event_prob = 1.0;
-        let fragment_len = if i == 0 {
-            *fragment
-        } else {
-            fragment - blocks[i - 1]
-        };
-        if get_mapping_for_any_node(&phylo.msa, &phylo.tree.root)[fragment - 1].is_some() {
+        if get_mapping_for_any_node(&phylo.msa, &phylo.tree.root)[fragment.rep_site()].is_some() {
             // the eq seq at the root has a fragment
             event_prob *= lambda / mu * (1.0 - r) / r;
-            prob += fragment_len as f64 * r.ln();
+            prob += fragment.len() as f64 * r.ln();
         }
         for node_idx in tree.postorder() {
             // skipping the root of the tree because it has no parent and therefore also no
@@ -143,9 +139,9 @@ fn tkf92_indel_logl_without_aggregation<AA: AncestralAlignment>(
             let time = tree.node(node_idx).blen;
             let parent_id = &tree.node(node_idx).parent.unwrap();
             let parent_is_gap =
-                get_mapping_for_any_node(&phylo.msa, parent_id)[fragment - 1].is_none();
+                get_mapping_for_any_node(&phylo.msa, parent_id)[fragment.rep_site()].is_none();
             let current_is_gap =
-                get_mapping_for_any_node(&phylo.msa, node_idx)[fragment - 1].is_none();
+                get_mapping_for_any_node(&phylo.msa, node_idx)[fragment.rep_site()].is_none();
 
             let beta = beta(lambda, mu, time);
             if i == 0 {
@@ -169,12 +165,12 @@ fn tkf92_indel_logl_without_aggregation<AA: AncestralAlignment>(
                     prob -= n0(mu, beta).ln();
                 }
                 event_prob *= lambda * beta * (1.0 - r) / r;
-                prob += fragment_len as f64 * r.ln();
+                prob += fragment.len() as f64 * r.ln();
                 last_event_deletion[node_id_value] = false;
             }
         }
         prob += event_prob.ln();
-        prob += (fragment_len - 1) as f64 * (1.0 + event_prob).ln();
+        prob += (fragment.len() - 1) as f64 * (1.0 + event_prob).ln();
     }
     prob
 }
@@ -249,10 +245,18 @@ fn tkf91_get_blocks() {
     let msa = MASA::from_aligned_with_ancestral(seqs, &tree).unwrap();
 
     let blocks = TKF91IndelModel::default().get_blocks(&msa);
-    let block_lens = get_block_lengths(&blocks);
 
-    assert_eq!(blocks, (1..msa.len() + 1).collect::<Vec<usize>>());
-    assert_eq!(block_lens, vec![1; 6]);
+    let block_borders = blocks
+        .iter()
+        .map(|b| b.coordinates().1)
+        .collect::<Vec<usize>>();
+    assert_eq!(block_borders, (1..msa.len() + 1).collect::<Vec<usize>>());
+    let block_sites = blocks.iter().map(|b| b.rep_site()).collect::<Vec<usize>>();
+    assert_eq!(block_sites, (0..msa.len()).collect::<Vec<usize>>());
+    for block in blocks {
+        assert_eq!(block.len(), 1);
+        assert_eq!(block.num_appearances(), NumBlockAppearances::Fixed);
+    }
 }
 
 #[test]
@@ -263,14 +267,32 @@ fn tkf92_get_blocks() {
         record!("B1", b"-ARAW"),
         record!("I1", b"AAA-A"),
     ]);
-
     let msa = MASA::from_aligned_with_ancestral(seqs, &tree).unwrap();
 
     let blocks = TKF92IndelModel::default().get_blocks(&msa);
-    let block_lens = get_block_lengths(&blocks);
 
-    assert_eq!(blocks, vec![1, 3, 4, 5]);
+    let block_borders = blocks
+        .iter()
+        .map(|b| b.coordinates().1)
+        .collect::<Vec<usize>>();
+    assert_eq!(block_borders, vec![1, 3, 4, 5]);
+    let block_sites = blocks.iter().map(|b| b.rep_site()).collect::<Vec<usize>>();
+    assert_eq!(block_sites, vec![0, 2, 3, 4]);
+    let block_lens = blocks.iter().map(|b| b.len()).collect::<Vec<usize>>();
     assert_eq!(block_lens, vec![1, 2, 1, 1]);
+    let block_num_appearances = blocks
+        .iter()
+        .map(|b| b.num_appearances())
+        .collect::<Vec<NumBlockAppearances>>();
+    assert_eq!(
+        block_num_appearances,
+        vec![
+            NumBlockAppearances::Variable(1), // block from the msa, only B1 introduces this border
+            NumBlockAppearances::Variable(2), // block from the msa, both A0 and I1 introduce this border
+            NumBlockAppearances::Variable(2), // block from the msa, both A0 and I1 introduce this border
+            NumBlockAppearances::Variable(3), // block from the msa, all three sequences introduce this border
+        ]
+    );
 }
 
 #[test]
@@ -291,10 +313,21 @@ fn tkf92_fixed_get_blocks() {
         fragmentation,
     };
     let blocks = model.get_blocks(&msa);
-    let block_lens = get_block_lengths(&blocks);
 
-    assert_eq!(blocks, vec![1, 2, 3, 7, 8, 9]);
+    let block_borders = blocks
+        .iter()
+        .map(|b| b.coordinates().1)
+        .collect::<Vec<usize>>();
+    assert_eq!(block_borders, vec![1, 2, 3, 7, 8, 9]);
+    let block_sites = blocks.iter().map(|b| b.rep_site()).collect::<Vec<usize>>();
+    assert_eq!(block_sites, vec![0, 1, 2, 6, 7, 8]);
+    let block_lens = blocks.iter().map(|b| b.len()).collect::<Vec<usize>>();
     assert_eq!(block_lens, vec![1, 1, 1, 4, 1, 1]);
+    let block_num_appearances = blocks
+        .iter()
+        .map(|b| b.num_appearances())
+        .collect::<Vec<NumBlockAppearances>>();
+    assert_eq!(block_num_appearances, vec![NumBlockAppearances::Fixed; 6]);
 }
 
 #[cfg(test)]
@@ -521,20 +554,6 @@ fn tkf92_fixed_param_range() {
         TKF92FixedIndelCostBuilder::new(1.0, 2.0, 0.3, vec![], setup_test_phylo(Alphabet::dna()))
             .build()
             .unwrap();
-    tkf92_indel_param_range(&tkf_cost);
-}
-
-#[test]
-fn tkf92_add_param_range() {
-    let tkf_cost = TKF92IndelAddBlocksCostBuilder::new(
-        1.0,
-        2.0,
-        0.3,
-        vec![],
-        setup_test_phylo(Alphabet::dna()),
-    )
-    .build()
-    .unwrap();
     tkf92_indel_param_range(&tkf_cost);
 }
 
@@ -955,4 +974,194 @@ fn tkf_udpate_tree() {
     let clean_logl = TreeSearchCost::cost(&clean_cost);
     assert_ne!(original_logl, new_logl);
     assert_eq!(new_logl, clean_logl);
+}
+
+#[rstest]
+#[case::violates_block_1( vec![ Some(0), None, None, None, None, None, None, None, None, None], true)]
+#[case::violates_block_3( vec![ Some(0), Some(1), None, Some(0), None, Some(2), Some(3), Some(4), Some(5), Some(6)], true)]
+#[case::violates_block_4( vec![ None, None, None, Some(0), Some(1), Some(2), Some(3), Some(4), Some(5), None], true)]
+#[case::all_none( vec![ None, None, None, None, None, None, None, None, None, None], false)]
+#[case::all_some( vec![ Some(0), Some(0), Some(0), Some(0), Some(0), Some(0), Some(0), Some(0), Some(0), Some(0)], false)]
+fn tkf_mapping_conforms_to_blocking(
+    #[case] new_mapping: Vec<Option<usize>>,
+    #[case] should_error: bool,
+) {
+    // the blocks are [0:2), [2:3), [3:7), [7:10)
+    let phylo = setup_test_phylo(Alphabet::dna());
+    let mut cost = TKF92IndelCostBuilder::new(0.1, 0.2, 0.3, phylo.clone())
+        .build()
+        .unwrap();
+    let result = cost.update_mappings_and_model_info(&Internal(0), new_mapping);
+    if should_error {
+        assert_matches!(
+            result,
+            Err(Error::TKF(msg))
+                if msg.contains(
+                    "new mapping does not conform to the current blocking of the alignment"
+                )
+        );
+    } else {
+        assert!(result.is_ok());
+    }
+}
+
+#[test]
+fn tkf_update_mappings_and_model_info_fails_wrong_length_map() {
+    let phylo = setup_test_phylo(Alphabet::dna());
+    let mut cost = TKF92IndelCostBuilder::new(0.1, 0.2, 0.3, phylo.clone())
+        .build()
+        .unwrap();
+    let err = cost.update_mappings_and_model_info(&Internal(0), vec![]);
+    assert_matches!(
+        err, Err(Error::AncestralAlignment(msg)) if msg.contains(
+        "does not match MSA length")
+    );
+}
+
+#[test]
+fn tkf_update_mappings_and_model_info_fails_wrong_internal_node() {
+    let phylo = setup_test_phylo(Alphabet::dna());
+    let mut cost = TKF92IndelCostBuilder::new(0.1, 0.2, 0.3, phylo.clone())
+        .build()
+        .unwrap();
+    let new_mapping = vec![None; 10];
+    let err = cost.update_mappings_and_model_info(&Internal(1000), new_mapping);
+    assert_matches!(
+        err, Err(Error::AncestralAlignment(msg)) if msg.contains(
+        "no ancestral map found for: internal node 1000")
+    );
+}
+
+#[test]
+fn tkf_update_mappings_and_model_info_fails_leaf() {
+    let phylo = setup_test_phylo(Alphabet::dna());
+    let mut cost = TKF92IndelCostBuilder::new(0.1, 0.2, 0.3, phylo.clone())
+        .build()
+        .unwrap();
+    let new_mapping = vec![None; 10];
+    let err = cost.update_mappings_and_model_info(&Leaf(0), new_mapping);
+    assert_matches!(
+        err, Err(Error::AncestralAlignment(msg)) if msg.contains(
+        "ancestral map cannot be set for a leaf node like")
+    );
+}
+
+#[test]
+fn tkf_update_mappings_and_model_info_fails_not_blocking_conform() {
+    let phylo = setup_test_phylo(Alphabet::dna());
+    let mut cost = TKF92IndelCostBuilder::new(0.1, 0.2, 0.3, phylo.clone())
+        .build()
+        .unwrap();
+    let mut new_mapping = vec![None; 10];
+    new_mapping[0] = Some(0);
+    let err = cost.update_mappings_and_model_info(&Internal(0), new_mapping);
+    assert_matches!(
+        err, Err(Error::TKF(msg)) if msg.contains(
+        "new mapping does not conform to the current blocking of the alignment")
+    );
+}
+
+#[test]
+fn tkf92_update_mappings_and_model_info_succeeds() {
+    let tree = tree!("(((A1:2.0,B2:2.0)I3:0.3,C4:2.0)R5:1.0);");
+    let msa = MASA::from_aligned_with_ancestral(
+        Sequences::new(vec![
+            record!("A1", b"--GTGGA---"),
+            record!("B2", b"-------NNA"),
+            record!("I3", b"--TT------"),
+            record!("C4", b"AGG-------"),
+            record!("R5", b"--A-------"),
+        ]),
+        &tree,
+    )
+    .unwrap();
+    let phylo = PhyloInfo { msa, tree };
+    let mut cost = TKF92IndelCostBuilder::new(0.1, 0.2, 0.3, phylo.clone())
+        .build()
+        .unwrap();
+    assert_eq!(cost.model_info.borrow().blocks.len(), 5);
+    let new_mapping = vec![
+        None,
+        None,
+        Some(0),
+        Some(1),
+        Some(2),
+        Some(3),
+        Some(4),
+        None,
+        None,
+        None,
+    ];
+    let node_idx = &phylo.tree.by_id("I3").idx;
+    cost.update_mappings_and_model_info_unchecked(node_idx, new_mapping);
+    // two blocks got merged into 1, so there is one fewer block
+    assert_eq!(cost.model_info.borrow().blocks.len(), 4);
+    let blocks = &cost.model_info.borrow().blocks;
+    let block_right_borders = blocks
+        .iter()
+        .map(|block| block.coordinates().1)
+        .collect::<Vec<_>>();
+    assert_eq!(block_right_borders, vec![2, 3, 7, 10]);
+    let block_lens = blocks.iter().map(|block| block.len()).collect::<Vec<_>>();
+    assert_eq!(block_lens, vec![2, 1, 4, 3]);
+    let num_appearances = blocks
+        .iter()
+        .map(|block| block.num_appearances())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        num_appearances,
+        vec![
+            NumBlockAppearances::Variable(3),
+            NumBlockAppearances::Variable(2),
+            NumBlockAppearances::Variable(2), // this increased by one due to the updated mapping
+            NumBlockAppearances::Variable(5),
+        ]
+    );
+}
+
+#[test]
+fn tkf91_update_mappings_and_model_info_succeeds() {
+    let tree = tree!("(((A1:2.0,B2:2.0)I3:0.3,C4:2.0)R5:1.0);");
+    let msa = MASA::from_aligned_with_ancestral(
+        Sequences::new(vec![
+            record!("A1", b"---TGGA---"),
+            record!("B2", b"-------NNA"),
+            record!("I3", b"---T------"),
+            record!("C4", b"AG--------"),
+            record!("R5", b"--A-------"),
+        ]),
+        &tree,
+    )
+    .unwrap();
+    let phylo = PhyloInfo { msa, tree };
+    let mut cost = TKF91IndelCostBuilder::new(0.1, 0.2, phylo.clone())
+        .build()
+        .unwrap();
+    assert_eq!(cost.model_info.borrow().blocks.len(), 10);
+    let new_mapping = vec![None; 10];
+    let node_idx = &phylo.tree.by_id("R5").idx;
+    cost.update_mappings_and_model_info_unchecked(node_idx, new_mapping);
+    // two blocks got merged into 1, so there is one fewer block
+    assert_eq!(cost.model_info.borrow().blocks.len(), 10);
+    let blocks = &cost.model_info.borrow().blocks;
+    let block_right_borders = blocks
+        .iter()
+        .map(|block| block.coordinates().1)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        block_right_borders,
+        (1..=10).collect::<Vec<_>>(),
+        "block borders incorrect"
+    );
+    let block_lens = blocks.iter().map(|block| block.len()).collect::<Vec<_>>();
+    assert_eq!(block_lens, vec![1; 10], "block lens incorrect");
+    let num_appearances = blocks
+        .iter()
+        .map(|b| b.num_appearances())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        num_appearances,
+        vec![NumBlockAppearances::Fixed; 10],
+        "num appearances incorrect"
+    );
 }

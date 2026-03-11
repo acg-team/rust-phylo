@@ -5,14 +5,15 @@ use log::warn;
 use num_enum::FromPrimitive;
 use rstest::rstest;
 
+use crate::alignment::AncestralAlignment;
+use crate::alphabets::Alphabet;
 use crate::likelihood::{ParamRange, PARAM_RANGE_UNIT_INTERVAL_EXCLUSIVE};
 use crate::phylo_info::PhyloInfo;
 use crate::tkf_model::{
-    blocks_of_alignment, validate_lambda_and_mu, validate_r, TKF92Parameters, TKFIndelCost,
-    TKFIndelModelInfo,
+    blocks_of_alignment, validate_lambda_and_mu, validate_r, Block, Blocks, NumBlockAppearances,
+    TKF92Parameters, TKFIndelCost, TKFIndelModelInfo, TKFModel,
 };
 use crate::Result;
-use crate::{alignment::AncestralAlignment, tkf_model::TKFModel};
 
 /// TKF92 indel model with a `fixed fragmentation` (and without a substitution model),
 /// which means that the provided fragmentation will be regarded as the true fragmentation.
@@ -88,50 +89,27 @@ impl TKFModel for TKF92FixedIndelModel {
         }
     }
 
-    fn get_blocks<AA: AncestralAlignment>(&self, msa: &AA) -> Vec<usize> {
+    fn get_blocks<AA: AncestralAlignment>(&self, msa: &AA) -> Blocks {
+        // collect all right-exclusive block borders: from the alignment and from the fixed fragmentation
         let alignment_blocks = blocks_of_alignment(msa);
-        merge_fragmentation_with_blocks(&self.fragmentation, &alignment_blocks)
+        let mut all_borders: Vec<usize> = alignment_blocks
+            .iter()
+            .map(|block| block.coordinates().1)
+            .chain(self.fragmentation.iter().copied())
+            .collect();
+        all_borders.sort_unstable();
+        all_borders.dedup();
+        // build blocks in a single pass with correct lengths
+        let mut prev_border = 0;
+        all_borders
+            .into_iter()
+            .map(|border| {
+                let len = border - prev_border;
+                prev_border = border;
+                Block::new(border, border - 1, len, NumBlockAppearances::Fixed)
+            })
+            .collect()
     }
-}
-
-/// Merges the user defined fragmentation with the observed block borders in the MSA.
-/// Assumes both inputs are sorted and within MSA length.
-/// This is basically a union of the two sets and then returning the sorted result.
-/// This implementations achieves a better run time than the naive approach.
-#[cfg(test)]
-pub(super) fn merge_fragmentation_with_blocks(
-    fragmentation: &[usize],
-    blocks: &[usize],
-) -> Vec<usize> {
-    let mut frag_iter = fragmentation.iter().peekable();
-    let mut merged = Vec::new();
-    for block in blocks.iter() {
-        let mut next_block = false;
-        while let Some(&frag) = frag_iter.peek() {
-            if frag > block {
-                warn!("Observed right border of block {block} in MSA not in fragmentation, adding it.");
-                merged.push(*block);
-                next_block = true;
-                break;
-            } else if frag == block {
-                next_block = true;
-                break;
-            } else {
-                frag_iter.next();
-            }
-        }
-        if next_block {
-            continue;
-        } else {
-            warn!("Observed right border of block {block} in MSA not in fragmentation, adding it.");
-            merged.push(*block);
-        }
-    }
-    for frag in fragmentation {
-        merged.push(*frag);
-    }
-    merged.sort();
-    merged
 }
 
 #[cfg(test)]
@@ -226,19 +204,11 @@ mod private_tests {
 
     use crate::alignment::{Sequences, MASA};
     use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder};
+    use crate::tkf_model::tests::setup_test_phylo;
     use crate::tkf_model::TKF92IndelCostBuilder;
     use crate::{record_wo_desc as record, tree};
 
     use super::*;
-
-    #[cfg(test)]
-    fn naive_merge(set1: &[usize], set2: &[usize]) -> Vec<usize> {
-        let mut merged: Vec<usize> = set1.to_vec();
-        merged.extend(set2.iter().cloned());
-        merged.sort();
-        merged.dedup();
-        merged
-    }
 
     #[test]
     fn tkf_validate_fragmentation() {
@@ -249,19 +219,38 @@ mod private_tests {
     }
 
     #[rstest]
-    #[case( vec![3, 5, 7, 10], vec![5, 10, 12], vec![3, 5, 7, 10, 12])]
-    #[case( vec![3, 7, 10, 12], vec![5, 10, 12], vec![3, 5, 7, 10, 12])]
-    #[case( vec![], vec![5, 10, 12], vec![5, 10, 12])]
-    #[case( vec![1, 2, 3, 4], vec![1, 2, 3, 4], vec![1, 2, 3, 4])]
-    #[case( vec![1, 2, 4], vec![1, 2, 3, 4], vec![1, 2, 3, 4])]
-    fn tkf_merge_fragmentations_with_blocks(
-        #[case] fragmentation: Vec<usize>,
-        #[case] blocks: Vec<usize>,
-        #[case] expected: Vec<usize>,
-    ) {
-        let merged = merge_fragmentation_with_blocks(&fragmentation, &blocks);
-        assert_eq!(merged, expected);
-        assert_eq!(merged, naive_merge(&fragmentation, &blocks));
+    #[case( vec![3, 5, 7, 10],  vec![2, 3, 5, 7, 10])]
+    #[case( vec![3, 7, 10], vec![2, 3, 7, 10])]
+    #[case( vec![], vec![2, 3, 7, 10])]
+    #[case( vec![1, 2, 3, 4],  vec![1, 2, 3, 4, 7, 10])]
+    #[case( vec![1, 2, 4],  vec![1, 2, 3, 4, 7, 10])]
+    fn tkf_init_fixed_fragment(#[case] fragmentation: Vec<usize>, #[case] expected: Vec<usize>) {
+        let phylo = setup_test_phylo(Alphabet::dna());
+        // the blocks of this alignment are [2, 3, 7, 10]
+        let cost = TKF92FixedIndelCostBuilder::new(1.0, 1.1, 0.5, fragmentation, phylo)
+            .build()
+            .unwrap();
+        let mut prev_border = 0;
+        let blocks = &cost.model_info.borrow().blocks;
+        for (i, expected_border) in expected.iter().enumerate() {
+            let block = &blocks[i];
+            assert_eq!(
+                block.coordinates().1,
+                *expected_border,
+                "Block border does not match expected border."
+            );
+            assert_eq!(
+                block.rep_site(),
+                *expected_border - 1,
+                "Block site does not match expected site."
+            );
+            assert_eq!(
+                block.len(),
+                *expected_border - prev_border,
+                "Block length does not match expected length."
+            );
+            prev_border = *expected_border;
+        }
     }
 
     #[test]

@@ -198,10 +198,21 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
                 info!("Aligned sequences including ancestral sequences");
                 AA::from_aligned_with_ancestral(sequences, &tree)
             } else {
-                bail!(AncestralAlignment, "building an ancestral alignment from unaligned sequences (including ancestral sequences) is not supported");
+                bail!(
+                    AncestralAlignment,
+                    "building an ancestral alignment from unaligned sequences \
+                    (including ancestral sequences) is not supported"
+                );
             }
         } else {
-            bail!(Tree, "the number of sequences ({}) does not match the number of leaves ({}) nor the number of nodes ({}) in the tree", sequences.len(), tree.n, tree.len());
+            bail!(
+                Tree,
+                "the number of sequences ({}) does not match the number of leaves ({}) \
+                nor the number of nodes ({}) in the tree",
+                sequences.len(),
+                tree.n,
+                tree.len()
+            );
         }?;
 
         Ok(PhyloInfo { tree, msa })

@@ -162,12 +162,17 @@ impl<Q: QMatrix, T: TKFModel, AA: AncestralAlignment> TKFCost<Q, T, AA> {
     /// let phylo = PhyloInfo { msa, tree };
     /// let subst_model = SubstModel::<GTR>::new(&[], &[]);
     /// let cost = TKF92CostBuilder::new(0.4, 0.5, 0.8, subst_model, phylo).build()?;
-    /// // under the TKF92 model the blocks are the positions in the alignment where there is
+    /// // under the TKF92 model blocks are defined by the positions in the alignment where there is
     /// // a sequence that changes from gap to non-gap or vice versa (always including the last
     /// // position of the alignment).
-    /// assert_eq!(cost.blocks(), vec![2, 3, 7, 10]);
+    /// let block_coords = cost
+    ///     .blocks()
+    ///     .iter()
+    ///     .map(|block| block.coordinates())
+    ///     .collect::<Vec<_>>();
+    /// assert_eq!(block_coords, vec![(0, 2), (2, 3), (3, 7), (7, 10)]);
     /// # Ok(()) }
-    pub fn blocks(&self) -> Vec<usize> {
+    pub fn blocks(&self) -> Blocks {
         self.indel_cost.model.get_blocks(&self.indel_cost.phylo.msa)
     }
 }
@@ -175,13 +180,6 @@ impl<Q: QMatrix, T: TKFModel, AA: AncestralAlignment> TKFCost<Q, T, AA> {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod tests;
-
-#[cfg(test)]
-#[cfg_attr(coverage, coverage(off))]
-mod tkf92_additional_blocks;
-
-#[cfg(test)]
-pub use tkf92_additional_blocks::*;
 
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
