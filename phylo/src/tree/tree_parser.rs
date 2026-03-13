@@ -43,15 +43,16 @@ pub fn from_newick(newick: &str) -> Result<Vec<Tree>> {
                         bail!(TreeParsing, "malformed newick string", e);
                     }
                     if tree.n != tree.leaf_ids.iter().collect::<HashSet<_>>().len() {
-                        return Err(TreeParsing(
-                            "duplicate leaf IDs found in newick string".to_string(),
+                        bail!(
+                            TreeParsing,
+                            "duplicate leaf IDs found in newick string",
                             Box::new(PestError::new_from_span(
                                 pest::error::ErrorVariant::CustomError {
                                     message: "duplicate leaf IDs".to_string(),
                                 },
                                 rule.as_span(),
-                            )),
-                        ));
+                            ))
+                        );
                     }
 
                     trees.push(tree);
