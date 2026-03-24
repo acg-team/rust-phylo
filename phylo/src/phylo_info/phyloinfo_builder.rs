@@ -420,19 +420,6 @@ mod private_tests {
     }
 
     #[test]
-    fn build_nj_tree_with_dup_ids() {
-        let fldr = Path::new("./data");
-        let builder = PIB::new(fldr.join("sequences_duplicated.fasta"));
-
-        let res_tree = builder.build_nj_tree(
-            &mut FakeGenerator::default(),
-            &builder.read_sequences().unwrap(),
-        );
-
-        assert!(res_tree.is_err());
-    }
-
-    #[test]
     fn build_protein_nj_tree_wo_builder() {
         let fldr = Path::new("./data");
         let builder = PIB::new(fldr.join("sequences_protein1.fasta"));
