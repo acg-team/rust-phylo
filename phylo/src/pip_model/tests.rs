@@ -490,9 +490,10 @@ fn pip_hky_likelihood_example_final() {
     c.cost();
     let tmp = c.tmp.borrow();
 
+    let root_idx = usize::from(info.tree.root);
     let nu = 7.5;
     assert_relative_eq!(
-        tmp.pnu[0],
+        tmp.pnu[root_idx],
         DVector::from_column_slice(&[
             nu * 0.0392204949,
             nu * 0.000148719,
@@ -501,7 +502,7 @@ fn pip_hky_likelihood_example_final() {
         ]),
         epsilon = 1e-3
     );
-    assert_relative_eq!(tmp.c0_pnu[0], -5.591, epsilon = 1e-3);
+    assert_relative_eq!(tmp.c0_pnu[root_idx], -5.591, epsilon = 1e-3);
     assert_relative_eq!(
         c.cost(),
         -20.769363665853653 - 0.709020450847471,
