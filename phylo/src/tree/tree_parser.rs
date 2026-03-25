@@ -71,14 +71,14 @@ impl Tree {
     fn parse_rooted_rule(&mut self, node_rule: Pair<Rule>) -> stdResult<(), Box<PestError<Rule>>> {
         let tree_rule = node_rule.into_inner().next().unwrap();
         let mut node_idx = 0;
-        let mut parent_stack = Vec::<usize>::new();
         match tree_rule.as_rule() {
             Rule::leaf => {
-                self.parse_leaf_rule(&mut node_idx, tree_rule)?;
+                self.parse_leaf_rule(&node_idx, tree_rule)?;
                 self.root = Leaf(0);
             }
             Rule::internal => {
-                self.parse_internal_rule(&mut node_idx, &mut parent_stack, tree_rule)?;
+                let root_idx = self.parse_internal_rule(&mut node_idx, tree_rule)?;
+                self.root = Int(root_idx);
             }
             _ => unreachable!(),
         }
@@ -103,17 +103,18 @@ impl Tree {
     ) -> stdResult<(), Box<PestError<Rule>>> {
         warn!("Found unrooted tree, will root at the trifurcation");
         let mut node_idx = 0;
-        let mut parent_stack = Vec::<usize>::new();
         let mut children: Vec<NodeIdx> = Vec::new();
         for node_rule in tree_rule.into_inner() {
             match node_rule.as_rule() {
                 Rule::leaf => {
-                    children.push(Leaf(node_idx));
-                    self.parse_leaf_rule(&mut node_idx, node_rule)?;
+                    let child = self.parse_leaf_rule(&node_idx, node_rule)?;
+                    children.push(Leaf(child));
+                    node_idx += 1;
                 }
                 Rule::internal => {
-                    children.push(Int(node_idx));
-                    self.parse_internal_rule(&mut node_idx, &mut parent_stack, node_rule)?;
+                    let child = self.parse_internal_rule(&mut node_idx, node_rule)?;
+                    children.push(Int(child));
+                    node_idx += 1;
                 }
                 _ => unreachable!(),
             }
@@ -145,52 +146,51 @@ impl Tree {
     fn parse_internal_rule(
         &mut self,
         node_idx: &mut usize,
-        stack: &mut Vec<usize>,
         internal_rule: Pair<Rule>,
-    ) -> stdResult<(), Box<PestError<Rule>>> {
+    ) -> stdResult<usize, Box<PestError<Rule>>> {
         let mut id = String::from("");
         let mut blen = 0.0;
         let mut children: Vec<NodeIdx> = Vec::new();
-        stack.push(*node_idx);
-        self.nodes.push(Node::new_empty_internal(*node_idx));
-        *node_idx += 1;
+
         for rule in internal_rule.into_inner() {
             match rule.as_rule() {
                 Rule::label => id = Tree::parse_label_rule(rule),
                 Rule::branch_length => blen = Tree::parse_branch_length_rule(rule),
                 Rule::internal => {
-                    children.push(Int(*node_idx));
-                    self.parse_internal_rule(node_idx, stack, rule)?;
+                    let child = self.parse_internal_rule(node_idx, rule)?;
+                    children.push(Int(child));
+                    *node_idx += 1;
                 }
                 Rule::leaf => {
-                    children.push(Leaf(*node_idx));
-                    self.parse_leaf_rule(node_idx, rule)?;
+                    let child = self.parse_leaf_rule(node_idx, rule)?;
+                    children.push(Leaf(child));
+                    *node_idx += 1;
                 }
                 _ => unreachable!(),
             }
         }
-        let cur_node_idx = stack.pop().unwrap_or_default();
-        self.nodes[cur_node_idx].id = if id.is_empty() {
-            format!("{:?}", self.nodes[cur_node_idx].idx)
+
+        for child_idx in &children {
+            self.add_parent_to_child_no_blen(child_idx, &Int(*node_idx));
+        }
+
+        let id = if id.is_empty() {
+            format!("{:?}", Int(*node_idx))
         } else {
             id
         };
-        self.nodes[cur_node_idx].blen = blen;
-        self.nodes[cur_node_idx].children.clone_from(&children);
-        for child_idx in &children {
-            match child_idx {
-                Int(idx) => self.nodes[*idx].parent = Some(Int(cur_node_idx)),
-                Leaf(idx) => self.nodes[*idx].parent = Some(Int(cur_node_idx)),
-            }
-        }
-        Ok(())
+        let node = Node::new_internal(*node_idx, None, children, blen, id);
+
+        self.nodes.push(node);
+
+        Ok(*node_idx)
     }
 
     fn parse_leaf_rule(
         &mut self,
-        node_idx: &mut usize,
+        node_idx: &usize,
         inner_rule: Pair<Rule>,
-    ) -> stdResult<(), Box<PestError<Rule>>> {
+    ) -> stdResult<usize, Box<PestError<Rule>>> {
         let mut id = String::from("");
         let mut blen = 0.0;
         for rule in inner_rule.into_inner() {
@@ -200,11 +200,12 @@ impl Tree {
                 _ => unreachable!(),
             }
         }
+
         self.nodes
             .push(Node::new_leaf(*node_idx, None, blen, id.clone()));
         self.leaf_ids.push(id);
-        *node_idx += 1;
-        Ok(())
+
+        Ok(*node_idx)
     }
 
     fn parse_branch_length_rule(rule: Pair<Rule>) -> f64 {
