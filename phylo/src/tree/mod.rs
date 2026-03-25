@@ -37,8 +37,8 @@ impl Display for NodeIdx {
 impl Debug for NodeIdx {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Int(idx) => write!(f, "Int({idx})"),
-            Leaf(idx) => write!(f, "Leaf({idx})"),
+            Int(idx) => write!(f, "I{idx}"),
+            Leaf(idx) => write!(f, "L{idx}"),
         }
     }
 }
@@ -258,7 +258,7 @@ impl Tree {
             None,
             vec![*idx_i, *idx_j],
             0.0,
-            "".to_string(),
+            format!("{:?}", Int(parent_idx)),
         ));
         self.add_parent_to_child(idx_i, &Int(parent_idx), blen_i);
         self.add_parent_to_child(idx_j, &Int(parent_idx), blen_j);
