@@ -167,11 +167,11 @@ pub fn read_newick_from_file(path: impl AsRef<Path>) -> Result<Vec<Tree>> {
 ///
 /// # fn main() -> Result<()> {
 /// let output_path = "./examples/data/doctest_tmp_output.newick";
-/// let trees = from_newick("((A:1.0,B:2.0):1,(D:1.0,E:2.0):1):0.0;")?;
+/// let trees = from_newick("((A:1.0,B:2.0)X:1,(D:1.0,E:2.0)Y:1)Z:0.0;")?;
 /// write_newick_to_file(&trees, output_path)?;
 /// # let mut file_content = String::new();
 /// # File::open(output_path)?.read_to_string(&mut file_content)?;
-/// # assert_eq!(file_content.trim(), "(((A:1,B:2):1,(D:1,E:2):1):0);");
+/// # assert_eq!(file_content.trim(), "(((A:1,B:2)X:1,(D:1,E:2)Y:1)Z:0);");
 /// # assert!(remove_file(output_path).is_ok());
 /// # Ok(()) }
 /// ```
