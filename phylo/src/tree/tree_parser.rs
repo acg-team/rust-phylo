@@ -167,7 +167,11 @@ impl Tree {
             }
         }
         let cur_node_idx = stack.pop().unwrap_or_default();
-        self.nodes[cur_node_idx].id = id;
+        self.nodes[cur_node_idx].id = if id.is_empty() {
+            format!("I{cur_node_idx}")
+        } else {
+            id
+        };
         self.nodes[cur_node_idx].blen = blen;
         self.nodes[cur_node_idx].children.clone_from(&children);
         for child_idx in &children {
