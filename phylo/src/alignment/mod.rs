@@ -99,8 +99,7 @@ pub trait Alignment: Display + Clone + Debug {
 ///
 /// The default implementation of [`Alignment::from_aligned`] only ensures
 /// prerequisites to build an alignment, not an ancestral alignment. Please overwrite this default
-/// implementation and make sure to call [`Tree::node_ids_are_unique`] in addition to checks
-/// your implementation requires.
+/// implementation and run the appropriate checks your implementation requires.
 // TODO: instead of having this tip here, we could change the default implementation of
 // Alignment::from_aligned to ensure prerequisites for alignment as well as ancestral alignment.
 pub trait AncestralAlignment: Alignment {
