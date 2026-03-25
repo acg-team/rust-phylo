@@ -446,7 +446,7 @@ fn test_node_idx_from_usize() {
 }
 
 #[test]
-fn test_node_id_string() {
+fn test_internal_node_ids_given() {
     let tree =
         tree!("((ant:17,(bat:31, cow:22)batcow:7)antbatcow:10,(elk:33,fox:12)elkfox:40)root:0;");
     let ids = [
@@ -463,16 +463,18 @@ fn test_node_id_string() {
     for node in &tree.nodes {
         assert!(ids.contains(&tree.node_id(&node.idx)));
     }
+}
+
+#[test]
+fn test_internal_node_ids_missing() {
     let tree = tree!("((ant:17,(bat:31, cow:22):7):10,(elk:33,fox:12):40):0;");
-    for node in tree.iter() {
-        match node.idx {
-            I(_) => {
-                assert!(tree.node_id(&node.idx).is_empty());
-            }
-            L(_) => {
-                assert!(ids.contains(&tree.node_id(&node.idx)));
-            }
-        }
+    let ids = ["ant", "bat", "cow", "elk", "fox"];
+
+    for leaf in tree.leaves() {
+        assert!(ids.contains(&leaf.id.as_str()));
+    }
+    for internal in tree.internals() {
+        assert_eq!(internal.id, format!("{:?}", internal.idx));
     }
 }
 
