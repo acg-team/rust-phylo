@@ -1,7 +1,6 @@
 use std::result::Result as stdResult;
 
 use fixedbitset::FixedBitSet;
-use hashbrown::HashSet;
 use log::{info, warn};
 use pest::{error::Error as PestError, iterators::Pair, Parser};
 use pest_derive::Parser;
@@ -31,30 +30,19 @@ pub fn from_newick(newick: &str) -> Result<Vec<Tree>> {
     match newick_tree_rule.as_rule() {
         Rule::newick => {
             for tree_rule in newick_tree_rule.into_inner() {
-                let tmp = tree_rule.into_inner().next();
-                if let Some(rule) = tmp {
+                let next_rule = tree_rule.into_inner().next();
+                if let Some(rule) = next_rule {
                     let mut tree = Tree::new_empty();
                     let res = match rule.as_rule() {
-                        Rule::rooted => tree.parse_rooted_rule(rule.clone()),
-                        Rule::unrooted => tree.parse_unrooted_rule(rule.clone()),
+                        Rule::rooted => tree.parse_rooted_rule(rule),
+                        Rule::unrooted => tree.parse_unrooted_rule(rule),
                         _ => unimplemented!(),
                     };
                     if let Err(e) = res {
                         bail!(TreeParsing, "malformed newick string", e);
                     }
-                    if tree.n != tree.leaf_ids.iter().collect::<HashSet<_>>().len() {
-                        bail!(
-                            TreeParsing,
-                            "duplicate leaf IDs found in newick string",
-                            Box::new(PestError::new_from_span(
-                                pest::error::ErrorVariant::CustomError {
-                                    message: "duplicate leaf IDs".to_string(),
-                                },
-                                rule.as_span(),
-                            ))
-                        );
-                    }
 
+                    tree.node_ids_are_unique()?;
                     trees.push(tree);
                 }
             }
