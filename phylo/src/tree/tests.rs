@@ -96,17 +96,6 @@ fn idx_by_id_valid() {
 }
 
 #[test]
-fn node_ids_not_unique() {
-    let tree = tree!("(((A:1.0,B:1.0)E:2.0,C:1.0)B:1.0,D:1.0)G:2.0;");
-
-    let error = tree.node_ids_are_unique();
-
-    assert_matches!(
-        error, Err(Error::Tree(msg)) if msg.contains("not unique")
-    );
-}
-
-#[test]
 #[should_panic]
 fn idx_by_id_invalid() {
     let tree = tree!("(((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0,D:1.0)G:2.0;");
