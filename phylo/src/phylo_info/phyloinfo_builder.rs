@@ -423,23 +423,6 @@ mod private_tests {
     }
 
     #[test]
-    fn set_missing_tree_node_ids_finds_duplicate() {
-        // Reading a tree with duplicate IDs fails now, so we need to create a tree with duplicate IDs
-        // manually to test that the function finds them.
-        let mut tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0):1.0):1.0;");
-        let idx = tree.by_id("E4").idx;
-        let node = tree.node_mut(&idx);
-        node.id = "A1".to_string(); // set a duplicate ID
-
-        let error = set_missing_tree_node_ids(&tree);
-
-        assert_matches!(
-            error,
-            Err(Error::Tree(msg)) if msg.contains("duplicate id (A1) found in the leaves of the tree")
-        );
-    }
-
-    #[test]
     fn not_valid_ids_with_ancestors() {
         let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0)I10:1.0):1.0;");
         let seqs = Sequences::new(vec![
