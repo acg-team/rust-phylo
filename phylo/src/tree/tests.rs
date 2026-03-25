@@ -735,6 +735,24 @@ fn rf_distance_against_raxml() {
 
 #[test]
 fn parse_with_duplicate_ids() {
-    let tree = from_newick("((A:1.0,B:1.0)E:5.1,(A:3.0,A:4.0)F:6.2)G:7.3;");
-    assert!(tree.is_err());
+    let error = from_newick("((A:1.0,B:1.0)E:5.1,(A:3.0,A:4.0)F:6.2)G:7.3;");
+    assert_matches!(
+        error, Err(Error::Tree(msg)) if msg.contains("node ID 'A' is not unique in the tree")
+    );
+}
+
+#[test]
+fn parse_with_duplicate_ids_first_reported() {
+    let error = from_newick("((A:1.0,B:1.0)E:5.1,(A:3.0,B:4.0)F:6.2)G:7.3;");
+    assert_matches!(
+        error, Err(Error::Tree(msg)) if msg.contains("node ID 'A' is not unique in the tree")
+    );
+}
+
+#[test]
+fn parse_with_duplicate_ids_non_leaf() {
+    let error = from_newick("((A:1.0,B:1.0)X:5.1,(X:3.0,C:4.0)F:6.2)G:7.3;");
+    assert_matches!(
+        error, Err(Error::Tree(msg)) if msg.contains("node ID 'X' is not unique in the tree")
+    );
 }
