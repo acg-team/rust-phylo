@@ -86,7 +86,7 @@ fn write_sequences_to_existing_file() {
 
 #[test]
 fn write_newick() {
-    let newick = "(((A:1.4,B:2.45):1,(D:1.2,E:2.1):1):0);";
+    let newick = "(((A:1.4,B:2.45)C:1,(D:1.2,E:2.1)F:1)G:0);";
     let tree = tree!(newick);
     let temp_dir = tempdir().unwrap();
     let output_path = temp_dir.path().join("output.newick");
