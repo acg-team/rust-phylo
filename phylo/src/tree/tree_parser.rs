@@ -125,6 +125,7 @@ impl Tree {
             self.add_parent_to_child_no_blen(child_idx, &Int(node_idx));
         }
         self.nodes[node_idx].children = new_children;
+        self.nodes[node_idx].id = format!("{:?}", self.nodes[node_idx].idx);
         node_idx += 1;
 
         self.nodes.push(Node::new_empty_internal(node_idx));
@@ -133,6 +134,8 @@ impl Tree {
             self.add_parent_to_child_no_blen(child_idx, &Int(node_idx));
         }
         self.nodes[node_idx].children = new_children;
+        self.nodes[node_idx].id = format!("{:?}", self.nodes[node_idx].idx);
+
         self.root = Int(node_idx);
 
         self.complete();
@@ -168,7 +171,7 @@ impl Tree {
         }
         let cur_node_idx = stack.pop().unwrap_or_default();
         self.nodes[cur_node_idx].id = if id.is_empty() {
-            format!("I{cur_node_idx}")
+            format!("{:?}", self.nodes[cur_node_idx].idx)
         } else {
             id
         };
