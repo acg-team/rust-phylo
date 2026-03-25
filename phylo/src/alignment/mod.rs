@@ -5,9 +5,7 @@ use hashbrown::HashMap;
 use crate::alphabets::Alphabet;
 use crate::asr::AncestralSequenceReconstruction;
 use crate::parsimony_presence_absence::ParsimonyPresenceAbsence;
-use crate::phylo_info::{
-    set_missing_tree_node_ids, validate_ids_with_ancestors, validate_taxa_ids,
-};
+use crate::phylo_info::{validate_ids_with_ancestors, validate_taxa_ids};
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::{align, aligned_seq, bail, record, Result};
 
@@ -435,7 +433,6 @@ impl Alignment for MASA {
     /// # Ok(()) }
     /// ```
     fn from_aligned(sequences: Sequences, tree: &Tree) -> Result<Self> {
-        let tree = &set_missing_tree_node_ids(tree)?;
         let msa = MSA::from_aligned(sequences, tree)?;
         // TODO: Do the internal_alignments, built in the line above, conform with adding ancestral seqs?
         //       see also from_aligned_with_ancestral
