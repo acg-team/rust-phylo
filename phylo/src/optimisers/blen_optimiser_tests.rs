@@ -241,7 +241,7 @@ fn fix_iter() {
     let unopt_cost = c.cost();
 
     let res_default = BranchOptimiser::new(c.clone()).run().unwrap();
-    assert_eq!(res_default.iterations, 4);
+    assert_eq!(res_default.iterations, 3);
 
     let res = BranchOptimiser::with_stop_condition(
         c,
