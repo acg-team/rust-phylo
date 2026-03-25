@@ -363,7 +363,7 @@ impl Tree {
             .collect()
     }
 
-    pub fn node_ids_are_unique(&self) -> Result<()> {
+    pub(crate) fn node_ids_are_unique(&self) -> Result<()> {
         let mut seen = HashSet::new();
         for node_idx in self.postorder() {
             if !seen.insert(self.node_id(node_idx)) {
