@@ -424,7 +424,8 @@ mod private_tests {
 
     #[test]
     fn not_valid_ids_with_ancestors() {
-        let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0)I10:1.0):1.0;");
+        let tree =
+            tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0)I10:1.0)root:1.0;");
         let seqs = Sequences::new(vec![
             record!("A1", b"X"),
             record!("B1", b"X"),
@@ -433,7 +434,7 @@ mod private_tests {
             record!("I1", b"X"),
             record!("I9", b"X"),
             record!("I10", b"X"),
-            record!("", b"X"),
+            record!("root", b"X"),
         ]);
 
         let error = validate_ids_with_ancestors(&tree, &seqs);
@@ -447,7 +448,8 @@ mod private_tests {
     #[test]
     fn valid_ids_with_ancestors() {
         // arrange
-        let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0)I10:1.0):1.0;");
+        let tree =
+            tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0)I10:1.0)root:1.0;");
         let seqs = Sequences::new(vec![
             record!("A1", b"X"),
             record!("B1", b"X"),
@@ -457,7 +459,7 @@ mod private_tests {
             record!("I1", b"X"),
             record!("I9", b"X"),
             record!("I10", b"X"),
-            record!("", b"X"),
+            record!("root", b"X"),
         ]);
 
         // act
