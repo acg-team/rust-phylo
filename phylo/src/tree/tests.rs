@@ -494,8 +494,8 @@ fn test_node_idx_display(#[case] idx: usize) {
 #[case(42)]
 #[case(99)]
 fn test_node_idx_debug(#[case] idx: usize) {
-    assert_eq!(format!("{:?}", L(idx)), format!("Leaf({})", idx));
-    assert_eq!(format!("{:?}", I(idx)), format!("Int({})", idx));
+    assert_eq!(format!("{:?}", L(idx)), format!("L{}", idx));
+    assert_eq!(format!("{:?}", I(idx)), format!("I{}", idx));
 }
 
 #[test]
