@@ -756,3 +756,9 @@ fn parse_with_duplicate_ids_non_leaf() {
         error, Err(Error::Tree(msg)) if msg.contains("node ID 'X' is not unique in the tree")
     );
 }
+
+#[test]
+fn parse_with_wo_internal_ids() {
+    // duplicates should not be reported if internal nodes are not labeled
+    let _ = tree!("((A:1.0,B:1.0)N:5.1,(X:3.0,C:4.0):6.2):7.3;");
+}
