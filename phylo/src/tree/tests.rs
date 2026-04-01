@@ -401,19 +401,28 @@ fn make_parsing_error(rules: &[Rule]) -> ErrorVariant<Rule> {
 }
 
 #[test]
-fn newick_garbage() {
+fn newick_garbage_semicolon() {
     let trees = from_newick(";");
     let error = make_parsing_error(&[Rule::newick]);
     assert_matches!(trees, Err(Error::TreeParsing(msg, err)) if err.variant == error && msg.contains("malformed newick string"));
+}
 
+#[test]
+fn newick_garbage_parentheses() {
     let trees = from_newick("()()();");
     let error = make_parsing_error(&[Rule::tree, Rule::internal, Rule::label]);
     assert_matches!(trees, Err(Error::TreeParsing(msg, err)) if err.variant == error && msg.contains("malformed newick string"));
+}
 
+#[test]
+fn newick_garbage_unclosed_parentheses() {
     let trees = from_newick("((A:1.0,B:1.0);");
     let error = make_parsing_error(&[Rule::label, Rule::branch_length]);
     assert_matches!(trees, Err(Error::TreeParsing(msg, err)) if err.variant == error && msg.contains("malformed newick string"));
+}
 
+#[test]
+fn newick_garbage_missing_leaf_labels() {
     let trees = from_newick("(:1.0,:2.0)E:5.1;");
     let error = make_parsing_error(&[Rule::tree, Rule::internal, Rule::label]);
     assert_matches!(trees, Err(Error::TreeParsing(msg, err)) if err.variant == error && msg.contains("malformed newick string"));
