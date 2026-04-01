@@ -7,7 +7,7 @@ use pest_derive::Parser;
 
 use crate::bail;
 use crate::tree::{
-    Node,
+    generate_internal_node_id, Node,
     NodeIdx::{self, Internal as Int, Leaf},
     Tree,
 };
@@ -126,7 +126,7 @@ impl Tree {
             self.add_parent_to_child_no_blen(child_idx, &Int(node_idx));
         }
         self.nodes[node_idx].children = new_children;
-        self.nodes[node_idx].id = format!("{:?}", self.nodes[node_idx].idx);
+        self.nodes[node_idx].id = generate_internal_node_id(&node_idx);
         node_idx += 1;
 
         self.nodes.push(Node::new_empty_internal(node_idx));
@@ -135,7 +135,7 @@ impl Tree {
             self.add_parent_to_child_no_blen(child_idx, &Int(node_idx));
         }
         self.nodes[node_idx].children = new_children;
-        self.nodes[node_idx].id = format!("{:?}", self.nodes[node_idx].idx);
+        self.nodes[node_idx].id = generate_internal_node_id(&node_idx);
 
         self.root = Int(node_idx);
 
@@ -148,13 +148,13 @@ impl Tree {
         node_idx: &mut usize,
         internal_rule: Pair<Rule>,
     ) -> stdResult<usize, Box<PestError<Rule>>> {
-        let mut id = String::from("");
+        let mut parsed_id = None;
         let mut blen = 0.0;
         let mut children: Vec<NodeIdx> = Vec::new();
 
         for rule in internal_rule.into_inner() {
             match rule.as_rule() {
-                Rule::label => id = Tree::parse_label_rule(rule),
+                Rule::label => parsed_id = Some(Tree::parse_label_rule(rule)),
                 Rule::branch_length => blen = Tree::parse_branch_length_rule(rule),
                 Rule::internal => {
                     let child = self.parse_internal_rule(node_idx, rule)?;
@@ -174,10 +174,10 @@ impl Tree {
             self.add_parent_to_child_no_blen(child_idx, &Int(*node_idx));
         }
 
-        let id = if id.is_empty() {
-            format!("{:?}", Int(*node_idx))
+        let id = if let Some(parsed_id) = parsed_id {
+            parsed_id
         } else {
-            id
+            generate_internal_node_id(node_idx)
         };
         let node = Node::new_internal(*node_idx, None, children, blen, id);
 
@@ -191,15 +191,22 @@ impl Tree {
         node_idx: &usize,
         inner_rule: Pair<Rule>,
     ) -> stdResult<usize, Box<PestError<Rule>>> {
-        let mut id = String::from("");
+        let mut parsed_id = None;
         let mut blen = 0.0;
+
         for rule in inner_rule.into_inner() {
             match rule.as_rule() {
-                Rule::label => id = Tree::parse_label_rule(rule),
+                Rule::label => parsed_id = Some(Tree::parse_label_rule(rule)),
                 Rule::branch_length => blen = Tree::parse_branch_length_rule(rule),
                 _ => unreachable!(),
             }
         }
+
+        let id = if let Some(parsed_id) = parsed_id {
+            parsed_id
+        } else {
+            unreachable!("leaf node missing id")
+        };
 
         self.nodes
             .push(Node::new_leaf(*node_idx, None, blen, id.clone()));

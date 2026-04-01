@@ -14,7 +14,7 @@ use crate::alignment::Sequences;
 use crate::io::read_newick_from_file;
 use crate::parsimony::Rounding;
 use crate::tree::{
-    percentiles, percentiles_rounded,
+    generate_internal_node_id, percentiles, percentiles_rounded,
     tree_parser::{from_newick, Rule},
     Node,
     NodeIdx::{Internal as I, Leaf as L},
@@ -513,7 +513,10 @@ fn test_internal_node_ids_missing() {
         assert!(ids.contains(&leaf.id.as_str()));
     }
     for internal in tree.internals() {
-        assert_eq!(internal.id, format!("{:?}", internal.idx));
+        assert_eq!(
+            internal.id,
+            generate_internal_node_id(&usize::from(internal.idx))
+        );
     }
 }
 

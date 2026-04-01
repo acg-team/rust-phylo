@@ -58,6 +58,10 @@ impl From<NodeIdx> for usize {
     }
 }
 
+pub(crate) fn generate_internal_node_id(node_idx: &usize) -> String {
+    format!("int{:?}", node_idx)
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tree {
     pub root: NodeIdx,
