@@ -143,10 +143,10 @@ fn repeated_optimisation_limit() {
 
 #[test]
 fn only_gap_sequence() {
-    let tree = tree!("((5207:0.8699783346462397,284812:226000000):0);");
+    let tree = tree!("((l5207:0.8699783346462397,l284812:226000000):0);");
     let msa: MSA = Alignment::from_aligned(
         Sequences::with_alphabet(
-            vec![record!("284812", b"-"), record!("5207", b"V")],
+            vec![record!("l284812", b"-"), record!("l5207", b"V")],
             Alphabet::protein(),
         ),
         &tree,

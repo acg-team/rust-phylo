@@ -272,8 +272,8 @@ mod tests {
         LevenshteinDNACorrected as LDNACorr, LevenshteinProteinCorrected,
     };
     use crate::random::{FakeGenerator, FakeRng};
-    use crate::tree::Node;
     use crate::tree::NodeIdx::{self, Internal as I, Leaf as L};
+    use crate::tree::{generate_internal_node_id as gen_id, Node};
     use crate::{record_wo_desc as record, tree};
 
     use super::*;
@@ -338,13 +338,17 @@ mod tests {
                 17.0, 14.0, 11.0, 12.0, 10.0, 13.0, 8.0, 0.0;
             ],
         };
-        let sequences = Sequences::new((1..=8).map(|i| record!(&i.to_string(), b"")).collect());
+        let sequences = Sequences::new(
+            (1..=8)
+                .map(|i| record!(format!("s{}", i).as_str(), b""))
+                .collect(),
+        );
         let mut rng = FakeGenerator::default();
         let nj_tree = NJTreeBuilder::new(LDNACorr {})
             .build_from_distances(nj_distances, &sequences, &mut rng)
             .unwrap();
         let correct_tree =
-            tree!("((8:6,7:2):0.5,((5:1,6:4):2,(4:3,(3:1,(1:5,2:2):2):1):2):0.5):0.0;");
+            tree!("((s8:6,s7:2):0.5,((s5:1,s6:4):2,(s4:3,(s3:1,(s1:5,s2:2):2):1):2):0.5):0.0;");
         assert_eq!(nj_tree.length, correct_tree.length);
         for leaf in nj_tree.leaves() {
             assert_eq!(leaf.blen, correct_tree.by_id(&leaf.id).blen);
@@ -480,10 +484,10 @@ mod tests {
             Node::new_leaf(2, Some(I(7)), 4.0, "C2".to_string()),
             Node::new_leaf(3, Some(I(6)), 2.0, "D3".to_string()),
             Node::new_leaf(4, Some(I(6)), 1.0, "E4".to_string()),
-            Node::new_internal(5, Some(I(7)), vec![L(1), L(0)], 3.0, "".to_string()),
-            Node::new_internal(6, Some(I(8)), vec![L(4), L(3)], 1.0, "".to_string()),
-            Node::new_internal(7, Some(I(8)), vec![I(5), L(2)], 1.0, "".to_string()),
-            Node::new_internal(8, None, vec![I(7), I(6)], 0.0, "".to_string()),
+            Node::new_internal(5, Some(I(7)), vec![L(1), L(0)], 3.0, gen_id(&5)),
+            Node::new_internal(6, Some(I(8)), vec![L(4), L(3)], 1.0, gen_id(&6)),
+            Node::new_internal(7, Some(I(8)), vec![I(5), L(2)], 1.0, gen_id(&7)),
+            Node::new_internal(8, None, vec![I(7), I(6)], 0.0, gen_id(&8)),
         ];
         assert_eq!(nj_tree.root, I(8));
         assert_eq!(nj_tree.nodes, nodes);
@@ -514,9 +518,9 @@ mod tests {
             Node::new_leaf(1, Some(I(4)), 3.0, "B1".to_string()),
             Node::new_leaf(2, Some(I(5)), 2.0, "C2".to_string()),
             Node::new_leaf(3, Some(I(5)), 7.0, "D3".to_string()),
-            Node::new_internal(4, Some(I(6)), vec![L(0), L(1)], 1.0, "".to_string()),
-            Node::new_internal(5, Some(I(6)), vec![L(3), L(2)], 1.0, "".to_string()),
-            Node::new_internal(6, None, vec![I(4), I(5)], 0.0, "".to_string()),
+            Node::new_internal(4, Some(I(6)), vec![L(0), L(1)], 1.0, gen_id(&4)),
+            Node::new_internal(5, Some(I(6)), vec![L(3), L(2)], 1.0, gen_id(&5)),
+            Node::new_internal(6, None, vec![I(4), I(5)], 0.0, gen_id(&6)),
         ];
 
         assert_eq!(nj_tree.root, I(6));
@@ -671,7 +675,11 @@ mod tests {
                 17.0, 14.0, 11.0, 12.0, 10.0, 13.0, 8.0, 0.0;
             ],
         };
-        let sequences = Sequences::new((1..=8).map(|i| record!(&i.to_string(), b"")).collect());
+        let sequences = Sequences::new(
+            (1..=8)
+                .map(|i| record!(format!("s{}", i).as_str(), b""))
+                .collect(),
+        );
 
         // FakeRng will return values that will select the same pairs as in the original paper
         let mut rng = RandomGenerator::from_rng(FakeRng::from_f64_values(vec![
@@ -681,7 +689,7 @@ mod tests {
             .build_from_distances(nj_distances, &sequences, &mut rng)
             .unwrap();
         let correct_tree =
-            tree!("((8:6,7:2):0.5,((5:1,6:4):2,(4:3,(3:1,(1:5,2:2):2):1):2):0.5):0.0;");
+            tree!("((s8:6,s7:2):0.5,((s5:1,s6:4):2,(s4:3,(s3:1,(s1:5,s2:2):2):1):2):0.5):0.0;");
         assert_eq!(nj_tree.length, correct_tree.length);
         for leaf in nj_tree.leaves() {
             assert_eq!(leaf.blen, correct_tree.by_id(&leaf.id).blen);
