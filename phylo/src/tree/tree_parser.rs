@@ -155,6 +155,7 @@ impl Tree {
         for rule in internal_rule.into_inner() {
             match rule.as_rule() {
                 Rule::label => parsed_id = Some(Tree::parse_label_rule(rule)),
+                Rule::support => {} // branch support value, ignored
                 Rule::branch_length => blen = Tree::parse_branch_length_rule(rule),
                 Rule::internal => {
                     let child = self.parse_internal_rule(node_idx, rule)?;
