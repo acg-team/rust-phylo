@@ -262,7 +262,7 @@ impl Tree {
             None,
             vec![*idx_i, *idx_j],
             0.0,
-            format!("{:?}", Int(parent_idx)),
+            generate_internal_node_id(&parent_idx),
         ));
         self.add_parent_to_child(idx_i, &Int(parent_idx), blen_i);
         self.add_parent_to_child(idx_j, &Int(parent_idx), blen_j);
