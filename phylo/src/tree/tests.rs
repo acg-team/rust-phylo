@@ -316,7 +316,7 @@ fn newick_parse_whitespace() {
 }
 
 #[test]
-fn newick_parse_unrooted() {
+fn newick_parse_unrooted_implementation() {
     let nodes = vec![
         Node::new_leaf(0, Some(I(2)), 1.0, "A".to_string()),
         Node::new_leaf(1, Some(I(2)), 1.0, "B".to_string()),
@@ -325,8 +325,20 @@ fn newick_parse_unrooted() {
         Node::new_leaf(4, Some(I(5)), 1.0, "D".to_string()),
         Node::new_internal(5, Some(I(7)), vec![L(3), L(4)], 1.0, "F".to_string()),
         Node::new_leaf(6, Some(I(8)), 4.0, "G".to_string()),
-        Node::new_internal(7, Some(I(8)), vec![I(2), I(5)], 0.0, "I7".to_string()),
-        Node::new_internal(8, None, vec![I(7), L(6)], 0.0, "I8".to_string()),
+        Node::new_internal(
+            7,
+            Some(I(8)),
+            vec![I(2), I(5)],
+            0.0,
+            generate_internal_node_id(&7),
+        ),
+        Node::new_internal(
+            8,
+            None,
+            vec![I(7), L(6)],
+            0.0,
+            generate_internal_node_id(&8),
+        ),
     ];
 
     let trees = from_newick("((A:1.0,B:1.0)E:1.0,(C:1.0,D:1.0)F:1.0,G:4.0);");
