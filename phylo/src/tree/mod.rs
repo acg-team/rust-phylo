@@ -245,6 +245,28 @@ impl Tree {
         }
     }
 
+    pub fn to_newick_wo_internal_ids(&self) -> String {
+        format!("({});", self.to_newick_subroot_wo_internal_ids(self.root))
+    }
+
+    fn to_newick_subroot_wo_internal_ids(&self, node_idx: NodeIdx) -> String {
+        match node_idx {
+            NodeIdx::Leaf(idx) => {
+                let node = &self.nodes[idx];
+                format!("{}:{}", node.id, node.blen)
+            }
+            NodeIdx::Internal(idx) => {
+                let node = &self.nodes[idx];
+                let children_newick: Vec<String> = node
+                    .children
+                    .iter()
+                    .map(|&child_idx| self.to_newick_subroot_wo_internal_ids(child_idx))
+                    .collect();
+                format!("({}):{}", children_newick.join(","), node.blen)
+            }
+        }
+    }
+
     pub fn node_id(&self, node_idx: &NodeIdx) -> &str {
         &self.nodes[usize::from(node_idx)].id
     }
