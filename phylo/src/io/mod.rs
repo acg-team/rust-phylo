@@ -235,4 +235,88 @@ where
 
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
+mod private_tests {
+    use assert_matches::assert_matches;
+
+    use std::fs::File;
+    use std::io::Read;
+    use tempfile::tempdir;
+
+    use crate::tree::tree_parser::from_newick;
+    use crate::{tree, Error};
+
+    use super::write_newick_with_formatter;
+
+    #[test]
+    fn write_newick_formatter_fake() {
+        let trees =
+            from_newick("((A:1.0,B:2.0)X:1,(D:1.0,E:2.0)Y:1)Z:0.0;\n(A:5,B:5):10;").unwrap();
+
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().join("output.newick");
+
+        let res =
+            write_newick_with_formatter(&trees, output_path.clone(), |tree| format!("{}", tree.n));
+        assert!(res.is_ok());
+
+        let mut file_content = String::new();
+        File::open(output_path)
+            .unwrap()
+            .read_to_string(&mut file_content)
+            .unwrap();
+        assert_eq!(file_content.trim(), format!("4\n2"));
+    }
+
+    #[test]
+    fn write_newick_formatter() {
+        let trees =
+            from_newick("((A:1.0,B:2.0)X:1,(D:1.0,E:2.0)Y:1)Z:0.0;\n(A:5,B:5):10;").unwrap();
+
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().join("output.newick");
+
+        let res = write_newick_with_formatter(&trees, output_path, |tree| tree.to_newick());
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn write_newick_formatter_wo_internal_ids() {
+        let trees =
+            from_newick("((A:1.0,B:2.0)X:1,(D:1.0,E:2.0)Y:1)Z:0.0;\n(A:5,B:5):10;").unwrap();
+
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().join("output.newick");
+
+        let res = write_newick_with_formatter(&trees, output_path, |tree| {
+            tree.to_newick_wo_internal_ids()
+        });
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn write_newick_to_bad_path() {
+        let tree = tree!("(((A:1.4,B:2.45):1,(D:1.2,E:2.1):1):0);");
+
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir
+            .path()
+            .join("nonexistent_folder")
+            .join("output.newick");
+        let res = write_newick_with_formatter(&[tree], output_path, |t| t.to_newick());
+        assert_matches!(res, Err(Error::Io(msg)) if msg.to_ascii_lowercase().contains("no such file or directory"));
+    }
+
+    #[test]
+    fn write_newick_to_existing_file() {
+        let tree = tree!("(((A:1.4,B:2.45):1,(D:1.2,E:2.1):1):0);");
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().join("output.newick");
+        File::create(&output_path).unwrap();
+        let res = write_newick_with_formatter(&[tree], &output_path, |t| t.to_newick());
+        assert_matches!(res, Err(Error::Io(msg)) if msg.contains("already exists"));
+    }
+}
+
+#[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod tests;
