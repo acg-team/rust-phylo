@@ -569,11 +569,13 @@ fn test_to_newick_simple() {
         leaf_ids: vec!["A".to_string(), "B".to_string()],
         dirty: FixedBitSet::with_capacity(3),
     };
+
     assert_eq!(tree.to_newick(), "((A:1,B:5.5)C:2);");
+    assert_eq!(tree.to_newick_wo_internal_ids(), "((A:1,B:5.5):2);");
 }
 
 #[test]
-fn test_from_newick_to_newick() {
+fn from_newick_to_newick() {
     let newick0 = "(((((A:1,B:1)F:1,C:2)G:1,D:3)H:1,E:4)I:1);";
     let newick1 = "(((A:1.5,B:2.3)E:5.1,(C:3.9,D:4.8)F:6.2)G:7.3);";
     let newick2 = "((A:1,(B:1,C:1)E:2)F:1);";
@@ -582,6 +584,33 @@ fn test_from_newick_to_newick() {
     assert_eq!(trees[0].to_newick(), newick0);
     assert_eq!(trees[1].to_newick(), newick1);
     assert_eq!(trees[2].to_newick(), newick2);
+}
+
+#[test]
+fn from_newick_w_ids_to_newick_wo_internal_ids() {
+    let newick0 = "(((((A:1,B:1)F:1,C:2)G:1,D:3)H:1,E:4)I:1);";
+    let newick0_wo_ids = "(((((A:1,B:1):1,C:2):1,D:3):1,E:4):1);";
+    let newick1 = "(((A:1.5,B:2.3)E:5.1,(C:3.9,D:4.8)F:6.2)G:7.3);";
+    let newick1_wo_ids = "(((A:1.5,B:2.3):5.1,(C:3.9,D:4.8):6.2):7.3);";
+    let newick2 = "((A:1,(B:1,C:1)E:2)F:1);";
+    let newick2_wo_ids = "((A:1,(B:1,C:1):2):1);";
+
+    let trees = from_newick(format!("{newick0}\n{newick1}\n{newick2}").as_str()).unwrap();
+    assert_eq!(trees[0].to_newick_wo_internal_ids(), newick0_wo_ids);
+    assert_eq!(trees[1].to_newick_wo_internal_ids(), newick1_wo_ids);
+    assert_eq!(trees[2].to_newick_wo_internal_ids(), newick2_wo_ids);
+}
+
+#[test]
+fn from_newick_to_newick_wo_internal_ids() {
+    let newick0 = "(((((A:1,B:1):1,C:2):1,D:3):1,E:4):1);";
+    let newick1 = "(((A:1.5,B:2.3):5.1,(C:3.9,D:4.8):6.2):7.3);";
+    let newick2 = "((A:1,(B:1,C:1):2):1);";
+
+    let trees = from_newick(format!("{newick0}\n{newick1}\n{newick2}").as_str()).unwrap();
+    assert_eq!(trees[0].to_newick_wo_internal_ids(), newick0);
+    assert_eq!(trees[1].to_newick_wo_internal_ids(), newick1);
+    assert_eq!(trees[2].to_newick_wo_internal_ids(), newick2);
 }
 
 #[test]
