@@ -150,7 +150,8 @@ pub fn read_newick_from_file(path: impl AsRef<Path>) -> Result<Vec<Tree>> {
     tree_parser::from_newick(&newick)
 }
 
-/// Writes newick trees to the given file path. Will return an error if the file already exists.
+/// Writes newick trees to the given file path.
+/// Will return an error if the file already exists or when trying to write to a non-existent folder.
 ///
 /// # Arguments
 /// * `trees` - Vector of newick trees.
@@ -176,13 +177,56 @@ pub fn read_newick_from_file(path: impl AsRef<Path>) -> Result<Vec<Tree>> {
 /// # Ok(()) }
 /// ```
 pub fn write_newick_to_file(trees: &[Tree], path: impl AsRef<Path>) -> Result<()> {
+    write_newick_with_formatter(trees, path, |tree| tree.to_newick())
+}
+
+/// Writes newick trees without internal IDs to the given file path.
+/// Will return an error if the file already exists or when trying to write to a non-existent folder.
+///
+/// # Arguments
+/// * `trees` - Vector of newick trees.
+/// * `path` - Path to the newick file.
+///
+/// # Example
+/// ```
+/// # use std::fs::{File, remove_file};
+/// # use std::io::Read;
+///
+/// use phylo::tree::{tree_parser::from_newick, Tree};
+/// use phylo::io::write_newick_wo_internal_ids_to_file;
+/// # use phylo::Result;
+///
+/// # fn main() -> Result<()> {
+/// let output_path = "./examples/data/doctest_tmp_output.newick";
+/// let trees = from_newick("((A:1.0,B:2.0)X:1,(D:1.0,E:2.0)Y:1)Z:0.0;")?;
+/// write_newick_wo_internal_ids_to_file(&trees, output_path)?;
+/// # let mut file_content = String::new();
+/// # File::open(output_path)?.read_to_string(&mut file_content)?;
+/// # assert_eq!(file_content.trim(), "(((A:1,B:2):1,(D:1,E:2):1):0);");
+/// # assert!(remove_file(output_path).is_ok());
+/// # Ok(()) }
+/// ```
+pub fn write_newick_wo_internal_ids_to_file(trees: &[Tree], path: impl AsRef<Path>) -> Result<()> {
+    write_newick_with_formatter(trees, path, |tree| tree.to_newick_wo_internal_ids())
+}
+
+/// Writes newick trees to the given file path using a custom formatter.
+/// Will return an error if the file already exists or when trying to write to a non-existent folder.
+fn write_newick_with_formatter<F>(
+    trees: &[Tree],
+    path: impl AsRef<Path>,
+    formatter: F,
+) -> Result<()>
+where
+    F: Fn(&Tree) -> String,
+{
     info!("Writing newick trees to file {}", path.as_ref().display());
     if path.as_ref().exists() {
         bail!(Io, "file already exists")
     }
     let mut writer = File::create(path)?;
     for tree in trees {
-        writer.write_all(tree.to_newick().as_bytes())?;
+        writer.write_all(formatter(tree).as_bytes())?;
         writer.write_all(b"\n")?;
     }
     info!("Finished writing successfully");
