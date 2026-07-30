@@ -18,6 +18,9 @@ pub enum Error {
     #[error("Ancestral alignment error: {0}")]
     AncestralAlignment(String),
 
+    #[error("Edge sequence re-estimation error: {0}")]
+    EdgeSeqsReestimator(String),
+
     #[error("Tree error: {0}")]
     Tree(String),
 

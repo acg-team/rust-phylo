@@ -3,7 +3,7 @@ use std::path::Path;
 use approx::assert_relative_eq;
 use assert_matches::assert_matches;
 
-use crate::alignment::{Alignment, AncestralAlignment, Sequences, MSA};
+use crate::alignment::{Alignment, AncestralAlignment, Sequences, MASA, MSA};
 use crate::alphabets::{Alphabet, NUCLEOTIDES};
 use crate::io::read_sequences;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
@@ -491,4 +491,42 @@ fn build_ancestral_alignment_from_unaligned_seqs() {
     let expected_msg = "building an ancestral alignment from unaligned sequences (including \
         ancestral sequences) is not supported";
     assert_matches!(error, Err(Error::AncestralAlignment(msg)) if msg.contains(expected_msg));
+}
+
+#[test]
+fn masa_is_dollo() {
+    let tree = tree!("(((A1:2.0,B2:2.0)I3:0.3,C4:2.0)R5:1.0);");
+    let msa = MASA::from_aligned_with_ancestral(
+        Sequences::new(vec![
+            record!("A1", b"--GTGGA---"),
+            record!("B2", b"-------NNA"),
+            record!("I3", b"--T-------"),
+            record!("C4", b"AGG-------"),
+            record!("R5", b"--A-------"),
+        ]),
+        &tree,
+    )
+    .unwrap();
+    let phylo = PhyloInfo { msa, tree };
+    assert!(phylo.check_dollos_constraint().is_ok());
+}
+
+#[test]
+fn masa_is_not_dollo() {
+    let tree = tree!("(((A1:2.0,B2:2.0)I3:0.3,C4:2.0)R5:1.0);");
+    let msa = MASA::from_aligned_with_ancestral(
+        Sequences::new(vec![
+            record!("A1", b"--GTGGA---"),
+            record!("B2", b"------ANNA"),
+            record!("I3", b"--T---N---"),
+            record!("C4", b"AGG---NN--"),
+            record!("R5", b"--A-------"),
+        ]),
+        &tree,
+    )
+    .unwrap();
+    let phylo = PhyloInfo { msa, tree };
+    let err_msg = phylo.check_dollos_constraint().unwrap_err().to_string();
+    assert!(err_msg.contains("Column 6: 2 insertions"));
+    assert!(err_msg.contains("Column 7: 2 insertions"));
 }

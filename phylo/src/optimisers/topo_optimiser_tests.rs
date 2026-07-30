@@ -18,6 +18,7 @@ use crate::substitution_models::{
     dna_models::*, protein_models::*, QMatrix, SubstModel, SubstitutionCost,
     SubstitutionCostBuilder as SCB,
 };
+use crate::tkf_model::{blocks_of_alignment, TKF92CostBuilder, TKF92IndelAddBlocksCostBuilder};
 use crate::{record_wo_desc as record, tree};
 
 // Macros for tests where precomputed results can be used to speed up local testing
@@ -278,7 +279,7 @@ fn k80_sim_data_vs_phyml_wrong_start() {
 #[test]
 #[cfg_attr(feature = "ci_coverage", ignore)]
 fn wag_no_gaps_vs_phyml_nj_tree_start_nni() {
-    // TODO: this test only passes because the NNI moves dont run into a local optimum and therefore
+    // This test only passes because the NNI moves dont run into a local optimum and therefore
     // find the same best tree as the SprOptimiser. So, if the data changes the test may fail.
 
     // Check that optimisation on protein data under WAG produces similar tree to PhyML with matching likelihoods
@@ -333,7 +334,7 @@ fn wag_no_gaps_vs_phyml_nj_tree_start_spr() {
 #[test]
 #[cfg_attr(feature = "ci_coverage", ignore)]
 fn test_nni_and_spr_find_same_tree() {
-    // TODO: this test only passes because the NNI moves dont run into a local optimum and therefore
+    // This test only passes because the NNI moves dont run into a local optimum and therefore
     // find the same best tree as the SprOptimiser. So, if the data changes the test may fail.
     let fldr = Path::new("./data/phyml_protein_example/");
     let seq_file = fldr.join("nogap_seqs.fasta");
@@ -931,4 +932,52 @@ fn example_main_from_readme() {
         Ok(())
     }
     main().unwrap();
+}
+
+#[test]
+#[cfg_attr(feature = "ci_coverage", ignore)]
+fn tkf92_topo_opti() {
+    let dir = Path::new("data/tkf/reestimate/");
+    let msa = dir.join("masa.fasta");
+    let tree = dir.join("tree.newick");
+    let phylo = PIB::with_attrs(msa, tree).build_with_ancestors().unwrap();
+    let subst_model = SubstModel::<GTR>::new(&[], &[]);
+    let lambda = 0.1;
+    let mu = 0.2;
+    let r = 0.3;
+    let tkf_cost = TKF92CostBuilder::new(&[lambda, mu, r], subst_model.clone(), phylo.clone())
+        .build()
+        .unwrap();
+    let unopt_cost = tkf_cost.cost();
+    let mut prev_cost = tkf_cost.clone();
+    assert_ne!(unopt_cost, f64::NEG_INFINITY);
+    let mut rng = FakeGenerator::default();
+    let initial_msa_blocking = blocks_of_alignment(&phylo.msa);
+    for _ in 0..5 {
+        let result = TopologyOptimiser::with_stop_condition(
+            prev_cost.clone(),
+            NniOptimiser {},
+            &mut rng,
+            StopCondition::max_iter_epsilon(NonZeroUsize::new(1).unwrap(), 1e-2),
+        )
+        .run()
+        .unwrap();
+        let masa = result.cost.masa().clone();
+        let new_phylo = PhyloInfo {
+            msa: masa,
+            tree: result.cost.tree().clone(),
+        };
+        let new_indel_cost = TKF92IndelAddBlocksCostBuilder::new(
+            &[lambda, mu, r],
+            initial_msa_blocking.clone(),
+            new_phylo.clone(),
+        )
+        .build()
+        .unwrap();
+        let new_subst_cost = SCB::new(subst_model.clone(), new_phylo).build().unwrap();
+        let new_cost = new_indel_cost.cost() + new_subst_cost.cost();
+
+        prev_cost = result.cost.clone();
+        assert_relative_eq!(new_cost, result.final_cost, epsilon = 1e-7);
+    }
 }

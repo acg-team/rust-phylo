@@ -175,6 +175,36 @@ impl Sequences {
             .unwrap_or_else(|| panic!("Sequence with id {id} not found"))
     }
 
+    /// Replaces the record with the given ID with a new record.
+    ///
+    /// # Errors
+    /// Returns an error if no record with the given ID is found.
+    ///
+    /// # Example:
+    /// ```
+    /// use phylo::alignment::Sequences;
+    /// use phylo::record;
+    ///
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
+    /// let records = vec![record!("seq1", None, b"A")];
+    /// let mut seqs = Sequences::new(records);
+    /// let new_record = record!("seq1", None, b"C");
+    /// seqs.update_record("seq1", new_record)?;
+    /// assert_eq!(seqs.record_by_id("seq1").seq(), b"C");
+    /// # Ok(()) }
+    /// ```
+    pub fn update_record(&mut self, id: &str, new_record: Record) -> Result<()> {
+        let idx = self.s.iter().position(|r| r.id() == id);
+        match idx {
+            Some(i) => {
+                self.s[i] = new_record;
+                Ok(())
+            }
+            None => bail!(Sequence, "sequence with id {id} not found"),
+        }
+    }
+
     /// Returns a reference to the record with the given ID, or an error if not found.
     ///
     /// # Example:

@@ -1,8 +1,9 @@
 use std::fmt::{Debug, Display};
 
 use hashbrown::HashMap;
+use itertools::Itertools;
 
-use crate::alphabets::Alphabet;
+use crate::alphabets::{Alphabet, AMB_CHAR};
 use crate::asr::AncestralSequenceReconstruction;
 use crate::parsimony_presence_absence::ParsimonyPresenceAbsence;
 use crate::phylo_info::{validate_ids_with_ancestors, validate_taxa_ids};
@@ -341,6 +342,7 @@ pub struct MASA {
     leaf_maps: SeqMaps,
     ancestral_maps: SeqMaps,
     // TODO: this needs to be implemented
+    //       see issue #150 https://github.com/acg-team/rust-phylo/issues/150
     internal_alignments: InternalAlignments,
     idx_to_id: Vec<String>,
 }
@@ -348,6 +350,10 @@ pub struct MASA {
 impl Display for MASA {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let both_maps = self.leaf_maps.iter().chain(self.ancestral_maps.iter());
+        // sort by node id
+        let both_maps = both_maps.sorted_by(|(node_idx_a, _), (node_idx_b, _)| {
+            self.idx_to_id[usize::from(*node_idx_a)].cmp(&self.idx_to_id[usize::from(*node_idx_b)])
+        });
         for (node_idx, seq_map) in both_maps {
             let id = &self.idx_to_id[usize::from(node_idx)];
             let record = match node_idx {
@@ -435,6 +441,7 @@ impl Alignment for MASA {
         let msa = MSA::from_aligned(sequences, tree)?;
         // TODO: Do the internal_alignments, built in the line above, conform with adding ancestral seqs?
         //       see also from_aligned_with_ancestral
+        //       See issue #150 https://github.com/acg-team/rust-phylo/issues/150
         // If the user wants to use a different ASR method to build the MASA, they can call
         // MSA::from_aligned and then call their desired ASR method on the MSA.
         let asr = ParsimonyPresenceAbsence {};
@@ -445,6 +452,7 @@ impl Alignment for MASA {
         let msa = MSA::from_aligned_unchecked(sequences, tree);
         // TODO: do the internal alignments, built in the above line, conform with adding ancestral seqs?
         //       see also from_aligned_with_ancestral
+        //       See issue #150 https://github.com/acg-team/rust-phylo/issues/150
         // If the user wants to use a different ASR method to build the MASA, they can call
         // MSA::from_aligned and then call their desired ASR method on the MSA.
         let asr = ParsimonyPresenceAbsence {};
@@ -465,11 +473,24 @@ impl AncestralAlignment for MASA {
         &self.ancestral_maps
     }
 
-    // This is needed because with the TKF models we need to re-estimate the ancestral maps after
-    // a tree move is applied.
+    /// This is needed because with the [TKF models](`crate::tkf_model::TKFModel`),
+    /// we need to [re-estimate](`crate::tkf_model::reestimate::EdgeSeqsReestimator::reestimate`)
+    /// the ancestral maps after a [tree move](crate::likelihood::TreeSearchCost::update_tree) was applied.
+    /// Iterating through the aligned sequence (i.e., the old and new mappings), if the
+    /// presence of a character is maintained the actual character from the old sequence is
+    /// taken. If a character is newly introduced (i.e., was a gap before), an ambiguous
+    /// character is inserted.
     fn update_ancestral_map(&mut self, node_idx: &NodeIdx, map: Mapping) -> Result<()> {
-        if let Some(anc_map) = self.ancestral_maps.get_mut(node_idx) {
-            *anc_map = map;
+        if map.len() != self.len() {
+            bail!(
+                AncestralAlignment,
+                "Mapping length {} does not match MSA length {}",
+                map.len(),
+                self.len()
+            );
+        }
+        if self.ancestral_maps.get(node_idx).is_some() {
+            self.update_ancestral_map_unchecked(node_idx, map);
             Ok(())
         } else {
             match node_idx {
@@ -543,6 +564,7 @@ impl AncestralAlignment for MASA {
 
         // TODO: internal_alignments still missing. How do they work if there are seqs at internal nodes?
         //       see also MASA::from_aligned
+        //       See issue #150 https://github.com/acg-team/rust-phylo/issues/150
         MASA {
             leaf_seqs,
             ancestral_seqs,
@@ -551,6 +573,42 @@ impl AncestralAlignment for MASA {
             idx_to_id,
             internal_alignments: HashMap::<NodeIdx, PairwiseAlignment>::new(),
         }
+    }
+}
+
+impl MASA {
+    fn update_ancestral_map_unchecked(&mut self, node_idx: &NodeIdx, new_map: Mapping) {
+        let old_map = self.ancestral_maps.get_mut(node_idx).unwrap();
+        let id = &self.idx_to_id[usize::from(*node_idx)];
+        let old_record = self.ancestral_seqs.record_by_id(id);
+        let old_seq = old_record.seq();
+        // The length of this 'new_seq' vector will be equal to the number 'of Some(_)' in 'map'
+        // which indicates the presence of characters. We can therefore pre-allocate memory that is
+        // needed in the maximal case and then shrink later.
+        let mut new_seq = Vec::with_capacity(new_map.len());
+        for (old_site, new_site) in old_map.iter_mut().zip(new_map.iter()) {
+            if let Some(old_site_id) = old_site {
+                // The presence of the character is maintained
+                if new_site.is_some() {
+                    // Character is kept
+                    new_seq.push(old_seq[*old_site_id]);
+                }
+                // The presence of the character is not maintained, no character is added to new_seq
+            }
+            // A character is newly introduced
+            else if new_site.is_some() {
+                // Through the parameter 'map' we only know that a character is introduced, but
+                // not which. Therefore, we insert an ambiguous character.
+                new_seq.push(AMB_CHAR);
+            }
+        }
+        *old_map = new_map;
+        new_seq.shrink_to_fit();
+        // TODO: avoid creating a new record here, see issue #143 https://github.com/acg-team/rust-phylo/issues/143
+        let new_record = record!(id, old_record.desc(), &new_seq);
+        self.ancestral_seqs
+            .update_record(id, new_record)
+            .expect("updating ancestral record failed. Please report this at https://github.com/acg-team/rust-phylo/issues");
     }
 }
 

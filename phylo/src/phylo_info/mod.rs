@@ -1,13 +1,15 @@
 use bio::io::fasta::Record;
 use hashbrown::HashMap;
 
-use crate::alignment::{Alignment, InternalAlignments, Mapping, SeqMaps, Sequences};
+use crate::alignment::{
+    Alignment, AncestralAlignment, InternalAlignments, Mapping, SeqMaps, Sequences,
+};
 use crate::substitution_models::FreqVector;
 use crate::tree::{
     NodeIdx::{self, Internal, Leaf},
     Tree,
 };
-use crate::{aligned_seq, Result};
+use crate::{aligned_seq, bail, Result};
 
 mod phyloinfo_builder;
 pub use phyloinfo_builder::*;
@@ -146,6 +148,51 @@ impl<A: Alignment> PhyloInfo<A> {
         }
         freqs.scale_mut(1.0 / freqs.sum());
         freqs
+    }
+}
+
+impl<AA: AncestralAlignment> PhyloInfo<AA> {
+    /// Checks whether the alignment satisfies the Dollo constraint,
+    /// i.e., each alignment column must be introduced exactly once
+    /// in the phylogenetic tree.
+    ///
+    /// Returns `Ok(())` if all columns satisfy this constraint, or an error
+    /// identifying the first violating column otherwise.
+    pub fn check_dollos_constraint(&self) -> Result<()> {
+        let mut violating_cols = Vec::new();
+        for col_idx in 0..self.msa.len() {
+            let mut num_insertions = 0;
+            for node in self.tree.postorder() {
+                if *node == self.tree.root {
+                    if self.msa.ancestral_map(node)[col_idx].is_some() {
+                        num_insertions += 1;
+                    }
+                } else {
+                    let parent = self.tree.parent(node).unwrap();
+                    let parent_site = self.msa.ancestral_map(&parent)[col_idx];
+                    let node_site = match node {
+                        Internal(_) => self.msa.ancestral_map(node)[col_idx],
+                        Leaf(_) => self.msa.leaf_map(node)[col_idx],
+                    };
+                    if parent_site.is_none() && node_site.is_some() {
+                        num_insertions += 1;
+                    }
+                }
+            }
+            if num_insertions != 1 {
+                violating_cols.push((col_idx, num_insertions));
+            }
+        }
+        if !violating_cols.is_empty() {
+            let mut msg = String::from("Dollo constraint violated in columns:\n");
+            for (col_idx, num_insertions) in violating_cols {
+                msg.push_str(&format!(
+                    "  Column {col_idx}: {num_insertions} insertions\n"
+                ));
+            }
+            bail!(AncestralAlignment, msg);
+        }
+        Ok(())
     }
 }
 

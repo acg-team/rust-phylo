@@ -10,9 +10,9 @@ A high-performance Rust library for phylogenetic analysis and multiple sequence 
 
 ## Current Functionality
 
-- **Maximum Likelihood Phylogenetic Analysis**: Efficient implementation of phylogenetic tree inference using SPR moves using likelihood or parsimony cost functions;
-- **Multiple Sequence Alignment (MSA)**: Support for Multiple Sequence Alignment using the IndelMaP algorithm ([paper]( https://academic.oup.com/mbe/article/41/7/msae109/7688856 ), [python implementation]( https://github.com/acg-team/indelMaP ));
-- **Sequence Evolution Models**: Support for various DNA (JC69, K80, TN93, HKY, GTR) and protein (WAG, HIVB, BLOSUM62) substitution models as well as the Poisson Indel Process (PIP) ([paper]( https://www.pnas.org/doi/10.1073/pnas.1220450110 )) model;
+- **Maximum Likelihood Phylogenetic Analysis**: Efficient implementation of phylogenetic tree inference using SPR or NNI moves using likelihood or parsimony cost functions;
+- **Multiple Sequence Alignment (MSA)**: Support for Multiple Sequence Alignment using the [IndelMaP algorithm]( https://academic.oup.com/mbe/article/41/7/msae109/7688856 );
+- **Sequence Evolution Models**: Support for various DNA (JC69, K80, TN93, HKY, GTR) and protein (WAG, HIVB, BLOSUM62) substitution models as well as the [Poisson Indel Process (PIP) model]( https://www.pnas.org/doi/10.1073/pnas.1220450110 ) and the [TKF91](https://link.springer.com/article/10.1007/BF02193625)/[TKF92](https://link.springer.com/article/10.1007/BF00163848) models (the TKF models are only compatible with NNI moves, see the documentation of the `Compatible` trait);
 - **High Performance**: Optimised tree search with optional parallel processing capabilities.
 
 ## Getting Started
@@ -31,7 +31,7 @@ Once published on crates.io, you'll be able to use:
 phylo = "0.1.0"
 ```
 
-**Minimum Supported Rust Version**: 1.82.0
+**Minimum Supported Rust Version**: 1.88.0
 
 MSRV detected using [`cargo-msrv`]( https://github.com/foresterre/cargo-msrv ).
 
@@ -70,7 +70,12 @@ This crate supports several optional features:
 - `par-regraft`: Enable parallel regrafting operations using Rayon;
 - `par-regraft-chunk`: Enable chunked parallel regrafting;
 - `par-regraft-manual`: Enable manual parallel regrafting control;
-- `precomputed-test-results`: Speed up test runs with precomputed results (for local development).
+
+Test related features:
+
+- `precomputed-test-results`: Speed up test runs with precomputed results (for local development);
+- `recompute-brute-force-asr`: Force re-computation of brute-force ancestral sequence re-estimation in tests instead of loading precomputed results;
+- `multithread-brute-force-asr`: Parallelise brute-force ancestral sequence re-estimation computation in tests.
 
 Enable features in your Cargo.toml:
 
@@ -93,10 +98,9 @@ Will add Luca's benchmarks when possible.
 
 This crate is new and in active development at the moment. The basic existing functionality is mentioned above, but the following features are being currently implemented or planned:
 
-- Simultaneous tree and alignment estimation under the PIP model ([paper]( https://www.pnas.org/doi/10.1073/pnas.1220450110 )); 
-- Maximum likelihood tree search using NNI moves under the TKF92 long indel model ([paper]( https://link.springer.com/article/10.1007/BF00163848 ));
+- Simultaneous tree and alignment estimation under the [PIP model]( https://www.pnas.org/doi/10.1073/pnas.1220450110 );
 - Extension to the PIP model that includes long insertions (manuscript in preparation);
-- Ancestral state reconstruction using PIP ([paper]( https://pubmed.ncbi.nlm.nih.gov/35866991/ )), TKF92 and IndelMaP ([paper]( https://academic.oup.com/mbe/article/41/7/msae109/7688856 ));
+- Ancestral state reconstruction: using PIP ([ARPIP]( https://pubmed.ncbi.nlm.nih.gov/35866991/ )), TKF92 and [IndelMaP]( https://academic.oup.com/mbe/article/41/7/msae109/7688856 );
 - Randomised starting trees for tree inference;
 - Generalisation of the tree structure for easier use in other crates.
 
@@ -112,11 +116,13 @@ This is a new library that is currently in active development. Contributions are
 
 Please read our [contributor guide]( CONTRIBUTING.md )!
 
-### Current Contributors:
+### Contributors:
 
+#### Current
 - Jūlija Pečerska ([GitHub]( https://github.com/junniest ), [email]( mailto:julija.pecerska@zhaw.ch ));
 - Mattes Mrzik ([GitHub]( https://github.com/MattesMrzik ), [email]( mailto:mattes.mrzik@zhaw.ch ));
-- Dmitrii Iartsev ([GitHub]( https://github.com/jarcev ), [email]( mailto:dmitrii.iartsev@zhaw.ch ));
+#### Past
+- Dmitrii Iartsev ([GitHub]( https://github.com/jarcev ));
 - Merlin Maggi ([GitHub]( https://github.com/merlinio2000 ));
 - Luca Müller ([GitHub]( https://github.com/lucasperception ));
 - Kai Davidson ([GitHub]( https://github.com/kalxed )).
@@ -136,7 +142,7 @@ If you use this library in your research, please consider citing:
 ```bibtex
 @software{phylo_rust,
   title = {Phylo: A Rust library for phylogenetic analysis},
-  author = {Pečerska, Jūlija and Mrzik, Mattes and Iartsev, Dmitrii and Gil, Manuel and Anisimova, Maria},
+  author = {Pečerska, Jūlija and Mrzik, Mattes and Gil, Manuel and Anisimova, Maria},
   url = {https://github.com/acg-team/rust-phylo},
   year = {2025}
 }

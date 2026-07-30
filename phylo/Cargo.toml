@@ -15,7 +15,7 @@ description = "A Rust library for phylogenetic analysis and multiple sequence al
 categories = ["science", "science::bioinformatics", "algorithms"]
 exclude = ["data/", ".github/", "benches/", "target/"]
 
-rust-version = "1.84.0"
+rust-version = "1.88.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -26,6 +26,8 @@ precomputed-test-results = []
 par-regraft = ["dep:rayon"]
 par-regraft-chunk = ["dep:rayon"]
 par-regraft-manual = ["dep:rayon"]
+recompute-brute-force-asr = [] # used to force re-computation of brute-force ASR in tests instead of loading precomputed results
+multithread-brute-force-asr = ["dep:rayon"] # parallelise brute-force ASR computations in tests
 
 [lib]
 bench = false

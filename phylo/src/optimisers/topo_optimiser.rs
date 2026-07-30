@@ -23,7 +23,6 @@ use crate::Result;
 /// [`TopologyOptimiser::new`] are compatible.
 pub trait Compatible<MO: MoveOptimiser> {}
 
-// TODO: or to we want to place those in respective files?
 impl<Q: QMatrix, A: Alignment> Compatible<SprOptimiser> for PIPCost<Q, A> {}
 impl<Q: QMatrix, A: Alignment> Compatible<NniOptimiser> for PIPCost<Q, A> {}
 impl<Q: QMatrix, A: Alignment> Compatible<SprOptimiser> for SubstitutionCost<Q, A> {}
@@ -210,6 +209,11 @@ where
                 } = move_cost_info;
 
                 if best_cost > base_cost {
+                    // TODO: can we not re-use the cost struct that was used to compute the
+                    // best_move_at_location, instead of calling update_tree() again?
+                    // For tkf we would have to call the dp re-estimate again here again, even
+                    // though it is already computed once during the best_move_at_location call.
+                    // See issue #141 https://github.com/acg-team/rust-phylo/issues/141
                     cost_fn.update_tree(best_tree);
                     info!("    {move_opti} move applied, new cost {best_cost}");
                     Ok(best_cost)
