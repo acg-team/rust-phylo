@@ -410,19 +410,6 @@ mod private_tests {
     }
 
     #[test]
-    fn test_sets_missing_tree_node_ids() {
-        let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0):1.0):1.0;");
-
-        let ids = tree
-            .postorder()
-            .iter()
-            .map(|idx| tree.node(idx).id.clone())
-            .collect::<Vec<String>>();
-        assert_eq!(ids.len(), tree.len());
-        assert!(!ids.contains(&String::from("")));
-    }
-
-    #[test]
     fn not_valid_ids_with_ancestors() {
         let tree =
             tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0)I10:1.0)root:1.0;");

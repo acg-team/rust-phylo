@@ -845,3 +845,16 @@ fn parse_wo_internal_ids() {
     // duplicates should not be reported if internal nodes are not labeled
     let _ = tree!("((A:1.0,B:1.0)N:5.1,(X:3.0,C:4.0):6.2):7.3;");
 }
+
+#[test]
+fn missing_tree_node_ids_are_set() {
+    let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0):1.0):1.0;");
+
+    let ids = tree
+        .postorder()
+        .iter()
+        .map(|idx| tree.node(idx).id.clone())
+        .collect::<Vec<String>>();
+    assert_eq!(ids.len(), tree.len());
+    assert!(!ids.contains(&String::from("")));
+}
