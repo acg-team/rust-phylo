@@ -614,6 +614,15 @@ fn from_newick_to_newick_wo_internal_ids() {
 }
 
 #[test]
+fn from_newick_to_newick_with_internal_ids() {
+    let newick = "(((((A:1,B:1):1,C:2):1,D:3):1,E:4):1);";
+    let newick_w_ids = "(((((A:1,B:1)int2:1,C:2)int4:1,D:3)int6:1,E:4)int8:1);";
+
+    let trees = from_newick(newick).unwrap();
+    assert_eq!(trees[0].to_newick(), newick_w_ids);
+}
+
+#[test]
 fn test_to_newick_complex() {
     let tree = tree!("(((raccoon:19.19959,bear:6.80041):0.84600,((sea_lion:11.99700, seal:12.00300):7.52973,
     ((monkey:100.85930,cat:47.14069):20.59201, weasel:18.87953):2.09460):3.87382):9.0,dog:25.46154):10.0;");
