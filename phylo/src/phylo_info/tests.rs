@@ -67,7 +67,7 @@ fn setup_info_correct_unaligned() {
 fn setup_info_with_dup_ids_fails() {
     let fldr = Path::new("./data");
     let error = PIB::new(fldr.join("sequences_duplicated.fasta")).build();
-    assert_matches!(error, Err(Error::Sequence(msg)) if msg.contains("duplicate record id (D) found"));
+    assert_matches!(error, Err(Error::Sequence(msg)) if msg.contains("duplicate record id \"D\" found"));
 }
 
 #[test]
