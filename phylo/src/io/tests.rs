@@ -5,7 +5,10 @@ use assert_matches::assert_matches;
 use rstest::*;
 use tempfile::tempdir;
 
-use crate::io::{read_sequences, write_newick_to_file, write_sequences_to_file};
+use crate::io::{
+    read_sequences, write_newick_to_file, write_newick_wo_internal_ids_to_file,
+    write_sequences_to_file,
+};
 use crate::{record_wo_desc as record, tree, Error};
 
 #[test]
@@ -86,7 +89,7 @@ fn write_sequences_to_existing_file() {
 
 #[test]
 fn write_newick() {
-    let newick = "(((A:1.4,B:2.45):1,(D:1.2,E:2.1):1):0);";
+    let newick = "(((A:1.4,B:2.45)C:1,(D:1.2,E:2.1)F:1)G:0);";
     let tree = tree!(newick);
     let temp_dir = tempdir().unwrap();
     let output_path = temp_dir.path().join("output.newick");
@@ -125,26 +128,44 @@ fn write_multiple_newick_to_file() {
 }
 
 #[test]
-fn write_newick_to_bad_path() {
-    let tree = tree!("(((A:1.4,B:2.45):1,(D:1.2,E:2.1):1):0);");
+fn write_newick_wo_internal_ids() {
+    let newick = "(((A:1.4,B:2.45):1,(D:1.2,E:2.1):1):0);";
+    let tree = tree!(newick);
 
     let temp_dir = tempdir().unwrap();
-    let output_path = temp_dir
-        .path()
-        .join("nonexistent_folder")
-        .join("output.newick");
-    let res = write_newick_to_file(&[tree], output_path);
-    assert_matches!(res, Err(Error::Io(msg)) if msg.to_ascii_lowercase().contains("no such file or directory"));
+    let output_path = temp_dir.path().join("output.newick");
+
+    write_newick_wo_internal_ids_to_file(&[tree], output_path.clone()).unwrap();
+
+    let mut file_content = String::new();
+    std::fs::File::open(output_path)
+        .unwrap()
+        .read_to_string(&mut file_content)
+        .unwrap();
+    assert_eq!(file_content.trim(), newick);
 }
 
 #[test]
-fn write_newick_to_existing_file() {
-    let tree = tree!("(((A:1.4,B:2.45):1,(D:1.2,E:2.1):1):0);");
+fn write_multiple_newick_wo_internal_ids_to_file() {
+    let newick0 = "(((((A:1,B:1):1,C:2):1,D:3):1,E:4):1);";
+    let newick1 = "(((A:1.5,B:2.3):5.1,(C:3.9,D:4.8):6.2):7.3);";
+    let newick2 = "((A:1,(B:1,C:1):2):1);";
+    let trees = vec![tree!(newick0), tree!(newick1), tree!(newick2)];
+
     let temp_dir = tempdir().unwrap();
     let output_path = temp_dir.path().join("output.newick");
-    File::create(&output_path).unwrap();
-    let res = write_newick_to_file(&[tree], &output_path);
-    assert_matches!(res, Err(Error::Io(msg)) if msg.contains("already exists"));
+
+    write_newick_wo_internal_ids_to_file(&trees, output_path.clone()).unwrap();
+
+    let mut file_content = String::new();
+    std::fs::File::open(output_path)
+        .unwrap()
+        .read_to_string(&mut file_content)
+        .unwrap();
+    assert_eq!(
+        file_content.trim(),
+        format!("{newick0}\n{newick1}\n{newick2}")
+    );
 }
 
 #[test]

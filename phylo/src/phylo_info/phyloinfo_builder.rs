@@ -174,10 +174,9 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
         R: Rng + SeedableRng,
     {
         let sequences = self.read_sequences()?;
-        let mut tree = self.setup_starting_tree(rng, &sequences)?;
+        let tree = self.setup_starting_tree(rng, &sequences)?;
 
         let msa = if sequences.len() == tree.n {
-            tree = set_missing_tree_node_ids(&tree)?;
             if sequences.aligned {
                 info!(
                     "Aligned sequences without ancestral sequences. Inferring ancestral sequences"
@@ -294,29 +293,6 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
     }
 }
 
-/// Sets missing ids and bails if there are duplicates among the node ids that were already set.
-pub(crate) fn set_missing_tree_node_ids(tree: &Tree) -> Result<Tree> {
-    info!("Setting missing tree node ids");
-    let mut tree_with_all_ids = tree.clone();
-    let mut seen_user_set_ids = HashSet::new();
-    let mut count = 0;
-    for node_idx in tree.postorder() {
-        let id = tree.node_id(node_idx);
-        if id.is_empty() {
-            let mut new_id = format!("I{count}");
-            while !seen_user_set_ids.insert(new_id.clone()) {
-                count += 1;
-                new_id = format!("I{count}");
-            }
-            tree_with_all_ids.nodes[usize::from(node_idx)].id = new_id.clone();
-            info!("Set missing id of node {node_idx} to {new_id}");
-        } else if !seen_user_set_ids.insert(id.to_string()) {
-            bail!(Tree, "duplicate id ({id}) found in the leaves of the tree");
-        }
-    }
-    Ok(tree_with_all_ids)
-}
-
 /// Checks that the IDs of the tree leaves and the sequences match, bails with an error otherwise.
 pub fn validate_taxa_ids(tree: &Tree, sequences: &Sequences) -> Result<()> {
     let tip_ids: HashSet<String> = HashSet::from_iter(tree.leaf_ids());
@@ -382,8 +358,7 @@ mod private_tests {
     use crate::alignment::Sequences;
     use crate::alphabets::UNKNOWN_ALPHABET;
     use crate::phylo_info::{
-        phyloinfo_builder::{set_missing_tree_node_ids, PhyloInfoBuilder as PIB},
-        validate_ids_with_ancestors,
+        phyloinfo_builder::PhyloInfoBuilder as PIB, validate_ids_with_ancestors,
     };
     use crate::random::FakeGenerator;
     use crate::{record_wo_desc as record, tree, Error};
@@ -435,38 +410,9 @@ mod private_tests {
     }
 
     #[test]
-    fn test_set_missing_tree_node_ids() {
-        // arrange
-        let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0):1.0):1.0;");
-
-        // act
-        let tree = set_missing_tree_node_ids(&tree).unwrap();
-
-        // assert
-        let ids = tree
-            .postorder()
-            .iter()
-            .map(|idx| tree.node(idx).id.clone())
-            .collect::<Vec<String>>();
-        assert_eq!(ids.len(), tree.len());
-        assert!(!ids.contains(&String::from("")));
-    }
-
-    #[test]
-    fn set_missing_tree_node_ids_finds_duplicate() {
-        let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, A1:1.0) I9:1.0):1.0):1.0;");
-
-        let error = set_missing_tree_node_ids(&tree);
-
-        assert_matches!(
-            error,
-            Err(Error::Tree(msg)) if msg.contains("duplicate id (A1) found in the leaves of the tree")
-        );
-    }
-
-    #[test]
     fn not_valid_ids_with_ancestors() {
-        let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0)I10:1.0):1.0;");
+        let tree =
+            tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0)I10:1.0)root:1.0;");
         let seqs = Sequences::new(vec![
             record!("A1", b"X"),
             record!("B1", b"X"),
@@ -475,7 +421,7 @@ mod private_tests {
             record!("I1", b"X"),
             record!("I9", b"X"),
             record!("I10", b"X"),
-            record!("", b"X"),
+            record!("root", b"X"),
         ]);
 
         let error = validate_ids_with_ancestors(&tree, &seqs);
@@ -489,7 +435,8 @@ mod private_tests {
     #[test]
     fn valid_ids_with_ancestors() {
         // arrange
-        let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0)I10:1.0):1.0;");
+        let tree =
+            tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0)I10:1.0)root:1.0;");
         let seqs = Sequences::new(vec![
             record!("A1", b"X"),
             record!("B1", b"X"),
@@ -499,7 +446,7 @@ mod private_tests {
             record!("I1", b"X"),
             record!("I9", b"X"),
             record!("I10", b"X"),
-            record!("", b"X"),
+            record!("root", b"X"),
         ]);
 
         // act

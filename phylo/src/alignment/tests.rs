@@ -41,17 +41,17 @@ fn maps() -> (InternalAlignments, SeqMaps) {
     let aligned_seqs = test_alignment(&["A0", "B1", "C2", "D3", "E4"]);
     (
         InternalAlignments::from([
-            (I(0), PA::new(align!(b"01234"), align!(b"01-23"))),
-            (I(1), PA::new(align!(b"01234"), align!(b"---0-"))),
-            (I(4), PA::new(align!(b"01--"), align!(b"-012"))),
+            (I(8), PA::new(align!(b"01234"), align!(b"01-23"))),
+            (I(2), PA::new(align!(b"01234"), align!(b"---0-"))),
+            (I(7), PA::new(align!(b"01--"), align!(b"-012"))),
             (I(6), PA::new(align!(b"-0-"), align!(b"012"))),
         ]),
         SeqMaps::from([
-            (L(2), align!(aligned_seqs.s[0].seq())),
-            (L(3), align!(aligned_seqs.s[1].seq())),
-            (L(5), align!(aligned_seqs.s[2].seq())),
-            (L(7), align!(aligned_seqs.s[3].seq())),
-            (L(8), align!(aligned_seqs.s[4].seq())),
+            (L(0), align!(aligned_seqs.s[0].seq())),
+            (L(1), align!(aligned_seqs.s[1].seq())),
+            (L(3), align!(aligned_seqs.s[2].seq())),
+            (L(4), align!(aligned_seqs.s[3].seq())),
+            (L(5), align!(aligned_seqs.s[4].seq())),
         ]),
     )
 }

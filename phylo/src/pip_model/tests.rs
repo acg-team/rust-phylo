@@ -490,9 +490,10 @@ fn pip_hky_likelihood_example_final() {
     c.cost();
     let tmp = c.tmp.borrow();
 
+    let root_idx = usize::from(info.tree.root);
     let nu = 7.5;
     assert_relative_eq!(
-        tmp.pnu[0],
+        tmp.pnu[root_idx],
         DVector::from_column_slice(&[
             nu * 0.0392204949,
             nu * 0.000148719,
@@ -501,7 +502,7 @@ fn pip_hky_likelihood_example_final() {
         ]),
         epsilon = 1e-3
     );
-    assert_relative_eq!(tmp.c0_pnu[0], -5.591, epsilon = 1e-3);
+    assert_relative_eq!(tmp.c0_pnu[root_idx], -5.591, epsilon = 1e-3);
     assert_relative_eq!(
         c.cost(),
         -20.769363665853653 - 0.709020450847471,
@@ -829,16 +830,16 @@ fn blen_leading_to_small_probs() {
 
 #[test]
 fn blen_leading_to_minusinf() {
-    let tree = tree!("((284811:0.0000000000000002,(284593:0.1,(237561:0.3,(284812:0.3,(284813:400.9,284591:0.2):40000000000000.2):0.05):0.1):0.04):0);");
+    let tree = tree!("((s284811:0.0000000000000002,(s284593:0.1,(s237561:0.3,(s284812:0.3,(s284813:400.9,s284591:0.2):40000000000000.2):0.05):0.1):0.04):0);");
     let msa = MSA::from_aligned(
         Sequences::with_alphabet(
             vec![
-                record!("284813", b"-"),
-                record!("284811", b"W"),
-                record!("284593", b"W"),
-                record!("237561", b"W"),
-                record!("284591", b"W"),
-                record!("284812", b"W"),
+                record!("s284813", b"-"),
+                record!("s284811", b"W"),
+                record!("s284593", b"W"),
+                record!("s237561", b"W"),
+                record!("s284591", b"W"),
+                record!("s284812", b"W"),
             ],
             Alphabet::protein(),
         ),

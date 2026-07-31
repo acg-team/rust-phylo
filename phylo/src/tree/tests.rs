@@ -14,7 +14,7 @@ use crate::alignment::Sequences;
 use crate::io::read_newick_from_file;
 use crate::parsimony::Rounding;
 use crate::tree::{
-    percentiles, percentiles_rounded,
+    generate_internal_node_id, percentiles, percentiles_rounded,
     tree_parser::{from_newick, Rule},
     Node,
     NodeIdx::{Internal as I, Leaf as L},
@@ -63,13 +63,13 @@ fn single_leaf_tree_complete() {
 fn try_idx_by_id() {
     let tree = tree!("(((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0,D:1.0)G:2.0;");
     let nodes = [
-        ("A", L(3)),
-        ("B", L(4)),
-        ("C", L(5)),
-        ("D", L(6)),
+        ("A", L(0)),
+        ("B", L(1)),
         ("E", I(2)),
-        ("F", I(1)),
-        ("G", I(0)),
+        ("C", L(3)),
+        ("F", I(4)),
+        ("D", L(5)),
+        ("G", I(6)),
     ];
     for (id, idx) in nodes.iter() {
         assert!(tree.try_idx(id).is_ok());
@@ -82,28 +82,17 @@ fn try_idx_by_id() {
 fn idx_by_id_valid() {
     let tree = tree!("(((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0,D:1.0)G:2.0;");
     let nodes = [
-        ("A", L(3)),
-        ("B", L(4)),
-        ("C", L(5)),
-        ("D", L(6)),
+        ("A", L(0)),
+        ("B", L(1)),
         ("E", I(2)),
-        ("F", I(1)),
-        ("G", I(0)),
+        ("C", L(3)),
+        ("F", I(4)),
+        ("D", L(5)),
+        ("G", I(6)),
     ];
     for (id, idx) in nodes.iter() {
         assert_eq!(tree.by_id(id).idx, *idx);
     }
-}
-
-#[test]
-fn node_ids_not_unique() {
-    let tree = tree!("(((A:1.0,B:1.0)E:2.0,C:1.0)B:1.0,D:1.0)G:2.0;");
-
-    let error = tree.node_ids_are_unique();
-
-    assert_matches!(
-        error, Err(Error::Tree(msg)) if msg.contains("not unique")
-    );
 }
 
 #[test]
@@ -144,63 +133,75 @@ fn tree_wo_sequences() {
 
 #[test]
 fn newick_single_correct() {
+    let nodes = vec![
+        Node::new_leaf(0, Some(I(2)), 1.0, "A".to_string()),
+        Node::new_leaf(1, Some(I(2)), 1.0, "B".to_string()),
+        Node::new_internal(2, Some(I(4)), vec![L(0), L(1)], 2.0, "E".to_string()),
+        Node::new_leaf(3, Some(I(4)), 1.0, "C".to_string()),
+        Node::new_internal(4, Some(I(6)), vec![I(2), L(3)], 1.0, "F".to_string()),
+        Node::new_leaf(5, Some(I(6)), 1.0, "D".to_string()),
+        Node::new_internal(6, None, vec![I(4), L(5)], 2.0, "G".to_string()),
+    ];
+
     let trees = from_newick("(((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0,D:1.0)G:2.0;").unwrap();
     assert_eq!(trees.len(), 1);
-    assert_eq!(trees[0].root, I(0));
-    let nodes = vec![
-        Node::new_internal(0, None, vec![L(6), I(1)], 2.0, "G".to_string()),
-        Node::new_internal(1, Some(I(0)), vec![L(5), I(2)], 1.0, "F".to_string()),
-        Node::new_internal(2, Some(I(1)), vec![L(4), L(3)], 2.0, "E".to_string()),
-        Node::new_leaf(3, Some(I(2)), 1.0, "A".to_string()),
-        Node::new_leaf(4, Some(I(2)), 1.0, "B".to_string()),
-        Node::new_leaf(5, Some(I(1)), 1.0, "C".to_string()),
-        Node::new_leaf(6, Some(I(0)), 1.0, "D".to_string()),
-    ];
-    assert_eq!(trees[0].nodes, nodes);
-    assert_eq!(trees[0].postorder.len(), 7);
-    assert_eq!(trees[0].preorder.len(), 7);
+
+    let tree = &trees[0];
+
+    assert_eq!(tree.nodes, nodes);
+    assert_eq!(tree.root, I(6));
+    assert_eq!(tree.postorder.len(), 7);
+    assert_eq!(tree.preorder.len(), 7);
 }
 
 #[test]
 fn newick_ladder_first_correct() {
+    let nodes = vec![
+        Node::new_leaf(0, Some(I(2)), 1.0, "A".to_string()),
+        Node::new_leaf(1, Some(I(2)), 1.0, "B".to_string()),
+        Node::new_internal(2, Some(I(4)), vec![L(0), L(1)], 2.0, "E".to_string()),
+        Node::new_leaf(3, Some(I(4)), 1.0, "C".to_string()),
+        Node::new_internal(4, None, vec![I(2), L(3)], 1.0, "F".to_string()),
+    ];
+
     let trees = from_newick("((A:1.0,B:1.0)E:2.0,C:1.0)F:1.0;").unwrap();
     assert_eq!(trees.len(), 1);
-    assert_eq!(trees[0].root, I(0));
-    let nodes = vec![
-        Node::new_internal(0, None, vec![I(1), L(4)], 1.0, "F".to_string()),
-        Node::new_internal(1, Some(I(0)), vec![L(3), L(2)], 2.0, "E".to_string()),
-        Node::new_leaf(2, Some(I(1)), 1.0, "A".to_string()),
-        Node::new_leaf(3, Some(I(1)), 1.0, "B".to_string()),
-        Node::new_leaf(4, Some(I(0)), 1.0, "C".to_string()),
-    ];
-    assert_eq!(trees[0].nodes, nodes);
-    assert_eq!(trees[0].postorder.len(), 5);
-    assert_eq!(trees[0].preorder.len(), 5);
+
+    let tree = &trees[0];
+
+    assert_eq!(tree.nodes, nodes);
+    assert_eq!(tree.root, I(4));
+    assert_eq!(tree.postorder.len(), 5);
+    assert_eq!(tree.preorder.len(), 5);
 }
 
 #[test]
 fn newick_ladder_second_correct() {
+    let nodes = vec![
+        Node::new_leaf(0, Some(I(4)), 1.0, "A".to_string()),
+        Node::new_leaf(1, Some(I(3)), 1.0, "B".to_string()),
+        Node::new_leaf(2, Some(I(3)), 1.0, "C".to_string()),
+        Node::new_internal(3, Some(I(4)), vec![L(1), L(2)], 2.0, "E".to_string()),
+        Node::new_internal(4, None, vec![L(0), I(3)], 1.0, "F".to_string()),
+    ];
+
     let trees = from_newick("(A:1.0,(B:1.0,C:1.0)E:2.0)F:1.0;").unwrap();
     assert_eq!(trees.len(), 1);
-    assert_eq!(trees[0].root, I(0));
-    let nodes = vec![
-        Node::new_internal(0, None, vec![L(1), I(2)], 1.0, "F".to_string()),
-        Node::new_leaf(1, Some(I(0)), 1.0, "A".to_string()),
-        Node::new_internal(2, Some(I(0)), vec![L(3), L(4)], 2.0, "E".to_string()),
-        Node::new_leaf(3, Some(I(2)), 1.0, "B".to_string()),
-        Node::new_leaf(4, Some(I(2)), 1.0, "C".to_string()),
-    ];
-    assert_eq!(trees[0].nodes, nodes);
-    assert_eq!(trees[0].postorder.len(), 5);
-    assert_eq!(trees[0].preorder.len(), 5);
-    assert_relative_eq!(trees[0].length, trees[0].iter().map(|n| n.blen).sum());
+
+    let tree = &trees[0];
+
+    assert_eq!(tree.nodes, nodes);
+    assert_eq!(tree.root, I(4));
+    assert_eq!(tree.postorder.len(), 5);
+    assert_eq!(tree.preorder.len(), 5);
+    assert_relative_eq!(tree.length, tree.iter().map(|n| n.blen).sum());
 }
 
 #[test]
 fn newick_ladder_big_correct() {
     let trees = from_newick("((((A:1.0,B:1.0)F:1.0,C:2.0)G:1.0,D:3.0)H:1.0,E:4.0)I:1.0;").unwrap();
     assert_eq!(trees.len(), 1);
-    assert_eq!(trees[0].root, I(0));
+    assert_eq!(trees[0].root, I(8));
     assert_eq!(trees[0].len(), 9);
     assert_eq!(trees[0].leaves().len(), 5);
     assert_eq!(trees[0].internals().len(), 4);
@@ -212,15 +213,15 @@ fn newick_ladder_big_correct() {
 fn newick_complex_tree_correct() {
     // tree from file samplefraction_0.99_taxa_16_treeheight_0.8_tree1_leaves.nwk
     let trees = from_newick(
-            "(((15:0.0334274,4:0.0334274):0.38581,7:0.419237):0.380763,(((6:0.0973428,14:0.0973428):0.0773821,\
-            (1:0.000738004,3:0.000738004):0.173987):0.548192,(((13:0.0799156,16:0.0799156):0.0667553,(5:0.123516,\
-                10:0.123516):0.0231551):0.0716431,((8:0.0571164,2:0.0571164):0.0539283,(12:0.0631742,(11:0.00312848,\
-                    9:0.00312848):0.0600458):0.0478705):0.107269):0.504603):0.0770827);
+            "(((s15:0.0334274,s4:0.0334274):0.38581,s7:0.419237):0.380763,(((s6:0.0973428,s14:0.0973428):0.0773821,\
+            (s1:0.000738004,s3:0.000738004):0.173987):0.548192,(((s13:0.0799156,s16:0.0799156):0.0667553,(s5:0.123516,\
+                s10:0.123516):0.0231551):0.0716431,((s8:0.0571164,s2:0.0571164):0.0539283,(s12:0.0631742,(s11:0.00312848,\
+                    s9:0.00312848):0.0600458):0.0478705):0.107269):0.504603):0.0770827);
             ",
         )
         .unwrap();
     assert_eq!(trees.len(), 1);
-    assert_eq!(trees[0].root, I(0));
+    assert_eq!(trees[0].root, I(30));
     assert_eq!(trees[0].len(), 31);
     assert_eq!(trees[0].leaves().len(), 16);
     assert_eq!(trees[0].internals().len(), 15);
@@ -239,21 +240,25 @@ fn newick_complex_tree_2() {
 
 #[test]
 fn newick_simple_balanced_correct() {
+    let nodes = vec![
+        Node::new_leaf(0, Some(I(2)), 1.0, "A".to_string()),
+        Node::new_leaf(1, Some(I(2)), 2.0, "B".to_string()),
+        Node::new_internal(2, Some(I(6)), vec![L(0), L(1)], 5.1, "E".to_string()),
+        Node::new_leaf(3, Some(I(5)), 3.0, "C".to_string()),
+        Node::new_leaf(4, Some(I(5)), 4.0, "D".to_string()),
+        Node::new_internal(5, Some(I(6)), vec![L(3), L(4)], 6.2, "F".to_string()),
+        Node::new_internal(6, None, vec![I(2), I(5)], 7.3, "G".to_string()),
+    ];
+
     let trees = from_newick("((A:1.0,B:2.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3;").unwrap();
     assert_eq!(trees.len(), 1);
-    assert_eq!(trees[0].root, I(0));
-    let nodes = vec![
-        Node::new_internal(0, None, vec![I(1), I(4)], 7.3, "G".to_string()),
-        Node::new_internal(1, Some(I(0)), vec![L(2), L(3)], 5.1, "E".to_string()),
-        Node::new_leaf(2, Some(I(1)), 1.0, "A".to_string()),
-        Node::new_leaf(3, Some(I(1)), 2.0, "B".to_string()),
-        Node::new_internal(4, Some(I(0)), vec![L(5), L(6)], 6.2, "F".to_string()),
-        Node::new_leaf(5, Some(I(4)), 3.0, "C".to_string()),
-        Node::new_leaf(6, Some(I(4)), 4.0, "D".to_string()),
-    ];
-    assert_eq!(trees[0].nodes, nodes);
-    assert_eq!(trees[0].postorder.len(), 7);
-    assert_eq!(trees[0].preorder.len(), 7);
+
+    let tree = &trees[0];
+
+    assert_eq!(tree.nodes, nodes);
+    assert_eq!(tree.root, I(6));
+    assert_eq!(tree.postorder.len(), 7);
+    assert_eq!(tree.preorder.len(), 7);
 }
 
 #[test]
@@ -273,15 +278,24 @@ fn newick_multiple_correct() {
     )
     .unwrap();
     assert_eq!(trees.len(), 3);
-    assert_eq!(trees[0].root, I(0));
+
+    assert_eq!(trees[0].root, I(8));
     assert_eq!(trees[0].leaves().len(), 5);
     assert_eq!(trees[0].internals().len(), 4);
-    assert_eq!(trees[1].root, I(0));
+    assert_eq!(trees[0].postorder.len(), 9);
+    assert_eq!(trees[0].preorder.len(), 9);
+
+    assert_eq!(trees[1].root, I(6));
     assert_eq!(trees[1].leaves().len(), 4);
     assert_eq!(trees[1].internals().len(), 3);
-    assert_eq!(trees[2].root, I(0));
+    assert_eq!(trees[1].postorder.len(), 7);
+    assert_eq!(trees[1].preorder.len(), 7);
+
+    assert_eq!(trees[2].root, I(4));
     assert_eq!(trees[2].leaves().len(), 3);
     assert_eq!(trees[2].internals().len(), 2);
+    assert_eq!(trees[2].postorder.len(), 5);
+    assert_eq!(trees[2].preorder.len(), 5);
 }
 
 #[test]
@@ -302,21 +316,36 @@ fn newick_parse_whitespace() {
 }
 
 #[test]
-fn newick_parse_unrooted() {
+fn newick_parse_unrooted_implementation() {
+    let nodes = vec![
+        Node::new_leaf(0, Some(I(2)), 1.0, "A".to_string()),
+        Node::new_leaf(1, Some(I(2)), 1.0, "B".to_string()),
+        Node::new_internal(2, Some(I(7)), vec![L(0), L(1)], 1.0, "E".to_string()),
+        Node::new_leaf(3, Some(I(5)), 1.0, "C".to_string()),
+        Node::new_leaf(4, Some(I(5)), 1.0, "D".to_string()),
+        Node::new_internal(5, Some(I(7)), vec![L(3), L(4)], 1.0, "F".to_string()),
+        Node::new_leaf(6, Some(I(8)), 4.0, "G".to_string()),
+        Node::new_internal(
+            7,
+            Some(I(8)),
+            vec![I(2), I(5)],
+            0.0,
+            generate_internal_node_id(&7),
+        ),
+        Node::new_internal(
+            8,
+            None,
+            vec![I(7), L(6)],
+            0.0,
+            generate_internal_node_id(&8),
+        ),
+    ];
+
     let trees = from_newick("((A:1.0,B:1.0)E:1.0,(C:1.0,D:1.0)F:1.0,G:4.0);");
     assert!(trees.is_ok());
+
     let tree = &trees.unwrap()[0];
-    let nodes = vec![
-        Node::new_internal(0, Some(I(7)), vec![L(1), L(2)], 1.0, "E".to_string()),
-        Node::new_leaf(1, Some(I(0)), 1.0, "A".to_string()),
-        Node::new_leaf(2, Some(I(0)), 1.0, "B".to_string()),
-        Node::new_internal(3, Some(I(7)), vec![L(4), L(5)], 1.0, "F".to_string()),
-        Node::new_leaf(4, Some(I(3)), 1.0, "C".to_string()),
-        Node::new_leaf(5, Some(I(3)), 1.0, "D".to_string()),
-        Node::new_leaf(6, Some(I(8)), 4.0, "G".to_string()),
-        Node::new_internal(7, Some(I(8)), vec![I(0), I(3)], 0.0, "".to_string()),
-        Node::new_internal(8, None, vec![I(7), L(6)], 0.0, "".to_string()),
-    ];
+
     assert_eq!(tree.nodes, nodes);
     assert_eq!(tree.root, I(8));
 }
@@ -330,6 +359,8 @@ fn newick_parse_unrooted_long() {
     let tree = &trees[0];
     assert_eq!(tree.leaves().len(), 8);
     assert_eq!(tree.internals().len(), 7);
+    assert_eq!(tree.postorder.len(), 15);
+    assert_eq!(tree.preorder.len(), 15);
 }
 
 #[test]
@@ -382,19 +413,28 @@ fn make_parsing_error(rules: &[Rule]) -> ErrorVariant<Rule> {
 }
 
 #[test]
-fn newick_garbage() {
+fn newick_garbage_semicolon() {
     let trees = from_newick(";");
     let error = make_parsing_error(&[Rule::newick]);
     assert_matches!(trees, Err(Error::TreeParsing(msg, err)) if err.variant == error && msg.contains("malformed newick string"));
+}
 
+#[test]
+fn newick_garbage_parentheses() {
     let trees = from_newick("()()();");
     let error = make_parsing_error(&[Rule::tree, Rule::internal, Rule::label]);
     assert_matches!(trees, Err(Error::TreeParsing(msg, err)) if err.variant == error && msg.contains("malformed newick string"));
+}
 
+#[test]
+fn newick_garbage_unclosed_parentheses() {
     let trees = from_newick("((A:1.0,B:1.0);");
     let error = make_parsing_error(&[Rule::label, Rule::branch_length]);
     assert_matches!(trees, Err(Error::TreeParsing(msg, err)) if err.variant == error && msg.contains("malformed newick string"));
+}
 
+#[test]
+fn newick_garbage_missing_leaf_labels() {
     let trees = from_newick("(:1.0,:2.0)E:5.1;");
     let error = make_parsing_error(&[Rule::tree, Rule::internal, Rule::label]);
     assert_matches!(trees, Err(Error::TreeParsing(msg, err)) if err.variant == error && msg.contains("malformed newick string"));
@@ -457,7 +497,7 @@ fn test_node_idx_from_usize() {
 }
 
 #[test]
-fn test_node_id_string() {
+fn test_internal_node_ids_given() {
     let tree =
         tree!("((ant:17,(bat:31, cow:22)batcow:7)antbatcow:10,(elk:33,fox:12)elkfox:40)root:0;");
     let ids = [
@@ -474,16 +514,21 @@ fn test_node_id_string() {
     for node in &tree.nodes {
         assert!(ids.contains(&tree.node_id(&node.idx)));
     }
+}
+
+#[test]
+fn test_internal_node_ids_missing() {
     let tree = tree!("((ant:17,(bat:31, cow:22):7):10,(elk:33,fox:12):40):0;");
-    for node in tree.iter() {
-        match node.idx {
-            I(_) => {
-                assert!(tree.node_id(&node.idx).is_empty());
-            }
-            L(_) => {
-                assert!(ids.contains(&tree.node_id(&node.idx)));
-            }
-        }
+    let ids = ["ant", "bat", "cow", "elk", "fox"];
+
+    for leaf in tree.leaves() {
+        assert!(ids.contains(&leaf.id.as_str()));
+    }
+    for internal in tree.internals() {
+        assert_eq!(
+            internal.id,
+            generate_internal_node_id(&usize::from(internal.idx))
+        );
     }
 }
 
@@ -503,8 +548,8 @@ fn test_node_idx_display(#[case] idx: usize) {
 #[case(42)]
 #[case(99)]
 fn test_node_idx_debug(#[case] idx: usize) {
-    assert_eq!(format!("{:?}", L(idx)), format!("Leaf({})", idx));
-    assert_eq!(format!("{:?}", I(idx)), format!("Int({})", idx));
+    assert_eq!(format!("{:?}", L(idx)), format!("L{}", idx));
+    assert_eq!(format!("{:?}", I(idx)), format!("I{}", idx));
 }
 
 #[test]
@@ -524,11 +569,13 @@ fn test_to_newick_simple() {
         leaf_ids: vec!["A".to_string(), "B".to_string()],
         dirty: FixedBitSet::with_capacity(3),
     };
+
     assert_eq!(tree.to_newick(), "((A:1,B:5.5)C:2);");
+    assert_eq!(tree.to_newick_wo_internal_ids(), "((A:1,B:5.5):2);");
 }
 
 #[test]
-fn test_from_newick_to_newick() {
+fn from_newick_to_newick() {
     let newick0 = "(((((A:1,B:1)F:1,C:2)G:1,D:3)H:1,E:4)I:1);";
     let newick1 = "(((A:1.5,B:2.3)E:5.1,(C:3.9,D:4.8)F:6.2)G:7.3);";
     let newick2 = "((A:1,(B:1,C:1)E:2)F:1);";
@@ -537,6 +584,42 @@ fn test_from_newick_to_newick() {
     assert_eq!(trees[0].to_newick(), newick0);
     assert_eq!(trees[1].to_newick(), newick1);
     assert_eq!(trees[2].to_newick(), newick2);
+}
+
+#[test]
+fn from_newick_w_ids_to_newick_wo_internal_ids() {
+    let newick0 = "(((((A:1,B:1)F:1,C:2)G:1,D:3)H:1,E:4)I:1);";
+    let newick0_wo_ids = "(((((A:1,B:1):1,C:2):1,D:3):1,E:4):1);";
+    let newick1 = "(((A:1.5,B:2.3)E:5.1,(C:3.9,D:4.8)F:6.2)G:7.3);";
+    let newick1_wo_ids = "(((A:1.5,B:2.3):5.1,(C:3.9,D:4.8):6.2):7.3);";
+    let newick2 = "((A:1,(B:1,C:1)E:2)F:1);";
+    let newick2_wo_ids = "((A:1,(B:1,C:1):2):1);";
+
+    let trees = from_newick(format!("{newick0}\n{newick1}\n{newick2}").as_str()).unwrap();
+    assert_eq!(trees[0].to_newick_wo_internal_ids(), newick0_wo_ids);
+    assert_eq!(trees[1].to_newick_wo_internal_ids(), newick1_wo_ids);
+    assert_eq!(trees[2].to_newick_wo_internal_ids(), newick2_wo_ids);
+}
+
+#[test]
+fn from_newick_to_newick_wo_internal_ids() {
+    let newick0 = "(((((A:1,B:1):1,C:2):1,D:3):1,E:4):1);";
+    let newick1 = "(((A:1.5,B:2.3):5.1,(C:3.9,D:4.8):6.2):7.3);";
+    let newick2 = "((A:1,(B:1,C:1):2):1);";
+
+    let trees = from_newick(format!("{newick0}\n{newick1}\n{newick2}").as_str()).unwrap();
+    assert_eq!(trees[0].to_newick_wo_internal_ids(), newick0);
+    assert_eq!(trees[1].to_newick_wo_internal_ids(), newick1);
+    assert_eq!(trees[2].to_newick_wo_internal_ids(), newick2);
+}
+
+#[test]
+fn from_newick_to_newick_with_internal_ids() {
+    let newick = "(((((A:1,B:1):1,C:2):1,D:3):1,E:4):1);";
+    let newick_w_ids = "(((((A:1,B:1)int2:1,C:2)int4:1,D:3)int6:1,E:4)int8:1);";
+
+    let trees = from_newick(newick).unwrap();
+    assert_eq!(trees[0].to_newick(), newick_w_ids);
 }
 
 #[test]
@@ -674,12 +757,12 @@ fn partitions() {
 #[test]
 fn rf_distance_web_example() {
     // Examples from https://cs.hmc.edu/~hadas/mitcompbio/treedistance.html
-    let tree1 = tree!("(0, (1, (2, (3, 4))));");
-    let tree2 = tree!("(0, (1, (3, (2, 4))));");
+    let tree1 = tree!("(s0, (s1, (s2, (s3, s4))));");
+    let tree2 = tree!("(s0, (s1, (s3, (s2, s4))));");
     assert_eq!(tree1.robinson_foulds(&tree2), 2);
 
-    let tree1 = tree!("(0, ((1, (2, 3)), (7, (6, (4, 5)))));");
-    let tree2 = tree!("(0, ((2, (1, 3)), (6, (4, (5, 7)))));");
+    let tree1 = tree!("(s0, ((s1, (s2, s3)), (s7, (s6, (s4, s5)))));");
+    let tree2 = tree!("(s0, ((s2, (s1, s3)), (s6, (s4, (s5, s7)))));");
     assert_eq!(tree1.robinson_foulds(&tree2), 6);
 }
 
@@ -731,4 +814,47 @@ fn rf_distance_against_raxml() {
     assert_eq!(tree_phyml.robinson_foulds(tree), 0);
     assert_eq!(tree_phyml.robinson_foulds(tree_from_nj), 0);
     assert_eq!(tree.robinson_foulds(tree_from_nj), 0);
+}
+
+#[test]
+fn parse_with_duplicate_ids() {
+    let error = from_newick("((A:1.0,B:1.0)E:5.1,(A:3.0,A:4.0)F:6.2)G:7.3;");
+    assert_matches!(
+        error, Err(Error::Tree(msg)) if msg.contains("node ID 'A' is not unique in the tree")
+    );
+}
+
+#[test]
+fn parse_with_duplicate_ids_first_reported() {
+    let error = from_newick("((A:1.0,B:1.0)E:5.1,(A:3.0,B:4.0)F:6.2)G:7.3;");
+    assert_matches!(
+        error, Err(Error::Tree(msg)) if msg.contains("node ID 'A' is not unique in the tree")
+    );
+}
+
+#[test]
+fn parse_with_duplicate_ids_non_leaf() {
+    let error = from_newick("((A:1.0,B:1.0)X:5.1,(X:3.0,C:4.0)F:6.2)G:7.3;");
+    assert_matches!(
+        error, Err(Error::Tree(msg)) if msg.contains("node ID 'X' is not unique in the tree")
+    );
+}
+
+#[test]
+fn parse_wo_internal_ids() {
+    // duplicates should not be reported if internal nodes are not labeled
+    let _ = tree!("((A:1.0,B:1.0)N:5.1,(X:3.0,C:4.0):6.2):7.3;");
+}
+
+#[test]
+fn missing_tree_node_ids_are_set() {
+    let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0):1.0):1.0;");
+
+    let ids = tree
+        .postorder()
+        .iter()
+        .map(|idx| tree.node(idx).id.clone())
+        .collect::<Vec<String>>();
+    assert_eq!(ids.len(), tree.len());
+    assert!(!ids.contains(&String::from("")));
 }

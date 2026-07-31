@@ -150,7 +150,8 @@ pub fn read_newick_from_file(path: impl AsRef<Path>) -> Result<Vec<Tree>> {
     tree_parser::from_newick(&newick)
 }
 
-/// Writes newick trees to the given file path. Will return an error if the file already exists.
+/// Writes newick trees to the given file path.
+/// Will return an error if the file already exists or when trying to write to a non-existent folder.
 ///
 /// # Arguments
 /// * `trees` - Vector of newick trees.
@@ -167,26 +168,153 @@ pub fn read_newick_from_file(path: impl AsRef<Path>) -> Result<Vec<Tree>> {
 ///
 /// # fn main() -> Result<()> {
 /// let output_path = "./examples/data/doctest_tmp_output.newick";
-/// let trees = from_newick("((A:1.0,B:2.0):1,(D:1.0,E:2.0):1):0.0;")?;
+/// let trees = from_newick("((A:1.0,B:2.0)X:1,(D:1.0,E:2.0)Y:1)Z:0.0;")?;
 /// write_newick_to_file(&trees, output_path)?;
+/// # let mut file_content = String::new();
+/// # File::open(output_path)?.read_to_string(&mut file_content)?;
+/// # assert_eq!(file_content.trim(), "(((A:1,B:2)X:1,(D:1,E:2)Y:1)Z:0);");
+/// # assert!(remove_file(output_path).is_ok());
+/// # Ok(()) }
+/// ```
+pub fn write_newick_to_file(trees: &[Tree], path: impl AsRef<Path>) -> Result<()> {
+    write_newick_with_formatter(trees, path, |tree| tree.to_newick())
+}
+
+/// Writes newick trees without internal IDs to the given file path.
+/// Will return an error if the file already exists or when trying to write to a non-existent folder.
+///
+/// # Arguments
+/// * `trees` - Vector of newick trees.
+/// * `path` - Path to the newick file.
+///
+/// # Example
+/// ```
+/// # use std::fs::{File, remove_file};
+/// # use std::io::Read;
+///
+/// use phylo::tree::{tree_parser::from_newick, Tree};
+/// use phylo::io::write_newick_wo_internal_ids_to_file;
+/// # use phylo::Result;
+///
+/// # fn main() -> Result<()> {
+/// let output_path = "./examples/data/doctest_tmp_output.newick";
+/// let trees = from_newick("((A:1.0,B:2.0)X:1,(D:1.0,E:2.0)Y:1)Z:0.0;")?;
+/// write_newick_wo_internal_ids_to_file(&trees, output_path)?;
 /// # let mut file_content = String::new();
 /// # File::open(output_path)?.read_to_string(&mut file_content)?;
 /// # assert_eq!(file_content.trim(), "(((A:1,B:2):1,(D:1,E:2):1):0);");
 /// # assert!(remove_file(output_path).is_ok());
 /// # Ok(()) }
 /// ```
-pub fn write_newick_to_file(trees: &[Tree], path: impl AsRef<Path>) -> Result<()> {
+pub fn write_newick_wo_internal_ids_to_file(trees: &[Tree], path: impl AsRef<Path>) -> Result<()> {
+    write_newick_with_formatter(trees, path, |tree| tree.to_newick_wo_internal_ids())
+}
+
+/// Writes newick trees to the given file path using a custom formatter.
+/// Will return an error if the file already exists or when trying to write to a non-existent folder.
+fn write_newick_with_formatter<F>(
+    trees: &[Tree],
+    path: impl AsRef<Path>,
+    formatter: F,
+) -> Result<()>
+where
+    F: Fn(&Tree) -> String,
+{
     info!("Writing newick trees to file {}", path.as_ref().display());
     if path.as_ref().exists() {
         bail!(Io, "file already exists")
     }
     let mut writer = File::create(path)?;
     for tree in trees {
-        writer.write_all(tree.to_newick().as_bytes())?;
+        writer.write_all(formatter(tree).as_bytes())?;
         writer.write_all(b"\n")?;
     }
     info!("Finished writing successfully");
     Ok(())
+}
+
+#[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
+mod private_tests {
+    use assert_matches::assert_matches;
+
+    use std::fs::File;
+    use std::io::Read;
+    use tempfile::tempdir;
+
+    use crate::tree::tree_parser::from_newick;
+    use crate::{tree, Error};
+
+    use super::write_newick_with_formatter;
+
+    #[test]
+    fn write_newick_formatter_fake() {
+        let trees =
+            from_newick("((A:1.0,B:2.0)X:1,(D:1.0,E:2.0)Y:1)Z:0.0;\n(A:5,B:5):10;").unwrap();
+
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().join("output.newick");
+
+        let res =
+            write_newick_with_formatter(&trees, output_path.clone(), |tree| format!("{}", tree.n));
+        assert!(res.is_ok());
+
+        let mut file_content = String::new();
+        File::open(output_path)
+            .unwrap()
+            .read_to_string(&mut file_content)
+            .unwrap();
+        assert_eq!(file_content.trim(), format!("4\n2"));
+    }
+
+    #[test]
+    fn write_newick_formatter() {
+        let trees =
+            from_newick("((A:1.0,B:2.0)X:1,(D:1.0,E:2.0)Y:1)Z:0.0;\n(A:5,B:5):10;").unwrap();
+
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().join("output.newick");
+
+        let res = write_newick_with_formatter(&trees, output_path, |tree| tree.to_newick());
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn write_newick_formatter_wo_internal_ids() {
+        let trees =
+            from_newick("((A:1.0,B:2.0)X:1,(D:1.0,E:2.0)Y:1)Z:0.0;\n(A:5,B:5):10;").unwrap();
+
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().join("output.newick");
+
+        let res = write_newick_with_formatter(&trees, output_path, |tree| {
+            tree.to_newick_wo_internal_ids()
+        });
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn write_newick_to_bad_path() {
+        let tree = tree!("(((A:1.4,B:2.45):1,(D:1.2,E:2.1):1):0);");
+
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir
+            .path()
+            .join("nonexistent_folder")
+            .join("output.newick");
+        let res = write_newick_with_formatter(&[tree], output_path, |t| t.to_newick());
+        assert_matches!(res, Err(Error::Io(msg)) if msg.to_ascii_lowercase().contains("no such file or directory"));
+    }
+
+    #[test]
+    fn write_newick_to_existing_file() {
+        let tree = tree!("(((A:1.4,B:2.45):1,(D:1.2,E:2.1):1):0);");
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().join("output.newick");
+        File::create(&output_path).unwrap();
+        let res = write_newick_with_formatter(&[tree], &output_path, |t| t.to_newick());
+        assert_matches!(res, Err(Error::Io(msg)) if msg.contains("already exists"));
+    }
 }
 
 #[cfg(test)]

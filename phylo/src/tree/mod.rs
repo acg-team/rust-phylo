@@ -37,8 +37,8 @@ impl Display for NodeIdx {
 impl Debug for NodeIdx {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Int(idx) => write!(f, "Int({idx})"),
-            Leaf(idx) => write!(f, "Leaf({idx})"),
+            Int(idx) => write!(f, "I{idx}"),
+            Leaf(idx) => write!(f, "L{idx}"),
         }
     }
 }
@@ -56,6 +56,10 @@ impl From<NodeIdx> for usize {
             Leaf(idx) => idx,
         }
     }
+}
+
+pub(crate) fn generate_internal_node_id(node_idx: &usize) -> String {
+    format!("int{:?}", node_idx)
 }
 
 /// A rooted binary phylogenetic tree.
@@ -238,7 +242,29 @@ impl Tree {
                     .iter()
                     .map(|&child_idx| self.to_newick_subroot(child_idx))
                     .collect();
-                format!("({}){}:{}", children_newick.join(","), &node.id, node.blen)
+                format!("({}){}:{}", children_newick.join(","), node.id, node.blen)
+            }
+        }
+    }
+
+    pub fn to_newick_wo_internal_ids(&self) -> String {
+        format!("({});", self.to_newick_subroot_wo_internal_ids(self.root))
+    }
+
+    fn to_newick_subroot_wo_internal_ids(&self, node_idx: NodeIdx) -> String {
+        match node_idx {
+            NodeIdx::Leaf(idx) => {
+                let node = &self.nodes[idx];
+                format!("{}:{}", node.id, node.blen)
+            }
+            NodeIdx::Internal(idx) => {
+                let node = &self.nodes[idx];
+                let children_newick: Vec<String> = node
+                    .children
+                    .iter()
+                    .map(|&child_idx| self.to_newick_subroot_wo_internal_ids(child_idx))
+                    .collect();
+                format!("({}):{}", children_newick.join(","), node.blen)
             }
         }
     }
@@ -260,7 +286,7 @@ impl Tree {
             None,
             vec![*idx_i, *idx_j],
             0.0,
-            "".to_string(),
+            generate_internal_node_id(&parent_idx),
         ));
         self.add_parent_to_child(idx_i, &Int(parent_idx), blen_i);
         self.add_parent_to_child(idx_j, &Int(parent_idx), blen_j);
@@ -365,7 +391,7 @@ impl Tree {
             .collect()
     }
 
-    pub fn node_ids_are_unique(&self) -> Result<()> {
+    pub(crate) fn node_ids_are_unique(&self) -> Result<()> {
         let mut seen = HashSet::new();
         for node_idx in self.postorder() {
             if !seen.insert(self.node_id(node_idx)) {

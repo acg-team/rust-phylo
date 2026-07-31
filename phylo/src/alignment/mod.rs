@@ -6,9 +6,7 @@ use itertools::Itertools;
 use crate::alphabets::{Alphabet, AMB_CHAR};
 use crate::asr::AncestralSequenceReconstruction;
 use crate::parsimony_presence_absence::ParsimonyPresenceAbsence;
-use crate::phylo_info::{
-    set_missing_tree_node_ids, validate_ids_with_ancestors, validate_taxa_ids,
-};
+use crate::phylo_info::{validate_ids_with_ancestors, validate_taxa_ids};
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::{align, aligned_seq, bail, record, Result};
 
@@ -102,8 +100,7 @@ pub trait Alignment: Display + Clone + Debug {
 ///
 /// The default implementation of [`Alignment::from_aligned`] only ensures
 /// prerequisites to build an alignment, not an ancestral alignment. Please overwrite this default
-/// implementation and make sure to call [`Tree::node_ids_are_unique`] in addition to checks
-/// your implementation requires.
+/// implementation and run the appropriate checks your implementation requires.
 // TODO: instead of having this tip here, we could change the default implementation of
 // Alignment::from_aligned to ensure prerequisites for alignment as well as ancestral alignment.
 pub trait AncestralAlignment: Alignment {
@@ -441,7 +438,6 @@ impl Alignment for MASA {
     /// # Ok(()) }
     /// ```
     fn from_aligned(sequences: Sequences, tree: &Tree) -> Result<Self> {
-        let tree = &set_missing_tree_node_ids(tree)?;
         let msa = MSA::from_aligned(sequences, tree)?;
         // TODO: Do the internal_alignments, built in the line above, conform with adding ancestral seqs?
         //       see also from_aligned_with_ancestral

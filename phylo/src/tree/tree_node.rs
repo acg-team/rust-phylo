@@ -44,6 +44,7 @@ impl Debug for Node {
 impl PartialEq for Node {
     fn eq(&self, other: &Self) -> bool {
         (self.idx == other.idx)
+            && (self.id == other.id)
             && (self.parent == other.parent)
             && (self.children.iter().min() == other.children.iter().min())
             && (self.children.iter().max() == other.children.iter().max())
