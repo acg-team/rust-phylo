@@ -1,7 +1,7 @@
-use std::collections::HashSet;
 use std::fmt::{Debug, Display};
 
 use fixedbitset::FixedBitSet;
+use hashbrown::HashSet;
 use inc_stats::Percentiles;
 
 use crate::alignment::Sequences;
@@ -65,7 +65,7 @@ pub struct Tree {
     pub(crate) nodes: Vec<Node>,
     postorder: Vec<NodeIdx>,
     preorder: Vec<NodeIdx>,
-    leaf_ids: Vec<String>,
+    leaf_ids: HashSet<String>,
     pub complete: bool,
     /// The number of leaves in the tree.
     pub n: usize,
@@ -238,7 +238,7 @@ impl Tree {
                     .iter()
                     .map(|&child_idx| self.to_newick_subroot(child_idx))
                     .collect();
-                format!("({}){}:{}", children_newick.join(","), &node.id, node.blen)
+                format!("({}){}:{}", children_newick.join(","), node.id, node.blen)
             }
         }
     }
@@ -316,7 +316,7 @@ impl Tree {
         order
     }
 
-    pub fn leaf_ids(&self) -> Vec<String> {
+    pub fn leaf_ids(&self) -> HashSet<String> {
         debug_assert!(self.complete);
         self.leaf_ids.clone()
     }
@@ -371,7 +371,7 @@ impl Tree {
             if !seen.insert(self.node_id(node_idx)) {
                 bail!(
                     Tree,
-                    "node ID '{}' is not unique in the tree",
+                    "duplicate node id ({}) found in the tree",
                     self.node_id(node_idx)
                 );
             }
