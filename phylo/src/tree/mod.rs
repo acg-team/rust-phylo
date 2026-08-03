@@ -238,7 +238,7 @@ impl Tree {
                     .iter()
                     .map(|&child_idx| self.to_newick_subroot(child_idx))
                     .collect();
-                format!("({}){}:{}", children_newick.join(","), &node.id, node.blen)
+                format!("({}){}:{}", children_newick.join(","), node.id, node.blen)
             }
         }
     }
