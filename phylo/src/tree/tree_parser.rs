@@ -183,7 +183,7 @@ impl Tree {
         self.nodes
             .push(Node::new_leaf(*node_idx, None, blen, id.clone()));
         if !self.leaf_ids.insert(id.clone()) {
-            bail!(Tree, "duplicate node ID '{}' found in the tree", id);
+            bail!(Tree, "duplicate leaf id ({}) found in the tree", id);
         }
         *node_idx += 1;
         Ok(())

@@ -371,7 +371,7 @@ impl Tree {
             if !seen.insert(self.node_id(node_idx)) {
                 bail!(
                     Tree,
-                    "node ID '{}' is not unique in the tree",
+                    "duplicate node id ({}) found in the tree",
                     self.node_id(node_idx)
                 );
             }

@@ -311,7 +311,7 @@ pub(crate) fn set_missing_tree_node_ids(tree: &Tree) -> Result<Tree> {
             tree_with_all_ids.nodes[usize::from(node_idx)].id = new_id.clone();
             info!("Set missing id of node {node_idx} to {new_id}");
         } else if !seen_user_set_ids.insert(id.to_string()) {
-            bail!(Tree, "duplicate id ({id}) found in the leaves of the tree");
+            bail!(Tree, "duplicate node id ({id}) found in the tree");
         }
     }
     Ok(tree_with_all_ids)
@@ -454,13 +454,13 @@ mod private_tests {
 
     #[test]
     fn set_missing_tree_node_ids_finds_duplicate() {
-        let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, A1:1.0) I9:1.0):1.0):1.0;");
+        let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I1:1.0):1.0):1.0;");
 
-        let error = set_missing_tree_node_ids(&tree);
+        let error: Result<tree::Tree, Error> = set_missing_tree_node_ids(&tree);
 
         assert_matches!(
             error,
-            Err(Error::Tree(msg)) if msg.contains("duplicate id (A1) found in the leaves of the tree")
+            Err(Error::Tree(msg)) if msg.contains("duplicate node id (I1) found in the tree")
         );
     }
 

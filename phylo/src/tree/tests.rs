@@ -102,7 +102,7 @@ fn node_ids_not_unique() {
     let error = tree.node_ids_are_unique();
 
     assert_matches!(
-        error, Err(Error::Tree(msg)) if msg.contains("not unique")
+        error, Err(Error::Tree(msg)) if msg.contains("duplicate node id")
     );
 }
 
