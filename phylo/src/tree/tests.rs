@@ -401,6 +401,18 @@ fn newick_garbage() {
 }
 
 #[test]
+fn newick_with_duplicate_leaf_ids() {
+    let trees = from_newick("((A:1.0,B:1.0):2.0,(A:1.0,D:1.0):3.0):4.0;");
+    assert_matches!(trees, Err(Error::Tree(msg)) if msg.contains("duplicate leaf id (A) found in the tree"));
+}
+
+#[test]
+fn newick_duplicate_internal_ids_ignored() {
+    let trees = from_newick("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I1:1.0):1.0):1.0;");
+    assert!(trees.is_ok());
+}
+
+#[test]
 fn parse_scientific_floats() {
     let tree = tree!(
         "((((A:.00001,B:1.4e-10)F:2.25e3,C:-0.546)G:1.00030000,D:+003.95)H:1.0e-10,E:4.0e0)I:-.005;"
