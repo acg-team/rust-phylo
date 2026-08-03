@@ -1,9 +1,7 @@
-use std::result::Result as stdResult;
-
 use fixedbitset::FixedBitSet;
 use hashbrown::HashSet;
 use log::{info, warn};
-use pest::{error::Error as PestError, iterators::Pair, Parser};
+use pest::{iterators::Pair, Parser};
 use pest_derive::Parser;
 
 use crate::bail;
@@ -34,15 +32,11 @@ pub fn from_newick(newick: &str) -> Result<Vec<Tree>> {
                 let tmp = tree_rule.into_inner().next();
                 if let Some(rule) = tmp {
                     let mut tree = Tree::new_empty();
-                    let res = match rule.as_rule() {
-                        Rule::rooted => tree.parse_rooted_rule(rule),
-                        Rule::unrooted => tree.parse_unrooted_rule(rule),
+                    match rule.as_rule() {
+                        Rule::rooted => tree.parse_rooted_rule(rule)?,
+                        Rule::unrooted => tree.parse_unrooted_rule(rule)?,
                         _ => unimplemented!(),
                     };
-                    if let Err(e) = res {
-                        bail!(TreeParsing, "malformed newick string", e);
-                    }
-
                     trees.push(tree);
                 }
             }
@@ -68,7 +62,7 @@ impl Tree {
         }
     }
 
-    fn parse_rooted_rule(&mut self, node_rule: Pair<Rule>) -> stdResult<(), Box<PestError<Rule>>> {
+    fn parse_rooted_rule(&mut self, node_rule: Pair<Rule>) -> Result<()> {
         let tree_rule = node_rule.into_inner().next().unwrap();
         let mut node_idx = 0;
         let mut parent_stack = Vec::<usize>::new();
@@ -97,10 +91,7 @@ impl Tree {
         self.dirty = FixedBitSet::with_capacity(self.n * 2 - 1);
     }
 
-    fn parse_unrooted_rule(
-        &mut self,
-        tree_rule: Pair<Rule>,
-    ) -> stdResult<(), Box<PestError<Rule>>> {
+    fn parse_unrooted_rule(&mut self, tree_rule: Pair<Rule>) -> Result<()> {
         warn!("Found unrooted tree, will root at the trifurcation");
         let mut node_idx = 0;
         let mut parent_stack = Vec::<usize>::new();
@@ -144,7 +135,7 @@ impl Tree {
         node_idx: &mut usize,
         stack: &mut Vec<usize>,
         internal_rule: Pair<Rule>,
-    ) -> stdResult<(), Box<PestError<Rule>>> {
+    ) -> Result<()> {
         let mut id = String::from("");
         let mut blen = 0.0;
         let mut children: Vec<NodeIdx> = Vec::new();
@@ -179,11 +170,7 @@ impl Tree {
         Ok(())
     }
 
-    fn parse_leaf_rule(
-        &mut self,
-        node_idx: &mut usize,
-        inner_rule: Pair<Rule>,
-    ) -> stdResult<(), Box<PestError<Rule>>> {
+    fn parse_leaf_rule(&mut self, node_idx: &mut usize, inner_rule: Pair<Rule>) -> Result<()> {
         let mut id = String::from("");
         let mut blen = 0.0;
         for rule in inner_rule.into_inner() {
@@ -195,7 +182,9 @@ impl Tree {
         }
         self.nodes
             .push(Node::new_leaf(*node_idx, None, blen, id.clone()));
-        self.leaf_ids.insert(id);
+        if !self.leaf_ids.insert(id.clone()) {
+            bail!(Tree, "duplicate node ID '{}' found in the tree", id);
+        }
         *node_idx += 1;
         Ok(())
     }
