@@ -1,6 +1,7 @@
 use std::result::Result as stdResult;
 
 use fixedbitset::FixedBitSet;
+use hashbrown::HashSet;
 use log::{info, warn};
 use pest::{error::Error as PestError, iterators::Pair, Parser};
 use pest_derive::Parser;
@@ -62,7 +63,7 @@ impl Tree {
             complete: false,
             n: 0,
             length: 0.0,
-            leaf_ids: Vec::new(),
+            leaf_ids: HashSet::new(),
             dirty: FixedBitSet::new(),
         }
     }
@@ -194,7 +195,7 @@ impl Tree {
         }
         self.nodes
             .push(Node::new_leaf(*node_idx, None, blen, id.clone()));
-        self.leaf_ids.push(id);
+        self.leaf_ids.insert(id);
         *node_idx += 1;
         Ok(())
     }
