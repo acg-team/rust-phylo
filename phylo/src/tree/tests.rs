@@ -15,7 +15,7 @@ use crate::io::read_newick_from_file;
 use crate::parsimony::Rounding;
 use crate::tree::{
     percentiles, percentiles_rounded,
-    tree_parser::{from_newick, Rule},
+    tree_parser::{from_newick, NewickTreeParser, Rule},
     Node,
     NodeIdx::{Internal as I, Leaf as L},
     Tree,
@@ -398,6 +398,13 @@ fn newick_garbage() {
     let trees = from_newick("(:1.0,:2.0)E:5.1;");
     let error = make_parsing_error(&[Rule::tree, Rule::internal, Rule::label]);
     assert_matches!(trees, Err(Error::TreeParsing(msg, err)) if err.variant == error && msg.contains("malformed newick string"));
+}
+
+#[test]
+fn newick_tree_parser_can_parse_directly() {
+    let trees = NewickTreeParser::new().parse("A:1.0;").unwrap();
+    assert_eq!(trees.len(), 1);
+    assert_eq!(trees[0].root, L(0));
 }
 
 #[test]
