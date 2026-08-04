@@ -65,7 +65,6 @@ pub struct Tree {
     pub(crate) nodes: Vec<Node>,
     postorder: Vec<NodeIdx>,
     preorder: Vec<NodeIdx>,
-    leaf_ids: HashSet<String>,
     pub complete: bool,
     /// The number of leaves in the tree.
     pub n: usize,
@@ -98,10 +97,6 @@ impl Tree {
             complete: false,
             n,
             length: 0.0,
-            leaf_ids: sequences
-                .into_iter()
-                .map(|seq| seq.id().to_string())
-                .collect(),
             dirty: FixedBitSet::with_capacity(2 * n - 1),
         })
     }
@@ -139,8 +134,8 @@ impl Tree {
     }
 
     fn common_leaf_set(&self, other: &Tree) -> HashSet<String> {
-        HashSet::<String>::from_iter(self.leaf_ids())
-            .intersection(&HashSet::from_iter(other.leaf_ids()))
+        self.leaf_ids()
+            .intersection(&other.leaf_ids())
             .cloned()
             .collect()
     }
@@ -316,9 +311,11 @@ impl Tree {
         order
     }
 
-    pub fn leaf_ids(&self) -> HashSet<String> {
-        debug_assert!(self.complete);
-        self.leaf_ids.clone()
+    pub(crate) fn leaf_ids(&self) -> HashSet<String> {
+        self.leaves()
+            .iter()
+            .map(|node| node.id.clone())
+            .collect::<HashSet<String>>()
     }
 
     pub fn try_idx(&self, id: &str) -> Result<NodeIdx> {

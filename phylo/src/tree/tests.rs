@@ -533,7 +533,6 @@ fn test_to_newick_simple() {
         complete: false,
         n: 3,
         length: 8.5,
-        leaf_ids: HashSet::from_iter(["A".to_string(), "B".to_string()]),
         dirty: FixedBitSet::with_capacity(3),
     };
     assert_eq!(tree.to_newick(), "((A:1,B:5.5)C:2);");

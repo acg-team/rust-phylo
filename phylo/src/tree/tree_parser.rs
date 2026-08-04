@@ -57,7 +57,6 @@ impl Tree {
             complete: false,
             n: 0,
             length: 0.0,
-            leaf_ids: HashSet::new(),
             dirty: FixedBitSet::new(),
         }
     }
