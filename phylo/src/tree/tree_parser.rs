@@ -53,7 +53,7 @@ impl NewickTreeParser {
                     self.leaf_ids.clear();
                     let tmp = tree_rule.into_inner().next();
                     if let Some(rule) = tmp {
-                        let mut tree = self.new_tree();
+                        let mut tree = self.empty_tree();
                         match rule.as_rule() {
                             Rule::rooted => self.parse_rooted_rule(&mut tree, rule)?,
                             Rule::unrooted => self.parse_unrooted_rule(&mut tree, rule)?,
@@ -69,13 +69,12 @@ impl NewickTreeParser {
         Ok(trees)
     }
 
-    fn new_tree(&self) -> Tree {
+    fn empty_tree(&self) -> Tree {
         Tree {
             root: Int(0),
             nodes: Vec::new(),
             postorder: Vec::new(),
             preorder: Vec::new(),
-            complete: false,
             n: 0,
             length: 0.0,
             dirty: FixedBitSet::new(),
@@ -104,7 +103,7 @@ impl NewickTreeParser {
     fn complete(&mut self, tree: &mut Tree) {
         tree.n = tree.nodes.len().div_ceil(2);
         debug_assert_eq!(tree.nodes.len(), tree.n * 2 - 1);
-        tree.complete = true;
+
         tree.compute_postorder();
         tree.compute_preorder();
         tree.length = tree.nodes.iter().map(|n| n.blen).sum();

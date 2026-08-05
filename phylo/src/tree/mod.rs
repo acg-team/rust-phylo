@@ -65,7 +65,6 @@ pub struct Tree {
     pub(crate) nodes: Vec<Node>,
     postorder: Vec<NodeIdx>,
     preorder: Vec<NodeIdx>,
-    pub complete: bool,
     /// The number of leaves in the tree.
     pub n: usize,
     /// The sum of all branch lengths of the tree.
@@ -94,7 +93,6 @@ impl Tree {
                 .zip(sequences.into_iter().map(|seq| seq.id().to_string()))
                 .map(|(idx, id)| Node::new_leaf(idx, None, 0.0, id))
                 .collect(),
-            complete: false,
             n,
             length: 0.0,
             dirty: FixedBitSet::with_capacity(2 * n - 1),
@@ -271,7 +269,6 @@ impl Tree {
     }
 
     pub(crate) fn compute_postorder(&mut self) {
-        debug_assert!(self.complete);
         let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
         let mut stack = Vec::<NodeIdx>::with_capacity(self.nodes.len());
         let mut cur_root = self.root;
@@ -289,12 +286,10 @@ impl Tree {
     }
 
     pub(crate) fn compute_preorder(&mut self) {
-        debug_assert!(self.complete);
         self.preorder = self.preorder_subroot(&self.root);
     }
 
     pub fn preorder_subroot(&self, subroot_idx: &NodeIdx) -> Vec<NodeIdx> {
-        debug_assert!(self.complete);
         let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
         let mut stack = Vec::<NodeIdx>::with_capacity(self.nodes.len());
         let mut cur_root = *subroot_idx;
@@ -319,7 +314,6 @@ impl Tree {
     }
 
     pub fn try_idx(&self, id: &str) -> Result<NodeIdx> {
-        debug_assert!(self.complete);
         let node = self.nodes.iter().find(|node| node.id == id);
         if let Some(node) = node {
             return Ok(node.idx);
@@ -329,7 +323,6 @@ impl Tree {
 
     #[cfg(test)]
     pub(crate) fn idx(&self, id: &str) -> NodeIdx {
-        debug_assert!(self.complete);
         self.nodes.iter().find(|node| node.id == id).unwrap().idx
     }
 
@@ -347,7 +340,6 @@ impl Tree {
     }
 
     pub fn leaves(&self) -> Vec<&Node> {
-        debug_assert!(self.complete);
         self.nodes
             .iter()
             .filter(|&x| matches!(x.idx, Leaf(_)))
@@ -355,7 +347,6 @@ impl Tree {
     }
 
     pub fn internals(&self) -> Vec<&Node> {
-        debug_assert!(self.complete);
         self.nodes
             .iter()
             .filter(|&x| matches!(x.idx, Int(_)))

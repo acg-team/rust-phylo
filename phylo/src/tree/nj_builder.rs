@@ -226,7 +226,6 @@ impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
                 .remove_merged_nodes(i, j);
         }
         tree.n = n;
-        tree.complete = true;
         tree.compute_postorder();
         tree.compute_preorder();
         tree.length = tree.nodes.iter().map(|node| node.blen).sum();

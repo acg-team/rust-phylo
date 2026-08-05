@@ -37,7 +37,6 @@ fn setup_test_tree() -> Tree {
     tree.add_parent(7, &L(2), &I(6), 1.0, 1.0);
     tree.add_parent(8, &I(5), &I(7), 1.0, 1.0);
 
-    tree.complete = true;
     tree.compute_postorder();
     tree.compute_preorder();
     tree
@@ -48,11 +47,9 @@ fn single_leaf_tree_complete() {
     let sequences = Sequences::new(vec![record!("A0", b"AAAAAA")]);
     let mut tree = Tree::new(&sequences).unwrap();
 
-    tree.complete = true;
     tree.compute_postorder();
     tree.compute_preorder();
 
-    assert!(tree.complete);
     assert_eq!(tree.postorder.len(), 1);
     assert_eq!(tree.preorder.len(), 1);
     assert_eq!(tree.root, L(0));
@@ -233,7 +230,6 @@ fn newick_complex_tree_2() {
         "(((raccoon:19.19959,bear:6.80041):0.84600,((sea_lion:11.99700, seal:12.00300):7.52973,
     ((monkey:100.85930,cat:47.14069):20.59201, weasel:18.87953):2.09460):3.87382),dog:25.46154);";
     let tree = tree!(newick);
-    assert!(tree.complete);
     assert_eq!(tree.node(&tree.root).blen, 0.0);
 }
 
@@ -537,7 +533,6 @@ fn test_to_newick_simple() {
         ],
         postorder: vec![L(0), L(1), I(2)],
         preorder: vec![I(2), L(0), L(1)],
-        complete: false,
         n: 3,
         length: 8.5,
         dirty: FixedBitSet::with_capacity(3),
@@ -561,7 +556,6 @@ fn test_from_newick_to_newick() {
 fn test_to_newick_complex() {
     let tree = tree!("(((raccoon:19.19959,bear:6.80041):0.84600,((sea_lion:11.99700, seal:12.00300):7.52973,
     ((monkey:100.85930,cat:47.14069):20.59201, weasel:18.87953):2.09460):3.87382):9.0,dog:25.46154):10.0;");
-    assert!(tree.complete);
     assert_relative_eq!(tree.length, tree.iter().map(|n| n.blen).sum());
 }
 
@@ -587,7 +581,6 @@ fn test_parse_huge_newick() {
     let tree = &trees[0];
     assert_eq!(tree.leaves().len(), 762);
     assert_eq!(tree.internals().len(), 761);
-    assert!(tree.complete);
     assert_relative_eq!(tree.length, tree.iter().map(|n| n.blen).sum());
 }
 
