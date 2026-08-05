@@ -745,3 +745,54 @@ fn rf_distance_against_raxml() {
     assert_eq!(tree_phyml.robinson_foulds(tree_from_nj), 0);
     assert_eq!(tree.robinson_foulds(tree_from_nj), 0);
 }
+
+#[test]
+fn finalise_tree_length() {
+    let mut tree = tree!("((A:1.0,B:1.0)E:1.0,(C:1.0,D:1.0)F:1.0)G:1.0;");
+    assert_eq!(tree.length, 7.0);
+    assert_relative_eq!(tree.length, tree.iter().map(|n| n.blen).sum());
+    tree.length = 0.0;
+
+    tree.finalise();
+    assert_eq!(tree.length, 7.0);
+    assert_relative_eq!(tree.length, tree.iter().map(|n| n.blen).sum());
+}
+
+#[test]
+fn finalise_tree() {
+    let nodes = vec![
+        Node::new_leaf(0, Some(I(5)), 2.0, "A0".to_string()),
+        Node::new_leaf(1, Some(I(5)), 3.0, "B1".to_string()),
+        Node::new_leaf(2, Some(I(7)), 4.0, "C2".to_string()),
+        Node::new_leaf(3, Some(I(6)), 2.0, "D3".to_string()),
+        Node::new_leaf(4, Some(I(6)), 1.0, "E4".to_string()),
+        Node::new_internal(5, Some(I(7)), vec![L(1), L(0)], 3.0, "".to_string()),
+        Node::new_internal(6, Some(I(8)), vec![L(4), L(3)], 1.0, "".to_string()),
+        Node::new_internal(7, Some(I(8)), vec![I(5), L(2)], 1.0, "".to_string()),
+        Node::new_internal(8, None, vec![I(7), I(6)], 0.0, "".to_string()),
+    ];
+
+    let mut tree = Tree {
+        root: I(8),
+        nodes,
+        postorder: vec![],
+        preorder: vec![],
+        n: 0,
+        length: 0.0,
+        dirty: FixedBitSet::new(),
+    };
+
+    assert_eq!(tree.n, 0);
+    assert_eq!(tree.postorder.len(), 0);
+    assert_eq!(tree.preorder.len(), 0);
+    assert_eq!(tree.length, 0.0);
+    assert_eq!(tree.dirty.len(), 0);
+
+    tree.finalise();
+
+    assert_eq!(tree.n, 5);
+    assert_eq!(tree.postorder.len(), tree.nodes.len());
+    assert_eq!(tree.preorder.len(), tree.nodes.len());
+    assert_eq!(tree.length, tree.iter().map(|n| n.blen).sum::<f64>());
+    assert_eq!(tree.dirty.len(), tree.nodes.len());
+}
