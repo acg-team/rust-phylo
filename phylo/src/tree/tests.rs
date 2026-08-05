@@ -313,6 +313,8 @@ fn newick_parse_unrooted() {
         Node::new_internal(7, Some(I(8)), vec![I(0), I(3)], 0.0, "".to_string()),
         Node::new_internal(8, None, vec![I(7), L(6)], 0.0, "".to_string()),
     ];
+
+    assert_eq!(tree.length, 10.0);
     assert_eq!(tree.nodes, nodes);
     assert_eq!(tree.root, I(8));
 }
