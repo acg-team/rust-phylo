@@ -57,13 +57,13 @@ impl NewickTreeParser {
                         match rule.as_rule() {
                             Rule::rooted => self.parse_rooted_rule(&mut tree, rule)?,
                             Rule::unrooted => self.parse_unrooted_rule(&mut tree, rule)?,
-                            _ => unimplemented!(),
+                            _ => unreachable!(),
                         };
                         trees.push(tree);
                     }
                 }
             }
-            _ => unimplemented!(),
+            _ => unreachable!(),
         }
         info!("Finished parsing newick trees successfully");
         Ok(trees)
