@@ -264,10 +264,6 @@ impl Tree {
         self.nodes[usize::from(idx)].blen = blen;
     }
 
-    pub(crate) fn add_parent_to_child_no_blen(&mut self, idx: &NodeIdx, parent_idx: &NodeIdx) {
-        self.nodes[usize::from(idx)].add_parent(parent_idx);
-    }
-
     pub(crate) fn compute_postorder(&mut self) {
         let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
         let mut stack = Vec::<NodeIdx>::with_capacity(self.nodes.len());
