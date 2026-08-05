@@ -366,6 +366,16 @@ impl Tree {
         }
         Ok(())
     }
+
+    fn finalise(&mut self) {
+        self.n = self.leaves().len();
+        debug_assert_eq!(self.nodes.len(), self.n * 2 - 1);
+
+        self.compute_postorder();
+        self.compute_preorder();
+        self.length = self.nodes.iter().map(|n| n.blen).sum();
+        self.dirty = FixedBitSet::with_capacity(self.n * 2 - 1);
+    }
 }
 
 pub fn percentiles(lengths: &[f64], categories: u32) -> Vec<f64> {

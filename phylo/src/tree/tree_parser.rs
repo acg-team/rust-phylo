@@ -96,18 +96,8 @@ impl NewickTreeParser {
             _ => unreachable!(),
         }
 
-        self.complete(tree);
+        tree.finalise();
         Ok(())
-    }
-
-    fn complete(&mut self, tree: &mut Tree) {
-        tree.n = tree.nodes.len().div_ceil(2);
-        debug_assert_eq!(tree.nodes.len(), tree.n * 2 - 1);
-
-        tree.compute_postorder();
-        tree.compute_preorder();
-        tree.length = tree.nodes.iter().map(|n| n.blen).sum();
-        tree.dirty = FixedBitSet::with_capacity(tree.n * 2 - 1);
     }
 
     fn parse_unrooted_rule(&mut self, tree: &mut Tree, tree_rule: Pair<Rule>) -> Result<()> {
@@ -145,7 +135,7 @@ impl NewickTreeParser {
         tree.nodes[node_idx].children = new_children;
         tree.root = Int(node_idx);
 
-        self.complete(tree);
+        tree.finalise();
         Ok(())
     }
 
