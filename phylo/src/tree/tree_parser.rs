@@ -50,6 +50,7 @@ impl NewickTreeParser {
         match newick_tree_rule.as_rule() {
             Rule::newick => {
                 for tree_rule in newick_tree_rule.into_inner() {
+                    self.leaf_ids.clear();
                     let tmp = tree_rule.into_inner().next();
                     if let Some(rule) = tmp {
                         let mut tree = self.new_tree();
