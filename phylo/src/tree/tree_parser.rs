@@ -16,7 +16,12 @@ use crate::Result;
 #[grammar = "./tree/newick.pest"]
 pub struct NewickParser;
 
-/// Only binary trees (rooted or unrooted) are supported.
+/// Parses Newick formatted trees from a string into a vector of `Tree` structures.
+///
+/// Only binary trees (rooted or unrooted) are supported, with each internal node having exactly two children.
+/// Unrooted trees are automatically rooted at the trifurcation node.
+/// Node ids are expected to be unique and start with a letter (a-z, A-Z), both for leaf and internal nodes.
+/// Duplicate leaf ids will result in an error.
 pub fn from_newick(newick: &str) -> Result<Vec<Tree>> {
     NewickTreeParser::new().parse(newick)
 }
