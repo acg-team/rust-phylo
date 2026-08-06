@@ -167,7 +167,7 @@ impl NewickTreeParser {
                 _ => unreachable!(),
             }
         }
-        let cur_node_idx = stack.pop().unwrap_or_default();
+        let cur_node_idx = stack.pop().expect("internal parser stack underflow error");
         tree.nodes[cur_node_idx].id = id;
         tree.nodes[cur_node_idx].blen = blen;
         tree.nodes[cur_node_idx].children.clone_from(&children);
