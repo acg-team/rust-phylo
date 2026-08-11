@@ -303,10 +303,11 @@ impl Tree {
     }
 
     pub(crate) fn leaf_ids(&self) -> HashSet<String> {
-        self.leaves()
+        self.nodes
             .iter()
-            .map(|node| node.id.clone())
-            .collect::<HashSet<String>>()
+            .filter(|n| matches!(n.idx, Leaf(_)))
+            .map(|n| n.id.clone())
+            .collect()
     }
 
     pub fn try_idx(&self, id: &str) -> Result<NodeIdx> {
