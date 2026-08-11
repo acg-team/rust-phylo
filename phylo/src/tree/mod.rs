@@ -302,6 +302,19 @@ impl Tree {
         order
     }
 
+    /// Returns the ids of all leaves in the tree as a HashSet.
+    ///
+    /// # Examples
+    /// ```
+    /// use hashbrown::HashSet;
+    ///
+    /// use phylo::tree::tree_parser::from_newick;
+    ///
+    /// let trees = from_newick("(A:1.0,(B:1.0,C:1.0)E:2.0)F:1.0;").unwrap();
+    /// let leaf_ids = trees[0].leaf_ids();
+    /// let expected = HashSet::from_iter(["A", "B", "C"].map(String::from));
+    /// assert_eq!(leaf_ids, expected);
+    /// ```
     pub fn leaf_ids(&self) -> HashSet<String> {
         self.nodes
             .iter()
