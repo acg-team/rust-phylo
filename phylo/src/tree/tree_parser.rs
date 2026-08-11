@@ -233,8 +233,8 @@ impl NewickTreeParser {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod tests {
-
     use crate::tree::tree_parser::NewickTreeParser;
 
     #[test]
