@@ -302,7 +302,7 @@ impl Tree {
         order
     }
 
-    pub(crate) fn leaf_ids(&self) -> HashSet<String> {
+    pub fn leaf_ids(&self) -> HashSet<String> {
         self.nodes
             .iter()
             .filter(|n| matches!(n.idx, Leaf(_)))
