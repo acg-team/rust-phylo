@@ -231,3 +231,24 @@ impl NewickTreeParser {
         rule.as_str().to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use crate::tree::tree_parser::NewickTreeParser;
+
+    #[test]
+    fn test_parser_multiple_parse_calls() {
+        let parser = NewickTreeParser::new();
+
+        let str1 = "((((A:1.0,B:1.0)F:1.0,C:2.0)G:1.0,D:3.0)H:1.0,E:4.0)I:1.0;\
+            ((A:1.0,B:2.0)E:5.1,(C:3.0,D:4.0)F:6.2)G:7.3;";
+        let str2 = "(A:1.0,(B:1.0,C:1.0)E:2.0)F:1.0;";
+
+        let trees1 = parser.parse(str1).unwrap();
+        assert_eq!(trees1.len(), 2);
+
+        let trees2 = parser.parse(str2).unwrap();
+        assert_eq!(trees2.len(), 1);
+    }
+}
