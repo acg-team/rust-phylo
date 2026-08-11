@@ -20,8 +20,8 @@ pub struct NewickParser;
 ///
 /// Only binary trees (rooted or unrooted) are supported, with each internal node having exactly two children.
 /// Unrooted trees are automatically rooted at the trifurcation node.
-/// Node ids are expected to be unique and start with a letter (a-z, A-Z), both for leaf and internal nodes.
-/// Duplicate leaf ids will result in an error.
+/// Leaf ids are required to be unique and must start with a letter (a-z, A-Z). Duplicate leaf ids will result in an error.
+/// Internal node ids are optional but should also be unique and start with a letter (a-z, A-Z) if provided.
 pub fn from_newick(newick: &str) -> Result<Vec<Tree>> {
     NewickTreeParser::new().parse(newick)
 }
