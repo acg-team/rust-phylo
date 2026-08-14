@@ -30,10 +30,20 @@ pub fn from_newick(newick: &str) -> Result<Vec<Tree>> {
 pub struct NewickTreeParser {}
 
 impl NewickTreeParser {
+    /// Create a new instance of the NewickTreeParser.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Parse a Newick formatted string into a vector of `Tree` structures.
+    ///
+    /// ```
+    /// use phylo::tree::tree_parser::from_newick;
+    ///
+    /// let newick = "(A:0.1,B:0.2);";
+    /// let trees = from_newick(newick).unwrap();
+    /// assert_eq!(trees.len(), 1);
+    /// ```
     pub fn parse(&self, newick: &str) -> Result<Vec<Tree>> {
         info!("Parsing newick trees");
         let mut trees = Vec::new();
@@ -70,6 +80,7 @@ struct TreeBuilder {
 }
 
 impl TreeBuilder {
+    /// Create a new TreeBuilder with an empty tree and null state.
     fn new() -> Self {
         Self {
             tree: Self::empty_tree(),
@@ -79,6 +90,7 @@ impl TreeBuilder {
         }
     }
 
+    /// Create a new empty tree with no nodes or orderings.
     fn empty_tree() -> Tree {
         Tree {
             root: Int(0),
@@ -91,6 +103,7 @@ impl TreeBuilder {
         }
     }
 
+    /// Parse a single tree rule into a `Tree` structure.
     fn parse_tree(rule: Pair<Rule>) -> Result<Tree> {
         let mut builder = Self::new();
 
@@ -104,6 +117,7 @@ impl TreeBuilder {
         Ok(builder.tree)
     }
 
+    /// Parse a rooted tree rule, which can be either a leaf or an internal node with children.
     fn parse_rooted_rule(&mut self, tree_rule: Pair<Rule>) -> Result<()> {
         let node_rule = tree_rule.into_inner().next().unwrap();
 
@@ -123,6 +137,7 @@ impl TreeBuilder {
         Ok(())
     }
 
+    /// Parse an unrooted tree rule, which is expected to have exactly three children and will be rooted at the trifurcation.
     fn parse_unrooted_rule(&mut self, tree_rule: Pair<Rule>) -> Result<()> {
         warn!("Found unrooted tree, will root at the trifurcation");
 
@@ -135,6 +150,7 @@ impl TreeBuilder {
         Ok(())
     }
 
+    /// Append a child node to the current list of children, updating the builder's state accordingly.
     fn append_child(&mut self, node_rule: Pair<Rule>, children: &mut Vec<NodeIdx>) -> Result<()> {
         match node_rule.as_rule() {
             Rule::leaf => {
@@ -151,6 +167,7 @@ impl TreeBuilder {
         Ok(())
     }
 
+    /// Verify that the leaf id has not yet been seen in the tree. If it is a duplicate, return an error.
     fn verify_leaf_id(&mut self, id: String) -> Result<()> {
         if !self.leaf_ids.insert(id.clone()) {
             bail!(Tree, "duplicate leaf id ({}) found in the tree", id);
@@ -158,6 +175,7 @@ impl TreeBuilder {
         Ok(())
     }
 
+    /// Parse an internal node rule, which may contain a label, branch length, and child nodes (leaves or internal node).
     fn parse_internal_rule(&mut self, internal_rule: Pair<Rule>) -> Result<()> {
         let mut id = String::from("");
         let mut blen = 0.0;
@@ -198,6 +216,7 @@ impl TreeBuilder {
         Ok(())
     }
 
+    /// Parse a leaf node rule, which may contain a label and branch length. Returns the leaf id.
     fn parse_leaf_rule(&mut self, leaf_rule: Pair<Rule>) -> Result<String> {
         let mut id = String::from("");
         let mut blen = 0.0;
@@ -251,6 +270,7 @@ impl TreeBuilder {
         self.node_idx = node_idx + 1;
     }
 
+    /// Parse a branch length rule, which is expected to be a floating-point number.
     fn parse_branch_length_rule(rule: Pair<Rule>) -> f64 {
         rule.into_inner()
             .next()
@@ -261,6 +281,7 @@ impl TreeBuilder {
             .unwrap_or_default()
     }
 
+    /// Parse a label rule, which is expected to be a string identifier.
     fn parse_label_rule(rule: Pair<Rule>) -> String {
         rule.as_str().to_string()
     }
