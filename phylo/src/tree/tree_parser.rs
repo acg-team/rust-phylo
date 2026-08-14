@@ -144,34 +144,7 @@ impl NewickTreeParser {
             }
         }
 
-        let new_children = children[0..2].to_vec();
-        for child_idx in new_children.iter() {
-            tree.nodes[usize::from(child_idx)].parent = Some(Int(node_idx));
-        }
-
-        tree.nodes.push(Node::new_internal(
-            node_idx,
-            None,
-            new_children,
-            0.0,
-            "".to_string(),
-        ));
-
-        let new_children = vec![Int(node_idx), children[2]];
-
-        node_idx += 1;
-        for child_idx in new_children.iter() {
-            tree.nodes[usize::from(child_idx)].parent = Some(Int(node_idx));
-        }
-
-        tree.nodes.push(Node::new_internal(
-            node_idx,
-            None,
-            new_children,
-            0.0,
-            "".to_string(),
-        ));
-        tree.root = Int(node_idx);
+        NewickTreeParser::root_at_trifurcation(tree, node_idx, children);
 
         Ok(())
     }
@@ -258,6 +231,37 @@ impl NewickTreeParser {
 
     fn parse_label_rule(rule: Pair<Rule>) -> String {
         rule.as_str().to_string()
+    }
+
+    fn root_at_trifurcation(tree: &mut Tree, mut node_idx: usize, children: Vec<NodeIdx>) {
+        let new_children = children[0..2].to_vec();
+        for child_idx in new_children.iter() {
+            tree.nodes[usize::from(child_idx)].parent = Some(Int(node_idx));
+        }
+
+        tree.nodes.push(Node::new_internal(
+            node_idx,
+            None,
+            new_children,
+            0.0,
+            "".to_string(),
+        ));
+
+        let new_children = vec![Int(node_idx), children[2]];
+
+        node_idx += 1;
+        for child_idx in new_children.iter() {
+            tree.nodes[usize::from(child_idx)].parent = Some(Int(node_idx));
+        }
+
+        tree.nodes.push(Node::new_internal(
+            node_idx,
+            None,
+            new_children,
+            0.0,
+            "".to_string(),
+        ));
+        tree.root = Int(node_idx);
     }
 }
 
