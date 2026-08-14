@@ -14,7 +14,7 @@ use crate::Result;
 
 #[derive(Parser)]
 #[grammar = "./tree/newick.pest"]
-pub struct NewickParser;
+pub struct NewickGrammar;
 
 /// Parses Newick formatted trees from a string into a vector of `Tree` structures.
 ///
@@ -47,7 +47,7 @@ impl NewickTreeParser {
     pub fn parse(&self, newick: &str) -> Result<Vec<Tree>> {
         info!("Parsing newick trees");
         let mut trees = Vec::new();
-        let newick_tree_res = NewickParser::parse(Rule::newick, newick);
+        let newick_tree_res = NewickGrammar::parse(Rule::newick, newick);
         if let Err(e) = newick_tree_res {
             bail!(TreeParsing, "malformed newick string", Box::new(e));
         }
