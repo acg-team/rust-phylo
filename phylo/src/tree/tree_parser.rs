@@ -111,7 +111,7 @@ impl TreeBuilder {
             Rule::leaf => {
                 self.tree.root = Leaf(self.node_idx);
                 let id = self.parse_leaf_rule(node_rule)?;
-                self.insert_leaf_id(id)?;
+                self.verify_leaf_id(id)?;
             }
             Rule::internal => {
                 self.parse_internal_rule(node_rule)?;
@@ -139,7 +139,7 @@ impl TreeBuilder {
             Rule::leaf => {
                 children.push(Leaf(self.node_idx));
                 let id = self.parse_leaf_rule(node_rule)?;
-                self.insert_leaf_id(id)?;
+                self.verify_leaf_id(id)?;
             }
             Rule::internal => {
                 children.push(Int(self.node_idx));
@@ -150,7 +150,7 @@ impl TreeBuilder {
         Ok(())
     }
 
-    fn insert_leaf_id(&mut self, id: String) -> Result<()> {
+    fn verify_leaf_id(&mut self, id: String) -> Result<()> {
         if !self.leaf_ids.insert(id.clone()) {
             bail!(Tree, "duplicate leaf id ({}) found in the tree", id);
         }
