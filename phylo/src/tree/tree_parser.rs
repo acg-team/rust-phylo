@@ -104,12 +104,12 @@ impl TreeBuilder {
     }
 
     /// Parse a single tree rule into a `Tree` structure.
-    fn parse_tree(rule: Pair<Rule>) -> Result<Tree> {
+    fn parse_tree(tree_rule: Pair<Rule>) -> Result<Tree> {
         let mut builder = Self::new();
 
-        match rule.as_rule() {
-            Rule::rooted => builder.parse_rooted_rule(rule)?,
-            Rule::unrooted => builder.parse_unrooted_rule(rule)?,
+        match tree_rule.as_rule() {
+            Rule::rooted => builder.parse_rooted_tree(tree_rule)?,
+            Rule::unrooted => builder.parse_unrooted_tree(tree_rule)?,
             _ => unreachable!(),
         }
 
@@ -118,18 +118,18 @@ impl TreeBuilder {
     }
 
     /// Parse a rooted tree rule, which can be either a leaf or an internal node with children.
-    fn parse_rooted_rule(&mut self, tree_rule: Pair<Rule>) -> Result<()> {
+    fn parse_rooted_tree(&mut self, tree_rule: Pair<Rule>) -> Result<()> {
         let node_rule = tree_rule.into_inner().next().unwrap();
 
         match node_rule.as_rule() {
             Rule::leaf => {
                 self.tree.root = Leaf(self.node_idx);
-                let id = self.parse_leaf_rule(node_rule)?;
+                let id = self.parse_leaf(node_rule)?;
                 self.verify_leaf_id(id)?;
             }
             Rule::internal => {
                 self.tree.root = Int(self.node_idx);
-                self.parse_internal_rule(node_rule)?;
+                self.parse_internal(node_rule)?;
             }
             _ => unreachable!(),
         }
@@ -138,7 +138,7 @@ impl TreeBuilder {
     }
 
     /// Parse an unrooted tree rule, which is expected to have exactly three children and will be rooted at the trifurcation.
-    fn parse_unrooted_rule(&mut self, tree_rule: Pair<Rule>) -> Result<()> {
+    fn parse_unrooted_tree(&mut self, tree_rule: Pair<Rule>) -> Result<()> {
         warn!("Found unrooted tree, will root at the trifurcation");
 
         let mut children: Vec<NodeIdx> = Vec::new();
@@ -155,12 +155,12 @@ impl TreeBuilder {
         match node_rule.as_rule() {
             Rule::leaf => {
                 children.push(Leaf(self.node_idx));
-                let id = self.parse_leaf_rule(node_rule)?;
+                let id = self.parse_leaf(node_rule)?;
                 self.verify_leaf_id(id)?;
             }
             Rule::internal => {
                 children.push(Int(self.node_idx));
-                self.parse_internal_rule(node_rule)?;
+                self.parse_internal(node_rule)?;
             }
             _ => unreachable!(),
         }
@@ -176,7 +176,7 @@ impl TreeBuilder {
     }
 
     /// Parse an internal node rule, which may contain a label, branch length, and child nodes (leaves or internal node).
-    fn parse_internal_rule(&mut self, internal_rule: Pair<Rule>) -> Result<()> {
+    fn parse_internal(&mut self, internal_node: Pair<Rule>) -> Result<()> {
         let mut id = String::from("");
         let mut blen = 0.0;
         let mut children: Vec<NodeIdx> = Vec::new();
@@ -192,10 +192,10 @@ impl TreeBuilder {
         ));
 
         self.node_idx += 1;
-        for rule in internal_rule.into_inner() {
+        for rule in internal_node.into_inner() {
             match rule.as_rule() {
-                Rule::label => id = Self::parse_label_rule(rule),
-                Rule::branch_length => blen = Self::parse_branch_length_rule(rule),
+                Rule::label => id = Self::parse_label(rule),
+                Rule::branch_length => blen = Self::parse_branch_length(rule),
                 Rule::internal | Rule::leaf => {
                     self.append_child(rule, &mut children)?;
                 }
@@ -217,13 +217,13 @@ impl TreeBuilder {
     }
 
     /// Parse a leaf node rule, which may contain a label and branch length. Returns the leaf id.
-    fn parse_leaf_rule(&mut self, leaf_rule: Pair<Rule>) -> Result<String> {
+    fn parse_leaf(&mut self, leaf_node: Pair<Rule>) -> Result<String> {
         let mut id = String::from("");
         let mut blen = 0.0;
-        for rule in leaf_rule.into_inner() {
+        for rule in leaf_node.into_inner() {
             match rule.as_rule() {
-                Rule::label => id = Self::parse_label_rule(rule),
-                Rule::branch_length => blen = Self::parse_branch_length_rule(rule),
+                Rule::label => id = Self::parse_label(rule),
+                Rule::branch_length => blen = Self::parse_branch_length(rule),
                 _ => unreachable!(),
             }
         }
@@ -271,8 +271,9 @@ impl TreeBuilder {
     }
 
     /// Parse a branch length rule, which is expected to be a floating-point number.
-    fn parse_branch_length_rule(rule: Pair<Rule>) -> f64 {
-        rule.into_inner()
+    fn parse_branch_length(branch_length: Pair<Rule>) -> f64 {
+        branch_length
+            .into_inner()
             .next()
             .unwrap()
             .as_str()
@@ -282,8 +283,8 @@ impl TreeBuilder {
     }
 
     /// Parse a label rule, which is expected to be a string identifier.
-    fn parse_label_rule(rule: Pair<Rule>) -> String {
-        rule.as_str().to_string()
+    fn parse_label(label: Pair<Rule>) -> String {
+        label.as_str().to_string()
     }
 }
 
