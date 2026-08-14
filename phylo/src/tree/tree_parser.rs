@@ -16,22 +16,6 @@ use crate::Result;
 #[grammar = "./tree/newick.pest"]
 pub struct NewickParser;
 
-struct TreeParseState {
-    leaf_ids: HashSet<String>,
-    node_idx: usize,
-    parent_stack: Vec<usize>,
-}
-
-impl TreeParseState {
-    fn new() -> Self {
-        Self {
-            leaf_ids: HashSet::new(),
-            node_idx: 0,
-            parent_stack: Vec::new(),
-        }
-    }
-}
-
 /// Parses Newick formatted trees from a string into a vector of `Tree` structures.
 ///
 /// Only binary trees (rooted or unrooted) are supported, with each internal node having exactly two children.
@@ -41,6 +25,7 @@ impl TreeParseState {
 pub fn from_newick(newick: &str) -> Result<Vec<Tree>> {
     NewickTreeParser::new().parse(newick)
 }
+
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NewickTreeParser {}
 
@@ -62,7 +47,7 @@ impl NewickTreeParser {
             Rule::newick => {
                 for tree_rule in newick_tree_rule.into_inner() {
                     if let Some(rule) = tree_rule.into_inner().next() {
-                        trees.push(NewickTreeParser::parse_tree(rule)?);
+                        trees.push(TreeBuilder::parse_tree(rule)?);
                     }
                 }
             }
@@ -71,19 +56,27 @@ impl NewickTreeParser {
         info!("Finished parsing newick trees successfully");
         Ok(trees)
     }
+}
 
-    fn parse_tree(rule: Pair<Rule>) -> Result<Tree> {
-        let mut tree = Self::empty_tree();
-        let mut state = TreeParseState::new();
+/// Mutable, tree-local build state for a single Newick parse.
+///
+/// The parser remains reusable and stateless; each tree gets its own builder so leaf
+/// validation and node numbering are scoped to that tree alone.
+struct TreeBuilder {
+    tree: Tree,
+    leaf_ids: HashSet<String>,
+    node_idx: usize,
+    parent_stack: Vec<usize>,
+}
 
-        match rule.as_rule() {
-            Rule::rooted => Self::parse_rooted_rule(&mut tree, &mut state, rule)?,
-            Rule::unrooted => Self::parse_unrooted_rule(&mut tree, &mut state, rule)?,
-            _ => unreachable!(),
+impl TreeBuilder {
+    fn new() -> Self {
+        Self {
+            tree: Self::empty_tree(),
+            leaf_ids: HashSet::new(),
+            node_idx: 0,
+            parent_stack: Vec::new(),
         }
-
-        tree.finalise();
-        Ok(tree)
     }
 
     fn empty_tree() -> Tree {
@@ -98,21 +91,30 @@ impl NewickTreeParser {
         }
     }
 
-    fn parse_rooted_rule(
-        tree: &mut Tree,
-        state: &mut TreeParseState,
-        tree_rule: Pair<Rule>,
-    ) -> Result<()> {
+    fn parse_tree(rule: Pair<Rule>) -> Result<Tree> {
+        let mut builder = Self::new();
+
+        match rule.as_rule() {
+            Rule::rooted => builder.parse_rooted_rule(rule)?,
+            Rule::unrooted => builder.parse_unrooted_rule(rule)?,
+            _ => unreachable!(),
+        }
+
+        builder.tree.finalise();
+        Ok(builder.tree)
+    }
+
+    fn parse_rooted_rule(&mut self, tree_rule: Pair<Rule>) -> Result<()> {
         let node_rule = tree_rule.into_inner().next().unwrap();
 
         match node_rule.as_rule() {
             Rule::leaf => {
-                tree.root = Leaf(state.node_idx);
-                let id = Self::parse_leaf_rule(tree, state, node_rule)?;
-                Self::insert_leaf_id(state, id)?;
+                self.tree.root = Leaf(self.node_idx);
+                let id = self.parse_leaf_rule(node_rule)?;
+                self.insert_leaf_id(id)?;
             }
             Rule::internal => {
-                Self::parse_internal_rule(tree, state, node_rule)?;
+                self.parse_internal_rule(node_rule)?;
             }
             _ => unreachable!(),
         }
@@ -120,96 +122,88 @@ impl NewickTreeParser {
         Ok(())
     }
 
-    fn parse_unrooted_rule(
-        tree: &mut Tree,
-        state: &mut TreeParseState,
-        tree_rule: Pair<Rule>,
-    ) -> Result<()> {
+    fn parse_unrooted_rule(&mut self, tree_rule: Pair<Rule>) -> Result<()> {
         warn!("Found unrooted tree, will root at the trifurcation");
 
         let mut children: Vec<NodeIdx> = Vec::new();
         for node_rule in tree_rule.into_inner() {
-            match node_rule.as_rule() {
-                Rule::leaf => {
-                    children.push(Leaf(state.node_idx));
-                    let id = Self::parse_leaf_rule(tree, state, node_rule)?;
-                    Self::insert_leaf_id(state, id)?;
-                }
-                Rule::internal => {
-                    children.push(Int(state.node_idx));
-                    Self::parse_internal_rule(tree, state, node_rule)?;
-                }
-                _ => unreachable!(),
-            }
+            self.append_child(node_rule, &mut children)?;
         }
 
-        NewickTreeParser::root_at_trifurcation(tree, state.node_idx, children);
-
+        self.root_unrooted_tree_at_trifurcation(children);
         Ok(())
     }
 
-    fn insert_leaf_id(state: &mut TreeParseState, id: String) -> Result<()> {
-        if !state.leaf_ids.insert(id.clone()) {
+    fn append_child(&mut self, node_rule: Pair<Rule>, children: &mut Vec<NodeIdx>) -> Result<()> {
+        match node_rule.as_rule() {
+            Rule::leaf => {
+                children.push(Leaf(self.node_idx));
+                let id = self.parse_leaf_rule(node_rule)?;
+                self.insert_leaf_id(id)?;
+            }
+            Rule::internal => {
+                children.push(Int(self.node_idx));
+                self.parse_internal_rule(node_rule)?;
+            }
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
+
+    fn insert_leaf_id(&mut self, id: String) -> Result<()> {
+        if !self.leaf_ids.insert(id.clone()) {
             bail!(Tree, "duplicate leaf id ({}) found in the tree", id);
         }
         Ok(())
     }
 
-    fn parse_internal_rule(
-        tree: &mut Tree,
-        state: &mut TreeParseState,
-        internal_rule: Pair<Rule>,
-    ) -> Result<()> {
+    fn parse_internal_rule(&mut self, internal_rule: Pair<Rule>) -> Result<()> {
         let mut id = String::from("");
         let mut blen = 0.0;
         let mut children: Vec<NodeIdx> = Vec::new();
 
-        state.parent_stack.push(state.node_idx);
+        self.parent_stack.push(self.node_idx);
 
-        tree.nodes.push(Node::new_internal(
-            state.node_idx,
+        self.tree.nodes.push(Node::new_internal(
+            self.node_idx,
             None,
             vec![],
             0.0,
             "".to_string(),
         ));
 
-        state.node_idx += 1;
+        self.node_idx += 1;
         for rule in internal_rule.into_inner() {
             match rule.as_rule() {
                 Rule::label => id = Self::parse_label_rule(rule),
                 Rule::branch_length => blen = Self::parse_branch_length_rule(rule),
                 Rule::internal => {
-                    children.push(Int(state.node_idx));
-                    Self::parse_internal_rule(tree, state, rule)?;
+                    children.push(Int(self.node_idx));
+                    self.parse_internal_rule(rule)?;
                 }
                 Rule::leaf => {
-                    children.push(Leaf(state.node_idx));
-                    let leaf_id = Self::parse_leaf_rule(tree, state, rule)?;
-                    Self::insert_leaf_id(state, leaf_id)?;
+                    children.push(Leaf(self.node_idx));
+                    let leaf_id = self.parse_leaf_rule(rule)?;
+                    self.insert_leaf_id(leaf_id)?;
                 }
                 _ => unreachable!(),
             }
         }
-        let cur_node_idx = state
+        let cur_node_idx = self
             .parent_stack
             .pop()
             .expect("newick parser stack underflow error");
 
         for child_idx in &children {
-            tree.nodes[usize::from(child_idx)].parent = Some(Int(cur_node_idx));
+            self.tree.nodes[usize::from(child_idx)].parent = Some(Int(cur_node_idx));
         }
-        tree.nodes[cur_node_idx].id = id;
-        tree.nodes[cur_node_idx].blen = blen;
-        tree.nodes[cur_node_idx].children = children;
+        self.tree.nodes[cur_node_idx].id = id;
+        self.tree.nodes[cur_node_idx].blen = blen;
+        self.tree.nodes[cur_node_idx].children = children;
         Ok(())
     }
 
-    fn parse_leaf_rule(
-        tree: &mut Tree,
-        state: &mut TreeParseState,
-        leaf_rule: Pair<Rule>,
-    ) -> Result<String> {
+    fn parse_leaf_rule(&mut self, leaf_rule: Pair<Rule>) -> Result<String> {
         let mut id = String::from("");
         let mut blen = 0.0;
         for rule in leaf_rule.into_inner() {
@@ -219,11 +213,47 @@ impl NewickTreeParser {
                 _ => unreachable!(),
             }
         }
-        tree.nodes
-            .push(Node::new_leaf(state.node_idx, None, blen, id.clone()));
+        self.tree
+            .nodes
+            .push(Node::new_leaf(self.node_idx, None, blen, id.clone()));
 
-        state.node_idx += 1;
+        self.node_idx += 1;
         Ok(id)
+    }
+
+    /// Convert a three-way unrooted split into a rooted binary tree by introducing the
+    /// trifurcation node and making it the new root.
+    fn root_unrooted_tree_at_trifurcation(&mut self, children: Vec<NodeIdx>) {
+        let mut node_idx = self.node_idx;
+        let new_children = children[0..2].to_vec();
+        for child_idx in new_children.iter() {
+            self.tree.nodes[usize::from(child_idx)].parent = Some(Int(node_idx));
+        }
+
+        self.tree.nodes.push(Node::new_internal(
+            node_idx,
+            None,
+            new_children,
+            0.0,
+            "".to_string(),
+        ));
+
+        let new_children = vec![Int(node_idx), children[2]];
+
+        node_idx += 1;
+        for child_idx in new_children.iter() {
+            self.tree.nodes[usize::from(child_idx)].parent = Some(Int(node_idx));
+        }
+
+        self.tree.nodes.push(Node::new_internal(
+            node_idx,
+            None,
+            new_children,
+            0.0,
+            "".to_string(),
+        ));
+        self.tree.root = Int(node_idx);
+        self.node_idx = node_idx + 1;
     }
 
     fn parse_branch_length_rule(rule: Pair<Rule>) -> f64 {
@@ -238,37 +268,6 @@ impl NewickTreeParser {
 
     fn parse_label_rule(rule: Pair<Rule>) -> String {
         rule.as_str().to_string()
-    }
-
-    fn root_at_trifurcation(tree: &mut Tree, mut node_idx: usize, children: Vec<NodeIdx>) {
-        let new_children = children[0..2].to_vec();
-        for child_idx in new_children.iter() {
-            tree.nodes[usize::from(child_idx)].parent = Some(Int(node_idx));
-        }
-
-        tree.nodes.push(Node::new_internal(
-            node_idx,
-            None,
-            new_children,
-            0.0,
-            "".to_string(),
-        ));
-
-        let new_children = vec![Int(node_idx), children[2]];
-
-        node_idx += 1;
-        for child_idx in new_children.iter() {
-            tree.nodes[usize::from(child_idx)].parent = Some(Int(node_idx));
-        }
-
-        tree.nodes.push(Node::new_internal(
-            node_idx,
-            None,
-            new_children,
-            0.0,
-            "".to_string(),
-        ));
-        tree.root = Int(node_idx);
     }
 }
 
