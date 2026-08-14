@@ -16,6 +16,22 @@ use crate::Result;
 #[grammar = "./tree/newick.pest"]
 pub struct NewickParser;
 
+struct TreeParseState {
+    leaf_ids: HashSet<String>,
+    node_idx: usize,
+    parent_stack: Vec<usize>,
+}
+
+impl TreeParseState {
+    fn new() -> Self {
+        Self {
+            leaf_ids: HashSet::new(),
+            node_idx: 0,
+            parent_stack: Vec::new(),
+        }
+    }
+}
+
 /// Parses Newick formatted trees from a string into a vector of `Tree` structures.
 ///
 /// Only binary trees (rooted or unrooted) are supported, with each internal node having exactly two children.
@@ -58,11 +74,11 @@ impl NewickTreeParser {
 
     fn parse_tree(rule: Pair<Rule>) -> Result<Tree> {
         let mut tree = Self::empty_tree();
-        let mut leaf_ids = HashSet::<String>::new();
+        let mut state = TreeParseState::new();
 
         match rule.as_rule() {
-            Rule::rooted => Self::parse_rooted_rule(&mut tree, &mut leaf_ids, rule)?,
-            Rule::unrooted => Self::parse_unrooted_rule(&mut tree, &mut leaf_ids, rule)?,
+            Rule::rooted => Self::parse_rooted_rule(&mut tree, &mut state, rule)?,
+            Rule::unrooted => Self::parse_unrooted_rule(&mut tree, &mut state, rule)?,
             _ => unreachable!(),
         }
 
@@ -84,27 +100,19 @@ impl NewickTreeParser {
 
     fn parse_rooted_rule(
         tree: &mut Tree,
-        leaf_ids: &mut HashSet<String>,
+        state: &mut TreeParseState,
         tree_rule: Pair<Rule>,
     ) -> Result<()> {
         let node_rule = tree_rule.into_inner().next().unwrap();
-        let mut node_idx = 0;
-        let mut parent_stack = Vec::<usize>::new();
 
         match node_rule.as_rule() {
             Rule::leaf => {
-                let id = Self::parse_leaf_rule(tree, &mut node_idx, node_rule)?;
-                Self::insert_leaf_id(leaf_ids, id)?;
-                tree.root = Leaf(0);
+                tree.root = Leaf(state.node_idx);
+                let id = Self::parse_leaf_rule(tree, state, node_rule)?;
+                Self::insert_leaf_id(state, id)?;
             }
             Rule::internal => {
-                Self::parse_internal_rule(
-                    tree,
-                    &mut node_idx,
-                    &mut parent_stack,
-                    leaf_ids,
-                    node_rule,
-                )?;
+                Self::parse_internal_rule(tree, state, node_rule)?;
             }
             _ => unreachable!(),
         }
@@ -114,41 +122,34 @@ impl NewickTreeParser {
 
     fn parse_unrooted_rule(
         tree: &mut Tree,
-        leaf_ids: &mut HashSet<String>,
+        state: &mut TreeParseState,
         tree_rule: Pair<Rule>,
     ) -> Result<()> {
         warn!("Found unrooted tree, will root at the trifurcation");
-        let mut node_idx = 0;
-        let mut parent_stack = Vec::<usize>::new();
+
         let mut children: Vec<NodeIdx> = Vec::new();
         for node_rule in tree_rule.into_inner() {
             match node_rule.as_rule() {
                 Rule::leaf => {
-                    children.push(Leaf(node_idx));
-                    let id = Self::parse_leaf_rule(tree, &mut node_idx, node_rule)?;
-                    Self::insert_leaf_id(leaf_ids, id)?;
+                    children.push(Leaf(state.node_idx));
+                    let id = Self::parse_leaf_rule(tree, state, node_rule)?;
+                    Self::insert_leaf_id(state, id)?;
                 }
                 Rule::internal => {
-                    children.push(Int(node_idx));
-                    Self::parse_internal_rule(
-                        tree,
-                        &mut node_idx,
-                        &mut parent_stack,
-                        leaf_ids,
-                        node_rule,
-                    )?;
+                    children.push(Int(state.node_idx));
+                    Self::parse_internal_rule(tree, state, node_rule)?;
                 }
                 _ => unreachable!(),
             }
         }
 
-        NewickTreeParser::root_at_trifurcation(tree, node_idx, children);
+        NewickTreeParser::root_at_trifurcation(tree, state.node_idx, children);
 
         Ok(())
     }
 
-    fn insert_leaf_id(leaf_ids: &mut HashSet<String>, id: String) -> Result<()> {
-        if !leaf_ids.insert(id.clone()) {
+    fn insert_leaf_id(state: &mut TreeParseState, id: String) -> Result<()> {
+        if !state.leaf_ids.insert(id.clone()) {
             bail!(Tree, "duplicate leaf id ({}) found in the tree", id);
         }
         Ok(())
@@ -156,42 +157,44 @@ impl NewickTreeParser {
 
     fn parse_internal_rule(
         tree: &mut Tree,
-        node_idx: &mut usize,
-        stack: &mut Vec<usize>,
-        leaf_ids: &mut HashSet<String>,
+        state: &mut TreeParseState,
         internal_rule: Pair<Rule>,
     ) -> Result<()> {
         let mut id = String::from("");
         let mut blen = 0.0;
         let mut children: Vec<NodeIdx> = Vec::new();
-        stack.push(*node_idx);
+
+        state.parent_stack.push(state.node_idx);
 
         tree.nodes.push(Node::new_internal(
-            *node_idx,
+            state.node_idx,
             None,
             vec![],
             0.0,
             "".to_string(),
         ));
 
-        *node_idx += 1;
+        state.node_idx += 1;
         for rule in internal_rule.into_inner() {
             match rule.as_rule() {
                 Rule::label => id = Self::parse_label_rule(rule),
                 Rule::branch_length => blen = Self::parse_branch_length_rule(rule),
                 Rule::internal => {
-                    children.push(Int(*node_idx));
-                    Self::parse_internal_rule(tree, node_idx, stack, leaf_ids, rule)?;
+                    children.push(Int(state.node_idx));
+                    Self::parse_internal_rule(tree, state, rule)?;
                 }
                 Rule::leaf => {
-                    children.push(Leaf(*node_idx));
-                    let leaf_id = Self::parse_leaf_rule(tree, node_idx, rule)?;
-                    Self::insert_leaf_id(leaf_ids, leaf_id)?;
+                    children.push(Leaf(state.node_idx));
+                    let leaf_id = Self::parse_leaf_rule(tree, state, rule)?;
+                    Self::insert_leaf_id(state, leaf_id)?;
                 }
                 _ => unreachable!(),
             }
         }
-        let cur_node_idx = stack.pop().expect("newick parser stack underflow error");
+        let cur_node_idx = state
+            .parent_stack
+            .pop()
+            .expect("newick parser stack underflow error");
 
         for child_idx in &children {
             tree.nodes[usize::from(child_idx)].parent = Some(Int(cur_node_idx));
@@ -204,7 +207,7 @@ impl NewickTreeParser {
 
     fn parse_leaf_rule(
         tree: &mut Tree,
-        node_idx: &mut usize,
+        state: &mut TreeParseState,
         leaf_rule: Pair<Rule>,
     ) -> Result<String> {
         let mut id = String::from("");
@@ -217,9 +220,9 @@ impl NewickTreeParser {
             }
         }
         tree.nodes
-            .push(Node::new_leaf(*node_idx, None, blen, id.clone()));
+            .push(Node::new_leaf(state.node_idx, None, blen, id.clone()));
 
-        *node_idx += 1;
+        state.node_idx += 1;
         Ok(id)
     }
 
