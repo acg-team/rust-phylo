@@ -168,7 +168,15 @@ impl NewickTreeParser {
         let mut blen = 0.0;
         let mut children: Vec<NodeIdx> = Vec::new();
         stack.push(*node_idx);
-        tree.nodes.push(Node::new_empty_internal(*node_idx));
+
+        tree.nodes.push(Node::new_internal(
+            *node_idx,
+            None,
+            vec![],
+            0.0,
+            "".to_string(),
+        ));
+
         *node_idx += 1;
         for rule in internal_rule.into_inner() {
             match rule.as_rule() {

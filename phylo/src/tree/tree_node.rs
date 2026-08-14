@@ -77,8 +77,4 @@ impl Node {
             id,
         }
     }
-
-    pub(crate) fn new_empty_internal(node_idx: usize) -> Self {
-        Self::new_internal(node_idx, None, Vec::new(), 0.0, "".to_string())
-    }
 }
