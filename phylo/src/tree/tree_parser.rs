@@ -203,10 +203,7 @@ impl NewickTreeParser {
         let cur_node_idx = stack.pop().expect("newick parser stack underflow error");
 
         for child_idx in &children {
-            match child_idx {
-                Int(idx) => tree.nodes[*idx].parent = Some(Int(cur_node_idx)),
-                Leaf(idx) => tree.nodes[*idx].parent = Some(Int(cur_node_idx)),
-            }
+            tree.nodes[usize::from(child_idx)].parent = Some(Int(cur_node_idx));
         }
         tree.nodes[cur_node_idx].id = id;
         tree.nodes[cur_node_idx].blen = blen;
