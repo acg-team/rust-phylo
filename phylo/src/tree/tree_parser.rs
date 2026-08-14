@@ -114,6 +114,7 @@ impl TreeBuilder {
                 self.verify_leaf_id(id)?;
             }
             Rule::internal => {
+                self.tree.root = Int(self.node_idx);
                 self.parse_internal_rule(node_rule)?;
             }
             _ => unreachable!(),
