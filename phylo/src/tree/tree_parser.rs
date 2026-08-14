@@ -207,7 +207,7 @@ impl NewickTreeParser {
         }
         tree.nodes[cur_node_idx].id = id;
         tree.nodes[cur_node_idx].blen = blen;
-        tree.nodes[cur_node_idx].children.clone_from(&children);
+        tree.nodes[cur_node_idx].children = children;
         Ok(())
     }
 
