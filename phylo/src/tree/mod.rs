@@ -260,7 +260,7 @@ impl Tree {
     }
 
     pub(crate) fn add_parent_to_child(&mut self, idx: &NodeIdx, parent_idx: &NodeIdx, blen: f64) {
-        self.nodes[usize::from(idx)].add_parent(parent_idx);
+        self.nodes[usize::from(idx)].parent = Some(*parent_idx);
         self.nodes[usize::from(idx)].blen = blen;
     }
 
