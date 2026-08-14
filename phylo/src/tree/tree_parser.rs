@@ -178,14 +178,8 @@ impl TreeBuilder {
             match rule.as_rule() {
                 Rule::label => id = Self::parse_label_rule(rule),
                 Rule::branch_length => blen = Self::parse_branch_length_rule(rule),
-                Rule::internal => {
-                    children.push(Int(self.node_idx));
-                    self.parse_internal_rule(rule)?;
-                }
-                Rule::leaf => {
-                    children.push(Leaf(self.node_idx));
-                    let leaf_id = self.parse_leaf_rule(rule)?;
-                    self.insert_leaf_id(leaf_id)?;
+                Rule::internal | Rule::leaf => {
+                    self.append_child(rule, &mut children)?;
                 }
                 _ => unreachable!(),
             }
