@@ -144,20 +144,33 @@ impl NewickTreeParser {
             }
         }
 
-        tree.nodes.push(Node::new_empty_internal(node_idx));
         let new_children = children[0..2].to_vec();
         for child_idx in new_children.iter() {
             tree.nodes[usize::from(child_idx)].parent = Some(Int(node_idx));
         }
-        tree.nodes[node_idx].children = new_children;
-        node_idx += 1;
 
-        tree.nodes.push(Node::new_empty_internal(node_idx));
-        let new_children = vec![Int(node_idx - 1), children[2]];
+        tree.nodes.push(Node::new_internal(
+            node_idx,
+            None,
+            new_children,
+            0.0,
+            "".to_string(),
+        ));
+
+        let new_children = vec![Int(node_idx), children[2]];
+
+        node_idx += 1;
         for child_idx in new_children.iter() {
             tree.nodes[usize::from(child_idx)].parent = Some(Int(node_idx));
         }
-        tree.nodes[node_idx].children = new_children;
+
+        tree.nodes.push(Node::new_internal(
+            node_idx,
+            None,
+            new_children,
+            0.0,
+            "".to_string(),
+        ));
         tree.root = Int(node_idx);
 
         Ok(())
