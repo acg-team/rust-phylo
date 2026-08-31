@@ -13,6 +13,7 @@ pub mod reestimate;
 pub use reestimate::*;
 pub mod tkf_indel;
 pub use tkf_indel::*;
+pub mod simulate_msa;
 
 #[derive(Clone, Debug)]
 pub struct TKFCost<Q: QMatrix + Display, T: TKFModel, AA: AncestralAlignment> {

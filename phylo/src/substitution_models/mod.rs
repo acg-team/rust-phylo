@@ -22,6 +22,8 @@ pub mod dna_models;
 pub use dna_models::*;
 pub mod protein_models;
 pub use protein_models::*;
+pub mod simulate_msa;
+pub use simulate_msa::*;
 
 pub type SubstMatrix = DMatrix<f64>;
 pub type FreqVector = DVector<f64>;

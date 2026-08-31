@@ -142,6 +142,10 @@ struct BackTrackingResult {
 /// of the node that is passed as argument and its parent node under the [`TKFModel`]
 /// maximum likelihood criterion. The re-estimation of indel points can remove characters or add new
 /// characters ([wild cards](`crate::alphabets::AMB_CHAR`)) to the ancestral sequences.
+/// If a character is removed from a column leaving it empty, the column is not removed from the alignment.
+/// This can only happen if the initial alignment contained columns where the homology path of the
+/// ancestral character did not survive to any of the leaves. If you want to avoid this call
+/// [`AncestralAlignment::remove_extinct_columns`] before re-estimation.
 /// Can be used as an ASR refinement method if repeatedly called on all internal nodes (i.e. edges),
 /// see the [example](#example) below.
 /// It is also used after an NNI move was applied during tree inference to fix the
@@ -152,16 +156,17 @@ struct BackTrackingResult {
 /// ```rust
 /// # use phylo::Result;
 /// # fn main() -> Result<()> {
+/// use phylo::alignment::AncestralAlignment;
 /// use phylo::phylo_info::PhyloInfoBuilder;
 /// use phylo::random::DefaultGenerator;
 /// use phylo::tkf_model::{EdgeSeqsReestimator, TKF92IndelCostBuilder};
 /// use phylo::tree::NodeIdx::{Internal, Leaf};
 /// // Re-estimation for ASR refinement.
-/// // The alignment below includes ancestral sequences for which the indel points
-/// // will be refined.
+/// // The alignment below includes ancestral sequences for which the indel points will be refined.
 /// let tree = "data/tkf/reestimate/tree.newick";
 /// let msa = "data/tkf/reestimate/masa.fasta";
-/// let phylo = PhyloInfoBuilder::with_attrs(msa, tree).build_with_ancestors()?;
+/// let mut phylo = PhyloInfoBuilder::with_attrs(msa, tree).build_with_ancestors()?;
+/// phylo.msa.remove_extinct_columns();
 /// let lambda = 0.9;
 /// let mu = 1.0;
 /// let r = 0.5;

@@ -8,6 +8,7 @@ use crate::alignment::AncestralAlignment;
 use crate::likelihood::ParamRange;
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{QMatrix, SubstModel, SubstitutionCostBuilder as SCB};
+use crate::tkf_model::simulate_msa::{ExpectedRootLength, FragmentSampler};
 use crate::tkf_model::{
     TKFCost, TKFIndelCost, TKFIndelModelInfo, TKFModel, DEFAULT_LAMBDA, DEFAULT_LAMBDA_MU_RATIO,
     DEFAULT_MU,
@@ -26,6 +27,15 @@ pub(crate) enum TKF91Parameters {
 #[derive(Clone, Debug, PartialEq)]
 pub struct TKF91IndelModel {
     params: Vec<f64>,
+}
+
+impl TKF91IndelModel {
+    pub fn new(lambda: f64, mu: f64) -> Self {
+        let (lambda, mu) = validate_lambda_and_mu(lambda, mu);
+        Self {
+            params: vec![lambda, mu],
+        }
+    }
 }
 
 impl Default for TKF91IndelModel {
@@ -89,6 +99,20 @@ impl Display for TKF91IndelModel {
             self.lambda(),
             self.mu(),
         )
+    }
+}
+
+impl FragmentSampler for TKF91IndelModel {
+    /// In TKF91 every residue is its own independent link, so the fragment
+    /// length is always 1 and its log-probability is ln(1) = 0.0.
+    fn sample_fragment_length<R: rand::Rng>(&self, _rng: &mut R) -> (usize, f64) {
+        (1, 0.0)
+    }
+}
+
+impl ExpectedRootLength for TKF91IndelModel {
+    fn expected_root_length(&self) -> f64 {
+        (self.lambda() / self.mu()) / (1.0 - (self.lambda() / self.mu()))
     }
 }
 

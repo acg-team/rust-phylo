@@ -4,11 +4,13 @@ use std::fmt::Display;
 use hashbrown::HashSet;
 use log::warn;
 use num_enum::{FromPrimitive, IntoPrimitive};
+use rand_distr::{Distribution, Geometric};
 
 use crate::alignment::AncestralAlignment;
 use crate::likelihood::{ParamRange, PARAM_RANGE_UNIT_INTERVAL_EXCLUSIVE};
 use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{QMatrix, SubstModel, SubstitutionCostBuilder as SCB};
+use crate::tkf_model::simulate_msa::{ExpectedRootLength, FragmentSampler};
 use crate::tkf_model::{
     validate_lambda_mu, TKFCost, TKFIndelCost, TKFIndelModelInfo, TKFModel, DEFAULT_LAMBDA,
     DEFAULT_MU, DEFAULT_R,
@@ -37,6 +39,16 @@ pub struct TKF92IndelModel {
 impl TKF92IndelModel {
     pub fn r(&self) -> f64 {
         self.params[usize::from(TKF92Parameters::R)]
+    }
+
+    pub fn new(lambda: f64, mu: f64, r: f64) -> Self {
+        let (lambda, mu) = validate_lambda_and_mu(lambda, mu);
+        let valid_r = validate_r(r);
+        Self {
+            params: vec![lambda, mu, valid_r],
+            log_r: valid_r.ln(),
+            one_minus_r_over_r: (1.0 - valid_r) / valid_r,
+        }
     }
 }
 
@@ -125,6 +137,27 @@ impl Display for TKF92IndelModel {
             self.mu(),
             self.r(),
         )
+    }
+}
+
+impl FragmentSampler for TKF92IndelModel {
+    /// Samples fragment length from a geometric distribution parameterised by `r`.
+    /// `r` is the probability that the next residue continues the current fragment,
+    /// so `1 - r` is the stopping (success) probability of the geometric draw.
+    /// Returns `(length, log_probability)`.
+    fn sample_fragment_length<R: rand::Rng>(&self, rng: &mut R) -> (usize, f64) {
+        let prob_of_success = 1.0 - self.r();
+        let geom = Geometric::new(prob_of_success).unwrap();
+        let choice = geom.sample(rng);
+        // Geometric PMF: (1-p)^k * p  where k = number of failures before first success
+        let log_prob = (choice as f64) * (1.0 - prob_of_success).ln() + prob_of_success.ln();
+        (choice as usize + 1, log_prob) // +1: every fragment has at least one character
+    }
+}
+
+impl ExpectedRootLength for TKF92IndelModel {
+    fn expected_root_length(&self) -> f64 {
+        (self.lambda() / self.mu()) / ((1.0 - self.lambda() / self.mu()) * (1.0 - self.r()))
     }
 }
 
