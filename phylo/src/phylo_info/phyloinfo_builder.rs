@@ -1,6 +1,6 @@
-use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+use hashbrown::HashSet;
 use log::{info, warn};
 use rand::{Rng, SeedableRng};
 
@@ -319,7 +319,8 @@ pub(crate) fn set_missing_tree_node_ids(tree: &Tree) -> Result<Tree> {
 
 /// Checks that the IDs of the tree leaves and the sequences match, bails with an error otherwise.
 pub fn validate_taxa_ids(tree: &Tree, sequences: &Sequences) -> Result<()> {
-    let tip_ids: HashSet<String> = HashSet::from_iter(tree.leaf_ids());
+    let tip_ids = tree.leaf_ids();
+
     let sequence_ids: HashSet<String> =
         HashSet::from_iter(sequences.into_iter().map(|rec| rec.id().to_string()));
     info!("Checking that tree tip and sequence IDs match");

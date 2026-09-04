@@ -65,8 +65,6 @@ pub struct Tree {
     pub(crate) nodes: Vec<Node>,
     postorder: Vec<NodeIdx>,
     preorder: Vec<NodeIdx>,
-    leaf_ids: HashSet<String>,
-    pub complete: bool,
     /// The number of leaves in the tree.
     pub n: usize,
     /// The sum of all branch lengths of the tree.
@@ -95,13 +93,8 @@ impl Tree {
                 .zip(sequences.into_iter().map(|seq| seq.id().to_string()))
                 .map(|(idx, id)| Node::new_leaf(idx, None, 0.0, id))
                 .collect(),
-            complete: false,
             n,
             length: 0.0,
-            leaf_ids: sequences
-                .into_iter()
-                .map(|seq| seq.id().to_string())
-                .collect(),
             dirty: FixedBitSet::with_capacity(2 * n - 1),
         })
     }
@@ -139,8 +132,8 @@ impl Tree {
     }
 
     fn common_leaf_set(&self, other: &Tree) -> HashSet<String> {
-        HashSet::<String>::from_iter(self.leaf_ids())
-            .intersection(&HashSet::from_iter(other.leaf_ids()))
+        self.leaf_ids()
+            .intersection(&other.leaf_ids())
             .cloned()
             .collect()
     }
@@ -267,16 +260,11 @@ impl Tree {
     }
 
     pub(crate) fn add_parent_to_child(&mut self, idx: &NodeIdx, parent_idx: &NodeIdx, blen: f64) {
-        self.nodes[usize::from(idx)].add_parent(parent_idx);
+        self.nodes[usize::from(idx)].parent = Some(*parent_idx);
         self.nodes[usize::from(idx)].blen = blen;
     }
 
-    pub(crate) fn add_parent_to_child_no_blen(&mut self, idx: &NodeIdx, parent_idx: &NodeIdx) {
-        self.nodes[usize::from(idx)].add_parent(parent_idx);
-    }
-
     pub(crate) fn compute_postorder(&mut self) {
-        debug_assert!(self.complete);
         let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
         let mut stack = Vec::<NodeIdx>::with_capacity(self.nodes.len());
         let mut cur_root = self.root;
@@ -294,12 +282,10 @@ impl Tree {
     }
 
     pub(crate) fn compute_preorder(&mut self) {
-        debug_assert!(self.complete);
         self.preorder = self.preorder_subroot(&self.root);
     }
 
     pub fn preorder_subroot(&self, subroot_idx: &NodeIdx) -> Vec<NodeIdx> {
-        debug_assert!(self.complete);
         let mut order = Vec::<NodeIdx>::with_capacity(self.nodes.len());
         let mut stack = Vec::<NodeIdx>::with_capacity(self.nodes.len());
         let mut cur_root = *subroot_idx;
@@ -316,13 +302,28 @@ impl Tree {
         order
     }
 
+    /// Returns the ids of all leaves in the tree as a HashSet.
+    ///
+    /// # Examples
+    /// ```
+    /// use hashbrown::HashSet;
+    ///
+    /// use phylo::tree::tree_parser::from_newick;
+    ///
+    /// let trees = from_newick("(A:1.0,(B:1.0,C:1.0)E:2.0)F:1.0;").unwrap();
+    /// let leaf_ids = trees[0].leaf_ids();
+    /// let expected = HashSet::from_iter(["A", "B", "C"].map(String::from));
+    /// assert_eq!(leaf_ids, expected);
+    /// ```
     pub fn leaf_ids(&self) -> HashSet<String> {
-        debug_assert!(self.complete);
-        self.leaf_ids.clone()
+        self.nodes
+            .iter()
+            .filter(|n| matches!(n.idx, Leaf(_)))
+            .map(|n| n.id.clone())
+            .collect()
     }
 
     pub fn try_idx(&self, id: &str) -> Result<NodeIdx> {
-        debug_assert!(self.complete);
         let node = self.nodes.iter().find(|node| node.id == id);
         if let Some(node) = node {
             return Ok(node.idx);
@@ -332,7 +333,6 @@ impl Tree {
 
     #[cfg(test)]
     pub(crate) fn idx(&self, id: &str) -> NodeIdx {
-        debug_assert!(self.complete);
         self.nodes.iter().find(|node| node.id == id).unwrap().idx
     }
 
@@ -350,7 +350,6 @@ impl Tree {
     }
 
     pub fn leaves(&self) -> Vec<&Node> {
-        debug_assert!(self.complete);
         self.nodes
             .iter()
             .filter(|&x| matches!(x.idx, Leaf(_)))
@@ -358,7 +357,6 @@ impl Tree {
     }
 
     pub fn internals(&self) -> Vec<&Node> {
-        debug_assert!(self.complete);
         self.nodes
             .iter()
             .filter(|&x| matches!(x.idx, Int(_)))
@@ -377,6 +375,16 @@ impl Tree {
             }
         }
         Ok(())
+    }
+
+    fn finalise(&mut self) {
+        self.n = self.leaves().len();
+        debug_assert_eq!(self.nodes.len(), self.n * 2 - 1);
+
+        self.compute_postorder();
+        self.compute_preorder();
+        self.length = self.nodes.iter().map(|n| n.blen).sum();
+        self.dirty = FixedBitSet::with_capacity(self.n * 2 - 1);
     }
 }
 

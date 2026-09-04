@@ -15,7 +15,7 @@ use crate::io::read_newick_from_file;
 use crate::parsimony::Rounding;
 use crate::tree::{
     percentiles, percentiles_rounded,
-    tree_parser::{from_newick, Rule},
+    tree_parser::{from_newick, NewickTreeParser, Rule},
     Node,
     NodeIdx::{Internal as I, Leaf as L},
     Tree,
@@ -37,7 +37,6 @@ fn setup_test_tree() -> Tree {
     tree.add_parent(7, &L(2), &I(6), 1.0, 1.0);
     tree.add_parent(8, &I(5), &I(7), 1.0, 1.0);
 
-    tree.complete = true;
     tree.compute_postorder();
     tree.compute_preorder();
     tree
@@ -48,11 +47,9 @@ fn single_leaf_tree_complete() {
     let sequences = Sequences::new(vec![record!("A0", b"AAAAAA")]);
     let mut tree = Tree::new(&sequences).unwrap();
 
-    tree.complete = true;
     tree.compute_postorder();
     tree.compute_preorder();
 
-    assert!(tree.complete);
     assert_eq!(tree.postorder.len(), 1);
     assert_eq!(tree.preorder.len(), 1);
     assert_eq!(tree.root, L(0));
@@ -233,7 +230,6 @@ fn newick_complex_tree_2() {
         "(((raccoon:19.19959,bear:6.80041):0.84600,((sea_lion:11.99700, seal:12.00300):7.52973,
     ((monkey:100.85930,cat:47.14069):20.59201, weasel:18.87953):2.09460):3.87382),dog:25.46154);";
     let tree = tree!(newick);
-    assert!(tree.complete);
     assert_eq!(tree.node(&tree.root).blen, 0.0);
 }
 
@@ -317,6 +313,8 @@ fn newick_parse_unrooted() {
         Node::new_internal(7, Some(I(8)), vec![I(0), I(3)], 0.0, "".to_string()),
         Node::new_internal(8, None, vec![I(7), L(6)], 0.0, "".to_string()),
     ];
+
+    assert_eq!(tree.length, 10.0);
     assert_eq!(tree.nodes, nodes);
     assert_eq!(tree.root, I(8));
 }
@@ -398,6 +396,13 @@ fn newick_garbage() {
     let trees = from_newick("(:1.0,:2.0)E:5.1;");
     let error = make_parsing_error(&[Rule::tree, Rule::internal, Rule::label]);
     assert_matches!(trees, Err(Error::TreeParsing(msg, err)) if err.variant == error && msg.contains("malformed newick string"));
+}
+
+#[test]
+fn newick_tree_parser_can_parse_directly() {
+    let trees = NewickTreeParser::new().parse("A:1.0;").unwrap();
+    assert_eq!(trees.len(), 1);
+    assert_eq!(trees[0].root, L(0));
 }
 
 #[test]
@@ -530,10 +535,8 @@ fn test_to_newick_simple() {
         ],
         postorder: vec![L(0), L(1), I(2)],
         preorder: vec![I(2), L(0), L(1)],
-        complete: false,
         n: 3,
         length: 8.5,
-        leaf_ids: HashSet::from_iter(["A".to_string(), "B".to_string()]),
         dirty: FixedBitSet::with_capacity(3),
     };
     assert_eq!(tree.to_newick(), "((A:1,B:5.5)C:2);");
@@ -555,7 +558,6 @@ fn test_from_newick_to_newick() {
 fn test_to_newick_complex() {
     let tree = tree!("(((raccoon:19.19959,bear:6.80041):0.84600,((sea_lion:11.99700, seal:12.00300):7.52973,
     ((monkey:100.85930,cat:47.14069):20.59201, weasel:18.87953):2.09460):3.87382):9.0,dog:25.46154):10.0;");
-    assert!(tree.complete);
     assert_relative_eq!(tree.length, tree.iter().map(|n| n.blen).sum());
 }
 
@@ -581,7 +583,6 @@ fn test_parse_huge_newick() {
     let tree = &trees[0];
     assert_eq!(tree.leaves().len(), 762);
     assert_eq!(tree.internals().len(), 761);
-    assert!(tree.complete);
     assert_relative_eq!(tree.length, tree.iter().map(|n| n.blen).sum());
 }
 
@@ -743,4 +744,55 @@ fn rf_distance_against_raxml() {
     assert_eq!(tree_phyml.robinson_foulds(tree), 0);
     assert_eq!(tree_phyml.robinson_foulds(tree_from_nj), 0);
     assert_eq!(tree.robinson_foulds(tree_from_nj), 0);
+}
+
+#[test]
+fn finalise_tree_length() {
+    let mut tree = tree!("((A:1.0,B:1.0)E:1.0,(C:1.0,D:1.0)F:1.0)G:1.0;");
+    assert_eq!(tree.length, 7.0);
+    assert_relative_eq!(tree.length, tree.iter().map(|n| n.blen).sum());
+    tree.length = 0.0;
+
+    tree.finalise();
+    assert_eq!(tree.length, 7.0);
+    assert_relative_eq!(tree.length, tree.iter().map(|n| n.blen).sum());
+}
+
+#[test]
+fn finalise_tree() {
+    let nodes = vec![
+        Node::new_leaf(0, Some(I(5)), 2.0, "A0".to_string()),
+        Node::new_leaf(1, Some(I(5)), 3.0, "B1".to_string()),
+        Node::new_leaf(2, Some(I(7)), 4.0, "C2".to_string()),
+        Node::new_leaf(3, Some(I(6)), 2.0, "D3".to_string()),
+        Node::new_leaf(4, Some(I(6)), 1.0, "E4".to_string()),
+        Node::new_internal(5, Some(I(7)), vec![L(1), L(0)], 3.0, "".to_string()),
+        Node::new_internal(6, Some(I(8)), vec![L(4), L(3)], 1.0, "".to_string()),
+        Node::new_internal(7, Some(I(8)), vec![I(5), L(2)], 1.0, "".to_string()),
+        Node::new_internal(8, None, vec![I(7), I(6)], 0.0, "".to_string()),
+    ];
+
+    let mut tree = Tree {
+        root: I(8),
+        nodes,
+        postorder: vec![],
+        preorder: vec![],
+        n: 0,
+        length: 0.0,
+        dirty: FixedBitSet::new(),
+    };
+
+    assert_eq!(tree.n, 0);
+    assert_eq!(tree.postorder.len(), 0);
+    assert_eq!(tree.preorder.len(), 0);
+    assert_eq!(tree.length, 0.0);
+    assert_eq!(tree.dirty.len(), 0);
+
+    tree.finalise();
+
+    assert_eq!(tree.n, 5);
+    assert_eq!(tree.postorder.len(), tree.nodes.len());
+    assert_eq!(tree.preorder.len(), tree.nodes.len());
+    assert_eq!(tree.length, tree.iter().map(|n| n.blen).sum::<f64>());
+    assert_eq!(tree.dirty.len(), tree.nodes.len());
 }
