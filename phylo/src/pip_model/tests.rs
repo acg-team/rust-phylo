@@ -276,7 +276,7 @@ fn pip_p_example_matrix() {
 fn setup_example_phylo_info() -> PhyloInfo<MSA> {
     let tree = tree!("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;");
     let msa = MSA::from_aligned(
-        Sequences::new(vec![
+        Sequences::new_unchecked(vec![
             record!("A", b"-A--"),
             record!("B", b"CA--"),
             record!("C", b"-A-G"),
@@ -514,7 +514,7 @@ fn pip_hky_likelihood_example_final() {
 fn setup_example_phylo_info_2() -> PhyloInfo<MSA> {
     let tree = tree!("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;");
     let msa = MSA::from_aligned(
-        Sequences::new(vec![
+        Sequences::new_unchecked(vec![
             record!("A", b"--A--"),
             record!("B", b"-CA--"),
             record!("C", b"--A-G"),
@@ -719,7 +719,7 @@ fn designation() {
 fn pip_logl_correct_w_diff_info() {
     let tree1 = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let tree2 = tree!("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);");
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         record!("A", b"P"),
         record!("B", b"P"),
         record!("C", b"P"),
@@ -800,7 +800,7 @@ fn protein_avg_rate() {
 fn logl_not_inf_for_empty_col() {
     let tree = tree!("((A0:1.0, B1:1.0) I5:1.0,(C2:1.0,(D3:1.0, E4:1.0) I6:1.0) I7:1.0) I8:1.0;");
     let msa = MSA::from_aligned(
-        Sequences::new(read_sequences("./data/sequences_empty_col.fasta").unwrap()),
+        Sequences::new_unchecked(read_sequences("./data/sequences_empty_col.fasta").unwrap()),
         &tree,
     )
     .unwrap();
@@ -831,7 +831,7 @@ fn blen_leading_to_small_probs() {
 fn blen_leading_to_minusinf() {
     let tree = tree!("((284811:0.0000000000000002,(284593:0.1,(237561:0.3,(284812:0.3,(284813:400.9,284591:0.2):40000000000000.2):0.05):0.1):0.04):0);");
     let msa = MSA::from_aligned(
-        Sequences::with_alphabet(
+        Sequences::with_alphabet_unchecked(
             vec![
                 record!("284813", b"-"),
                 record!("284811", b"W"),
@@ -859,7 +859,7 @@ fn blen_leading_to_minusinf() {
 fn setup_test_info(alphabet: &'static Alphabet) -> PhyloInfo<MSA> {
     let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let msa = MSA::from_aligned(
-        Sequences::with_alphabet(
+        Sequences::with_alphabet_unchecked(
             vec![
                 record!("A", b"CT-ATA-TA-TAC"),
                 record!("B", b"ATATA--TATA-A"),
