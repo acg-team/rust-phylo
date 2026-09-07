@@ -83,14 +83,17 @@ impl Sequences {
     /// use phylo::alignment::Sequences;
     /// use phylo::record;
     ///
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
     /// let records = vec![
     ///     record!("seq1", None, b"ACGT"),
     ///     record!("seq2", None, b"ACGT"),
     /// ];
-    /// let seqs = Sequences::new(records);
+    /// let seqs = Sequences::new(records)?;
     /// assert_eq!(seqs.len(), 2);
+    /// # Ok(()) }
     /// ```
-    pub fn new(s: Vec<Record>) -> Sequences {
+    pub fn new(s: Vec<Record>) -> Result<Sequences> {
         let alphabet = detect_alphabet(&s);
         Self::with_alphabet(s, alphabet)
     }
@@ -105,14 +108,52 @@ impl Sequences {
     /// use phylo::alphabets::Alphabet;
     /// use phylo::record;
     ///
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
     /// let records = vec![record!("seq1", None, b"ACGT")];
-    /// let seqs = Sequences::with_alphabet(records, Alphabet::dna());
+    /// let seqs = Sequences::with_alphabet(records, Alphabet::dna())?;
     /// assert_eq!(seqs.alphabet(), Alphabet::dna());
+    /// # Ok(()) }
     /// ```
-    pub fn with_alphabet(s: Vec<Record>, alphabet: &'static Alphabet) -> Sequences {
+    pub fn with_alphabet(s: Vec<Record>, alphabet: &'static Alphabet) -> Result<Sequences> {
         let potential_msa_len = if s.is_empty() { 0 } else { s[0].seq().len() };
         // Sequences are aligned if all sequences are the same length
         let aligned = s.iter().skip(1).all(|r| r.seq().len() == potential_msa_len);
+
+        let seqs = Sequences {
+            s,
+            aligned,
+            alphabet,
+        };
+        seqs.ids_are_unique()?;
+        Ok(seqs)
+    }
+
+    /// Creates a new `Sequences` object from a vector of `bio::io::fasta::Record`.
+    ///
+    /// The alphabet is automatically detected from the sequences.
+    /// The `Sequences` object is considered aligned if all sequences have the same length.
+    /// The unchecked version is meant for test purposes only and does not check that
+    /// the ids are unique.
+    #[cfg(test)]
+    pub(crate) fn new_unchecked(s: Vec<Record>) -> Sequences {
+        let alphabet = detect_alphabet(&s);
+        Self::with_alphabet_unchecked(s, alphabet)
+    }
+
+    /// Creates a new `Sequences` object from a vector of `bio::io::fasta::Record` and a provided alphabet.
+    ///
+    /// The `Sequences` object is considered aligned if all sequences have the same length.
+    /// The unchecked version is meant for recreating the object from an existing valid one
+    /// and does not check that the ids are unique.
+    pub(crate) fn with_alphabet_unchecked(
+        s: Vec<Record>,
+        alphabet: &'static Alphabet,
+    ) -> Sequences {
+        let potential_msa_len = if s.is_empty() { 0 } else { s[0].seq().len() };
+        // Sequences are aligned if all sequences are the same length
+        let aligned = s.iter().skip(1).all(|r| r.seq().len() == potential_msa_len);
+
         Sequences {
             s,
             aligned,

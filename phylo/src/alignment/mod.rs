@@ -80,13 +80,11 @@ pub trait Alignment: Display + Clone + Debug {
     /// # Errors
     ///
     /// - bails if sequences are not aligned
-    /// - bails if sequence IDs are not unique ([`Sequences::ids_are_unique`])
     /// - bails if sequence IDs do not match the taxa IDs in the tree ([`validate_taxa_ids`])
     fn from_aligned(mut sequences: Sequences, tree: &Tree) -> Result<Self> {
         if !sequences.aligned {
             bail!(Alignment, "sequences must be aligned")
         }
-        sequences.ids_are_unique()?;
         validate_taxa_ids(tree, &sequences)?;
         sequences.remove_gap_cols();
         Ok(Self::from_aligned_unchecked(sequences, tree))
@@ -114,7 +112,6 @@ pub trait AncestralAlignment: Alignment {
     /// Checks if inputs are compatible and calls [`Self::from_aligned_with_ancestral_unchecked`].
     /// Checks:
     /// - if sequences are aligned
-    /// - if sequence IDs are unique ([`Sequences::ids_are_unique`])
     /// - if sequence IDs match the node IDs in the tree ([`validate_ids_with_ancestors`])
     /// - removes columns with only gaps ([`Sequences::remove_gap_cols`])
     ///
@@ -125,7 +122,6 @@ pub trait AncestralAlignment: Alignment {
         if !all_seqs.aligned {
             bail!(Alignment, "sequences must be aligned")
         }
-        all_seqs.ids_are_unique()?;
         validate_ids_with_ancestors(tree, &all_seqs)?;
         all_seqs.remove_gap_cols();
         Ok(Self::from_aligned_with_ancestral_unchecked(all_seqs, tree))
@@ -152,7 +148,11 @@ impl Display for MSA {
             let aligned_seq = aligned_seq!(seq_map, record.seq());
             aligned_records.push(record!(id, record.desc(), &aligned_seq));
         }
-        write!(f, "{}", Sequences::new(aligned_records))
+        write!(
+            f,
+            "{}",
+            Sequences::with_alphabet_unchecked(aligned_records, self.seqs.alphabet())
+        )
     }
 }
 
