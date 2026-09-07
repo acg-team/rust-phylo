@@ -438,31 +438,25 @@ mod private_tests {
 
     #[test]
     fn ids_are_unique() {
-        // arrange
-        let seqs = Sequences::new(vec![
+        let result = Sequences::new(vec![
             record!("on", b"X"),
             record!("tw", b"X"),
             record!("th", b"N"),
             record!("fo", b"N"),
         ]);
 
-        // act
-        let result = seqs.ids_are_unique();
-
-        // assert
         assert!(result.is_ok());
+        assert!(result.unwrap().ids_are_unique().is_ok());
     }
 
     #[test]
     fn ids_are_not_unique() {
-        let seqs = Sequences::new(vec![
+        let result = Sequences::new(vec![
             record!("on", b"X"),
             record!("tw", b"X"),
             record!("on", b"N"),
             record!("fo", b"N"),
         ]);
-
-        let result = seqs.ids_are_unique();
 
         assert_matches!(
             result,
@@ -478,9 +472,9 @@ mod private_tests {
             record!("seq3", b"TTAA"),
             record!("seq4", b"GGGG"),
         ];
-        let seqs1 = Sequences::new(raw_seqs.clone());
+        let seqs1 = Sequences::new_unchecked(raw_seqs.clone());
         raw_seqs.reverse();
-        let seqs2 = Sequences::new(raw_seqs);
+        let seqs2 = Sequences::new_unchecked(raw_seqs);
         assert_eq!(seqs1, seqs2);
     }
 
@@ -492,9 +486,9 @@ mod private_tests {
             record!("seq3", b"TTAA"),
             record!("seq4", b"GGGG"),
         ];
-        let seqs1 = Sequences::new(raw_seqs.clone());
+        let seqs1 = Sequences::new_unchecked(raw_seqs.clone());
         raw_seqs[1] = record!("seq2", b"CCCA");
-        let seqs2 = Sequences::new(raw_seqs);
+        let seqs2 = Sequences::new_unchecked(raw_seqs);
         assert_ne!(seqs1, seqs2);
     }
     #[test]
@@ -505,9 +499,9 @@ mod private_tests {
             record!("seq3", b"TTAA"),
             record!("seq4", b"GGGG"),
         ];
-        let seqs1 = Sequences::new(raw_seqs.clone());
+        let seqs1 = Sequences::new_unchecked(raw_seqs.clone());
         raw_seqs.pop();
-        let seqs2 = Sequences::new(raw_seqs);
+        let seqs2 = Sequences::new_unchecked(raw_seqs);
         assert_ne!(seqs1, seqs2);
     }
 
@@ -519,8 +513,8 @@ mod private_tests {
             record!("seq3", b"TTAA"),
             record!("seq4", b"GGGG"),
         ];
-        let seqs1 = Sequences::new(raw_seqs.clone());
-        let seqs2 = Sequences::with_alphabet(raw_seqs, Alphabet::protein());
+        let seqs1 = Sequences::new_unchecked(raw_seqs.clone());
+        let seqs2 = Sequences::with_alphabet_unchecked(raw_seqs, Alphabet::protein());
         assert_ne!(seqs1, seqs2);
     }
 
@@ -532,8 +526,8 @@ mod private_tests {
             record!("seq3", b"TTAAAAA"),
             record!("seq4", b"GGGBG"),
         ];
-        let seqs1 = Sequences::new(raw_seqs.clone());
-        let seqs2 = Sequences::new(raw_seqs);
+        let seqs1 = Sequences::new_unchecked(raw_seqs.clone());
+        let seqs2 = Sequences::new_unchecked(raw_seqs);
         assert_eq!(seqs1, seqs2);
     }
 
@@ -545,7 +539,7 @@ mod private_tests {
             record!("seq3", b"T--AA"),
             record!("seq4", b"GGG-G"),
         ];
-        let seqs1 = Sequences::new(raw_seqs.clone());
+        let seqs1 = Sequences::new_unchecked(raw_seqs.clone());
         let seqs2 = seqs1.clone().into_gapless();
         assert_ne!(seqs1, seqs2);
     }
@@ -558,7 +552,7 @@ mod private_tests {
             record!("seq3", b"TTAA"),
             record!("seq4", b"GGGG"),
         ];
-        let seqs = Sequences::new(raw_seqs.clone());
+        let seqs = Sequences::new_unchecked(raw_seqs.clone());
         for (i, rec) in raw_seqs.iter().enumerate() {
             assert_eq!(seqs[i], *rec);
         }
@@ -572,7 +566,7 @@ mod private_tests {
             record!("seq3", b"TTAA"),
             record!("seq4", b"GGGG"),
         ];
-        let mut seqs = Sequences::new(raw_seqs.clone());
+        let mut seqs = Sequences::new_unchecked(raw_seqs.clone());
         assert_eq!(seqs[1].seq(), b"CCCC");
         seqs[1] = record!("seq2", b"AAAA");
         assert_eq!(seqs[1].seq(), b"AAAA");
@@ -586,7 +580,7 @@ mod private_tests {
             record!("seq3", b"TTAA"),
             record!("seq4", b"GGGG"),
         ];
-        let seqs = Sequences::new(raw_seqs.clone());
+        let seqs = Sequences::new_unchecked(raw_seqs.clone());
         for (i, rec) in seqs.iter().enumerate() {
             assert_eq!(raw_seqs[i], *rec);
         }
