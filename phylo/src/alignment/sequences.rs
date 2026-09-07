@@ -359,23 +359,10 @@ impl Sequences {
         self.s = new_seqs.collect();
     }
 
-    /// Checks if all sequence IDs are unique.
+    /// Checks if all sequence IDs are unique. Runs on Sequence object creation.
     ///
     /// Returns `Ok(())` if all IDs are unique, or an error if duplicates are found.
-    ///
-    /// # Example:
-    /// ```
-    /// use phylo::alignment::Sequences;
-    /// use phylo::record;
-    ///
-    /// let records = vec![
-    ///     record!("seq1", None, b"A"),
-    ///     record!("seq2", None, b"C"),
-    /// ];
-    /// let seqs = Sequences::new(records);
-    /// assert!(seqs.ids_are_unique().is_ok());
-    /// ```
-    pub fn ids_are_unique(&self) -> Result<()> {
+    fn ids_are_unique(&self) -> Result<()> {
         let mut seen = HashSet::new();
         for record in self.iter() {
             let id = record.id();
