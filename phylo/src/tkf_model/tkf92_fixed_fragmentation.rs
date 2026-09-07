@@ -270,7 +270,7 @@ mod private_tests {
     #[test]
     fn tkf_manual_integration_over_fragmentations() {
         let tree = tree!("((A0:1.0,B1:1.0)I1:1.0);");
-        let seqs = Sequences::new(vec![
+        let seqs = Sequences::new_unchecked(vec![
             record!("A0", b"AAB---D"),
             record!("B1", b"-ARAAAW"),
             record!("I1", b"AAA---A"),
@@ -317,7 +317,7 @@ mod private_tests {
         // By manually summing over unobserved fragmentations we can verify that
         // the TKF92 model integrates over all possible fragmentations.
         let tree = tree!("((A0:1.0,B1:1.0)I1:1.0);");
-        let seqs = Sequences::new(vec![
+        let seqs = Sequences::new_unchecked(vec![
             record!("A0", b"AAB---D"),
             record!("B1", b"-ARAAAW"),
             record!("I1", b"AAA---A"),
