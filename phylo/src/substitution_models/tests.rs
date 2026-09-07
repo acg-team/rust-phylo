@@ -110,7 +110,7 @@ fn dna_jc69_correct() {
 fn dna_j69_params() {
     let jc69 = SubstModel::<JC69>::new(&[0.1, 0.4, 0.75, 1.5], &[0.1, 0.4, 0.75, 1.5]);
     assert_relative_eq!(jc69.freqs(), &frequencies!(&[0.25, 0.25, 0.25, 0.25]));
-    assert_eq!(format!("{jc69}"), format!("JC69"));
+    assert_eq!(format!("{jc69}"), "JC69".to_string());
 }
 
 #[test]
