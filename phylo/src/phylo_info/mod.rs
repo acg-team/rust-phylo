@@ -55,7 +55,7 @@ impl<A: Alignment> PhyloInfo<A> {
             records.push(Record::with_attrs(rec.id(), rec.desc(), &aligned_seq));
         }
 
-        Ok(Sequences::with_alphabet(records, self.msa.seqs().alphabet))
+        Sequences::with_alphabet(records, self.msa.seqs().alphabet)
     }
 
     pub(crate) fn compile_leaf_map(
