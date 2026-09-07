@@ -172,8 +172,11 @@ impl Sequences {
     /// ```
     /// use phylo::alignment::Sequences;
     ///
-    /// let seqs = Sequences::new(vec![]);
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
+    /// let seqs = Sequences::new(vec![])?;
     /// assert_eq!(seqs.len(), 0);
+    /// # Ok(()) }
     /// ```
     pub fn len(&self) -> usize {
         self.s.len()
@@ -185,8 +188,11 @@ impl Sequences {
     /// ```
     /// use phylo::alignment::Sequences;
     ///
-    /// let seqs = Sequences::new(vec![]);
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
+    /// let seqs = Sequences::new(vec![])?;
     /// assert!(seqs.is_empty());
+    /// # Ok(()) }
     /// ```
     pub fn is_empty(&self) -> bool {
         self.s.is_empty()
@@ -204,10 +210,13 @@ impl Sequences {
     /// use phylo::alignment::Sequences;
     /// use phylo::record;
     ///
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
     /// let records = vec![record!("seq1", None, b"A")];
-    /// let seqs = Sequences::new(records);
+    /// let seqs = Sequences::new(records)?;
     /// let rec = seqs.record_by_id("seq1");
     /// assert_eq!(rec.id(), "seq1");
+    /// # Ok(()) }
     /// ```
     pub fn record_by_id(&self, id: &str) -> &Record {
         self.s
@@ -229,7 +238,7 @@ impl Sequences {
     /// # use phylo::Result;
     /// # fn main() -> Result<()> {
     /// let records = vec![record!("seq1", None, b"A")];
-    /// let mut seqs = Sequences::new(records);
+    /// let mut seqs = Sequences::new(records)?;
     /// let new_record = record!("seq1", None, b"C");
     /// seqs.update_record("seq1", new_record)?;
     /// assert_eq!(seqs.record_by_id("seq1").seq(), b"C");
@@ -253,10 +262,13 @@ impl Sequences {
     /// use phylo::alignment::Sequences;
     /// use phylo::record;
     ///
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
     /// let records = vec![record!("seq1", None, b"A")];
-    /// let seqs = Sequences::new(records);
+    /// let seqs = Sequences::new(records)?;
     /// assert!(seqs.try_record_by_id("seq1").is_ok());
     /// assert!(seqs.try_record_by_id("seq2").is_err());
+    /// # Ok(()) }
     /// ```
     pub fn try_record_by_id(&self, id: &str) -> Result<&Record> {
         let rec = self.s.iter().find(|r| r.id() == id);
@@ -274,9 +286,12 @@ impl Sequences {
     /// use phylo::alphabets::Alphabet;
     /// use phylo::record;
     ///
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
     /// let records = vec![record!("seq1", None, b"A")];
-    /// let seqs = Sequences::new(records);
+    /// let seqs = Sequences::new(records)?;
     /// assert_eq!(seqs.alphabet(), Alphabet::dna());
+    /// # Ok(()) }
     /// ```
     pub fn alphabet(&self) -> &'static Alphabet {
         self.alphabet
@@ -289,10 +304,13 @@ impl Sequences {
     /// use phylo::alignment::Sequences;
     /// use phylo::record;
     ///
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
     /// let records = vec![record!("seq1", None, b"A-C")];
-    /// let seqs = Sequences::new(records);
+    /// let seqs = Sequences::new(records)?;
     /// let gapless = seqs.into_gapless();
     /// assert_eq!(gapless.record_by_id("seq1").seq(), b"AC");
+    /// # Ok(()) }
     /// ```
     pub fn into_gapless(&self) -> Sequences {
         let seqs = self
@@ -326,13 +344,16 @@ impl Sequences {
     /// use phylo::alignment::Sequences;
     /// use phylo::record;
     ///
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
     /// let records = vec![
     ///     record!("seq1", None, b"A-C"),
     ///     record!("seq2", None, b"T-G"),
     /// ];
-    /// let mut seqs = Sequences::new(records);
+    /// let mut seqs = Sequences::new(records)?;
     /// seqs.remove_gap_cols();
     /// assert_eq!(seqs.record_by_id("seq1").seq(), b"AC");
+    /// # Ok(()) }
     /// ```
     pub fn remove_gap_cols(&mut self) {
         assert!(
