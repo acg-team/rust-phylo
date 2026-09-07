@@ -267,8 +267,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
             }
         };
 
-        info!("{} sequence(s) read successfully", sequences.len());
-        Ok(sequences)
+        sequences
     }
 
     /// Checks if there is at least one tree in the vector, bails with an error otherwise.
