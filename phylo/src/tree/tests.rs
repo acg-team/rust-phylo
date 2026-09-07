@@ -24,7 +24,7 @@ use crate::{record_wo_desc as record, tree, Error};
 
 #[cfg(test)]
 fn setup_test_tree() -> Tree {
-    let sequences = Sequences::new(vec![
+    let sequences = Sequences::new_unchecked(vec![
         record!("A0", b"AAAAA"),
         record!("B1", b"A"),
         record!("C2", b"AA"),
@@ -44,7 +44,7 @@ fn setup_test_tree() -> Tree {
 
 #[test]
 fn single_leaf_tree_complete() {
-    let sequences = Sequences::new(vec![record!("A0", b"AAAAAA")]);
+    let sequences = Sequences::new_unchecked(vec![record!("A0", b"AAAAAA")]);
     let mut tree = Tree::new(&sequences).unwrap();
 
     tree.compute_postorder();
@@ -135,7 +135,7 @@ fn postorder() {
 
 #[test]
 fn tree_wo_sequences() {
-    let tree = Tree::new(&Sequences::new(vec![]));
+    let tree = Tree::new(&Sequences::new_unchecked(vec![]));
     assert!(tree.is_err());
 }
 

@@ -35,10 +35,10 @@ impl<D: EvolutionaryDistance> TreeBuilder for NJTreeBuilder<D> {
     /// use phylo::io::read_sequences;
     /// use phylo::random::DefaultGenerator;
     /// use phylo::tree::{NJTreeBuilder, TreeBuilder};
-    /// # use phylo::Result;
     ///
+    /// # use phylo::Result;
     /// # fn main() -> Result<()> {
-    /// let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta")?);
+    /// let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta")?)?;
     /// let mut rng = DefaultGenerator::default();
     /// let nj_builder = NJTreeBuilder::new(LevenshteinDNACorrected {});
     /// let tree = nj_builder.build(&sequences, &mut rng)?;
@@ -68,10 +68,10 @@ impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
     /// use phylo::io::read_sequences;
     /// use phylo::random::DefaultGenerator;
     /// use phylo::tree::{  NJTreeBuilder, TreeBuilder};
-    /// # use phylo::Result;
     ///
+    /// # use phylo::Result;
     /// # fn main() -> Result<()> {
-    /// let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta")?);
+    /// let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta")?)?;
     /// let mut rng = DefaultGenerator::default();
     /// let tree = NJTreeBuilder::new(LevenshteinDNACorrected {}).build(&sequences, &mut rng)?;
     /// assert_eq!(tree.len(), 7);
@@ -100,10 +100,10 @@ impl<D: EvolutionaryDistance> NJTreeBuilder<D> {
     /// use phylo::io::read_sequences;
     /// use phylo::random::DefaultGenerator;
     /// use phylo::tree::{NJTreeBuilder, TreeBuilder};
-    /// # use phylo::Result;
     ///
+    /// # use phylo::Result;
     /// # fn main() -> Result<()> {
-    /// let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta")?);
+    /// let sequences = Sequences::new(read_sequences("./data/sequences_DNA1.fasta")?)?;
     /// let mut rng = DefaultGenerator::default();
     /// let nj_builder = NJTreeBuilder::new_with_softmax(LevenshteinDNACorrected {}, 0.5);
     /// let tree = nj_builder.build(&sequences, &mut rng)?;
@@ -283,7 +283,7 @@ mod tests {
 
     #[test]
     fn compute_distance_matrix_close() {
-        let sequences = Sequences::new(vec![
+        let sequences = Sequences::new_unchecked(vec![
             record!("A0", b"C"),
             record!("B1", b"A"),
             record!("C2", b"AA"),
@@ -303,7 +303,7 @@ mod tests {
 
     #[test]
     fn compute_distance_matrix_far() {
-        let sequences = Sequences::new(vec![
+        let sequences = Sequences::new_unchecked(vec![
             record!("A0", b"AAAAAAAAAAAAAAAAAAAA"),
             record!("B1", b"AAAAAAAAAAAAAAAAAAAA"),
             record!("C2", b"AAAAAAAAAAAAAAAAAAAAAAAAA"),
@@ -335,7 +335,8 @@ mod tests {
                 17.0, 14.0, 11.0, 12.0, 10.0, 13.0, 8.0, 0.0;
             ],
         };
-        let sequences = Sequences::new((1..=8).map(|i| record!(&i.to_string(), b"")).collect());
+        let sequences =
+            Sequences::new_unchecked((1..=8).map(|i| record!(&i.to_string(), b"")).collect());
         let mut rng = FakeGenerator::default();
         let nj_tree = NJTreeBuilder::new(LDNACorr {})
             .build_from_distances(nj_distances, &sequences, &mut rng)
@@ -359,7 +360,7 @@ mod tests {
                 5.0, 7.0, 0.0, 9.0;
                 10.0, 12.0, 9.0, 0.0],
         };
-        let sequences = Sequences::new(vec![
+        let sequences = Sequences::new_unchecked(vec![
             record!("A", b""),
             record!("B", b""),
             record!("C", b""),
@@ -393,7 +394,7 @@ mod tests {
                 0.0, 0.0, 0.0, 0.2;
                 0.2, 0.2, 0.2, 0.0],
         };
-        let sequences = Sequences::new(vec![
+        let sequences = Sequences::new_unchecked(vec![
             record!("A0", b""),
             record!("B1", b""),
             record!("C2", b""),
@@ -425,7 +426,7 @@ mod tests {
                 9.0, 10.0, 8.0, 0.0, 3.0;
                 8.0, 9.0, 7.0, 3.0, 0.0],
         };
-        let sequences = Sequences::new(vec![
+        let sequences = Sequences::new_unchecked(vec![
             record!("a", b""),
             record!("b", b""),
             record!("c", b""),
@@ -461,7 +462,7 @@ mod tests {
                 9.0, 10.0, 8.0, 0.0, 3.0;
                 8.0, 9.0, 7.0, 3.0, 0.0],
         };
-        let sequences = Sequences::new(vec![
+        let sequences = Sequences::new_unchecked(vec![
             record!("A0", b""),
             record!("B1", b""),
             record!("C2", b""),
@@ -496,7 +497,7 @@ mod tests {
                     5.0, 7.0, 0.0, 9.0;
                     10.0, 12.0, 9.0, 0.0],
         };
-        let sequences = Sequences::new(vec![
+        let sequences = Sequences::new_unchecked(vec![
             record!("A0", b""),
             record!("B1", b""),
             record!("C2", b""),
@@ -668,7 +669,8 @@ mod tests {
                 17.0, 14.0, 11.0, 12.0, 10.0, 13.0, 8.0, 0.0;
             ],
         };
-        let sequences = Sequences::new((1..=8).map(|i| record!(&i.to_string(), b"")).collect());
+        let sequences =
+            Sequences::new_unchecked((1..=8).map(|i| record!(&i.to_string(), b"")).collect());
 
         // FakeRng will return values that will select the same pairs as in the original paper
         let mut rng = RandomGenerator::from_rng(FakeRng::from_f64_values(vec![
@@ -696,7 +698,7 @@ mod tests {
                     5.0, 7.0, 0.0, 9.0;
                     10.0, 12.0, 9.0, 0.0],
         };
-        let sequences = Sequences::new(vec![
+        let sequences = Sequences::new_unchecked(vec![
             record!("A0", b""),
             record!("B1", b""),
             record!("C2", b""),
@@ -737,7 +739,7 @@ mod tests {
                 9.0, 10.0, 8.0, 0.0, 3.0;
                 8.0, 9.0, 7.0, 3.0, 0.0],
         };
-        let sequences = Sequences::new(vec![
+        let sequences = Sequences::new_unchecked(vec![
             record!("A0", b""),
             record!("B1", b""),
             record!("C2", b""),
