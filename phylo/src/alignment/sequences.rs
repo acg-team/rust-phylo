@@ -450,7 +450,7 @@ mod private_tests {
     }
 
     #[test]
-    fn ids_are_not_unique() {
+    fn duplicate_ids() {
         let result = Sequences::new(vec![
             record!("on", b"X"),
             record!("tw", b"X"),
@@ -461,6 +461,16 @@ mod private_tests {
         assert_matches!(
             result,
             Err(Sequence(msg)) if msg.contains("duplicate record id (on) found in the sequences")
+        );
+    }
+
+    #[test]
+    fn duplicate_ids_from_fasta() {
+        let res =
+            Sequences::new(read_sequences("./data/sequences_garbage_duplicate_ids.fasta").unwrap());
+        assert_matches!(
+            res,
+            Err(Sequence(msg)) if msg.contains("duplicate record id (C) found in the sequences")
         );
     }
 
