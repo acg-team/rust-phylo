@@ -114,7 +114,7 @@ pub(crate) fn rooted_nni(tree: &Tree, node_idx: &NodeIdx, child_idx: &NodeIdx) -
 ///   --node--      sibling
 ///   |      |
 ///   .    child
-/// ```    
+/// ```
 /// Swapping child with sibling.
 fn rooted_nni_unchecked(tree: &Tree, node_idx: &NodeIdx, child_idx: &NodeIdx) -> Tree {
     let mut new_tree = tree.clone();
@@ -272,7 +272,7 @@ mod private_nni_tests {
     #[test]
     fn no_nnis_possible() {
         let tree = tree!("(((A0:1.0,B1:1.0)I1:1.0,C2:1.0)I2:1.0);");
-        let seqs = Sequences::new(vec![
+        let seqs = Sequences::new_unchecked(vec![
             record!("A0", b"AAAA"),
             record!("B1", b"---A"),
             record!("C2", b"AA--"),
@@ -296,7 +296,7 @@ mod private_nni_tests {
     #[test]
     fn nni_possible() {
         let tree = tree!("(((A0:1.0,B1:1.0)I1:1.0,(C2:1.0,D3:1.0))I2:1.0);");
-        let seqs = Sequences::new(vec![
+        let seqs = Sequences::new_unchecked(vec![
             record!("A0", b"AAAA"),
             record!("B1", b"---A"),
             record!("C2", b"AA--"),

@@ -110,7 +110,7 @@ fn dna_jc69_correct() {
 fn dna_j69_params() {
     let jc69 = SubstModel::<JC69>::new(&[0.1, 0.4, 0.75, 1.5], &[0.1, 0.4, 0.75, 1.5]);
     assert_relative_eq!(jc69.freqs(), &frequencies!(&[0.25, 0.25, 0.25, 0.25]));
-    assert_eq!(format!("{jc69}"), format!("JC69"));
+    assert_eq!(format!("{jc69}"), "JC69".to_string());
 }
 
 #[test]
@@ -455,7 +455,7 @@ fn designation() {
 fn setup_simple_phylo_info(blen_i: f64, blen_j: f64) -> PhyloInfo<MSA> {
     let tree = tree!(format!("((A0:{blen_i},B1:{blen_j}):1.0);").as_str());
     let msa = MSA::from_aligned(
-        Sequences::new(vec![record!("A0", b"A"), record!("B1", b"A")]),
+        Sequences::new_unchecked(vec![record!("A0", b"A"), record!("B1", b"A")]),
         &tree,
     )
     .unwrap();
@@ -479,7 +479,7 @@ fn dna_simple_likelihood() {
 fn setup_cb_example_phylo_info() -> PhyloInfo<MSA> {
     let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
     let msa = MSA::from_aligned(
-        Sequences::new(vec![
+        Sequences::new_unchecked(vec![
             record!("one", b"C"),
             record!("two", b"A"),
             record!("three", b"T"),
@@ -567,7 +567,7 @@ fn same_likelihood_on_param_change() {
 fn dna_gaps_as_ambigs_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) {
     let tree = tree!("((one:2,two:2):1,(three:1,four:1):2);");
     let msa = MSA::from_aligned(
-        Sequences::new(vec![
+        Sequences::new_unchecked(vec![
             record!("one", b"CCCCCCXX"),
             record!("two", b"XXAAAAAA"),
             record!("three", b"TTTNNTTT"),
@@ -581,7 +581,7 @@ fn dna_gaps_as_ambigs_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params:
         tree: tree.clone(),
     };
     let msa = MSA::from_aligned(
-        Sequences::new(vec![
+        Sequences::new_unchecked(vec![
             record!("one", b"CCCCCC--"),
             record!("two", b"--AAAAAA"),
             record!("three", b"TTT--TTT"),
@@ -613,7 +613,11 @@ fn dna_gaps_as_ambigs() {
 #[cfg(test)]
 fn setup_phylo_info_single_leaf() -> PhyloInfo<MSA> {
     let tree = tree!("(A0:1.0);");
-    let msa = MSA::from_aligned(Sequences::new(vec![record!("A0", b"AAAAAA")]), &tree).unwrap();
+    let msa = MSA::from_aligned(
+        Sequences::new_unchecked(vec![record!("A0", b"AAAAAA")]),
+        &tree,
+    )
+    .unwrap();
     PhyloInfo { msa, tree }
 }
 
@@ -672,7 +676,7 @@ fn dna_cb_example_likelihood() {
 fn setup_mol_evo_example_phylo_info() -> PhyloInfo<MSA> {
     let tree = tree!("(((one:0.2,two:0.2):0.1,three:0.2):0.1,(four:0.2,five:0.2):0.1);");
     let msa = MSA::from_aligned(
-        Sequences::new(vec![
+        Sequences::new_unchecked(vec![
             record!("one", b"T"),
             record!("two", b"C"),
             record!("three", b"A"),
@@ -791,7 +795,7 @@ fn protein_example_likelihood() {
 #[cfg(test)]
 fn simple_reroot_info(alphabet: &'static Alphabet) -> (PhyloInfo<MSA>, PhyloInfo<MSA>) {
     let tree = tree!("((A:2.0,B:2.0):1.0,C:2.0):0.0;");
-    let seqs = Sequences::with_alphabet(
+    let seqs = Sequences::with_alphabet_unchecked(
         vec![
             record!("A", b"CTATATATACIJL"),
             record!("B", b"ATATATATAAIHL"),
@@ -887,7 +891,7 @@ fn huelsenbeck_reversibility() {
 fn logl_correct_w_diff_info<Q: QMatrix + QMatrixMaker>(llik1: f64, llik2: f64) {
     let tree1 = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let tree2 = tree!("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);");
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         record!("A", b"P"),
         record!("B", b"P"),
         record!("C", b"P"),
@@ -921,7 +925,7 @@ fn protein_logl_correct_w_diff_info() {
 fn one_site_one_char_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) {
     // This used to fail on leaf data creation when some of the sequences were empty
     let model = SubstModel::<Q>::new(freqs, params);
-    let sequences = Sequences::with_alphabet(
+    let sequences = Sequences::with_alphabet_unchecked(
         vec![
             record!("one", b"C"),
             record!("two", b"-"),
@@ -975,8 +979,9 @@ fn hiv_subset_valid_subst_likelihood() {
 fn dna_gaps_against_phyml() {
     let tree =
         tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001)0.000000:0.08716381);");
-    let seqs =
-        Sequences::new(read_sequences(Path::new("./data/").join("sequences_DNA1.fasta")).unwrap());
+    let seqs = Sequences::new_unchecked(
+        read_sequences(Path::new("./data/").join("sequences_DNA1.fasta")).unwrap(),
+    );
     let info = PhyloInfo {
         msa: MSA::from_aligned(seqs, &tree).unwrap(),
         tree,
@@ -994,7 +999,7 @@ fn dna_single_char_gaps_against_phyml() {
     let tree =
         tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001)0.000000:0.08716381);");
 
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         record!("A", b"A"),
         record!("B", b"A"),
         record!("C", b"A"),
@@ -1007,7 +1012,7 @@ fn dna_single_char_gaps_against_phyml() {
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     assert_relative_eq!(c.cost(), -2.920437792326963); // Compare against PhyML
 
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         record!("A", b"X"),
         record!("B", b"X"),
         record!("C", b"X"),
@@ -1021,7 +1026,7 @@ fn dna_single_char_gaps_against_phyml() {
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     assert_relative_eq!(c.cost(), 0.0, epsilon = 1e-10); // Compare against PhyML
 
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         record!("A", b"X"),
         record!("B", b"X"),
         record!("C", b"X"),
@@ -1034,7 +1039,7 @@ fn dna_single_char_gaps_against_phyml() {
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     assert_relative_eq!(c.cost(), -1.38629, epsilon = 1e-5); // Compare against PhyML
 
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         record!("A", b"-"),
         record!("B", b"-"),
         record!("C", b"A"),
@@ -1047,7 +1052,7 @@ fn dna_single_char_gaps_against_phyml() {
     let c = SCB::new(jc69.clone(), info).build().unwrap();
     assert_relative_eq!(c.cost(), -2.77259, epsilon = 1e-5); // Compare against PhyML
 
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         record!("A", b"-"),
         record!("B", b"A"),
         record!("C", b"A"),
@@ -1065,7 +1070,7 @@ fn dna_single_char_gaps_against_phyml() {
 fn dna_ambig_chars_against_phyml() {
     let jc69 = SubstModel::<JC69>::new(&[], &[]);
     let tree = tree!("(C:0.06465432,D:27.43128366,(A:0.00000001,B:0.00000001)0.0:0.08716381);");
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         record!("A", b"B"),
         record!("B", b"A"),
         record!("C", b"A"),
@@ -1083,7 +1088,7 @@ fn dna_ambig_chars_against_phyml() {
 fn dna_x_simple_fully_likely() {
     let jc69 = SubstModel::<JC69>::new(&[], &[]);
     let tree = tree!("(A:0.05,B:0.0005):0.0;");
-    let seqs = Sequences::new(vec![record!("A", b"X"), record!("B", b"X")]);
+    let seqs = Sequences::new_unchecked(vec![record!("A", b"X"), record!("B", b"X")]);
     let info = PhyloInfo {
         msa: MSA::from_aligned(seqs, &tree).unwrap(),
         tree,
@@ -1096,7 +1101,7 @@ fn dna_x_simple_fully_likely() {
 fn x_fully_likely_template<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) {
     let model = SubstModel::<Q>::new(freqs, params);
     let tree = tree!("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);");
-    let seqs = Sequences::with_alphabet(
+    let seqs = Sequences::with_alphabet_unchecked(
         vec![
             record!("A", b"X"),
             record!("B", b"X"),
@@ -1236,7 +1241,7 @@ fn dna_zero_diag_scores() {
 fn setup_test_info(alphabet: &'static Alphabet) -> PhyloInfo<MSA> {
     let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let msa = MSA::from_aligned(
-        Sequences::with_alphabet(
+        Sequences::with_alphabet_unchecked(
             vec![
                 record!("A", b"CTATATATAC"),
                 record!("B", b"ATATATATAA"),

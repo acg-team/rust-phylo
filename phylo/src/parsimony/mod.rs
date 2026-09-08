@@ -110,7 +110,7 @@ impl<'a, PS: ParsimonyScoring + Clone> ParsimonyAligner<PS> {
         // alignments and rebuilds them when calling `from_aligned`, which might not be ideal.
         // See issue #79 https://github.com/acg-team/rust-phylo/issues/79
         let leaf_maps = PhyloInfo::<A>::compile_leaf_map(&tree.root, &alignments, seqs, tree);
-        let aligned_seqs = Sequences::with_alphabet(
+        let aligned_seqs = Sequences::with_alphabet_unchecked(
             leaf_maps
                 .iter()
                 .map(|(idx, map)| {

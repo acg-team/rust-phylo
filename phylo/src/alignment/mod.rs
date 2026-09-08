@@ -80,13 +80,11 @@ pub trait Alignment: Display + Clone + Debug {
     /// # Errors
     ///
     /// - bails if sequences are not aligned
-    /// - bails if sequence IDs are not unique ([`Sequences::ids_are_unique`])
     /// - bails if sequence IDs do not match the taxa IDs in the tree ([`validate_taxa_ids`])
     fn from_aligned(mut sequences: Sequences, tree: &Tree) -> Result<Self> {
         if !sequences.aligned {
             bail!(Alignment, "sequences must be aligned")
         }
-        sequences.ids_are_unique()?;
         validate_taxa_ids(tree, &sequences)?;
         sequences.remove_gap_cols();
         Ok(Self::from_aligned_unchecked(sequences, tree))
@@ -114,7 +112,6 @@ pub trait AncestralAlignment: Alignment {
     /// Checks if inputs are compatible and calls [`Self::from_aligned_with_ancestral_unchecked`].
     /// Checks:
     /// - if sequences are aligned
-    /// - if sequence IDs are unique ([`Sequences::ids_are_unique`])
     /// - if sequence IDs match the node IDs in the tree ([`validate_ids_with_ancestors`])
     /// - removes columns with only gaps ([`Sequences::remove_gap_cols`])
     ///
@@ -125,7 +122,6 @@ pub trait AncestralAlignment: Alignment {
         if !all_seqs.aligned {
             bail!(Alignment, "sequences must be aligned")
         }
-        all_seqs.ids_are_unique()?;
         validate_ids_with_ancestors(tree, &all_seqs)?;
         all_seqs.remove_gap_cols();
         Ok(Self::from_aligned_with_ancestral_unchecked(all_seqs, tree))
@@ -152,7 +148,11 @@ impl Display for MSA {
             let aligned_seq = aligned_seq!(seq_map, record.seq());
             aligned_records.push(record!(id, record.desc(), &aligned_seq));
         }
-        write!(f, "{}", Sequences::new(aligned_records))
+        write!(
+            f,
+            "{}",
+            Sequences::with_alphabet_unchecked(aligned_records, self.seqs.alphabet())
+        )
     }
 }
 
@@ -200,7 +200,7 @@ impl Alignment for MSA {
     ///     record!("A0", Some("A0 sequence"), b"AAAA"),
     ///     record!("B1", Some("B1 sequence"), b"---A"),
     ///     record!("C2", Some("C2 sequence"), b"AA--"),
-    /// ], Alphabet::dna());
+    /// ], Alphabet::dna())?;
     /// let msa = MSA::from_aligned(seqs, &tree)?;
     /// assert_eq!(msa.alphabet(), Alphabet::dna());
     /// # Ok(()) }
@@ -227,7 +227,7 @@ impl Alignment for MSA {
     ///     record!("A0", Some("A0 sequence"), b"AAAA"),
     ///     record!("B1", Some("B1 sequence"), b"---A"),
     ///     record!("C2", Some("C2 sequence"), b"AA--"),
-    /// ]);
+    /// ])?;
     /// let msa = MSA::from_aligned(seqs, &tree)?;
     /// assert_eq!(msa.len(), 4);
     /// # Ok(()) }
@@ -255,7 +255,7 @@ impl Alignment for MSA {
     ///     record!("A0", Some("A0 sequence"), b"AAAA"),
     ///     record!("B1", Some("B1 sequence"), b"---A"),
     ///     record!("C2", Some("C2 sequence"), b"AA--"),
-    /// ]);
+    /// ])?;
     /// let msa = MSA::from_aligned(seqs, &tree)?;
     /// assert_eq!(msa.seq_count(), 3);
     /// # Ok(()) }
@@ -283,15 +283,15 @@ impl Alignment for MSA {
     /// use phylo::alignment::{Alignment, MSA, Sequences};
     /// use phylo::phylo_info::PhyloInfo;
     /// use phylo::{record, tree};
-    /// # use phylo::Result;
     ///
+    /// # use phylo::Result;
     /// # fn main() -> Result<()> {
     /// let tree = tree!("(((A0:1.0,B1:1.0):1.0,C2:1.0):1.0);");
     /// let seqs = Sequences::new(vec![
     ///     record!("A0", Some("A0 sequence"), b"AAAA"),
     ///     record!("B1", Some("B1 sequence"), b"---A"),
     ///     record!("C2", Some("C2 sequence"), b"AA--"),
-    /// ]);
+    /// ])?;
     /// let msa = MSA::from_aligned(seqs.clone(), &tree)?;
     /// let phylo_info = PhyloInfo { msa, tree };
     /// let aligned_seqs = phylo_info.compile_alignment(None)?;
@@ -417,7 +417,7 @@ impl Alignment for MASA {
     ///     record!("A0", Some("A0 sequence"), b"AAAA"),
     ///     record!("B1", Some("B1 sequence"), b"---A"),
     ///     record!("C2", Some("C2 sequence"), b"AA--"),
-    /// ]);
+    /// ])?;
     /// let masa = MASA::from_aligned(seqs.clone(), &tree)?;
     /// let phylo_info = PhyloInfo { msa: masa, tree };
     /// let aligned_seqs = phylo_info.compile_alignment(None)?;
@@ -525,7 +525,7 @@ impl AncestralAlignment for MASA {
     ///     record!("C2", Some("C2 sequence"), b"AC--"),
     ///     record!("I1", Some("I1 sequence"), b"AA-A"),
     ///     record!("I2", Some("I2 sequence"), b"ACGT"),
-    /// ]);
+    /// ])?;
     /// let masa = MASA::from_aligned_with_ancestral_unchecked(seqs.clone(), &tree);
     ///
     /// assert_eq!(masa.seqs().len(), 3);

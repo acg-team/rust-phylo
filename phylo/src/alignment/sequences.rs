@@ -83,14 +83,17 @@ impl Sequences {
     /// use phylo::alignment::Sequences;
     /// use phylo::record;
     ///
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
     /// let records = vec![
     ///     record!("seq1", None, b"ACGT"),
     ///     record!("seq2", None, b"ACGT"),
     /// ];
-    /// let seqs = Sequences::new(records);
+    /// let seqs = Sequences::new(records)?;
     /// assert_eq!(seqs.len(), 2);
+    /// # Ok(()) }
     /// ```
-    pub fn new(s: Vec<Record>) -> Sequences {
+    pub fn new(s: Vec<Record>) -> Result<Sequences> {
         let alphabet = detect_alphabet(&s);
         Self::with_alphabet(s, alphabet)
     }
@@ -105,14 +108,52 @@ impl Sequences {
     /// use phylo::alphabets::Alphabet;
     /// use phylo::record;
     ///
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
     /// let records = vec![record!("seq1", None, b"ACGT")];
-    /// let seqs = Sequences::with_alphabet(records, Alphabet::dna());
+    /// let seqs = Sequences::with_alphabet(records, Alphabet::dna())?;
     /// assert_eq!(seqs.alphabet(), Alphabet::dna());
+    /// # Ok(()) }
     /// ```
-    pub fn with_alphabet(s: Vec<Record>, alphabet: &'static Alphabet) -> Sequences {
+    pub fn with_alphabet(s: Vec<Record>, alphabet: &'static Alphabet) -> Result<Sequences> {
         let potential_msa_len = if s.is_empty() { 0 } else { s[0].seq().len() };
         // Sequences are aligned if all sequences are the same length
         let aligned = s.iter().skip(1).all(|r| r.seq().len() == potential_msa_len);
+
+        let seqs = Sequences {
+            s,
+            aligned,
+            alphabet,
+        };
+        seqs.ids_are_unique()?;
+        Ok(seqs)
+    }
+
+    /// Creates a new `Sequences` object from a vector of `bio::io::fasta::Record`.
+    ///
+    /// The alphabet is automatically detected from the sequences.
+    /// The `Sequences` object is considered aligned if all sequences have the same length.
+    /// The unchecked version is meant for test purposes only and does not check that
+    /// the ids are unique.
+    #[cfg(test)]
+    pub(crate) fn new_unchecked(s: Vec<Record>) -> Sequences {
+        let alphabet = detect_alphabet(&s);
+        Self::with_alphabet_unchecked(s, alphabet)
+    }
+
+    /// Creates a new `Sequences` object from a vector of `bio::io::fasta::Record` and a provided alphabet.
+    ///
+    /// The `Sequences` object is considered aligned if all sequences have the same length.
+    /// The unchecked version is meant for recreating the object from an existing valid one
+    /// and does not check that the ids are unique.
+    pub(crate) fn with_alphabet_unchecked(
+        s: Vec<Record>,
+        alphabet: &'static Alphabet,
+    ) -> Sequences {
+        let potential_msa_len = if s.is_empty() { 0 } else { s[0].seq().len() };
+        // Sequences are aligned if all sequences are the same length
+        let aligned = s.iter().skip(1).all(|r| r.seq().len() == potential_msa_len);
+
         Sequences {
             s,
             aligned,
@@ -131,8 +172,11 @@ impl Sequences {
     /// ```
     /// use phylo::alignment::Sequences;
     ///
-    /// let seqs = Sequences::new(vec![]);
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
+    /// let seqs = Sequences::new(vec![])?;
     /// assert_eq!(seqs.len(), 0);
+    /// # Ok(()) }
     /// ```
     pub fn len(&self) -> usize {
         self.s.len()
@@ -144,8 +188,11 @@ impl Sequences {
     /// ```
     /// use phylo::alignment::Sequences;
     ///
-    /// let seqs = Sequences::new(vec![]);
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
+    /// let seqs = Sequences::new(vec![])?;
     /// assert!(seqs.is_empty());
+    /// # Ok(()) }
     /// ```
     pub fn is_empty(&self) -> bool {
         self.s.is_empty()
@@ -163,10 +210,13 @@ impl Sequences {
     /// use phylo::alignment::Sequences;
     /// use phylo::record;
     ///
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
     /// let records = vec![record!("seq1", None, b"A")];
-    /// let seqs = Sequences::new(records);
+    /// let seqs = Sequences::new(records)?;
     /// let rec = seqs.record_by_id("seq1");
     /// assert_eq!(rec.id(), "seq1");
+    /// # Ok(()) }
     /// ```
     pub fn record_by_id(&self, id: &str) -> &Record {
         self.s
@@ -188,7 +238,7 @@ impl Sequences {
     /// # use phylo::Result;
     /// # fn main() -> Result<()> {
     /// let records = vec![record!("seq1", None, b"A")];
-    /// let mut seqs = Sequences::new(records);
+    /// let mut seqs = Sequences::new(records)?;
     /// let new_record = record!("seq1", None, b"C");
     /// seqs.update_record("seq1", new_record)?;
     /// assert_eq!(seqs.record_by_id("seq1").seq(), b"C");
@@ -212,10 +262,13 @@ impl Sequences {
     /// use phylo::alignment::Sequences;
     /// use phylo::record;
     ///
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
     /// let records = vec![record!("seq1", None, b"A")];
-    /// let seqs = Sequences::new(records);
+    /// let seqs = Sequences::new(records)?;
     /// assert!(seqs.try_record_by_id("seq1").is_ok());
     /// assert!(seqs.try_record_by_id("seq2").is_err());
+    /// # Ok(()) }
     /// ```
     pub fn try_record_by_id(&self, id: &str) -> Result<&Record> {
         let rec = self.s.iter().find(|r| r.id() == id);
@@ -233,9 +286,12 @@ impl Sequences {
     /// use phylo::alphabets::Alphabet;
     /// use phylo::record;
     ///
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
     /// let records = vec![record!("seq1", None, b"A")];
-    /// let seqs = Sequences::new(records);
+    /// let seqs = Sequences::new(records)?;
     /// assert_eq!(seqs.alphabet(), Alphabet::dna());
+    /// # Ok(()) }
     /// ```
     pub fn alphabet(&self) -> &'static Alphabet {
         self.alphabet
@@ -248,10 +304,13 @@ impl Sequences {
     /// use phylo::alignment::Sequences;
     /// use phylo::record;
     ///
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
     /// let records = vec![record!("seq1", None, b"A-C")];
-    /// let seqs = Sequences::new(records);
+    /// let seqs = Sequences::new(records)?;
     /// let gapless = seqs.into_gapless();
     /// assert_eq!(gapless.record_by_id("seq1").seq(), b"AC");
+    /// # Ok(()) }
     /// ```
     pub fn into_gapless(&self) -> Sequences {
         let seqs = self
@@ -285,13 +344,16 @@ impl Sequences {
     /// use phylo::alignment::Sequences;
     /// use phylo::record;
     ///
+    /// # use phylo::Result;
+    /// # fn main() -> Result<()> {
     /// let records = vec![
     ///     record!("seq1", None, b"A-C"),
     ///     record!("seq2", None, b"T-G"),
     /// ];
-    /// let mut seqs = Sequences::new(records);
+    /// let mut seqs = Sequences::new(records)?;
     /// seqs.remove_gap_cols();
     /// assert_eq!(seqs.record_by_id("seq1").seq(), b"AC");
+    /// # Ok(()) }
     /// ```
     pub fn remove_gap_cols(&mut self) {
         assert!(
@@ -318,23 +380,10 @@ impl Sequences {
         self.s = new_seqs.collect();
     }
 
-    /// Checks if all sequence IDs are unique.
+    /// Checks if all sequence IDs are unique. Runs on Sequence object creation.
     ///
     /// Returns `Ok(())` if all IDs are unique, or an error if duplicates are found.
-    ///
-    /// # Example:
-    /// ```
-    /// use phylo::alignment::Sequences;
-    /// use phylo::record;
-    ///
-    /// let records = vec![
-    ///     record!("seq1", None, b"A"),
-    ///     record!("seq2", None, b"C"),
-    /// ];
-    /// let seqs = Sequences::new(records);
-    /// assert!(seqs.ids_are_unique().is_ok());
-    /// ```
-    pub fn ids_are_unique(&self) -> Result<()> {
+    fn ids_are_unique(&self) -> Result<()> {
         let mut seen = HashSet::new();
         for record in self.iter() {
             let id = record.id();
@@ -389,35 +438,39 @@ mod private_tests {
 
     #[test]
     fn ids_are_unique() {
-        // arrange
-        let seqs = Sequences::new(vec![
+        let result = Sequences::new(vec![
             record!("on", b"X"),
             record!("tw", b"X"),
             record!("th", b"N"),
             record!("fo", b"N"),
         ]);
 
-        // act
-        let result = seqs.ids_are_unique();
-
-        // assert
         assert!(result.is_ok());
+        assert!(result.unwrap().ids_are_unique().is_ok());
     }
 
     #[test]
-    fn ids_are_not_unique() {
-        let seqs = Sequences::new(vec![
+    fn duplicate_ids() {
+        let result = Sequences::new(vec![
             record!("on", b"X"),
             record!("tw", b"X"),
             record!("on", b"N"),
             record!("fo", b"N"),
         ]);
 
-        let result = seqs.ids_are_unique();
-
         assert_matches!(
             result,
             Err(Sequence(msg)) if msg.contains("duplicate record id (on) found in the sequences")
+        );
+    }
+
+    #[test]
+    fn duplicate_ids_from_fasta() {
+        let res =
+            Sequences::new(read_sequences("./data/sequences_garbage_duplicate_ids.fasta").unwrap());
+        assert_matches!(
+            res,
+            Err(Sequence(msg)) if msg.contains("duplicate record id (C) found in the sequences")
         );
     }
 
@@ -429,9 +482,9 @@ mod private_tests {
             record!("seq3", b"TTAA"),
             record!("seq4", b"GGGG"),
         ];
-        let seqs1 = Sequences::new(raw_seqs.clone());
+        let seqs1 = Sequences::new_unchecked(raw_seqs.clone());
         raw_seqs.reverse();
-        let seqs2 = Sequences::new(raw_seqs);
+        let seqs2 = Sequences::new_unchecked(raw_seqs);
         assert_eq!(seqs1, seqs2);
     }
 
@@ -443,9 +496,9 @@ mod private_tests {
             record!("seq3", b"TTAA"),
             record!("seq4", b"GGGG"),
         ];
-        let seqs1 = Sequences::new(raw_seqs.clone());
+        let seqs1 = Sequences::new_unchecked(raw_seqs.clone());
         raw_seqs[1] = record!("seq2", b"CCCA");
-        let seqs2 = Sequences::new(raw_seqs);
+        let seqs2 = Sequences::new_unchecked(raw_seqs);
         assert_ne!(seqs1, seqs2);
     }
     #[test]
@@ -456,9 +509,9 @@ mod private_tests {
             record!("seq3", b"TTAA"),
             record!("seq4", b"GGGG"),
         ];
-        let seqs1 = Sequences::new(raw_seqs.clone());
+        let seqs1 = Sequences::new_unchecked(raw_seqs.clone());
         raw_seqs.pop();
-        let seqs2 = Sequences::new(raw_seqs);
+        let seqs2 = Sequences::new_unchecked(raw_seqs);
         assert_ne!(seqs1, seqs2);
     }
 
@@ -470,8 +523,8 @@ mod private_tests {
             record!("seq3", b"TTAA"),
             record!("seq4", b"GGGG"),
         ];
-        let seqs1 = Sequences::new(raw_seqs.clone());
-        let seqs2 = Sequences::with_alphabet(raw_seqs, Alphabet::protein());
+        let seqs1 = Sequences::new_unchecked(raw_seqs.clone());
+        let seqs2 = Sequences::with_alphabet_unchecked(raw_seqs, Alphabet::protein());
         assert_ne!(seqs1, seqs2);
     }
 
@@ -483,8 +536,8 @@ mod private_tests {
             record!("seq3", b"TTAAAAA"),
             record!("seq4", b"GGGBG"),
         ];
-        let seqs1 = Sequences::new(raw_seqs.clone());
-        let seqs2 = Sequences::new(raw_seqs);
+        let seqs1 = Sequences::new_unchecked(raw_seqs.clone());
+        let seqs2 = Sequences::new_unchecked(raw_seqs);
         assert_eq!(seqs1, seqs2);
     }
 
@@ -496,7 +549,7 @@ mod private_tests {
             record!("seq3", b"T--AA"),
             record!("seq4", b"GGG-G"),
         ];
-        let seqs1 = Sequences::new(raw_seqs.clone());
+        let seqs1 = Sequences::new_unchecked(raw_seqs.clone());
         let seqs2 = seqs1.clone().into_gapless();
         assert_ne!(seqs1, seqs2);
     }
@@ -509,7 +562,7 @@ mod private_tests {
             record!("seq3", b"TTAA"),
             record!("seq4", b"GGGG"),
         ];
-        let seqs = Sequences::new(raw_seqs.clone());
+        let seqs = Sequences::new_unchecked(raw_seqs.clone());
         for (i, rec) in raw_seqs.iter().enumerate() {
             assert_eq!(seqs[i], *rec);
         }
@@ -523,7 +576,7 @@ mod private_tests {
             record!("seq3", b"TTAA"),
             record!("seq4", b"GGGG"),
         ];
-        let mut seqs = Sequences::new(raw_seqs.clone());
+        let mut seqs = Sequences::new_unchecked(raw_seqs.clone());
         assert_eq!(seqs[1].seq(), b"CCCC");
         seqs[1] = record!("seq2", b"AAAA");
         assert_eq!(seqs[1].seq(), b"AAAA");
@@ -537,7 +590,7 @@ mod private_tests {
             record!("seq3", b"TTAA"),
             record!("seq4", b"GGGG"),
         ];
-        let seqs = Sequences::new(raw_seqs.clone());
+        let seqs = Sequences::new_unchecked(raw_seqs.clone());
         for (i, rec) in seqs.iter().enumerate() {
             assert_eq!(raw_seqs[i], *rec);
         }

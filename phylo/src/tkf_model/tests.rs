@@ -304,7 +304,7 @@ fn tkf_eta_calculated_by_hand() {
 #[test]
 fn tkf91_get_blocks() {
     let tree = tree!("((A0:1.0,B1:1.0)I1:1.0);");
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         record!("A0", b"AAAB-D"),
         record!("B1", b"--ARAW"),
         record!("I1", b"AAAA-A"),
@@ -321,7 +321,7 @@ fn tkf91_get_blocks() {
 #[test]
 fn tkf92_get_blocks() {
     let tree = tree!("((A0:1.0,B1:1.0)I1:1.0);");
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         record!("A0", b"AAB-D"),
         record!("B1", b"-ARAW"),
         record!("I1", b"AAA-A"),
@@ -339,7 +339,7 @@ fn tkf92_get_blocks() {
 #[test]
 fn tkf92_fixed_get_blocks() {
     let tree = tree!("((A0:1.0,B1:1.0)I1:1.0);");
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         record!("A0", b"AAAAAAB-D"),
         record!("B1", b"---AAARAW"),
         record!("I1", b"AAAAAAA-A"),
@@ -364,7 +364,7 @@ fn tkf92_fixed_get_blocks() {
 pub(super) fn setup_test_phylo(alphabet: &'static Alphabet) -> PhyloInfo<MASA> {
     let tree = tree!("(((A1:2.0,B2:2.0)I3:0.3,C4:2.0)R5:1.0);");
     let msa = MASA::from_aligned_with_ancestral(
-        Sequences::with_alphabet(
+        Sequences::with_alphabet_unchecked(
             vec![
                 record!("A1", b"--GTGGA---"),
                 record!("B2", b"-------NNA"),
@@ -886,14 +886,14 @@ fn tkf92_logl_with_substitution() {
 fn tkf_indel_history_doesnt_change_felsenstein() {
     // arrange
     let tree = tree!("(((A1:2.0,B2:2.0)I3:0.3,C4:2.0)R5:1.0);");
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         record!("A1", b"--GTGTA---"),
         record!("B2", b"-------AGT"),
         record!("I3", b"--N-------"),
         record!("C4", b"GTA-------"),
         record!("R5", b"--N-------"),
     ]);
-    let seqs2 = Sequences::new(vec![
+    let seqs2 = Sequences::new_unchecked(vec![
         record!("A1", b"--GTGTA---"),
         record!("B2", b"-------AGT"),
         record!("I3", b"--NNNNNNNN"),
@@ -1024,7 +1024,7 @@ fn tkf_modify_indel_model_params_costs_match() {
 fn tkf_update_tree() {
     let tree = tree!("(((A1:2.0,B2:2.0)I3:0.3,C4:2.0)R5:1.0);");
     let msa = MASA::from_aligned_with_ancestral(
-        Sequences::new(vec![
+        Sequences::new_unchecked(vec![
             record!("A1", b"--GTGGATGC"),
             record!("B2", b"--G----CGA"),
             record!("I3", b"--N----NNN"),
@@ -1071,7 +1071,7 @@ fn setup_short_branches_phylo() -> PhyloInfo<MASA> {
     let tree = tree!("(((A1:1e-20,B2:2.0)I3:1e-16,C4:2.0)R5:0.0);");
     let msa = MASA::from_aligned_with_ancestral(
         // Testing all events on short branches
-        Sequences::new(vec![
+        Sequences::new_unchecked(vec![
             record!("A1", b"-AA-AA"),
             record!("B2", b"A-A--A"),
             record!("I3", b"AAAA-A"),

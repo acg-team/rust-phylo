@@ -240,7 +240,7 @@ mod private_tests {
 
     #[test]
     fn repeat_dollo_parsimony_score() {
-        let seqs = Sequences::new(vec![
+        let seqs = Sequences::new_unchecked(vec![
             record!("A", b"G-GA"),
             record!("B", b"G-GG"),
             record!("C", b"AGCA"),
@@ -264,7 +264,7 @@ mod private_tests {
 
     #[test]
     fn dollo_parsimony_simple_scoring() {
-        let seqs = Sequences::new(vec![
+        let seqs = Sequences::new_unchecked(vec![
             record!("A", b"G-GAA"),
             record!("B", b"G-GG-"),
             record!("C", b"AGCAA"),
@@ -285,7 +285,7 @@ mod private_tests {
 
     #[test]
     fn dollo_parsimony_simple_scoring_default() {
-        let seqs = Sequences::new(vec![
+        let seqs = Sequences::new_unchecked(vec![
             record!("A", b"G-GAA"),
             record!("B", b"G-GG-"),
             record!("C", b"AGCAA"),
@@ -308,7 +308,7 @@ mod private_tests {
 
     #[test]
     fn tree_upd_testing() {
-        let seqs = Sequences::new(vec![
+        let seqs = Sequences::new_unchecked(vec![
             record!("A", b"G--G"),
             record!("B", b"---G"),
             record!("C", b"-GG-"),
@@ -331,7 +331,7 @@ mod private_tests {
 
     #[test]
     fn dollo_multiple_deletions() {
-        let seqs = Sequences::with_alphabet(
+        let seqs = Sequences::with_alphabet_unchecked(
             vec![
                 record!("A", b"G"),
                 record!("B", b"G"),
