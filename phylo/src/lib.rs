@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 #![cfg_attr(coverage, feature(coverage_attribute))]
 
 // Re-export commonly used types for convenience with macros
