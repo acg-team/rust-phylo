@@ -1,3 +1,39 @@
+//! Alignment module for handling sequences and alignments in phylogenetic analyses.
+//!
+//! This module provides the [`Sequences`] object for representing collections of sequences.
+//! The sequence IDs must be unique within the collection.
+//! The sequences stored in the object can be aligned or unaligned.
+//!
+//! Contains the [`Alignment`] and [`AncestralAlignment`] traits for representing and manipulating
+//! sequence alignments with or without ancestral sequences.
+//! The Sequences object is used to store the sequences in the alignment, and the lengths of
+//! the sequences in the alignment must be consistent.
+//!
+//! Finally, this module includes the [`Aligner`] trait that can be implemented for sequence
+//! alignment algorithms.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use phylo::alignment::{Aligner, Alignment, Sequences, MSA};
+//! use phylo::parsimony::ParsimonyAligner;
+//! use phylo::{record, tree};
+//!
+//! # use phylo::Result;
+//! # fn main() -> Result<()> {
+//! let seqs = Sequences::new(vec![
+//!         record!("A", None, b"AACT"),
+//!         record!("B", None, b"AC"),
+//!         record!("C", None, b"AACT"),
+//!     ]);
+//! let tree = tree!("((A:1.0, B:1.0):1.0, C:2.0);");
+//! let aligner = ParsimonyAligner::default();
+//! let alignment: MSA = aligner.align(&seqs, &tree)?;
+//! assert_eq!(alignment.seq_count(), 3);
+//! assert!(alignment.len() >= 4);
+//! # Ok(()) }
+//! ```
+
 use std::fmt::{Debug, Display};
 
 use hashbrown::HashMap;
