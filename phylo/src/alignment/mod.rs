@@ -48,8 +48,10 @@ use crate::phylo_info::{
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::{align, aligned_seq, bail, record, Result};
 
+#[doc(hidden)]
 pub mod sequences;
 pub use sequences::*;
+#[doc(hidden)]
 pub mod aligner;
 pub use aligner::*;
 
