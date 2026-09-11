@@ -113,6 +113,15 @@ impl Alphabet {
     }
 
     /// Returns the protein alphabet as a static reference.
+    ///
+    /// # Example:
+    /// ```
+    /// use phylo::alphabets::Alphabet;
+    /// let alphabet = Alphabet::protein();
+    /// assert_eq!(alphabet.len(), 20);
+    /// assert_eq!(alphabet.name(), "protein");
+    /// println!("Working with {} sequences", alphabet.name());
+    /// ```
     pub fn protein() -> &'static Self {
         &PROTEIN_ALPHABET
     }
