@@ -7,6 +7,7 @@ use nalgebra::DVector;
 use crate::frequencies;
 use crate::substitution_models::FreqVector;
 
+#[doc(hidden)]
 pub mod parsimony_set;
 pub use parsimony_set::*;
 
