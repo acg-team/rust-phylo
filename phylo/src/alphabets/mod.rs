@@ -108,6 +108,15 @@ impl Alphabet {
     }
 
     /// Returns the DNA alphabet as a static reference.
+    ///
+    /// # Example:
+    /// ```
+    /// use phylo::alphabets::Alphabet;
+    /// let alphabet = Alphabet::dna();
+    /// assert_eq!(alphabet.len(), 4);
+    /// assert_eq!(alphabet.name(), "DNA");
+    /// println!("Working with {} sequences", alphabet.name());
+    /// ```
     pub fn dna() -> &'static Self {
         &DNA_ALPHABET
     }
