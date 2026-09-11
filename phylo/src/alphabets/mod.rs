@@ -310,7 +310,7 @@ lazy_static! {
 #[cfg(test)]
 lazy_static! {
     /// Static empty set of symbols, used for the unknown alphabet.
-    pub static ref EMPTY_SYMBOLS: HashSet<u8> = HashSet::new();
+    pub static ref EMPTY_SYMBOLS: ParsimonySet = ParsimonySet::empty();
 
     /// Static definition of an unknown alphabet, can beused as a fallback when the alphabet of a
     /// sequence is not known.
