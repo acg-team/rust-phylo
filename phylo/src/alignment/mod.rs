@@ -57,15 +57,21 @@ pub use aligner::*;
 
 /// Represents an aligned position in a sequence. Used in [`Mapping`].
 pub type Position = Option<usize>;
-/// Represents aligned positions of a sequence.
-/// E.g. The `Mapping` for the sequence `A--T-` is `[Some(0), None, None, Some(1), None]`.
+/// Represents a mapping of an ungapped sequence to its aligned positions in the alignment.
+/// E.g. if the ungapped sequence is `AT` and the aligned sequence is `A--T-`, the `Mapping`
+/// would be`[Some(0), None, None, Some(1), None]`.
 pub type Mapping = Vec<Position>;
 /// For an internal node of the tree, represents the pairwise alignment of the two sub MSAs that
 /// correspond to the two children of that node.
 pub type InternalAlignments = HashMap<NodeIdx, PairwiseAlignment>;
+/// Represents the mapping of sequences for nodes in the tree as a `hashbrown::HashMap`
+/// where the key is the node index (of type [`NodeIdx`]) and the value is the [`Mapping`] of
+/// sequences for that node.
 pub type SeqMaps = HashMap<NodeIdx, Mapping>;
 
-/// Represents a pairwise alignment of two sequences or MSAs. Used in [`InternalAlignments`].
+/// Represents a pairwise alignment of two sequences or MSAs using [`Mapping`], which represents the
+/// aligned positions of the sequences or MSAs.
+/// Used in [`InternalAlignments`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct PairwiseAlignment {
     pub(crate) map_x: Mapping,
@@ -169,6 +175,7 @@ pub trait AncestralAlignment: Alignment {
     fn from_aligned_with_ancestral_unchecked(all_seqs: Sequences, tree: &Tree) -> Self;
 }
 
+/// Represents a multiple sequence alignment (MSA) with associated leaf mappings and internal alignments.
 #[derive(Debug, Clone)]
 pub struct MSA {
     seqs: Sequences,
@@ -376,6 +383,11 @@ impl Alignment for MSA {
     }
 }
 
+/// Represents a multiple sequence alignment with both leaf and ancestral sequences
+/// (MASA, Multiple Ancestral Sequence Alignment).
+///
+/// This structure stores the sequences and their corresponding mappings for both leaf and internal nodes,
+/// as well as the internal alignments and a mapping from node indices in the tree to sequence ids.
 #[derive(Debug, Clone)]
 pub struct MASA {
     leaf_seqs: Sequences,
