@@ -13,22 +13,48 @@ pub use parsimony_set::*;
 
 type ConditionalProbs = DVector<f64>;
 
-pub static AMINOACIDS: &[u8] = b"ARNDCQEGHILKMFPSTWYV";
-pub static AMB_AMINOACIDS: &[u8] = b"BJZX";
-pub static NUCLEOTIDES: &[u8] = b"TCAG"; // This is legacy sorting, i.e., conforming with tools like RaXML and PhyML
-pub static AMB_NUCLEOTIDES: &[u8] = b"RYSWKMBDHVNZX";
-pub static AMB_CHAR: u8 = b'X';
-pub static GAP: u8 = b'-';
-pub static POSSIBLE_GAPS: &[u8] = b"_*-";
+/// All single-letter symbols for valid non-ambiguous amino acids used in the alphabet.
+pub(crate) static AMINOACIDS: &[u8] = b"ARNDCQEGHILKMFPSTWYV";
 
+/// All single-letter symbols for ambiguous amino acids used in the alphabet.
+pub(crate) static AMB_AMINOACIDS: &[u8] = b"BJZX";
+
+/// All single-letter symbols for valid non-ambiguous nucleotides used in the alphabet.
+/// This is legacy sorting, i.e., conforming with tools like RaXML and PhyML, and is used also
+/// to maintain order of rows/columns in substitution matrices.
+pub(crate) static NUCLEOTIDES: &[u8] = b"TCAG";
+
+/// All single-letter symbols for ambiguous nucleotides used in the alphabet.
+pub(crate) static AMB_NUCLEOTIDES: &[u8] = b"RYSWKMBDHVNZX";
+
+/// The character representing an ambiguous symbol in both the amino acid and nucleotide alphabets.
+pub(crate) static AMB_CHAR: u8 = b'X';
+
+/// The character representing a gap in the alphabet used in MSAs.
+pub(crate) static GAP: u8 = b'-';
+
+/// All possible characters that couuld represent a gap in the MSAs, included for compatibility with
+/// other tools.
+pub(crate) static POSSIBLE_GAPS: &[u8] = b"_*-";
+
+/// Represents a biological sequence alphabet, including valid symbols, ambiguous symbols, and
+/// precomputed data for efficient sequence analysis (conditional probabilities and parsimony set
+/// definitions for each valid symbol).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Alphabet {
+    /// Human-readable name of the alphabet.
     name: &'static str,
+    /// Unambiguous symbols in the alphabet, in matrix order.
     symbols: &'static [u8],
+    /// Symbols that represent more than one unambiguous symbol.
     ambiguous: &'static [u8],
+    /// Mapping from ASCII character codes to symbol indices for efficient lookups.
     index: &'static [usize; 255],
+    /// Symbols accepted by the alphabet, including ambiguous symbols and gaps.
     valid_symbols: &'static HashSet<u8>,
+    /// Conditional probability vectors indexed by character code.
     conditional_probs: &'static [FreqVector],
+    /// Parsimony sets indexed by character code.
     parsimony_sets: &'static [ParsimonySet],
 }
 
@@ -213,6 +239,7 @@ impl Alphabet {
 }
 
 lazy_static! {
+    /// Static standard DNA alphabet definition
     pub static ref DNA_ALPHABET: Alphabet = Alphabet {
         name: "DNA",
         symbols: NUCLEOTIDES,
@@ -222,6 +249,8 @@ lazy_static! {
         conditional_probs: &NUCL_COND_PROBS,
         parsimony_sets: &NUCL_PARSIMONY_SETS,
     };
+
+    /// Static standard protein alphabet definition
     pub static ref PROTEIN_ALPHABET: Alphabet = Alphabet {
         name: "protein",
         symbols: AMINOACIDS,
@@ -231,6 +260,9 @@ lazy_static! {
         conditional_probs: &AA_COND_PROBS,
         parsimony_sets: &AA_PARSIMONY_SETS,
     };
+
+    /// Static nucleotide index mapping for quick lookup, mapping each nucleotide character to its
+    /// index in the DNA alphabet.
     pub static ref NUCLEOTIDE_INDEX: [usize; 255] = {
         let mut index = [0; 255];
         for (i, char) in NUCLEOTIDES.iter().enumerate() {
@@ -240,6 +272,8 @@ lazy_static! {
         index[GAP as usize] = 4;
         index
     };
+
+    /// Static set of valid nucleotide characters, including ambiguous nucleotides and the gap character.
     pub static ref VALID_NUCLEOTIDES: HashSet<u8> = {
         NUCLEOTIDES
             .iter()
@@ -247,6 +281,9 @@ lazy_static! {
             .cloned()
             .collect()
     };
+
+    /// Static conditional probability vectors for each nucleotide character, used in e.g. Felsenstein's
+    /// pruning algorithm.
     pub static ref NUCL_COND_PROBS: Vec<FreqVector> = {
         let mut map = vec![frequencies!(&[0.0; 4]); 255];
         for (i, elem) in map.iter_mut().enumerate() {
@@ -255,6 +292,8 @@ lazy_static! {
         }
         map
     };
+
+    /// Static parsimony sets for each nucleotide character.
     pub static ref NUCL_PARSIMONY_SETS: Vec<ParsimonySet> = {
         let mut map: Vec<ParsimonySet> = vec![ParsimonySet::empty(); 255];
         for (i, elem) in map.iter_mut().enumerate() {
@@ -263,12 +302,18 @@ lazy_static! {
         }
         map
     };
+
+    /// Static parsimony set for the gap character for e.g. Dollo parsimony.
     pub static ref GAP_SET: ParsimonySet = ParsimonySet::from_slice(&[GAP]);
 }
 
 #[cfg(test)]
 lazy_static! {
+    /// Static empty set of symbols, used for the unknown alphabet.
     pub static ref EMPTY_SYMBOLS: HashSet<u8> = HashSet::new();
+
+    /// Static definition of an unknown alphabet, can beused as a fallback when the alphabet of a
+    /// sequence is not known.
     pub static ref UNKNOWN_ALPHABET: Alphabet = Alphabet {
         name: "unknown",
         symbols: &[],
@@ -323,6 +368,8 @@ fn nucl_parsimony_set(char: &u8) -> ParsimonySet {
 }
 
 lazy_static! {
+    /// Static amino acid index mapping for quick lookup, mapping each character to its
+    /// index in the protein alphabet.
     pub static ref AMINOACID_INDEX: [usize; 255] = {
         let mut index = [0; 255];
         for (i, &char) in AMINOACIDS.iter().enumerate() {
@@ -332,6 +379,8 @@ lazy_static! {
         index[GAP as usize] = 20;
         index
     };
+
+    /// Static set of valid amino acid characters, including ambiguous amino acids and the gap character.
     pub static ref VALID_AMINOACIDS: HashSet<u8> = {
         AMINOACIDS
             .iter()
@@ -339,6 +388,10 @@ lazy_static! {
             .cloned()
             .collect()
     };
+
+
+    /// Static conditional probability vectors for each amino acid character, used in e.g. Felsenstein's
+    /// pruning algorithm.
     pub static ref AA_COND_PROBS: Vec<FreqVector> = {
         let mut map: Vec<FreqVector> = vec![frequencies!(&[0.0; 20]); 255];
         for (i, elem) in map.iter_mut().enumerate() {
@@ -347,6 +400,9 @@ lazy_static! {
         }
         map
     };
+
+
+   /// Static parsimony sets for each amino acid character.
     pub static ref AA_PARSIMONY_SETS: Vec<ParsimonySet> = {
         let mut map: Vec<ParsimonySet> = vec![ParsimonySet::empty(); 255];
         for (i, elem) in map.iter_mut().enumerate() {
