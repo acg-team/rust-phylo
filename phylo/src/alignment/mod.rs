@@ -69,6 +69,10 @@ pub type InternalAlignments = HashMap<NodeIdx, PairwiseAlignment>;
 /// sequences for that node.
 pub type SeqMaps = HashMap<NodeIdx, Mapping>;
 
+/// Represents a mapping from node indices to sequence IDs. Stored as a `Vec<String>` instead of a
+/// `HashMap` since the number of nodes is fixed and node indices can be used to directly index into the vector.
+type IdxIdMap = Vec<String>;
+
 /// Represents a pairwise alignment of two sequences or MSAs using [`Mapping`], which represents the
 /// aligned positions of the sequences or MSAs.
 /// Used in [`InternalAlignments`].
@@ -215,7 +219,7 @@ pub struct MSA {
     seqs: Sequences,
     leaf_maps: SeqMaps,
     internal_alignments: InternalAlignments,
-    idx_to_id: Vec<String>,
+    idx_to_id: IdxIdMap,
 }
 
 impl Display for MSA {
@@ -431,7 +435,7 @@ pub struct MASA {
     // TODO: this needs to be implemented
     //       see issue #150 https://github.com/acg-team/rust-phylo/issues/150
     internal_alignments: InternalAlignments,
-    idx_to_id: Vec<String>,
+    idx_to_id: IdxIdMap,
 }
 
 impl Display for MASA {
