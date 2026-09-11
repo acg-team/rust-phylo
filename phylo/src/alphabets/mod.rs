@@ -95,6 +95,11 @@ impl Display for Alphabet {
 }
 
 impl Alphabet {
+    /// Returns the name of the alphabet.
+    pub fn name(&self) -> &str {
+        self.name
+    }
+
     /// Returns the DNA alphabet as a static reference.
     pub fn dna() -> &'static Self {
         &DNA_ALPHABET
