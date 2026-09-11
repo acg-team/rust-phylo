@@ -213,7 +213,7 @@ pub trait AncestralAlignment: Alignment {
 /// Represents a multiple sequence alignment (MSA) with associated leaf mappings and internal alignments.
 ///
 /// This structure stores the sequences and their corresponding mappings for leaf nodes,
-/// as well as the internal alignments and a mapping from node indices in the tree to sequence ids.
+/// as well as the internal alignments and a mapping from node indices in the tree to sequence IDs.
 #[derive(Debug, Clone)]
 pub struct MSA {
     seqs: Sequences,
@@ -425,7 +425,7 @@ impl Alignment for MSA {
 /// (MASA, Multiple Ancestral Sequence Alignment).
 ///
 /// This structure stores the sequences and their corresponding mappings for both leaf and internal nodes,
-/// as well as the internal alignments and a mapping from node indices in the tree to sequence ids.
+/// as well as the internal alignments and a mapping from node indices in the tree to sequence IDs.
 #[derive(Debug, Clone)]
 pub struct MASA {
     leaf_seqs: Sequences,
