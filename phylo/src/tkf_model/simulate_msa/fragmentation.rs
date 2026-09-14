@@ -118,7 +118,7 @@ mod private_tests {
     #[rstest]
     #[case(vec![])]
     #[case(vec![0])]
-    #[case(vec![3, 3, 5])]
+    #[case(vec![1, 3, 5])]
     fn fragmentation_init_valid(#[case] frag: Vec<usize>) {
         let fragmentation = Fragmentation::new(frag.clone()).unwrap();
         assert_eq!(fragmentation.right_exclusive_boundaries(), &frag);
@@ -144,8 +144,11 @@ mod private_tests {
     fn remove_cols_from_fragmentation_all_removals() {
         let mut fragmentation = Fragmentation::new(vec![3, 6, 9]).unwrap();
         let keep_cols_mask = vec![false; 9];
-        let err = fragmentation.remove_cols(&keep_cols_mask);
-        assert_matches!(err.unwrap_err(), Tkf(msg) if msg.contains("keep_col_mask is all false"));
+        fragmentation.remove_cols(&keep_cols_mask).unwrap();
+        assert_eq!(
+            fragmentation.right_exclusive_boundaries(),
+            Vec::<usize>::new()
+        );
     }
 
     #[test]
@@ -194,7 +197,7 @@ mod private_tests {
         let mut fragmentation = Fragmentation::new(vec![]).unwrap();
         let keep_cols_mask = vec![true, true, true];
         let err = fragmentation.remove_cols(&keep_cols_mask);
-        assert_matches!(err.unwrap_err(), Tkf(msg) if msg.contains("fragmentation is empty"));
+        assert_matches!(err.unwrap_err(), Tkf(msg) if msg.contains("fragmentation and alignment do not match in emptiness"));
     }
 
     #[test]

@@ -136,7 +136,9 @@ pub struct TKFMSASimulationResult<AA: AncestralAlignment> {
 impl<AA: AncestralAlignment> TKFMSASimulationResult<AA> {
     pub fn remove_extinct_columns(&mut self) -> Result<()> {
         let keep_col_mask = self.masa.remove_extinct_columns();
-        self.fragmentation.remove_cols(&keep_col_mask)
+        self.fragmentation.remove_cols(&keep_col_mask)?;
+        self.fragmentation
+            .fragmentation_works_with_ancestral_alignment(&self.masa)
     }
 }
 

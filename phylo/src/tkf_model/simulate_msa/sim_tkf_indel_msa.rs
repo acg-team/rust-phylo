@@ -149,7 +149,9 @@ pub struct TKFIndelMSASimulationResult<AA: AncestralAlignment> {
 impl<AA: AncestralAlignment> TKFIndelMSASimulationResult<AA> {
     pub fn remove_extinct_columns(&mut self) -> Result<()> {
         let keep_col_mask = self.masa.remove_extinct_columns();
-        self.fragmentation.remove_cols(&keep_col_mask)
+        self.fragmentation.remove_cols(&keep_col_mask)?;
+        self.fragmentation
+            .fragmentation_works_with_ancestral_alignment(&self.masa)
     }
 }
 
@@ -253,7 +255,12 @@ where
                         current_total_root_len += frag_length;
                     } else {
                         let remaining_len = max_len - current_total_root_len;
-                        root_links.push(TKFLink::new(self.tree.root, remaining_len));
+                        // `remaining_len` can be 0 when the fragments exactly fill the root
+                        // sequence. A zero-length link would add no characters but would still
+                        // push a fragment boundary equal to the previous one, so it is skipped.
+                        if remaining_len > 0 {
+                            root_links.push(TKFLink::new(self.tree.root, remaining_len));
+                        }
                         break;
                     }
                 }
@@ -853,6 +860,29 @@ mod private_tests {
         let result1 = simulator1.simulate_with_fragments::<MASA>();
         let msa2: MASA = simulator2.simulate_ancestral_alignment();
         assert_eq!(result1.masa.to_string(), msa2.to_string());
+    }
+
+    #[test]
+    fn build_root_links_no_zero_length_links() {
+        let tkf_model = TKF92IndelModel::new(0.01, 0.0105, 0.7);
+        let tree = tree!("(A:1.0,B:1.0)R:1.0;");
+        for seed in 0..1000 {
+            let mut simulator = TKFIndelMSASimulator::new(
+                tkf_model.clone(),
+                tree.clone(),
+                DefaultGenerator::new(seed),
+                50,
+            );
+            simulator.root_length(RootLength::Expected);
+            let root_links = simulator.build_root_links();
+            for (i, link) in root_links.iter().skip(1).enumerate() {
+                assert!(
+                    link.length > 0,
+                    "seed {seed}: zero-length root link at index {}",
+                    i + 1
+                );
+            }
+        }
     }
 
     #[test]
