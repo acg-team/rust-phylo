@@ -5,13 +5,12 @@ use crate::{bail, Result};
 
 /// Trait for ancestral sequence reconstruction.
 pub trait AncestralSequenceReconstruction<A: Alignment, AA: AncestralAlignment> {
-    /// Checks if inputs are compatible and calls [`Self::reconstruct_ancestral_seqs_unchecked`].   
+    /// Checks if inputs are compatible and calls [`Self::reconstruct_ancestral_seqs_unchecked`].
     /// Checks:
     ///  - if number of sequences in the alignment matches the number of leaves in the tree
     ///  - if node IDs in the tree are unique ([`Tree::node_ids_are_unique`])
-    ///  - if sequence IDs in the alignment are unique ([`crate::alignment::Sequences::ids_are_unique`])
     ///  - if the sequence IDs in the alignment match the taxa IDs in the tree ([`validate_taxa_ids`])
-    ///  
+    ///
     /// Only overwrite this method if absolutely necessary. The default implementation
     /// ensures that prerequisites are met. Overwriting and not ensuring these checks
     /// may lead to unexpected panics or wrong results.
@@ -25,7 +24,6 @@ pub trait AncestralSequenceReconstruction<A: Alignment, AA: AncestralAlignment> 
             );
         }
         tree.node_ids_are_unique()?;
-        leaf_alignment.seqs().ids_are_unique()?;
         validate_taxa_ids(tree, leaf_alignment.seqs())?;
         Ok(self.reconstruct_ancestral_seqs_unchecked(leaf_alignment, tree))
     }

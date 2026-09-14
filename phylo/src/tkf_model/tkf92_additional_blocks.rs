@@ -213,7 +213,7 @@ mod private_tests {
         // provided block borders) we can verify that this TKF92 model integrates over all possible
         // fragmentations that are consistent with the MSA and the additional block borders.
         let tree = tree!("((A0:1.0,B1:1.0)I1:1.0);");
-        let seqs = Sequences::new(vec![
+        let seqs = Sequences::new_unchecked(vec![
             record!("A0", b"AAB---DD"),
             record!("B1", b"-ARAAAWD"),
             record!("I1", b"AAA---AD"),

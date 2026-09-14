@@ -110,6 +110,7 @@ impl<Q: QMatrix, T: TKFModel, AA: AncestralAlignment> TKFCost<Q, T, AA> {
     /// use phylo::alignment::{Alignment, AncestralAlignment, Sequences, MASA};
     /// use phylo::tkf_model::TKF92CostBuilder;
     /// use phylo::{tree, record_wo_desc as record};
+    ///
     /// # use phylo::Result;
     /// # fn main() -> Result<()> {
     /// let tree = tree!("(((A1:2.0,B2:2.0)I3:0.3,C4:2.0)R5:1.0);");
@@ -122,7 +123,7 @@ impl<Q: QMatrix, T: TKFModel, AA: AncestralAlignment> TKFCost<Q, T, AA> {
     ///             record!("C4", b"AGG-------"),
     ///             record!("R5", b"--A-------"),
     ///            ],
-    ///     ),
+    ///     )?,
     ///   &tree,
     /// )?;
     /// let phylo = PhyloInfo { msa, tree };
@@ -144,6 +145,7 @@ impl<Q: QMatrix, T: TKFModel, AA: AncestralAlignment> TKFCost<Q, T, AA> {
     /// use phylo::alignment::{Alignment, AncestralAlignment, Sequences, MASA};
     /// use phylo::tkf_model::TKF92CostBuilder;
     /// use phylo::{tree, record_wo_desc as record};
+    ///
     /// # use phylo::Result;
     /// # fn main() -> Result<()> {
     /// let tree = tree!("(((A1:2.0,B2:2.0)I3:0.3,C4:2.0)R5:1.0);");
@@ -156,7 +158,7 @@ impl<Q: QMatrix, T: TKFModel, AA: AncestralAlignment> TKFCost<Q, T, AA> {
     ///             record!("C4", b"AGG-------"),
     ///             record!("R5", b"--A-------"),
     ///            ],
-    ///     ),
+    ///     )?,
     ///   &tree,
     /// )?;
     /// let phylo = PhyloInfo { msa, tree };

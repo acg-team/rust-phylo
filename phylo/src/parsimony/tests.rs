@@ -57,7 +57,7 @@ fn align_two_second_outcome() {
 fn align_two_on_tree() {
     let mismatch = 1.0;
     let gap = GapCost::new(2.0, 0.5);
-    let seqs = Sequences::new(vec![rec!("A", b"AACT"), rec!("B", b"AC")]);
+    let seqs = Sequences::new_unchecked(vec![rec!("A", b"AACT"), rec!("B", b"AC")]);
     let tree = tree!("(A:1.0, B:1.0):0.0;");
     let scoring = SimpleScoring::new(mismatch, gap);
 
@@ -143,7 +143,7 @@ fn align_four_on_tree() {
     let mismatch = 1.0;
     let gap = GapCost::new(2.0, 0.5);
 
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         rec!("A", b"AACT"),
         rec!("B", b"AC"),
         rec!("C", b"A"),
@@ -192,7 +192,7 @@ fn parsimony_site_debug() {
 fn try_aligning_aligned_sequences() {
     let scoring = SimpleScoring::new(1.0, GapCost::new(2.0, 0.5));
 
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         rec!("A", b"A--ACT"),
         rec!("B", b"A--C--"),
         rec!("C", b"AA--CT"),

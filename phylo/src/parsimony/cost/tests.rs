@@ -10,7 +10,7 @@ use crate::{record_wo_desc as rec, tree};
 
 #[test]
 fn basic_parsimony_cost() {
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         rec!("A", b"GGA"),
         rec!("B", b"GGG"),
         rec!("C", b"ACA"),
@@ -44,7 +44,7 @@ fn basic_parsimony_cost() {
 
 #[test]
 fn basic_parsimony_cost_tree_update() {
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         rec!("A", b"GGA"),
         rec!("B", b"GGG"),
         rec!("C", b"ACA"),
@@ -64,7 +64,7 @@ fn basic_parsimony_cost_tree_update() {
 
 #[test]
 fn basic_parsimony_reroot() {
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         rec!("A", b"GGA"),
         rec!("B", b"GGG"),
         rec!("C", b"ACA"),
@@ -92,7 +92,7 @@ fn basic_parsimony_reroot() {
 
 #[test]
 fn basic_parsimony_cost_gaps() {
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         rec!("A", b"GA-T-"),
         rec!("B", b"GA-TT"),
         rec!("C", b"-A-TT"),
@@ -111,7 +111,7 @@ fn basic_parsimony_cost_gaps() {
 
 #[test]
 fn dollo_parsimony_cost_nogaps() {
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         rec!("A", b"GGA"),
         rec!("B", b"GGG"),
         rec!("C", b"ACA"),
@@ -146,7 +146,7 @@ fn dollo_parsimony_cost_nogaps() {
 
 #[test]
 fn dollo_parsimony_reroot_simple() {
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         rec!("A", b"GGA-"),
         rec!("B", b"GGG-"),
         rec!("C", b"ACAG"),
@@ -176,7 +176,7 @@ fn dollo_parsimony_reroot_simple() {
 
 #[test]
 fn dollo_parsimony_cost_gaps() {
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         rec!("A", b"GA-T-"),
         rec!("B", b"GA-TT"),
         rec!("C", b"-A-TT"),
@@ -195,7 +195,7 @@ fn dollo_parsimony_cost_gaps() {
 
 #[test]
 fn dollo_parsimony_cost_tree_update() {
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         rec!("A", b"G"),
         rec!("B", b"G"),
         rec!("C", b"-"),
@@ -215,7 +215,7 @@ fn dollo_parsimony_cost_tree_update() {
 
 #[test]
 fn dollo_parsimony_cost_deletions() {
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         rec!("A", b"T-"),
         rec!("B", b"TT"),
         rec!("C", b"T-"),
@@ -234,7 +234,7 @@ fn dollo_parsimony_cost_deletions() {
 
 #[test]
 fn dollo_parsimony_cost_low_insertion() {
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         rec!("A", b"-"),
         rec!("B", b"T"),
         rec!("C", b"-"),
@@ -255,7 +255,7 @@ fn dollo_parsimony_cost_low_insertion() {
 
 #[test]
 fn dollo_parsimony_display() {
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         rec!("A", b"T-"),
         rec!("B", b"TT"),
         rec!("C", b"T-"),

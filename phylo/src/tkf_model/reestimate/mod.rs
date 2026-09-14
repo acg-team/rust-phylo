@@ -670,7 +670,7 @@ fn mapping_from_node_seq(node_seq: &NodeSeq, block_lens: &[usize], seq_len: usiz
 
 /// Converts the provided assignment and quartet del_or_not combination
 /// into a unique index for the DP table. The DP algorithm calculates probabilities
-/// for such an assignment and quartet del_or_not combination. To store these     
+/// for such an assignment and quartet del_or_not combination. To store these
 /// results in a flat array, we need to convert the combination of booleans
 /// into a unique index.
 /// Is the inverse of [`index_to_bools`].
@@ -903,7 +903,7 @@ mod private_tests {
     fn tkf_const_per_alignment() {
         let tree = tree!("(((A1:2.0,B2:2.0)I3:0.3,C4:2.0)R5:1.0);");
         let msa = MASA::from_aligned_with_ancestral(
-            Sequences::new(vec![
+            Sequences::new_unchecked(vec![
                 record!("A1", b""),
                 record!("B2", b""),
                 record!("I3", b""),

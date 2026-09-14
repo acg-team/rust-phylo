@@ -31,7 +31,7 @@ fn test_subst_model<Q: QMatrix + QMatrixMaker>(
     let tree = tree!(&fs::read_to_string(fldr.join("Huelsenbeck_example.newick")).unwrap());
     let records = read_sequences(fldr.join("Huelsenbeck_example_long_DNA.fasta")).unwrap();
     let msa = Alignment::from_aligned(
-        Sequences::with_alphabet(records.clone(), Q::alphabet()),
+        Sequences::with_alphabet_unchecked(records.clone(), Q::alphabet()),
         &tree,
     )
     .unwrap();
@@ -75,7 +75,7 @@ fn test_pip_model<Q: QMatrix + QMatrixMaker>(freqs: &[f64], params: &[f64]) -> P
 
     let tree = tree!(&fs::read_to_string(fldr.join("Huelsenbeck_example.newick")).unwrap());
     let msa = MSA::from_aligned(
-        Sequences::with_alphabet(records.clone(), Q::alphabet()),
+        Sequences::with_alphabet_unchecked(records.clone(), Q::alphabet()),
         &tree,
     )
     .unwrap();
@@ -124,7 +124,7 @@ fn alphabet_mismatch_subst_model_template<Q: QMatrix + QMatrixMaker>(
     let fldr = Path::new("./data");
     let records = read_sequences(fldr.join("Huelsenbeck_example_long_DNA.fasta")).unwrap();
     let tree = tree!(&fs::read_to_string(fldr.join("Huelsenbeck_example.newick")).unwrap());
-    let msa = MSA::from_aligned(Sequences::with_alphabet(records, alpha), &tree).unwrap();
+    let msa = MSA::from_aligned(Sequences::with_alphabet_unchecked(records, alpha), &tree).unwrap();
     let info = PhyloInfo { msa, tree };
 
     let model = SubstModel::<Q>::new(freqs, params);
@@ -170,7 +170,11 @@ fn alphabet_mismatch_subst_pip_template<Q: QMatrix + QMatrixMaker>(
     let fldr = Path::new("./data");
     let records = read_sequences(fldr.join("Huelsenbeck_example_long_DNA.fasta")).unwrap();
     let tree = tree!(&fs::read_to_string(fldr.join("Huelsenbeck_example.newick")).unwrap());
-    let msa = MSA::from_aligned(Sequences::with_alphabet(records.clone(), alpha), &tree).unwrap();
+    let msa = MSA::from_aligned(
+        Sequences::with_alphabet_unchecked(records.clone(), alpha),
+        &tree,
+    )
+    .unwrap();
 
     let info = PhyloInfo { msa, tree };
     let model = PIPModel::<Q>::new(freqs, params);
