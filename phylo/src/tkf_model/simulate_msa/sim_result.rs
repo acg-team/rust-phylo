@@ -31,11 +31,10 @@ impl<AA: AncestralAlignment> TKFSimulationResult<AA> {
         if leaves_to_remove.is_empty() {
             return Ok(());
         }
-        // A tree with fewer than two sequences that contain characters is not meaningful.
         if self.tree.n - leaves_to_remove.len() < 2 {
             bail!(
                 Alignment,
-                "pruning empty leaves would leave fewer than two sequences with characters"
+                "pruning empty leaves would leave fewer than two sequences with characters which is not a meaningful tree"
             );
         }
 

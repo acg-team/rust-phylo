@@ -14,10 +14,6 @@ impl Fragmentation {
     }
 
     fn is_increasing(fragments: &[usize]) -> Result<()> {
-        // if fragments.is_empty() {
-        //     bail!(Tkf, "fragmentation is empty")
-        // } else if fragments.last().unwrap() == &0 {
-        //     bail!(Tkf, "fragmentation last element is 0")
         if !fragments.windows(2).all(|w| w[0] < w[1]) {
             bail!(
                 Tkf,
