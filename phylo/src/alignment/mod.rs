@@ -59,7 +59,7 @@ pub use aligner::*;
 pub type Position = Option<usize>;
 /// Represents a mapping of an ungapped sequence to its aligned positions in the alignment.
 /// E.g. if the ungapped sequence is `AT` and the aligned sequence is `A--T-`, the `Mapping`
-/// would be`[Some(0), None, None, Some(1), None]`.
+/// would be `[Some(0), None, None, Some(1), None]`.
 pub type Mapping = Vec<Position>;
 /// For an internal node of the tree, represents the pairwise alignment of the two sub MSAs that
 /// correspond to the two children of that node.
