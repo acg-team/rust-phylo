@@ -58,6 +58,7 @@ pub struct TKFIndelMSASimulator<
     indel_model: T,
     tree: Tree,
     cumulative_logl: RefCell<f64>,
+    // TODO: Perhaps dont wrap in the RefCell and instead take &mut self in the fns that need it.
     rng: RefCell<RandomGenerator<R>>,
     max_insertion_length: usize,
     root_length: RootLength,
@@ -108,6 +109,7 @@ impl TKFLink {
             is_insertion: false,
         }
     }
+
     fn new(node: NodeIdx, length: usize) -> Self {
         TKFLink {
             node,
@@ -162,7 +164,7 @@ where
         }
     }
 
-    /// Sets a defined root length for the simulation. If `None`, the root length is sampled.
+    /// Sets a defined root length for the simulation.
     pub fn root_length(&mut self, root_length: RootLength) -> &mut Self {
         self.root_length = root_length;
         self

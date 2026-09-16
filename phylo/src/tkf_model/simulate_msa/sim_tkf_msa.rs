@@ -6,12 +6,10 @@ use crate::alphabets::GAP;
 use crate::random::RandomGenerator;
 use crate::substitution_models::{QMatrix, SubstModel, SubstitutionSimulator};
 use crate::tkf_model::simulate_msa::sim_tkf_indel_msa::{FragmentSampler, TKFIndelMSASimulator};
-use crate::tkf_model::simulate_msa::{
-    ExpectedRootLength, RootLength, TKFSimulationResult,
-};
+use crate::tkf_model::simulate_msa::{ExpectedRootLength, RootLength, TKFSimulationResult};
 use crate::tkf_model::TKFModel;
 use crate::tree::{NodeIdx::Internal, NodeIdx::Leaf, Tree};
-use crate::record_wo_desc as record;
+use crate::{record_wo_desc as record, REPORT_ISSUES_URL};
 
 /// Simulates a full TKF process: first indels then substitutions.
 ///
@@ -52,6 +50,9 @@ where
     ) -> Self {
         let indel_sim =
             TKFIndelMSASimulator::new(indel_model, tree.clone(), rng.clone(), max_insertion_length);
+        // This 'alignment_length' is never used as it's always overwritten in the call to
+        // 'simulate_with_fragments'. There, we first simulate an indel only alignment. Then we use
+        // its length to simulate the substitutions.
         let dummy_len = 1;
         let subst_sim = SubstitutionSimulator::new(subst_model, tree, rng, dummy_len).unwrap();
         Self {
@@ -121,6 +122,14 @@ where
         // Lastly, construct the final ancestral MSA from the combined records
         let seqs = Sequences::new(combined_records);
         let masa = AA::from_aligned_with_ancestral(seqs, self.indel_sim.tree()).unwrap();
+        // calling 'from_aligned_with_ancestral' removes all-gap cols. There should be none,
+        // so asserting here that the msa did indeed not shrink.
+        assert_eq!(
+            masa.len(),
+            aln_len,
+            "Final MSA length should match the indel MSA, but it does not. \
+             Please report this at {REPORT_ISSUES_URL}."
+        );
         TKFSimulationResult {
             masa,
             fragmentation,
@@ -161,7 +170,6 @@ mod private_tests {
     /// In the [`tkf92_simulation`] test, only A <-> T and G <-> C transitions are allowed.
     /// Checks that the simulation respects the mutation constraints of the GTR model used.
     /// So each column must contain at most two unique characters, which must be a valid pair.
-    #[cfg(test)]
     fn check_mutation_constraints(msa: &MASA, tree: &Tree) {
         for col_idx in 0..msa.len() {
             let mut col_chars = HashSet::new();
@@ -285,6 +293,4 @@ mod private_tests {
         let root_map = msa.ancestral_map(&tree.root);
         assert_eq!(root_map.iter().filter(|s| s.is_some()).count(), 100);
     }
-
-    
 }
