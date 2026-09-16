@@ -9,7 +9,7 @@ use crate::random::RandomGenerator;
 use crate::substitution_models::{QMatrix, SubstModel};
 use crate::tree::{NodeIdx, Tree};
 use crate::{bail, record_wo_desc as record};
-use crate::{Result, MAX_BLEN};
+use crate::{Result, MAX_BLEN, REPORT_ISSUES_URL};
 
 #[derive(Debug, Clone)]
 pub struct SubstitutionSimulator<R>
@@ -62,7 +62,14 @@ where
             let mut column_dists = Vec::with_capacity(p.ncols());
             for col in 0..p.ncols() {
                 let column = p.column(col);
-                column_dists.push(WeightedIndex::new(column.as_slice()).unwrap());
+                let weighted_index = WeightedIndex::new(column.as_slice()).unwrap_or_else(|e| {
+                    panic!(
+                        "Getting WeightedIndex from probability transition matrix failed. This should never happen. \
+                        Please report this at {REPORT_ISSUES_URL}. \
+                        Error: {e}"
+                    )
+                });
+                column_dists.push(weighted_index);
             }
             p_weighted.insert(*idx, column_dists);
         }
