@@ -1,3 +1,22 @@
+//! Alphabet module for handling biological sequence alphabets in phylogenetic analyses.
+//!
+//! Contains definitions for a generic alphabet, as well as specific alphabets for DNA
+//! and protein sequences. The specific alphabets include cached conditional probabilities and
+//! parsimony sets to speed up likelihood and parsimony score calculations.
+//!
+//! The DNA and protein alphabets can be accessed as static instances using `Alphabet::dna()`
+//! and `Alphabet::protein()`.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use phylo::alphabets::Alphabet;
+//!
+//! let dna = Alphabet::dna();
+//! assert_eq!(dna.name(), "DNA");
+//! assert!(dna.is_word(b"aCgT"));
+//! ```
+
 use std::fmt::Display;
 
 use hashbrown::HashSet;
@@ -31,7 +50,7 @@ pub(crate) static AMB_NUCLEOTIDES: &[u8] = b"RYSWKMBDHVNZX";
 pub(crate) static AMB_CHAR: u8 = b'X';
 
 /// The character representing a gap in the alphabet used in MSAs.
-pub(crate) static GAP: u8 = b'-';
+pub static GAP: u8 = b'-';
 
 /// All possible characters that couuld represent a gap in the MSAs, included for compatibility with
 /// other tools.
