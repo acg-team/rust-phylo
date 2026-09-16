@@ -1,8 +1,9 @@
 use assert_matches::assert_matches;
 
-use crate::alignment::{Alignment, Sequences, MASA, MSA};
+use crate::alignment::{Alignment, AncestralAlignment, Sequences, MASA, MSA};
 use crate::asr::AncestralSequenceReconstruction;
 use crate::parsimony_presence_absence::ParsimonyPresenceAbsence;
+use crate::phylo_info::PhyloInfoBuilder;
 use crate::{record, tree, Error};
 
 #[test]
@@ -25,4 +26,28 @@ fn reconstruct_ancestral_seqs_n_seqs_not_same_as_leaves() {
         err,
         Err(Error::AncestralAlignment(msg)) if msg.contains("but tree has")
     );
+}
+
+#[test]
+fn test_reconstruct_ancestral_seqs() {
+    let info = PhyloInfoBuilder::with_attrs(
+        "./examples/data/sequences_DNA_small.fasta",
+        "./examples/data/tree_with_ancestral_ids.newick",
+    )
+    .build()
+    .unwrap();
+
+    let masa: MASA = AncestralSequenceReconstruction::reconstruct_ancestral_seqs(
+        &ParsimonyPresenceAbsence {},
+        &info.msa,
+        &info.tree,
+    )
+    .unwrap();
+
+    assert_eq!(masa.seq_count(), info.msa.seq_count());
+    assert_eq!(
+        masa.seq_count() + masa.ancestral_seqs().len(),
+        info.tree.len()
+    );
+    assert_eq!(masa.len(), info.msa.len());
 }
