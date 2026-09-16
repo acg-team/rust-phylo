@@ -130,15 +130,17 @@ pub trait AncestralAlignment: Alignment {
         validate_ids_with_ancestors(tree, &all_seqs)?;
         all_seqs.remove_gap_cols();
         let ancestral_alignment = Self::from_aligned_with_ancestral_unchecked(all_seqs, tree);
-        let surviving_cols = surviving_columns_mask(&ancestral_alignment);
-        for (col_idx, survives) in surviving_cols.iter().enumerate() {
-            if !survives {
-                warn!(
-                    "Column {} goes extinct in all leaf sequences. \
-                    Consider calling `remove_extinct_columns` on the alignment.",
-                    col_idx
-                );
-            }
+        let extinct_cols: Vec<usize> = surviving_columns_mask(&ancestral_alignment)
+            .iter()
+            .enumerate()
+            .filter_map(|(col_idx, survives)| (!survives).then_some(col_idx))
+            .collect();
+        if !extinct_cols.is_empty() {
+            warn!(
+                "Columns {} go extinct in all leaf sequences. \
+                Consider calling `remove_extinct_columns` on the alignment.",
+                extinct_cols.iter().format(", ")
+            );
         }
         Ok(ancestral_alignment)
     }
@@ -733,15 +735,16 @@ pub trait AlignmentSimulation {
     // TODO: also add a method that takes the tree and removes nodes from masa/msa and tree that is
     // only gaps
     // I think we dont have functionality when reading in seqs and they are only gaps.
+    /// Simulates an ancestral alignment, i.e. an alignment that also contains sequences for
+    /// the ancestral nodes of the tree.
     fn simulate_ancestral_alignment<AA: AncestralAlignment>(&self) -> AA;
-    /// TODO: We either define this in every struct that impls this trait or add a tree() to this
-    /// trait, then we could impl a default here that just calls simulate_ancestral_alignment and
-    /// then calls into_alignment on the result. If we use this default method then we might always
-    /// need to call simulate_ancestral_alignment::<MASA> first because we need a specific type.
-    /// perhaps this is not so clean and therefore we should just keep it like it is.
-    ///
-    /// TODO: perhaps add a comment that we want this alignment to have no cols of only gaps
-    fn simulate_alignment<A: Alignment>(&self) -> A;
+    /// Returns the tree the simulation is performed on.
+    fn tree(&self) -> &Tree;
+    /// Simulates the alignment of only the leaf sequences (without ancestral sequences).
+    fn simulate_alignment<A: Alignment>(&self) -> A {
+        self.simulate_ancestral_alignment::<MASA>()
+            .into_alignment(self.tree())
+    }
 }
 
 #[cfg(test)]

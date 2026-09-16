@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use hashbrown::HashMap;
 use rand::{distr::weighted::WeightedIndex, Rng, RngCore, SeedableRng};
 
-use crate::alignment::{Alignment, AlignmentSimulation, AncestralAlignment, Sequences, MASA};
+use crate::alignment::{AlignmentSimulation, AncestralAlignment, Sequences};
 use crate::alphabets::Alphabet;
 use crate::random::RandomGenerator;
 use crate::substitution_models::{QMatrix, SubstModel};
@@ -150,9 +150,8 @@ where
         self.simulate_ancestral_alignment_with_length(self.alignment_length)
     }
 
-    fn simulate_alignment<A: Alignment>(&self) -> A {
-        self.simulate_ancestral_alignment::<MASA>()
-            .into_alignment::<A>(&self.tree)
+    fn tree(&self) -> &Tree {
+        &self.tree
     }
 }
 

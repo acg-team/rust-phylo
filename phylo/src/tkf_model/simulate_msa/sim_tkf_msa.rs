@@ -1,7 +1,7 @@
 use bio::io::fasta::Record;
 use rand::{Rng, RngCore, SeedableRng};
 
-use crate::alignment::{Alignment, AlignmentSimulation, AncestralAlignment, Sequences, MASA};
+use crate::alignment::{AlignmentSimulation, AncestralAlignment, Sequences};
 use crate::alphabets::GAP;
 use crate::random::RandomGenerator;
 use crate::substitution_models::{QMatrix, SubstModel, SubstitutionSimulator};
@@ -23,6 +23,28 @@ use crate::{record_wo_desc as record, REPORT_ISSUES_URL};
 /// resulting alignment or
 /// [`TKFSimulationResult::remove_extinct_columns`](`TKFSimulationResult::remove_extinct_columns`) on the
 /// simulation result if you also care about the fragmentation and want to remove those.
+///
+/// # Example
+/// ```
+/// use phylo::alignment::{Alignment, AlignmentSimulation, MASA};
+/// use phylo::random::DefaultGenerator;
+/// use phylo::substitution_models::{dna_models::GTR, SubstModel};
+/// use phylo::tkf_model::simulate_msa::TKFMSASimulator;
+/// use phylo::tkf_model::TKF92IndelModel;
+/// use phylo::tree;
+///
+/// let tree = tree!("((A:1.0,B:1.0)I:1.0,C:1.0)R;");
+/// let subst_model = SubstModel::<GTR>::new(&[0.25; 4], &[1.0; 6]);
+/// let simulator = TKFMSASimulator::new(
+///     TKF92IndelModel::new(0.19, 0.2, 0.8),
+///     subst_model,
+///     tree,
+///     DefaultGenerator::new(123),
+///     50,
+/// );
+/// let msa: MASA = simulator.simulate_ancestral_alignment();
+/// assert_eq!(msa.seq_count(), 3);
+/// ```
 pub struct TKFMSASimulator<T, R>
 where
     T: TKFModel + FragmentSampler + ExpectedRootLength,
@@ -147,9 +169,8 @@ where
         self.simulate_with_fragments::<AA>().masa
     }
 
-    fn simulate_alignment<A: Alignment>(&self) -> A {
-        self.simulate_ancestral_alignment::<MASA>()
-            .into_alignment(self.indel_sim.tree())
+    fn tree(&self) -> &Tree {
+        self.indel_sim.tree()
     }
 }
 
@@ -292,5 +313,57 @@ mod private_tests {
         let msa = simulator.simulate_ancestral_alignment::<MASA>();
         let root_map = msa.ancestral_map(&tree.root);
         assert_eq!(root_map.iter().filter(|s| s.is_some()).count(), 100);
+    }
+
+    #[test]
+    fn tkf_msa_masking_matches_indel_gaps() {
+        // Simulating the full TKF process (indels + substitutions) with the same seed as an
+        // indel-only simulation must place gaps at exactly the same positions: the substitution
+        // simulation only fills in characters where the indel MSA has a character.
+        let tree = tree!(
+            "((((A:1.0,B:1.0)I1:0.5,C:1.5)I2:0.5,D:2.0)I3:0.5,((E:1.0,F:1.0)I4:0.5,G:1.5)I5:0.5)R;"
+        );
+        let subst_model = SubstModel::<GTR>::new(&[0.25; 4], &[1.0; 6]);
+        let tkf_model = TKF92IndelModel::new(0.19, 0.2, 0.8);
+        let max_insertion_length = 50;
+        let seed = 123;
+
+        let indel_sim = TKFIndelMSASimulator::new(
+            tkf_model.clone(),
+            tree.clone(),
+            DefaultGenerator::new(seed),
+            max_insertion_length,
+        );
+        let indel_msa = indel_sim.simulate_with_fragments::<MASA>().masa;
+
+        let full_sim = TKFMSASimulator::new(
+            tkf_model,
+            subst_model,
+            tree.clone(),
+            DefaultGenerator::new(seed),
+            max_insertion_length,
+        );
+        let full_msa = full_sim.simulate_ancestral_alignment::<MASA>();
+
+        assert_eq!(indel_msa.len(), full_msa.len());
+        for node_idx in tree.preorder() {
+            let (indel_map, full_map) = match node_idx {
+                Internal(_) => (
+                    indel_msa.ancestral_map(node_idx),
+                    full_msa.ancestral_map(node_idx),
+                ),
+                Leaf(_) => (indel_msa.leaf_map(node_idx), full_msa.leaf_map(node_idx)),
+            };
+            assert_eq!(indel_map.len(), full_map.len());
+            let same_gaps = indel_map
+                .iter()
+                .zip(full_map.iter())
+                .all(|(indel_site, full_site)| indel_site.is_some() == full_site.is_some());
+            assert!(
+                same_gaps,
+                "Gap pattern of node '{}' differs between the indel and the full simulation",
+                tree.node_id(node_idx)
+            );
+        }
     }
 }

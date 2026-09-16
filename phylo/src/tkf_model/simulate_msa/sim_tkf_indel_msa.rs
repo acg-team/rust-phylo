@@ -2,17 +2,17 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 
 use hashbrown::HashMap;
-use log::warn;
+use log::debug;
 use rand::{Rng, RngCore, SeedableRng};
 use rand_distr::{Distribution, Geometric};
 
-use crate::alignment::{Alignment, AlignmentSimulation, AncestralAlignment, Sequences, MASA};
+use crate::alignment::{AlignmentSimulation, AncestralAlignment, Sequences};
 use crate::alphabets::{AMB_CHAR, GAP};
 use crate::random::RandomGenerator;
-use crate::record_wo_desc as record;
 use crate::tkf_model::simulate_msa::{Fragmentation, TKFSimulationResult};
 use crate::tkf_model::{beta, h1, n0, TKFModel};
 use crate::tree::{NodeIdx, Tree};
+use crate::{record_wo_desc as record, REPORT_ISSUES_URL};
 
 /// Abstracts over how a single fragment's length is sampled.
 ///
@@ -51,6 +51,21 @@ pub enum RootLength {
 /// resulting alignment or
 /// [`TKFSimulationResult::remove_extinct_columns`](`TKFSimulationResult::remove_extinct_columns`) on the
 /// simulation result if you also care about the fragmentation and want to remove those.
+///
+/// # Example
+/// ```
+/// use phylo::alignment::{Alignment, MASA};
+/// use phylo::random::DefaultGenerator;
+/// use phylo::tkf_model::simulate_msa::TKFIndelMSASimulator;
+/// use phylo::tkf_model::TKF92IndelModel;
+/// use phylo::tree;
+///
+/// let tree = tree!("((A:1.0,B:1.0)I:1.0,C:1.0)R;");
+/// let model = TKF92IndelModel::new(0.19, 0.2, 0.8);
+/// let simulator = TKFIndelMSASimulator::new(model, tree, DefaultGenerator::new(123), 50);
+/// let result = simulator.simulate_with_fragments::<MASA>();
+/// assert_eq!(result.masa.seq_count(), 3);
+/// ```
 pub struct TKFIndelMSASimulator<
     T: TKFModel + FragmentSampler + ExpectedRootLength,
     R: Rng + SeedableRng + RngCore,
@@ -74,9 +89,8 @@ where
         msa
     }
 
-    fn simulate_alignment<A: Alignment>(&self) -> A {
-        self.simulate_ancestral_alignment::<MASA>()
-            .into_alignment(&self.tree)
+    fn tree(&self) -> &Tree {
+        &self.tree
     }
 }
 
@@ -168,10 +182,6 @@ where
     pub fn root_length(&mut self, root_length: RootLength) -> &mut Self {
         self.root_length = root_length;
         self
-    }
-
-    pub(super) fn tree(&self) -> &Tree {
-        &self.tree
     }
 
     /// Simulates the indel process and returns the alignment, fragmentation, and log-likelihood of the simulated MSA
@@ -374,7 +384,7 @@ where
         let homolog_prob_integrated = homolog_prob_integrated(mu, time);
         let homolog_prob = homolog_prob_integrated - cumulative_prob;
         *self.cumulative_logl.borrow_mut() += homolog_prob.ln();
-        warn!(
+        debug!(
             "Capping homologous insertion length at {}",
             self.max_insertion_length
         );
@@ -399,7 +409,7 @@ where
         let non_homolog_prob_integrated = non_homolog_prob_integrated(mu, beta, time);
         let non_homolog_prob = non_homolog_prob_integrated - cumulative_prob;
         *self.cumulative_logl.borrow_mut() += non_homolog_prob.ln();
-        warn!(
+        debug!(
             "Capping non-homologous insertion length at {}",
             self.max_insertion_length
         );
@@ -446,9 +456,22 @@ where
         let seqs = Sequences::new(records);
         let msa = AA::from_aligned_with_ancestral(seqs, &self.tree).unwrap();
 
-        let fragmentation = Fragmentation::new(fragmentation)
-            .expect("fragmentation should be valid since it was built from the links, pls report this at...");
-        fragmentation.fragmentation_works_with_ancestral_alignment(&msa).expect("fragmentation should work with ancestral alignment since it was built from the links, pls report this at...");
+        let fragmentation = Fragmentation::new(fragmentation).unwrap_or_else(|e| {
+            panic!(
+                "Fragmentation should be valid since it was built from the links. \
+                 Please report this at {REPORT_ISSUES_URL}. \
+                 Error: {e}"
+            )
+        });
+        fragmentation
+            .fragmentation_works_with_ancestral_alignment(&msa)
+            .unwrap_or_else(|e| {
+                panic!(
+                    "Fragmentation should work with the ancestral alignment since it was \
+                     built from the links. Please report this at {REPORT_ISSUES_URL}. \
+                     Error: {e}"
+                )
+            });
         (msa, fragmentation)
     }
 
