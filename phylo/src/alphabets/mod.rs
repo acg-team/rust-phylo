@@ -52,7 +52,7 @@ pub(crate) static AMB_CHAR: u8 = b'X';
 /// The character representing a gap in the alphabet used in MSAs.
 pub static GAP: u8 = b'-';
 
-/// All possible characters that couuld represent a gap in the MSAs, included for compatibility with
+/// All possible characters that could represent a gap in the MSAs, included for compatibility with
 /// other tools.
 pub(crate) static POSSIBLE_GAPS: &[u8] = b"_*-";
 
@@ -361,7 +361,7 @@ lazy_static! {
     /// Static empty set of symbols, used for the unknown alphabet.
     pub static ref EMPTY_SYMBOLS: ParsimonySet = ParsimonySet::empty();
 
-    /// Static definition of an unknown alphabet, can beused as a fallback when the alphabet of a
+    /// Static definition of an unknown alphabet, can be used as a fallback when the alphabet of a
     /// sequence is not known.
     pub static ref UNKNOWN_ALPHABET: Alphabet = Alphabet {
         name: "unknown",
