@@ -9,10 +9,10 @@ use rand_distr::{Distribution, Geometric};
 use crate::alignment::{Alignment, AlignmentSimulation, AncestralAlignment, Sequences, MASA};
 use crate::alphabets::{AMB_CHAR, GAP};
 use crate::random::RandomGenerator;
-use crate::tkf_model::simulate_msa::Fragmentation;
+use crate::record_wo_desc as record;
+use crate::tkf_model::simulate_msa::{Fragmentation, TKFSimulationResult};
 use crate::tkf_model::{beta, h1, n0, TKFModel};
 use crate::tree::{NodeIdx, Tree};
-use crate::{record_wo_desc as record, Result};
 
 /// Abstracts over how a single fragment's length is sampled.
 ///
@@ -49,7 +49,7 @@ pub enum RootLength {
 /// sequences have a gap in that column. You may want to call
 /// [`AncestralAlignment::remove_extinct_columns`](`crate::alignment::AncestralAlignment::remove_extinct_columns`) on the
 /// resulting alignment or
-/// [`TKFIndelMSASimulationResult::remove_extinct_columns`](`TKFIndelMSASimulationResult::remove_extinct_columns`) on the
+/// [`TKFSimulationResult::remove_extinct_columns`](`TKFSimulationResult::remove_extinct_columns`) on the
 /// simulation result if you also care about the fragmentation and want to remove those.
 pub struct TKFIndelMSASimulator<
     T: TKFModel + FragmentSampler + ExpectedRootLength,
@@ -69,7 +69,7 @@ where
     R: Rng + SeedableRng + RngCore,
 {
     fn simulate_ancestral_alignment<AA: AncestralAlignment>(&self) -> AA {
-        let TKFIndelMSASimulationResult { masa: msa, .. } = self.simulate_with_fragments();
+        let TKFSimulationResult { masa: msa, .. } = self.simulate_with_fragments();
         msa
     }
 
@@ -141,20 +141,6 @@ enum LinkFate {
     NonHomolog(usize),
 }
 
-pub struct TKFIndelMSASimulationResult<AA: AncestralAlignment> {
-    pub masa: AA,
-    pub fragmentation: Fragmentation,
-}
-
-impl<AA: AncestralAlignment> TKFIndelMSASimulationResult<AA> {
-    pub fn remove_extinct_columns(&mut self) -> Result<()> {
-        let keep_col_mask = self.masa.remove_extinct_columns();
-        self.fragmentation.remove_cols(&keep_col_mask)?;
-        self.fragmentation
-            .fragmentation_works_with_ancestral_alignment(&self.masa)
-    }
-}
-
 impl<T, R> TKFIndelMSASimulator<T, R>
 where
     T: TKFModel + FragmentSampler + ExpectedRootLength,
@@ -190,22 +176,21 @@ where
     /// under the model, which is accumulated during the simulation.
     fn simulate_with_fragments_and_logl<AA: AncestralAlignment>(
         &self,
-    ) -> (TKFIndelMSASimulationResult<AA>, f64) {
+    ) -> (TKFSimulationResult<AA>, f64) {
         *self.cumulative_logl.borrow_mut() = 0.0;
         let links = self.build_msa_links();
         let (masa, fragmentation) = self.links_to_msa(&links);
         let logl = *self.cumulative_logl.borrow();
-        let result = TKFIndelMSASimulationResult {
+        let result = TKFSimulationResult {
             masa,
             fragmentation,
+            tree: self.tree.clone(),
         };
         (result, logl)
     }
 
     /// Simulates the indel process and produces the corresponding ancestral alignment and fragmentation.
-    pub fn simulate_with_fragments<AA: AncestralAlignment>(
-        &self,
-    ) -> TKFIndelMSASimulationResult<AA> {
+    pub fn simulate_with_fragments<AA: AncestralAlignment>(&self) -> TKFSimulationResult<AA> {
         self.simulate_with_fragments_and_logl().0
     }
 
@@ -763,7 +748,7 @@ mod private_tests {
                 DefaultGenerator::new(seed),
                 max_insertion_length,
             );
-            let (result, logl): (TKFIndelMSASimulationResult<MASA>, f64) =
+            let (result, logl): (TKFSimulationResult<MASA>, f64) =
                 simulator.simulate_with_fragments_and_logl();
             let alignment = result.masa;
             assert_eq!(alignment.seq_count() + alignment.ancestral_seqs().len(), 19);
@@ -808,7 +793,7 @@ mod private_tests {
                 DefaultGenerator::new(seed),
                 max_insertion_length,
             );
-            let (result, logl): (TKFIndelMSASimulationResult<MASA>, f64) =
+            let (result, logl): (TKFSimulationResult<MASA>, f64) =
                 simulator.simulate_with_fragments_and_logl();
             let alignment = result.masa;
             assert_eq!(alignment.seq_count() + alignment.ancestral_seqs().len(), 19);
