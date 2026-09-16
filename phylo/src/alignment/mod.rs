@@ -25,7 +25,7 @@
 //!         record!("A", None, b"AACT"),
 //!         record!("B", None, b"AC"),
 //!         record!("C", None, b"AACT"),
-//!     ]);
+//!     ])?;
 //! let tree = tree!("((A:1.0, B:1.0):1.0, C:2.0);");
 //! let aligner = ParsimonyAligner::default();
 //! let alignment: MSA = aligner.align(&seqs, &tree)?;
