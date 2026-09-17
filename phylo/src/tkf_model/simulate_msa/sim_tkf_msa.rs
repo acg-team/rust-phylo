@@ -147,7 +147,13 @@ where
                 "Failed to create Sequences from combined records: {e}. Please report this at {REPORT_ISSUES_URL}.",
             )
         });
-        let masa = AA::from_aligned_with_ancestral(seqs, self.indel_sim.tree()).unwrap();
+        let masa =
+            AA::from_aligned_with_ancestral(seqs, self.indel_sim.tree()).unwrap_or_else(|e| {
+                panic!(
+                    "Failed to create ancestral alignment from combined records: {e}. \
+                     Please report this at {REPORT_ISSUES_URL}.",
+                )
+            });
         // calling 'from_aligned_with_ancestral' removes all-gap cols. There should be none,
         // so asserting here that the msa did indeed not shrink.
         assert_eq!(

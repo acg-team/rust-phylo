@@ -140,7 +140,13 @@ where
                 Error: {e}"
             )
         });
-        AA::from_aligned_with_ancestral(seqs, &self.tree).unwrap()
+        AA::from_aligned_with_ancestral(seqs, &self.tree).unwrap_or_else(|e| {
+            panic!(
+                "Creating AncestralAlignment from simulated Sequences failed. This should never happen. \
+                Please report this at {REPORT_ISSUES_URL}. \
+                Error: {e}"
+            )
+        })
     }
 }
 
