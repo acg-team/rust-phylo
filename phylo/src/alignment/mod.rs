@@ -677,7 +677,7 @@ impl AncestralAlignment for MASA {
             }
             .unwrap_or_else(|e| {
                 panic!(
-                    "Updating ancestral record failed. \
+                    "Updating record failed. \
                     Please report this at {REPORT_ISSUES_URL}. \
                     Error: {e}"
                 )
@@ -718,6 +718,8 @@ impl MASA {
         new_seq.shrink_to_fit();
         // TODO: avoid creating a new record here, see issue #143 https://github.com/acg-team/rust-phylo/issues/143
         let new_record = record!(id, old_record.desc(), &new_seq);
+        // Since we got the 'id' from the internal 'idx_to_id' vector, we can be sure that the
+        // record exists in the ancestral_seqs, unless we have a bug in our code
         self.ancestral_seqs
             .update_record(id, new_record)
             .unwrap_or_else(|e| {

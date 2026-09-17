@@ -211,8 +211,8 @@ where
         let prob_of_success = 1.0 - self.indel_model.lambda() / self.indel_model.mu(); // ie stopping the links
         let geom = Geometric::new(prob_of_success).unwrap();
         let choice = geom.sample(&mut self.rng.borrow_mut().rng);
-        let prob = (1.0 - prob_of_success).powi(choice as i32) * prob_of_success;
-        *self.cumulative_logl.borrow_mut() += prob.ln();
+        let log_prob = (choice as f64) * (1.0 - prob_of_success).ln() + prob_of_success.ln();
+        *self.cumulative_logl.borrow_mut() += log_prob;
         choice as usize
     }
 
