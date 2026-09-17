@@ -5,7 +5,7 @@ use crate::{bail, Result};
 
 /// Trait for ancestral sequence reconstruction.
 pub trait AncestralSequenceReconstruction<A: Alignment, AA: AncestralAlignment> {
-/// Checks if inputs are compatible and calls [`Self::reconstruct_ancestral_seqs_unchecked`].
+    /// Checks if inputs are compatible and calls [reconstruct_ancestral_seqs_unchecked](`crate::asr::AncestralSequenceReconstruction::reconstruct_ancestral_seqs_unchecked`).   
     /// Checks:
     ///  - if number of sequences in the alignment matches the number of leaves in the tree
     ///  - if node IDs in the tree are unique ([`Tree::node_ids_are_unique`])
