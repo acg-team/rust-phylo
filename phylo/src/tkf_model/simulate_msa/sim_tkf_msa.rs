@@ -142,7 +142,11 @@ where
         }
 
         // Lastly, construct the final ancestral MSA from the combined records
-        let seqs = Sequences::new(combined_records);
+        let seqs = Sequences::new(combined_records).unwrap_or_else(|e| {
+            panic!(
+                "Failed to create Sequences from combined records: {e}. Please report this at {REPORT_ISSUES_URL}.",
+            )
+        });
         let masa = AA::from_aligned_with_ancestral(seqs, self.indel_sim.tree()).unwrap();
         // calling 'from_aligned_with_ancestral' removes all-gap cols. There should be none,
         // so asserting here that the msa did indeed not shrink.

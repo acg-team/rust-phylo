@@ -158,7 +158,7 @@ pub trait AncestralAlignment: Alignment {
             let new_record = record!(id, desc, &aligned_seq);
             leaf_records.push(new_record);
         }
-        let mut seqs = Sequences::new(leaf_records);
+        let mut seqs = Sequences::with_alphabet_unchecked(leaf_records, self.seqs().alphabet());
         seqs.remove_gap_cols();
         A::from_aligned_unchecked(seqs, tree)
     }

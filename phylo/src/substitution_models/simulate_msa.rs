@@ -127,7 +127,7 @@ where
             })
             .collect();
 
-        let seqs = Sequences::new(records);
+        let seqs = Sequences::new(records).unwrap();
         AA::from_aligned_with_ancestral(seqs, &self.tree).unwrap()
     }
 }

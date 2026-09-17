@@ -31,10 +31,9 @@ pub struct TKF91IndelModel {
 
 impl TKF91IndelModel {
     pub fn new(lambda: f64, mu: f64) -> Self {
-        let (lambda, mu) = validate_lambda_and_mu(lambda, mu);
-        Self {
-            params: vec![lambda, mu],
-        }
+        let mut params = vec![lambda, mu];
+        validate_lambda_mu(&mut params);
+        Self { params }
     }
 }
 

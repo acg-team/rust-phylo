@@ -587,7 +587,7 @@ fn remove_extinct_columns_masa() {
         record_wo_desc!("R", b"A-AATGG"),
     ];
 
-    let seqs = Sequences::new(records);
+    let seqs = Sequences::new(records).unwrap();
     let mut masa = MASA::from_aligned_with_ancestral(seqs, &tree).unwrap();
 
     // sanity checks before removal (the second column is removed when the MASA is created)
@@ -624,7 +624,7 @@ fn into_alignment_masa_to_msa() {
         record_wo_desc!("I", b"A-ACG-T"),
         record_wo_desc!("R", b"A-ACG-T"),
     ];
-    let seqs = Sequences::new(records);
+    let seqs = Sequences::new(records).unwrap();
     let masa = MASA::from_aligned_with_ancestral(seqs, &tree).unwrap();
 
     // columns 2 and 5 are only gaps, so they are removed during the creation

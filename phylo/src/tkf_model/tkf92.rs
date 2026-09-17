@@ -42,12 +42,14 @@ impl TKF92IndelModel {
     }
 
     pub fn new(lambda: f64, mu: f64, r: f64) -> Self {
-        let (lambda, mu) = validate_lambda_and_mu(lambda, mu);
-        let valid_r = validate_r(r);
+        let mut params = vec![lambda, mu, r];
+        validate_lambda_mu(&mut params);
+        validate_r(&mut params);
+        let r = params[usize::from(TKF92Parameters::R)];
         Self {
-            params: vec![lambda, mu, valid_r],
-            log_r: valid_r.ln(),
-            one_minus_r_over_r: (1.0 - valid_r) / valid_r,
+            params,
+            ln_r: r.ln(),
+            ln_one_minus_r_over_r: ((1.0 - r) / r).ln(),
         }
     }
 }

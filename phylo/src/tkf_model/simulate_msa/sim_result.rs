@@ -89,7 +89,7 @@ impl<AA: AncestralAlignment> TKFSimulationResult<AA> {
                 crate::record!(id, record.desc(), &aligned)
             })
             .collect();
-        Sequences::with_alphabet(records, self.masa.seqs().alphabet())
+        Sequences::with_alphabet_unchecked(records, self.masa.seqs().alphabet())
     }
 }
 
@@ -186,8 +186,7 @@ fn rebuild_masa<AA: AncestralAlignment>(aligned: &Sequences, new_tree: &Tree) ->
         .filter(|record| new_tree.try_idx(record.id()).is_ok())
         .cloned()
         .collect();
-    let seqs = Sequences::with_alphabet(records, aligned.alphabet());
-    seqs.ids_are_unique()?;
+    let seqs = Sequences::with_alphabet(records, aligned.alphabet())?;
     validate_ids_with_ancestors(new_tree, &seqs)?;
     Ok(AA::from_aligned_with_ancestral_unchecked(seqs, new_tree))
 }
@@ -210,7 +209,8 @@ mod tests {
                 .into_iter()
                 .map(|(id, seq)| crate::record!(id, None, seq))
                 .collect(),
-        );
+        )
+        .unwrap();
         let masa = MASA::from_aligned_with_ancestral(seqs, tree).unwrap();
         TKFSimulationResult {
             masa,
