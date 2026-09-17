@@ -7,10 +7,10 @@ use rand::{distr::weighted::WeightedIndex, Rng, RngCore, SeedableRng};
 use crate::alignment::{AlignmentSimulation, AncestralAlignment, Sequences};
 use crate::alphabets::Alphabet;
 use crate::random::RandomGenerator;
+use crate::record_wo_desc as record;
 use crate::substitution_models::{QMatrix, SubstModel};
 use crate::tree::{NodeIdx, Tree};
-use crate::{ record_wo_desc as record};
-use crate::{ MAX_BLEN, REPORT_ISSUES_URL};
+use crate::{MAX_BLEN, REPORT_ISSUES_URL};
 
 #[derive(Debug, Clone)]
 pub struct SubstitutionSimulator<R>
@@ -41,7 +41,13 @@ where
         rng: RandomGenerator<R>,
         alignment_length: usize,
     ) -> Self {
-        let root_dist = WeightedIndex::new(model.qmatrix.freqs().as_slice()).unwrap();
+        let root_dist = WeightedIndex::new(model.qmatrix.freqs().as_slice()).unwrap_or_else(|e| {
+            panic!(
+                "Getting WeightedIndex from model frequencies failed. This should never happen. \
+                Please report this at {REPORT_ISSUES_URL}. \
+                Error: {e}"
+            )
+        });
 
         let mut p_weighted = HashMap::with_capacity(tree.len());
         for idx in tree.preorder().iter().skip(1) {
@@ -127,7 +133,13 @@ where
             })
             .collect();
 
-        let seqs = Sequences::new(records).unwrap();
+        let seqs = Sequences::new(records).unwrap_or_else(|e| {
+            panic!(
+                "Creating Sequences from simulated records failed. This should never happen. \
+                Please report this at {REPORT_ISSUES_URL}. \
+                Error: {e}"
+            )
+        });
         AA::from_aligned_with_ancestral(seqs, &self.tree).unwrap()
     }
 }
