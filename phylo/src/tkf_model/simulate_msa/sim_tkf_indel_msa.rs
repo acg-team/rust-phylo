@@ -10,7 +10,7 @@ use crate::alignment::{AlignmentSimulation, AncestralAlignment, Sequences};
 use crate::alphabets::{AMB_CHAR, GAP};
 use crate::random::RandomGenerator;
 use crate::tkf_model::simulate_msa::{Fragmentation, TKFSimulationResult};
-use crate::tkf_model::{beta, h1, n0, TKFModel};
+use crate::tkf_model::{ln_beta, ln_h1, ln_n0, TKFModel};
 use crate::tree::{NodeIdx, Tree};
 use crate::{record_wo_desc as record, REPORT_ISSUES_URL};
 
@@ -343,8 +343,8 @@ where
         let uniform_sample = self.rng.borrow_mut().random::<f64>();
         let lambda = self.indel_model.lambda();
         let mu = self.indel_model.mu();
-        let beta = beta(lambda, mu, time);
-        let n_0 = n0(self.indel_model.mu(), beta);
+        let beta = ln_beta(lambda, mu, time).exp();
+        let n_0 = ln_n0(self.indel_model.mu(), beta.ln()).exp();
         let homolog_prob_integrated = homolog_prob_integrated(mu, time);
         let non_homolog_prob_integrated = non_homolog_prob_integrated(mu, beta, time);
         debug_assert!(
@@ -370,7 +370,7 @@ where
     fn sample_homolog_fate(&self, time: f64, uniform_sample: f64) -> LinkFate {
         let lambda = self.indel_model.lambda();
         let mu = self.indel_model.mu();
-        let beta = beta(lambda, mu, time);
+        let beta = ln_beta(lambda, mu, time).exp();
         let mut cumulative_prob = 0.0;
         for n in 1..self.max_insertion_length + 1 {
             let homolog_prob = homolog_prob(n, lambda, mu, beta, time);
@@ -395,7 +395,7 @@ where
     fn sample_non_homolog_fate(&self, time: f64, uniform_sample: f64) -> LinkFate {
         let lambda = self.indel_model.lambda();
         let mu = self.indel_model.mu();
-        let beta = beta(lambda, mu, time);
+        let beta = ln_beta(lambda, mu, time).exp();
         let mut cumulative_prob = 0.0;
         for n in 1..self.max_insertion_length {
             let non_homolog_prob = non_homolog_prob(n, lambda, mu, beta, time);
@@ -421,7 +421,7 @@ where
     fn sample_tkf_immortal_link_fate(&self, time: f64) -> usize {
         let uniform_sample = self.rng.borrow_mut().random::<f64>();
         let lambda = self.indel_model.lambda();
-        let beta = beta(lambda, self.indel_model.mu(), time);
+        let beta = ln_beta(lambda, self.indel_model.mu(), time).exp();
         let mut cumulative_prob = 0.0;
         for n in 1..self.max_insertion_length {
             let immortal_prob = immortal_prob(n, lambda, beta);
@@ -453,8 +453,20 @@ where
             .map(|(node, seq)| record!(&self.tree.node(node).id, seq))
             .collect();
 
-        let seqs = Sequences::new(records);
-        let msa = AA::from_aligned_with_ancestral(seqs, &self.tree).unwrap();
+        let seqs = Sequences::new(records).unwrap_or_else(|e| {
+            panic!(
+                "Sequences should be valid since they were built from the links. \
+                 Please report this at {REPORT_ISSUES_URL}. \
+                 Error: {e}"
+            )
+        });
+        let msa = AA::from_aligned_with_ancestral(seqs, &self.tree).unwrap_or_else(|e| {
+            panic!(
+                "AncestralAlignment should be valid since it was built from the links. \
+                 Please report this at {REPORT_ISSUES_URL}. \
+                 Error: {e}"
+            )
+        });
 
         let fragmentation = Fragmentation::new(fragmentation).unwrap_or_else(|e| {
             panic!(
@@ -639,11 +651,12 @@ fn non_homolog_prob_integrated(mu: f64, beta: f64, time: f64) -> f64 {
 
 /// In the TKF model `n` is at least 1 (the original link)
 fn homolog_prob(n: usize, lambda: f64, mu: f64, beta: f64, time: f64) -> f64 {
-    let h1_val = h1(lambda, mu, beta, time);
+    let h1_val = ln_h1(lambda, mu, beta.ln(), time).exp();
     h1_val * (lambda * beta).powi((n - 1) as i32)
 }
 
-/// In the TKF model `n` is at least 1 because otherwise we should have used [`crate::tkf_model::n0`].
+/// In the TKF model `n` is at least 1 because otherwise we should have used
+/// [`ln_n0`](`crate::tkf_model::ln_n0`).exp().
 fn non_homolog_prob(n: usize, lambda: f64, mu: f64, beta: f64, time: f64) -> f64 {
     let t1 = 1.0 - (-mu * time).exp() - mu * beta;
     let t2 = 1.0 - lambda * beta;
@@ -666,8 +679,7 @@ mod private_tests {
     use crate::phylo_info::{set_missing_tree_node_ids, PhyloInfo};
     use crate::random::DefaultGenerator;
     use crate::tkf_model::{
-        beta, n0, TKF91IndelCostBuilder, TKF91IndelModel, TKF92FixedIndelCostBuilder,
-        TKF92IndelModel,
+        TKF91IndelCostBuilder, TKF91IndelModel, TKF92FixedIndelCostBuilder, TKF92IndelModel,
     };
     use crate::tree;
 
@@ -679,11 +691,11 @@ mod private_tests {
     #[case(1.0, 1.5, 0.0001)]
     fn tkf_integrated_probs(#[case] lambda: f64, #[case] mu: f64, #[case] time: f64) {
         // arrange
-        let beta = beta(lambda, mu, time);
+        let beta = ln_beta(lambda, mu, time).exp();
         //act
         let homolog_integrated = homolog_prob_integrated(mu, time);
         let non_homolog_integrated = non_homolog_prob_integrated(mu, beta, time);
-        let n0 = n0(mu, beta);
+        let n0 = ln_n0(mu, beta.ln()).exp();
         // assert
         assert_relative_eq!(
             homolog_integrated + non_homolog_integrated + n0,
@@ -697,7 +709,7 @@ mod private_tests {
         let lambda = 0.5;
         let mu = 0.7;
         let time = 1.23;
-        let beta = beta(lambda, mu, time);
+        let beta = ln_beta(lambda, mu, time).exp();
         let n = 4;
 
         let prob = homolog_prob(n, lambda, mu, beta, time);
@@ -711,7 +723,7 @@ mod private_tests {
         let lambda = 0.5;
         let mu = 0.7;
         let time = 1.23;
-        let beta = beta(lambda, mu, time);
+        let beta = ln_beta(lambda, mu, time).exp();
         let n = 4;
 
         let prob = non_homolog_prob(n, lambda, mu, beta, time);
@@ -726,7 +738,7 @@ mod private_tests {
         let lambda = 0.5;
         let mu = 0.7;
         let time = 1.0;
-        let beta = beta(lambda, mu, time);
+        let beta = ln_beta(lambda, mu, time).exp();
         let homolog_integrated = homolog_prob_integrated(mu, time);
 
         let mut homolog_sum = 0.0;
@@ -742,7 +754,7 @@ mod private_tests {
         let lambda = 0.5;
         let mu = 0.7;
         let time = 1.0;
-        let beta = beta(lambda, mu, time);
+        let beta = ln_beta(lambda, mu, time).exp();
         let non_homolog_integrated = non_homolog_prob_integrated(mu, beta, time);
 
         let mut non_homolog_sum = 0.0;
@@ -786,9 +798,7 @@ mod private_tests {
                 "Simulated alignment must satisfy Dollo's constraint (no re-gain of characters)"
             );
             let cost = TKF92FixedIndelCostBuilder::new(
-                lambda,
-                mu,
-                r,
+                &[lambda, mu, r],
                 result.fragmentation.right_exclusive_boundaries().to_vec(),
                 phylo,
             )
@@ -842,7 +852,7 @@ mod private_tests {
                 phylo.check_dollos_constraint().is_ok(),
                 "Simulated alignment must satisfy Dollo's constraint (no re-gain of characters)"
             );
-            let cost = TKF91IndelCostBuilder::new(lambda, mu, phylo)
+            let cost = TKF91IndelCostBuilder::new(&[lambda, mu], phylo)
                 .build()
                 .unwrap()
                 .logl();
