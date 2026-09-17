@@ -14,7 +14,7 @@ type ConditionalProbs = DVector<f64>;
 
 pub static AMINOACIDS: &[u8] = b"ARNDCQEGHILKMFPSTWYV";
 pub static AMB_AMINOACIDS: &[u8] = b"BJZX";
-pub static NUCLEOTIDES: &[u8] = b"TCAG";
+pub static NUCLEOTIDES: &[u8] = b"TCAG"; // This is legacy sorting, i.e., conforming with tools like RaXML and PhyML
 pub static AMB_NUCLEOTIDES: &[u8] = b"RYSWKMBDHVNZX";
 pub static AMB_CHAR: u8 = b'X';
 pub static GAP: u8 = b'-';

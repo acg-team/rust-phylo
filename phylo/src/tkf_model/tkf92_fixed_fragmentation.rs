@@ -5,14 +5,14 @@ use log::warn;
 use num_enum::FromPrimitive;
 use rstest::rstest;
 
+use crate::alignment::AncestralAlignment;
 use crate::likelihood::{ParamRange, PARAM_RANGE_UNIT_INTERVAL_EXCLUSIVE};
 use crate::phylo_info::PhyloInfo;
 use crate::tkf_model::{
-    blocks_of_alignment, validate_lambda_and_mu, validate_r, TKF92Parameters, TKFIndelCost,
-    TKFIndelModelInfo,
+    blocks_of_alignment, validate_lambda_mu, validate_r, TKF92Parameters, TKFIndelCost,
+    TKFIndelModelInfo, TKFModel, DEFAULT_LAMBDA, DEFAULT_MU, DEFAULT_R,
 };
 use crate::Result;
-use crate::{alignment::AncestralAlignment, tkf_model::TKFModel};
 
 /// TKF92 indel model with a `fixed fragmentation` (and without a substitution model),
 /// which means that the provided fragmentation will be regarded as the true fragmentation.
@@ -23,7 +23,7 @@ use crate::{alignment::AncestralAlignment, tkf_model::TKFModel};
 pub struct TKF92FixedIndelModel {
     pub(super) params: Vec<f64>,
     /// precomputed r.ln()
-    pub(super) log_r: f64,
+    pub(super) ln_r: f64,
     /// The fixed fragmentation to be used
     pub(super) fragmentation: Vec<usize>,
 }
@@ -54,7 +54,7 @@ impl TKFModel for TKF92FixedIndelModel {
         match param {
             TKF92Parameters::R => {
                 self.params[usize::from(TKF92Parameters::R)] = value;
-                self.log_r = value.ln();
+                self.ln_r = value.ln();
             }
             _ => {
                 self.params[idx] = value;
@@ -72,20 +72,16 @@ impl TKFModel for TKF92FixedIndelModel {
         }
     }
 
-    fn insertion_factor_at_root(&self) -> f64 {
-        self.lambda() / self.mu()
+    fn ln_insertion_factor_at_root(&self) -> f64 {
+        self.lambda().ln() - self.mu().ln()
     }
 
-    fn insertion_factor_at_non_root(&self, beta: f64) -> f64 {
-        self.lambda() * beta
+    fn ln_insertion_factor_at_non_root(&self, ln_beta: f64) -> f64 {
+        self.lambda().ln() + ln_beta
     }
 
-    fn block_prob(&self, tree_event_factor: f64, block_len: usize) -> f64 {
-        if tree_event_factor == 1.0 {
-            0.0
-        } else {
-            tree_event_factor.ln() + (block_len as f64 - 1.0) * self.log_r + (1.0 - self.r()).ln()
-        }
+    fn block_prob(&self, ln_tree_event_factor: f64, block_len: usize) -> f64 {
+        ln_tree_event_factor + (block_len as f64 - 1.0) * self.ln_r + (1.0 - self.r()).ln()
     }
 
     fn get_blocks<AA: AncestralAlignment>(&self, msa: &AA) -> Vec<usize> {
@@ -151,9 +147,7 @@ impl Display for TKF92FixedIndelModel {
 /// Builder for the cost using the [`TKF92FixedIndelModel`].
 #[cfg(test)]
 pub struct TKF92FixedIndelCostBuilder<AA: AncestralAlignment> {
-    lambda: f64,
-    mu: f64,
-    r: f64,
+    params: Vec<f64>,
     fragmentation: Vec<usize>,
     phylo: PhyloInfo<AA>,
 }
@@ -183,29 +177,38 @@ pub(super) fn validate_fragmentation(fragmentation: &[usize], msa_len: usize) ->
 
 #[cfg(test)]
 impl<AA: AncestralAlignment> TKF92FixedIndelCostBuilder<AA> {
-    pub fn new(
-        lambda: f64,
-        mu: f64,
-        r: f64,
-        fragmentation: Vec<usize>,
-        phylo: PhyloInfo<AA>,
-    ) -> Self {
+    pub fn new(params: &[f64], fragmentation: Vec<usize>, phylo: PhyloInfo<AA>) -> Self {
         Self {
-            lambda,
-            mu,
-            r,
+            params: params.to_vec(),
             fragmentation,
             phylo,
         }
     }
 
     pub fn build(self) -> Result<TKFIndelCost<TKF92FixedIndelModel, AA>> {
-        let (lambda, mu) = validate_lambda_and_mu(self.lambda, self.mu);
-        let r = validate_r(self.r);
+        let mut params = self.params;
+        let lambda_id = usize::from(TKF92Parameters::Lambda);
+        let mu_id = usize::from(TKF92Parameters::Mu);
+        let r_id = usize::from(TKF92Parameters::R);
+        if params.len() != 3 {
+            warn!(
+                "Expected 3 parameters for TKF92 model (lambda, mu, r), but got {}",
+                params.len()
+            );
+            warn!("Falling back to default values");
+            params.resize(3, 0.0);
+            params[lambda_id] = DEFAULT_LAMBDA;
+            params[mu_id] = DEFAULT_MU;
+            params[r_id] = DEFAULT_R;
+        } else {
+            validate_lambda_mu(&mut params);
+            validate_r(&mut params);
+        }
         let fragmentation = validate_fragmentation(&self.fragmentation, self.phylo.msa.len());
+        let r = params[r_id];
         let model = TKF92FixedIndelModel {
-            params: vec![lambda, mu, r],
-            log_r: r.ln(),
+            params,
+            ln_r: r.ln(),
             fragmentation,
         };
         let info = TKFIndelModelInfo::new(&model, &self.phylo);
@@ -267,7 +270,7 @@ mod private_tests {
     #[test]
     fn tkf_manual_integration_over_fragmentations() {
         let tree = tree!("((A0:1.0,B1:1.0)I1:1.0);");
-        let seqs = Sequences::new(vec![
+        let seqs = Sequences::new_unchecked(vec![
             record!("A0", b"AAB---D"),
             record!("B1", b"-ARAAAW"),
             record!("I1", b"AAA---A"),
@@ -278,7 +281,7 @@ mod private_tests {
         let mu = 1.1;
         let r = 0.5;
 
-        let tkf92_cost = TKF92IndelCostBuilder::new(lambda, mu, r, phylo_info.clone())
+        let tkf92_cost = TKF92IndelCostBuilder::new(&[lambda, mu, r], phylo_info.clone())
             .build()
             .unwrap();
         let cost = tkf92_cost.logl();
@@ -296,10 +299,13 @@ mod private_tests {
         ];
 
         for fragmentation in fragmentations {
-            let fragment_cost =
-                TKF92FixedIndelCostBuilder::new(lambda, mu, r, fragmentation, phylo_info.clone())
-                    .build()
-                    .unwrap();
+            let fragment_cost = TKF92FixedIndelCostBuilder::new(
+                &[lambda, mu, r],
+                fragmentation,
+                phylo_info.clone(),
+            )
+            .build()
+            .unwrap();
             sum_over_fragmentations_cost += fragment_cost.logl().exp();
         }
         sum_over_fragmentations_cost = sum_over_fragmentations_cost.ln();
@@ -311,7 +317,7 @@ mod private_tests {
         // By manually summing over unobserved fragmentations we can verify that
         // the TKF92 model integrates over all possible fragmentations.
         let tree = tree!("((A0:1.0,B1:1.0)I1:1.0);");
-        let seqs = Sequences::new(vec![
+        let seqs = Sequences::new_unchecked(vec![
             record!("A0", b"AAB---D"),
             record!("B1", b"-ARAAAW"),
             record!("I1", b"AAA---A"),
@@ -322,7 +328,7 @@ mod private_tests {
         let mu = 1.1;
         let r = 0.5;
 
-        let tkf92_cost = TKF92IndelCostBuilder::new(lambda, mu, r, phylo_info.clone())
+        let tkf92_cost = TKF92IndelCostBuilder::new(&[lambda, mu, r], phylo_info.clone())
             .build()
             .unwrap();
         let cost = tkf92_cost.logl();
@@ -343,10 +349,13 @@ mod private_tests {
         ];
 
         for fragmentation in fragmentations {
-            let fragment_cost =
-                TKF92FixedIndelCostBuilder::new(lambda, mu, r, fragmentation, phylo_info.clone())
-                    .build()
-                    .unwrap();
+            let fragment_cost = TKF92FixedIndelCostBuilder::new(
+                &[lambda, mu, r],
+                fragmentation,
+                phylo_info.clone(),
+            )
+            .build()
+            .unwrap();
             sum_over_fragmentations_cost += fragment_cost.logl().exp();
         }
         sum_over_fragmentations_cost = sum_over_fragmentations_cost.ln();
@@ -358,7 +367,7 @@ mod private_tests {
     fn tkf92_param_range_invalid_index() {
         let model = TKF92FixedIndelModel {
             params: vec![0.5, 1.0, 0.3],
-            log_r: 0.0, // cache filled with dummy since it is not needed here
+            ln_r: 0.0, // cache filled with dummy since it is not needed here
             fragmentation: vec![],
         };
         // Use an invalid index
@@ -369,7 +378,7 @@ mod private_tests {
     fn tkf92_fixed_model_fmt() {
         let tkf_indel_model = TKF92FixedIndelModel {
             params: vec![1.1, 2.0, 0.3],
-            log_r: 0.0, // cache filled with dummy since it is not printed
+            ln_r: 0.0, // cache filled with dummy since it is not printed
             fragmentation: vec![1, 2],
         };
 
@@ -385,8 +394,8 @@ mod private_tests {
     #[cfg_attr(feature = "ci_coverage", ignore)]
     fn tkf_compare_to_simulation() {
         // This uses the MASA from a simulation under the TKF92 model given a tree and parameters.
-        // Since it is a simulation, we know the true fragmentation. So we compute the log-likelihood
-        // using the fixed fragmentation and compare it to the log-likelihood obtained from the
+        // Since it is a simulation, we know the true fragmentation. So we compute the ln-likelihood
+        // using the fixed fragmentation and compare it to the ln-likelihood obtained from the
         // simulation. Note that, we do not remove non-emitting columns from the alignment,
         // since the simulation probability includes them.
         let dir = Path::new("data/tkf/fixed_fragments/");
@@ -411,7 +420,7 @@ mod private_tests {
         ];
         // parameters from simulation
         let fragment_cost =
-            TKF92FixedIndelCostBuilder::new(1.0, 1.1, 0.5, fragmentation, phylo_info)
+            TKF92FixedIndelCostBuilder::new(&[1.0, 1.1, 0.5], fragmentation, phylo_info)
                 .build()
                 .unwrap();
         // logl from simulation

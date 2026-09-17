@@ -616,7 +616,7 @@ fn tkf91_model_opti() {
         .build_with_ancestors()
         .unwrap();
     let subst_model = SubstModel::<HKY>::new(&[], &[2.0]);
-    let tkf91 = TKF91CostBuilder::new(0.8, 1.0, subst_model.clone(), info.clone())
+    let tkf91 = TKF91CostBuilder::new(&[0.8, 1.0], subst_model.clone(), info.clone())
         .build()
         .unwrap();
     tkf_model_opti_template(tkf91);
@@ -630,7 +630,7 @@ fn tkf92_model_opti() {
         .build_with_ancestors()
         .unwrap();
     let subst_model = SubstModel::<HKY>::new(&[], &[2.0]);
-    let tkf92 = TKF92CostBuilder::new(0.8, 1.0, 0.2, subst_model, info)
+    let tkf92 = TKF92CostBuilder::new(&[0.8, 1.0, 0.2], subst_model, info)
         .build()
         .unwrap();
     tkf_model_opti_template(tkf92);

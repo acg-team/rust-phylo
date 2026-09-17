@@ -12,10 +12,10 @@ use crate::phylo_info::PhyloInfo;
 use crate::substitution_models::{QMatrix, SubstModel, SubstitutionCostBuilder as SCB};
 use crate::tkf_model::simulate_msa::{ExpectedRootLength, FragmentSampler};
 use crate::tkf_model::{
-    validate_lambda_and_mu, TKFCost, TKFIndelCost, TKFIndelModelInfo, TKFModel, DEFAULT_LAMBDA,
+    validate_lambda_mu, TKFCost, TKFIndelCost, TKFIndelModelInfo, TKFModel, DEFAULT_LAMBDA,
     DEFAULT_MU, DEFAULT_R,
 };
-use crate::{bail, Result};
+use crate::Result;
 
 #[derive(Debug, Eq, PartialEq, FromPrimitive, IntoPrimitive)]
 #[repr(usize)]
@@ -31,9 +31,9 @@ pub(crate) enum TKF92Parameters {
 pub struct TKF92IndelModel {
     params: Vec<f64>,
     /// precomputed r.ln()
-    log_r: f64,
-    /// precomputed (1 - r)/r
-    one_minus_r_over_r: f64,
+    ln_r: f64,
+    /// precomputed ((1 - r)/r).ln()
+    ln_one_minus_r_over_r: f64,
 }
 
 impl TKF92IndelModel {
@@ -57,8 +57,8 @@ impl Default for TKF92IndelModel {
         let r = DEFAULT_R;
         Self {
             params: vec![DEFAULT_LAMBDA, DEFAULT_MU, r],
-            log_r: r.ln(),
-            one_minus_r_over_r: (1.0 - r) / r,
+            ln_r: r.ln(),
+            ln_one_minus_r_over_r: (-r).ln_1p() - r.ln(),
         }
     }
 }
@@ -81,8 +81,8 @@ impl TKFModel for TKF92IndelModel {
         match param {
             TKF92Parameters::R => {
                 self.params[usize::from(TKF92Parameters::R)] = value;
-                self.log_r = value.ln();
-                self.one_minus_r_over_r = (1.0 - value) / value;
+                self.ln_r = value.ln();
+                self.ln_one_minus_r_over_r = (-value).ln_1p() - value.ln();
             }
             _ => {
                 self.params[idx] = value;
@@ -100,22 +100,27 @@ impl TKFModel for TKF92IndelModel {
         }
     }
 
-    fn insertion_factor_at_root(&self) -> f64 {
-        self.lambda() / self.mu() * self.one_minus_r_over_r
+    fn ln_insertion_factor_at_root(&self) -> f64 {
+        self.lambda().ln() - self.mu().ln() + self.ln_one_minus_r_over_r
     }
 
-    fn insertion_factor_at_non_root(&self, beta: f64) -> f64 {
-        self.lambda() * beta * self.one_minus_r_over_r
+    fn ln_insertion_factor_at_non_root(&self, ln_beta: f64) -> f64 {
+        // TODO: this lambda.ln() could be cached, see issue #152 https://github.com/acg-team/rust-phylo/issues/152
+        self.lambda().ln() + ln_beta + self.ln_one_minus_r_over_r
     }
 
-    fn block_prob(&self, tree_event_factor: f64, block_len: usize) -> f64 {
-        if tree_event_factor == 1.0 {
-            0.0
-        } else {
-            tree_event_factor.ln()
-                + (block_len as f64 - 1.0) * (1.0 + tree_event_factor).ln()
-                + (block_len as f64) * self.log_r
-        }
+    fn block_prob(&self, ln_tree_event_factor: f64, block_len: usize) -> f64 {
+        // TODO: For the underflow of exp(ln_tree_event_factor):
+        // - True underflow (< -745): not a concern, f64 lacks precision at that scale anyway.
+        //   (when adding to the other terms)
+        // - Near machine epsilon (< -36): the approximation
+        //     m * ln(1 + x) approx ln((1 + x)^m) approx ln(1 + m*x) approx m*x
+        //   recovers log(m)  bits of precision, at the cost of two linearization
+        //   errors. Whether the net gain is positive requires further investigation.
+        //   See issue https://github.com/acg-team/rust-phylo/issues/174.
+        ln_tree_event_factor
+            + (block_len as f64 - 1.0) * (ln_tree_event_factor.exp()).ln_1p()
+            + (block_len as f64) * self.ln_r
     }
 
     fn get_blocks<AA: AncestralAlignment>(&self, msa: &AA) -> Vec<usize> {
@@ -159,45 +164,62 @@ impl ExpectedRootLength for TKF92IndelModel {
 /// Validates the TKF92 parameter `r`. If it is not valid, it is set to
 /// its default value and a warning is logged.
 /// Returns valid `r`.
-pub(super) fn validate_r(r: f64) -> f64 {
-    let mut valid_r = r;
+pub(super) fn validate_r(params: &mut [f64]) {
+    let r_id = usize::from(TKF92Parameters::R);
+    let r = params[r_id];
     if r == 0.0 {
-        valid_r = DEFAULT_R;
+        params[r_id] = DEFAULT_R;
         warn!(
-            "Tried to set r to invalid value 0. It must be in (0, 1). Setting r to {valid_r}. Hint: r = 0 yields special case: TKF91 model, consider using that instead."
+            "Tried to set r to invalid value 0. \
+            It must be in (0, 1). Setting r to {}. \
+            Hint: r = 0 yields special case: TKF91 model, consider using that instead.",
+            params[r_id]
         );
     } else if r <= 0.0 || r >= 1.0 {
-        valid_r = DEFAULT_R;
-        warn!("Tried to set r to invalid value {r}. It must be in (0, 1). Setting r to {valid_r}.");
+        params[r_id] = DEFAULT_R;
+        warn!(
+            "Tried to set r to invalid value {r}. \
+            It must be in (0, 1). Setting r to {}.",
+            params[r_id]
+        );
     }
-    valid_r
 }
 
 /// Builder for the cost using the [`TKF92IndelModel`], i.e., without a substitution model.
 pub struct TKF92IndelCostBuilder<AA: AncestralAlignment> {
-    lambda: f64,
-    mu: f64,
-    r: f64,
+    params: Vec<f64>,
     phylo: PhyloInfo<AA>,
 }
 
 impl<AA: AncestralAlignment> TKF92IndelCostBuilder<AA> {
-    pub fn new(lambda: f64, mu: f64, r: f64, phylo: PhyloInfo<AA>) -> Self {
+    pub fn new(params: &[f64], phylo: PhyloInfo<AA>) -> Self {
         Self {
-            lambda,
-            mu,
-            r,
+            params: params.to_vec(),
             phylo,
         }
     }
 
     pub fn build(self) -> Result<TKFIndelCost<TKF92IndelModel, AA>> {
-        let (lambda, mu) = validate_lambda_and_mu(self.lambda, self.mu);
-        let r = validate_r(self.r);
+        let mut params = self.params;
+        if params.len() != 3 {
+            warn!(
+                "Expected 3 parameters for TKF92 model (lambda, mu, r), but got {}",
+                params.len()
+            );
+            warn!("Falling back to default values");
+            params.resize(3, 0.0);
+            params[usize::from(TKF92Parameters::Lambda)] = DEFAULT_LAMBDA;
+            params[usize::from(TKF92Parameters::Mu)] = DEFAULT_MU;
+            params[usize::from(TKF92Parameters::R)] = DEFAULT_R;
+        } else {
+            validate_lambda_mu(&mut params);
+            validate_r(&mut params);
+        }
+        let r = params[usize::from(TKF92Parameters::R)];
         let model = TKF92IndelModel {
-            params: vec![lambda, mu, r],
-            log_r: r.ln(),
-            one_minus_r_over_r: (1.0 - r) / r,
+            params,
+            ln_r: r.ln(),
+            ln_one_minus_r_over_r: ((1.0 - r) / r).ln(),
         };
         let info = TKFIndelModelInfo::new(&model, &self.phylo);
         Ok(TKFIndelCost {
@@ -210,51 +232,26 @@ impl<AA: AncestralAlignment> TKF92IndelCostBuilder<AA> {
 
 /// Builder for the TKF92 cost, i.e., with a substitution model.
 pub struct TKF92CostBuilder<Q: QMatrix, AA: AncestralAlignment> {
-    lambda: f64,
-    mu: f64,
-    r: f64,
+    params: Vec<f64>,
     subst_model: SubstModel<Q>,
     phylo: PhyloInfo<AA>,
 }
 
 impl<Q: QMatrix, AA: AncestralAlignment> TKF92CostBuilder<Q, AA> {
-    pub fn new(
-        lambda: f64,
-        mu: f64,
-        r: f64,
-        subst_model: SubstModel<Q>,
-        phylo: PhyloInfo<AA>,
-    ) -> Self {
+    pub fn new(params: &[f64], subst_model: SubstModel<Q>, phylo: PhyloInfo<AA>) -> Self {
         Self {
-            lambda,
-            mu,
-            r,
+            params: params.to_vec(),
             subst_model,
             phylo,
         }
     }
 
     pub fn build(self) -> Result<TKFCost<Q, TKF92IndelModel, AA>> {
-        if self.phylo.msa.alphabet() != Q::alphabet() {
-            bail!(Alphabet, "alphabet mismatch between model and alignment");
-        }
-
-        let (lambda, mu) = validate_lambda_and_mu(self.lambda, self.mu);
-        let r = validate_r(self.r);
-        let model = TKF92IndelModel {
-            params: vec![lambda, mu, r],
-            log_r: r.ln(),
-            one_minus_r_over_r: (1.0 - r) / r,
-        };
-        let info = TKFIndelModelInfo::new(&model, &self.phylo);
-        let tkf_cost = TKFIndelCost {
-            model,
-            phylo: self.phylo.clone(),
-            model_info: RefCell::new(info),
-        };
+        let indel_cost = TKF92IndelCostBuilder::new(&self.params, self.phylo.clone()).build()?;
+        let subst_cost = SCB::new(self.subst_model, self.phylo).build()?;
         Ok(TKFCost {
-            indel_cost: tkf_cost,
-            subst_cost: SCB::new(self.subst_model, self.phylo).build().unwrap(),
+            indel_cost,
+            subst_cost,
         })
     }
 }
@@ -298,8 +295,8 @@ mod private_tests {
     fn tkf92_param_range_invalid_index() {
         let model = TKF92IndelModel {
             params: vec![0.5, 1.0, 0.3],
-            log_r: 0.0,              // cache filled with dummy since it is not needed here
-            one_minus_r_over_r: 0.0, // cache filled with dummy since it is not needed here
+            ln_r: 0.0, // cache filled with dummy, since it is not needed here
+            ln_one_minus_r_over_r: 0.0, // cache filled with dummy since it is not needed here
         };
         // Use an invalid index
         model.param_range(3);
@@ -309,8 +306,8 @@ mod private_tests {
     fn tkf92_model_fmt() {
         let tkf_indel_model = TKF92IndelModel {
             params: vec![1.1, 2.0, 0.3],
-            log_r: 0.0,              // cache filled with dummy since it is not printed
-            one_minus_r_over_r: 0.0, // cache filled with dummy since it is not printed
+            ln_r: 0.0,                  // cache filled with dummy since it is not printed
+            ln_one_minus_r_over_r: 0.0, // cache filled with dummy since it is not printed
         };
 
         let fmt = format!("{}", tkf_indel_model);
@@ -322,16 +319,19 @@ mod private_tests {
     fn tkf92_indel_set_param() {
         let mut model = TKF92IndelModel {
             params: vec![1.0, 2.0, 0.3],
-            log_r: 0.0,              // dummy
-            one_minus_r_over_r: 0.0, // dummy
+            ln_r: 0.0,                  // dummy
+            ln_one_minus_r_over_r: 0.0, // dummy
         };
-        model.set_param(usize::from(TKF92Parameters::Lambda), 1.1);
-        assert_eq!(model.lambda(), 1.1);
-        model.set_param(usize::from(TKF92Parameters::Mu), 2.1);
-        assert_eq!(model.mu(), 2.1);
-        model.set_param(usize::from(TKF92Parameters::R), 0.4);
-        assert_eq!(model.r(), 0.4);
-        assert_eq!(model.log_r, 0.4f64.ln());
-        assert_eq!(model.one_minus_r_over_r, (1.0 - 0.4) / 0.4);
+        let new_lambda = 1.1;
+        model.set_param(usize::from(TKF92Parameters::Lambda), new_lambda);
+        assert_eq!(model.lambda(), new_lambda);
+        let new_mu = 2.1;
+        model.set_param(usize::from(TKF92Parameters::Mu), new_mu);
+        assert_eq!(model.mu(), new_mu);
+        let new_r = 0.4;
+        model.set_param(usize::from(TKF92Parameters::R), new_r);
+        assert_eq!(model.r(), new_r);
+        assert_eq!(model.ln_r, new_r.ln());
+        assert_eq!(model.ln_one_minus_r_over_r, (-new_r).ln_1p() - (new_r).ln());
     }
 }

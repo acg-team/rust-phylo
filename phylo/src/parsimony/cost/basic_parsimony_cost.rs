@@ -155,7 +155,7 @@ mod private_tests {
 
     #[test]
     fn repeat_basic_parsimony_score() {
-        let seqs = Sequences::new(vec![
+        let seqs = Sequences::new_unchecked(vec![
             record!("A", b"G-GA"),
             record!("B", b"G-GG"),
             record!("C", b"AGCA"),

@@ -11,7 +11,7 @@ fn aligned_seqs_with_ancestors() -> Sequences {
 
 #[cfg(test)]
 fn aligned_seqs_with_ancestors_subset(ids: &[&str]) -> Sequences {
-    Sequences::new(
+    Sequences::new_unchecked(
         [
             record!("A0", b"AA--AAA"),
             record!("B1", b"--A--AA"),

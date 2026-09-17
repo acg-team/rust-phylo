@@ -77,13 +77,4 @@ impl Node {
             id,
         }
     }
-
-    pub(crate) fn new_empty_internal(node_idx: usize) -> Self {
-        Self::new_internal(node_idx, None, Vec::new(), 0.0, "".to_string())
-    }
-
-    pub(crate) fn add_parent(&mut self, parent_idx: &NodeIdx) {
-        debug_assert!(matches!(parent_idx, Int(_)));
-        self.parent = Some(*parent_idx);
-    }
 }

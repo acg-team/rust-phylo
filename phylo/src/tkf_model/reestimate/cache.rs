@@ -437,7 +437,7 @@ mod private_tests {
     #[test]
     fn tkf_possible_del_or_not_table_idx_without_root() {
         let phylo = setup_test_phylo(Alphabet::dna());
-        let mut cost = TKF92IndelCostBuilder::new(0.4, 0.5, 0.8, phylo)
+        let mut cost = TKF92IndelCostBuilder::new(&[0.4, 0.5, 0.8], phylo)
             .build()
             .unwrap();
         let rng = &mut FakeGenerator::default();
@@ -475,7 +475,7 @@ mod private_tests {
     fn tkf_possible_del_or_not_table_idx_with_root() {
         let phylo = setup_test_phylo(Alphabet::dna());
         let root = phylo.tree.root;
-        let mut cost = TKF92IndelCostBuilder::new(0.4, 0.5, 0.8, phylo)
+        let mut cost = TKF92IndelCostBuilder::new(&[0.4, 0.5, 0.8], phylo)
             .build()
             .unwrap();
         let rng = &mut FakeGenerator::default();

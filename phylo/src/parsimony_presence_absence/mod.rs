@@ -37,7 +37,8 @@ impl<A: Alignment, AA: AncestralAlignment> AncestralSequenceReconstruction<A, AA
             ));
         }
         aligned_leaf_records.append(&mut get_ancestral_records(tree, alignment));
-        let all_seqs = Sequences::new(aligned_leaf_records);
+        let all_seqs =
+            Sequences::with_alphabet_unchecked(aligned_leaf_records, alignment.seqs().alphabet());
         AA::from_aligned_with_ancestral_unchecked(all_seqs, tree)
     }
 }

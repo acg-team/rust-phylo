@@ -8,7 +8,7 @@ use crate::likelihood::{ParamRange, PARAM_RANGE_UNIT_INTERVAL_EXCLUSIVE};
 use crate::phylo_info::PhyloInfo;
 use crate::tkf_model::{
     blocks_of_alignment, merge_fragmentation_with_blocks, validate_fragmentation,
-    validate_lambda_and_mu, validate_r, TKF92Parameters, TKFIndelCost, TKFIndelModelInfo, TKFModel,
+    validate_lambda_mu, validate_r, TKF92Parameters, TKFIndelCost, TKFIndelModelInfo, TKFModel,
 };
 use crate::Result;
 
@@ -20,9 +20,9 @@ use crate::Result;
 pub struct TKF92IndelModelAddBlocks {
     params: Vec<f64>,
     /// precomputed r.ln()
-    log_r: f64,
-    /// precomputed (1 - r)/r
-    one_minus_r_over_r: f64,
+    ln_r: f64,
+    /// precomputed ln((1 - r)/r)
+    ln_one_minus_r_over_r: f64,
     /// Blocks to be used in addition to those determined from the alignment
     additional_blocks: Vec<usize>,
 }
@@ -53,8 +53,8 @@ impl TKFModel for TKF92IndelModelAddBlocks {
         match param {
             TKF92Parameters::R => {
                 self.params[usize::from(TKF92Parameters::R)] = value;
-                self.log_r = value.ln();
-                self.one_minus_r_over_r = (1.0 - value) / value;
+                self.ln_r = value.ln();
+                self.ln_one_minus_r_over_r = (-value).ln_1p() - value.ln();
             }
             _ => {
                 self.params[idx] = value;
@@ -72,22 +72,18 @@ impl TKFModel for TKF92IndelModelAddBlocks {
         }
     }
 
-    fn insertion_factor_at_root(&self) -> f64 {
-        self.lambda() / self.mu() * self.one_minus_r_over_r
+    fn ln_insertion_factor_at_root(&self) -> f64 {
+        self.lambda().ln() - self.mu().ln() + self.ln_one_minus_r_over_r
     }
 
-    fn insertion_factor_at_non_root(&self, beta: f64) -> f64 {
-        self.lambda() * beta * self.one_minus_r_over_r
+    fn ln_insertion_factor_at_non_root(&self, ln_beta: f64) -> f64 {
+        self.lambda().ln() + ln_beta + self.ln_one_minus_r_over_r
     }
 
-    fn block_prob(&self, tree_event_factor: f64, block_len: usize) -> f64 {
-        if tree_event_factor == 1.0 {
-            0.0
-        } else {
-            tree_event_factor.ln()
-                + (block_len as f64 - 1.0) * (1.0 + tree_event_factor).ln()
-                + (block_len as f64) * self.log_r
-        }
+    fn block_prob(&self, ln_tree_event_factor: f64, block_len: usize) -> f64 {
+        ln_tree_event_factor
+            + (block_len as f64 - 1.0) * (ln_tree_event_factor.exp()).ln_1p()
+            + (block_len as f64) * self.ln_r
     }
 
     fn get_blocks<AA: AncestralAlignment>(&self, msa: &AA) -> Vec<usize> {
@@ -112,40 +108,32 @@ impl Display for TKF92IndelModelAddBlocks {
 
 /// Builder for the cost using the [`TKF92IndelModelAddBlocks`].
 pub struct TKF92IndelAddBlocksCostBuilder<AA: AncestralAlignment> {
-    lambda: f64,
-    mu: f64,
-    r: f64,
+    params: Vec<f64>,
     phylo: PhyloInfo<AA>,
     additional_blocks: Vec<usize>,
 }
 
 #[cfg(test)]
 impl<AA: AncestralAlignment> TKF92IndelAddBlocksCostBuilder<AA> {
-    pub fn new(
-        lambda: f64,
-        mu: f64,
-        r: f64,
-        additional_blocks: Vec<usize>,
-        phylo: PhyloInfo<AA>,
-    ) -> Self {
+    pub fn new(params: &[f64], additional_blocks: Vec<usize>, phylo: PhyloInfo<AA>) -> Self {
         Self {
-            lambda,
-            mu,
-            r,
+            params: params.to_vec(),
             phylo,
             additional_blocks,
         }
     }
 
     pub fn build(self) -> Result<TKFIndelCost<TKF92IndelModelAddBlocks, AA>> {
-        let (lambda, mu) = validate_lambda_and_mu(self.lambda, self.mu);
-        let r = validate_r(self.r);
+        let mut params = self.params;
+        validate_lambda_mu(&mut params);
+        validate_r(&mut params);
         let additional_blocks =
             validate_fragmentation(&self.additional_blocks, self.phylo.msa.len());
+        let r = params[usize::from(TKF92Parameters::R)];
         let model = TKF92IndelModelAddBlocks {
-            params: vec![lambda, mu, r],
-            log_r: r.ln(),
-            one_minus_r_over_r: (1.0 - r) / r,
+            params,
+            ln_r: r.ln(),
+            ln_one_minus_r_over_r: ((1.0 - r) / r).ln(),
             additional_blocks,
         };
         let info = TKFIndelModelInfo::new(&model, &self.phylo);
@@ -173,8 +161,8 @@ mod private_tests {
     fn tkf92_param_range_invalid_index() {
         let model = TKF92IndelModelAddBlocks {
             params: vec![0.5, 1.0, 0.3],
-            log_r: 0.0,              // cache filled with dummy since it is not needed here
-            one_minus_r_over_r: 0.0, // cache filled with dummy since it is not needed here
+            ln_r: 0.0, // cache filled with dummy since it is not needed here
+            ln_one_minus_r_over_r: 0.0, // cache filled with dummy since it is not needed here
             additional_blocks: vec![],
         };
         // Use an invalid index
@@ -185,8 +173,8 @@ mod private_tests {
     fn tkf92_add_blocks_model_fmt() {
         let tkf_indel_model = TKF92IndelModelAddBlocks {
             params: vec![1.1, 2.0, 0.3],
-            log_r: 0.0,              // cache filled with dummy since it is not printed
-            one_minus_r_over_r: 0.0, // cache filled with dummy since it is not printed
+            ln_r: 0.0,                  // cache filled with dummy since it is not printed
+            ln_one_minus_r_over_r: 0.0, // cache filled with dummy since it is not printed
             additional_blocks: vec![1, 2],
         };
 
@@ -202,18 +190,21 @@ mod private_tests {
     fn tkf92_add_blocks_indel_set_param() {
         let mut model = TKF92IndelModelAddBlocks {
             params: vec![1.0, 2.0, 0.3],
-            log_r: 0.0,                // dummy
-            one_minus_r_over_r: 0.0,   // dummy
-            additional_blocks: vec![], // dummy
+            ln_r: 0.0,                  // dummy
+            ln_one_minus_r_over_r: 0.0, // dummy
+            additional_blocks: vec![],  // dummy
         };
-        model.set_param(usize::from(TKF92Parameters::Lambda), 1.1);
-        assert_eq!(model.lambda(), 1.1);
-        model.set_param(usize::from(TKF92Parameters::Mu), 2.1);
-        assert_eq!(model.mu(), 2.1);
-        model.set_param(usize::from(TKF92Parameters::R), 0.4);
-        assert_eq!(model.r(), 0.4);
-        assert_eq!(model.log_r, 0.4f64.ln());
-        assert_eq!(model.one_minus_r_over_r, (1.0 - 0.4) / 0.4);
+        let new_lambda = 1.1;
+        model.set_param(usize::from(TKF92Parameters::Lambda), new_lambda);
+        assert_eq!(model.lambda(), new_lambda);
+        let new_mu = 2.1;
+        model.set_param(usize::from(TKF92Parameters::Mu), new_mu);
+        assert_eq!(model.mu(), new_mu);
+        let new_r = 0.4;
+        model.set_param(usize::from(TKF92Parameters::R), new_r);
+        assert_eq!(model.r(), new_r);
+        assert_eq!(model.ln_r, new_r.ln());
+        assert_eq!(model.ln_one_minus_r_over_r, (-new_r).ln_1p() - new_r.ln());
     }
 
     #[test]
@@ -222,7 +213,7 @@ mod private_tests {
         // provided block borders) we can verify that this TKF92 model integrates over all possible
         // fragmentations that are consistent with the MSA and the additional block borders.
         let tree = tree!("((A0:1.0,B1:1.0)I1:1.0);");
-        let seqs = Sequences::new(vec![
+        let seqs = Sequences::new_unchecked(vec![
             record!("A0", b"AAB---DD"),
             record!("B1", b"-ARAAAWD"),
             record!("I1", b"AAA---AD"),
@@ -235,9 +226,7 @@ mod private_tests {
         let additional_blocks = vec![2, 4];
 
         let tkf92_cost = TKF92IndelAddBlocksCostBuilder::new(
-            lambda,
-            mu,
-            r,
+            &[lambda, mu, r],
             additional_blocks,
             phylo_info.clone(),
         )
@@ -249,10 +238,13 @@ mod private_tests {
 
         let fragmentations = [vec![2, 4], vec![2, 4, 5], vec![2, 4, 7], vec![2, 4, 5, 7]];
         for fragmentation in fragmentations {
-            let fragment_cost =
-                TKF92FixedIndelCostBuilder::new(lambda, mu, r, fragmentation, phylo_info.clone())
-                    .build()
-                    .unwrap();
+            let fragment_cost = TKF92FixedIndelCostBuilder::new(
+                &[lambda, mu, r],
+                fragmentation,
+                phylo_info.clone(),
+            )
+            .build()
+            .unwrap();
             sum_over_fragmentations_cost += fragment_cost.logl().exp();
         }
         sum_over_fragmentations_cost = sum_over_fragmentations_cost.ln();

@@ -1,6 +1,6 @@
-use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+use hashbrown::HashSet;
 use log::{info, warn};
 use rand::{Rng, SeedableRng};
 
@@ -267,8 +267,7 @@ impl<A: Alignment, AA: AncestralAlignment> PhyloInfoBuilder<A, AA> {
             }
         };
 
-        info!("{} sequence(s) read successfully", sequences.len());
-        Ok(sequences)
+        sequences
     }
 
     /// Checks if there is at least one tree in the vector, bails with an error otherwise.
@@ -311,7 +310,7 @@ pub(crate) fn set_missing_tree_node_ids(tree: &Tree) -> Result<Tree> {
             tree_with_all_ids.nodes[usize::from(node_idx)].id = new_id.clone();
             info!("Set missing id of node {node_idx} to {new_id}");
         } else if !seen_user_set_ids.insert(id.to_string()) {
-            bail!(Tree, "duplicate id ({id}) found in the leaves of the tree");
+            bail!(Tree, "duplicate node id ({id}) found in the tree");
         }
     }
     Ok(tree_with_all_ids)
@@ -319,7 +318,8 @@ pub(crate) fn set_missing_tree_node_ids(tree: &Tree) -> Result<Tree> {
 
 /// Checks that the IDs of the tree leaves and the sequences match, bails with an error otherwise.
 pub fn validate_taxa_ids(tree: &Tree, sequences: &Sequences) -> Result<()> {
-    let tip_ids: HashSet<String> = HashSet::from_iter(tree.leaf_ids());
+    let tip_ids = tree.leaf_ids();
+
     let sequence_ids: HashSet<String> =
         HashSet::from_iter(sequences.into_iter().map(|rec| rec.id().to_string()));
     info!("Checking that tree tip and sequence IDs match");
@@ -454,20 +454,20 @@ mod private_tests {
 
     #[test]
     fn set_missing_tree_node_ids_finds_duplicate() {
-        let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, A1:1.0) I9:1.0):1.0):1.0;");
+        let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I1:1.0):1.0):1.0;");
 
-        let error = set_missing_tree_node_ids(&tree);
+        let error: Result<tree::Tree, Error> = set_missing_tree_node_ids(&tree);
 
         assert_matches!(
             error,
-            Err(Error::Tree(msg)) if msg.contains("duplicate id (A1) found in the leaves of the tree")
+            Err(Error::Tree(msg)) if msg.contains("duplicate node id (I1) found in the tree")
         );
     }
 
     #[test]
     fn not_valid_ids_with_ancestors() {
         let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0)I10:1.0):1.0;");
-        let seqs = Sequences::new(vec![
+        let seqs = Sequences::new_unchecked(vec![
             record!("A1", b"X"),
             record!("B1", b"X"),
             record!("D3", b"X"),
@@ -490,7 +490,7 @@ mod private_tests {
     fn valid_ids_with_ancestors() {
         // arrange
         let tree = tree!("((A1:1.0, B1:1.0) I1:1.0,(C2:1.0,(D3:1.0, E4:1.0) I9:1.0)I10:1.0):1.0;");
-        let seqs = Sequences::new(vec![
+        let seqs = Sequences::new_unchecked(vec![
             record!("A1", b"X"),
             record!("B1", b"X"),
             record!("C2", b"X"),

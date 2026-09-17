@@ -9,7 +9,7 @@ use crate::random::RandomGenerator;
 use crate::tkf_model::reestimate::cache::{
     possible_assignments_of_edge, possible_del_or_not, prev_compatible_del_or_not,
 };
-use crate::tkf_model::{log_i1, Event, TKFIndelCost, TKFIndelModelInfo, TKFModel};
+use crate::tkf_model::{ln_i1, Event, TKFIndelCost, TKFIndelModelInfo, TKFModel};
 use crate::tree::NodeIdx::{self, Internal, Leaf};
 use crate::{bail, Result};
 
@@ -170,7 +170,7 @@ struct BackTrackingResult {
 /// let lambda = 0.9;
 /// let mu = 1.0;
 /// let r = 0.5;
-/// let mut tkf92_indel_cost = TKF92IndelCostBuilder::new(lambda, mu, r, phylo)
+/// let mut tkf92_indel_cost = TKF92IndelCostBuilder::new(&[lambda, mu, r], phylo)
 ///     .build()?;
 /// let mut rng = DefaultGenerator::default();
 /// let mut reestimator = EdgeSeqsReestimator::new(&mut tkf92_indel_cost, &mut rng);
@@ -241,7 +241,7 @@ where
     /// Accordingly, this method will return an error if this is not the case.
     ///
     /// # Returns
-    /// On success, returns the resulting log likelihood of the MASA given the tree after reestimation.
+    /// On success, returns the resulting ln likelihood of the MASA given the tree after reestimation.
     pub fn reestimate(&mut self, v2_idx: &NodeIdx) -> Result<f64> {
         let v2_id = self.cost.phylo.tree.node(v2_idx).id.clone();
         if v2_idx == &self.cost.phylo.tree.root {
@@ -272,7 +272,7 @@ where
     /// a sibling. If this condition is violated, this method panics.
     ///
     /// # Returns
-    /// Returns the resulting log likelihood of the MASA given the tree after reestimation.
+    /// Returns the resulting ln likelihood of the MASA given the tree after reestimation.
     pub fn reestimate_unchecked(&mut self, v2_idx: &NodeIdx) -> f64 {
         if !self
             .cost
@@ -326,8 +326,8 @@ where
         let root_id = usize::from(self.cost.phylo.tree.root);
         let mut model_info = self.cost.model_info.borrow_mut();
         for node in self.quartet_edges.edges() {
-            let x = model_info.node_event_factor[(usize::from(*node), block_id)];
-            model_info.subtree_event_factor[(root_id, block_id)] /= x;
+            let x = model_info.ln_node_event_factor[(usize::from(*node), block_id)];
+            model_info.ln_subtree_event_factor[(root_id, block_id)] -= x;
         }
     }
 
@@ -380,7 +380,7 @@ where
         for block_id in 0..num_blocks {
             for edge in self.quartet_edges.edges() {
                 let event = self.cost.determine_event(edge, block_id);
-                let node_event_factor = self.cost.event_factor(edge, event);
+                let ln_node_event_factor = self.cost.ln_event_factor(edge, event);
                 let node_eta = self.cost.eta_for_non_root(edge, event);
                 let mut model_info = self.cost.model_info.borrow_mut();
                 if let Some(val) = self.cost.updated_previous_is_deletion(event) {
@@ -388,9 +388,10 @@ where
                         .previous_event_deletion
                         .set(usize::from(*edge), val);
                 }
-                model_info.node_event_factor[(usize::from(edge), block_id)] = node_event_factor;
+                model_info.ln_node_event_factor[(usize::from(edge), block_id)] =
+                    ln_node_event_factor;
                 model_info.node_eta[(usize::from(edge), block_id)] = node_eta;
-                model_info.subtree_event_factor[(root_id, block_id)] *= node_event_factor;
+                model_info.ln_subtree_event_factor[(root_id, block_id)] += ln_node_event_factor;
                 model_info.subtree_eta[(root_id, block_id)] += node_eta;
             }
         }
@@ -409,7 +410,7 @@ where
             let site = self.cost.model_info.borrow().blocks[block_id] - 1;
             for assignment in self.possible_assignments(site) {
                 let events = self.event_for_assignment(assignment, block_id);
-                let event_prob = self.integrated_root_event_prob(&events, block_id);
+                let ln_event_prob = self.ln_integrated_root_event_prob(&events, block_id);
                 let is_first_block = block_id == 0;
 
                 for q_del_or_not in possible_del_or_not(
@@ -420,7 +421,7 @@ where
                 ) {
                     let dp_index = bools_to_index(assignment, q_del_or_not);
                     if block_id == 0 {
-                        self.dp_table[block_id][dp_index] = event_prob;
+                        self.dp_table[block_id][dp_index] = ln_event_prob;
                         found_at_least_one = true;
                         // Since we are at the first position, the `del_or_not` does not have a
                         // meaning, so we can just skip all other `del_or_not` combinations.
@@ -437,7 +438,7 @@ where
                     // collect eta that corresponds to nodes outside of the quartet
                     let eta_for_block =
                         self.cost.model_info.borrow().subtree_eta[(root_id, block_id)];
-                    self.dp_table[block_id][dp_index] = max_prev + eta_for_block + event_prob;
+                    self.dp_table[block_id][dp_index] = max_prev + eta_for_block + ln_event_prob;
                     found_at_least_one = true;
                 }
             }
@@ -524,30 +525,30 @@ where
     }
 
     /// Computes the integrated event probability for the quartet given the events
-    fn integrated_root_event_prob(&self, events: &QuartetEvents, block_id: usize) -> f64 {
+    fn ln_integrated_root_event_prob(&self, events: &QuartetEvents, block_id: usize) -> f64 {
         let root_id = usize::from(self.cost.phylo.tree.root);
         let model_info = self.cost.model_info.borrow();
         let block_len = model_info.block_lengths[block_id];
-        let mut x = model_info.subtree_event_factor[(root_id, block_id)];
-        x *= self.quartet_event_factor(events);
+        let mut x = model_info.ln_subtree_event_factor[(root_id, block_id)];
+        x += self.ln_quartet_event_factor(events);
         self.cost.model.block_prob(x, block_len)
     }
 
-    /// Computes the product of event factor values for the nodes in the quartet for the provided events
+    /// Computes the sum of ln event factor values for the nodes in the quartet for the provided events
     /// which correspond to an assignment of characters at `v1` and `v2` that is currently considered
     /// in the dynamic programming.
-    fn quartet_event_factor(&self, events: &QuartetEvents) -> f64 {
-        let mut quartet_event_factor = 1.0;
+    fn ln_quartet_event_factor(&self, events: &QuartetEvents) -> f64 {
+        let mut quartet_event_factor = 0.0;
         let model_info = self.cost.model_info.borrow();
         // Here it is assumed that the cache is already updated for all nodes in the quartet,
         // see `EdgeSeqsReestimator::prepare_for_dp`.
         for (i, node) in self.quartet_edges.edges().iter().enumerate() {
             let node_id = usize::from(*node);
-            quartet_event_factor *= match events[i] {
-                Event::Insertion => model_info.insertion[node_id],
-                Event::Deletion => model_info.n0[node_id],
-                Event::Homolog => model_info.h1[node_id],
-                Event::Nothing => 1.0,
+            quartet_event_factor += match events[i] {
+                Event::Insertion => model_info.ln_insertion[node_id],
+                Event::Deletion => model_info.ln_n0[node_id],
+                Event::Homolog => model_info.ln_h1[node_id],
+                Event::Nothing => 0.0,
             };
         }
         quartet_event_factor
@@ -645,7 +646,7 @@ where
         let nodes = self.cost.phylo.tree.preorder().iter().skip(1); // skip root
         let model_info = self.cost.model_info.borrow();
         for node in nodes {
-            const_per_alignment += log_i1(l, model_info.beta[usize::from(node)]);
+            const_per_alignment += ln_i1(l, model_info.ln_beta[usize::from(node)]);
         }
         const_per_alignment
     }
@@ -674,7 +675,7 @@ fn mapping_from_node_seq(node_seq: &NodeSeq, block_lens: &[usize], seq_len: usiz
 
 /// Converts the provided assignment and quartet del_or_not combination
 /// into a unique index for the DP table. The DP algorithm calculates probabilities
-/// for such an assignment and quartet del_or_not combination. To store these     
+/// for such an assignment and quartet del_or_not combination. To store these
 /// results in a flat array, we need to convert the combination of booleans
 /// into a unique index.
 /// Is the inverse of [`index_to_bools`].
@@ -732,6 +733,7 @@ fn get_map_from_any_node<'a, AA: AncestralAlignment>(
 mod private_tests {
     use std::path::Path;
 
+    use approx::assert_relative_eq;
     use rstest::rstest;
 
     use crate::alignment::{Alignment, Sequences, MASA};
@@ -824,7 +826,7 @@ mod private_tests {
         #[case] expected_events: QuartetEvents,
     ) {
         let phylo = setup_test_phylo(Alphabet::dna());
-        let mut cost = TKF92IndelCostBuilder::new(0.4, 0.5, 0.8, phylo)
+        let mut cost = TKF92IndelCostBuilder::new(&[0.4, 0.5, 0.8], phylo)
             .build()
             .unwrap();
         let rng = &mut FakeGenerator::default();
@@ -840,7 +842,7 @@ mod private_tests {
     fn tkf_backtrack() {
         let phylo = setup_test_phylo(Alphabet::dna());
         // the parameters here do not matter for the backtracking test
-        let mut cost = TKF92IndelCostBuilder::new(0.4, 0.5, 0.8, phylo)
+        let mut cost = TKF92IndelCostBuilder::new(&[0.4, 0.5, 0.8], phylo)
             .build()
             .unwrap();
         // FakeRng such that we can test tie-breaking (max value in last column) in backtracking
@@ -906,7 +908,7 @@ mod private_tests {
     fn tkf_const_per_alignment() {
         let tree = tree!("(((A1:2.0,B2:2.0)I3:0.3,C4:2.0)R5:1.0);");
         let msa = MASA::from_aligned_with_ancestral(
-            Sequences::new(vec![
+            Sequences::new_unchecked(vec![
                 record!("A1", b""),
                 record!("B2", b""),
                 record!("I3", b""),
@@ -917,7 +919,7 @@ mod private_tests {
         )
         .unwrap();
         let phylo = PhyloInfo { msa, tree };
-        let mut cost = TKF92IndelCostBuilder::new(0.4, 0.5, 0.8, phylo)
+        let mut cost = TKF92IndelCostBuilder::new(&[0.4, 0.5, 0.8], phylo)
             .build()
             .unwrap();
         let logl = cost.logl(); // must be called to initialize the model_info, which is
@@ -930,19 +932,19 @@ mod private_tests {
     #[test]
     fn tkf_remove_and_add_back_quartet() {
         let phylo = setup_test_phylo(Alphabet::dna());
-        let mut cost = TKF92IndelCostBuilder::new(0.4, 0.5, 0.8, phylo)
+        let mut cost = TKF92IndelCostBuilder::new(&[0.4, 0.5, 0.8], phylo)
             .build()
             .unwrap();
 
         let rng = &mut DefaultGenerator::default();
         let mut reestimator = EdgeSeqsReestimator::new(&mut cost, rng);
         let original_logl = reestimator.cost.logl();
-        assert_eq!(original_logl, reestimator.cost.logl_from_root_model_info());
+        assert_relative_eq!(original_logl, reestimator.cost.logl_from_root_model_info());
         let dummy_v2_idx = reestimator.cost.phylo.tree.by_id("I3").idx;
         reestimator.prepare_for_dp(&dummy_v2_idx);
         assert_ne!(reestimator.cost.logl_from_root_model_info(), original_logl);
         reestimator.make_valid_for_further_reestimate_calls();
-        assert_eq!(reestimator.cost.logl_from_root_model_info(), original_logl);
+        assert_relative_eq!(reestimator.cost.logl_from_root_model_info(), original_logl);
     }
 
     #[test]
@@ -955,7 +957,7 @@ mod private_tests {
             .build_with_ancestors()
             .unwrap();
 
-        let mut cost = TKF92IndelCostBuilder::new(1.0, 2.0, 0.3, phylo)
+        let mut cost = TKF92IndelCostBuilder::new(&[1.0, 2.0, 0.3], phylo)
             .build()
             .unwrap();
         let rng = &mut DefaultGenerator::default();
@@ -987,7 +989,7 @@ mod private_tests {
             .build_with_ancestors()
             .unwrap();
 
-        let mut cost = TKF92IndelCostBuilder::new(1.0, 2.0, 0.3, phylo)
+        let mut cost = TKF92IndelCostBuilder::new(&[1.0, 2.0, 0.3], phylo)
             .build()
             .unwrap();
         let rng = &mut DefaultGenerator::default();

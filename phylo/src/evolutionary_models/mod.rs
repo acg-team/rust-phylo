@@ -7,6 +7,8 @@ use crate::substitution_models::{FreqVector, SubstMatrix};
 
 #[derive(Clone, clap::ValueEnum, Debug, Copy)]
 pub enum FrequencyOptimisation {
+    /// The empirical frequencies are calculated from the alignment.
+    /// This will not necessarily increase the likelihood.
     Empirical,
     Estimated,
     Fixed,

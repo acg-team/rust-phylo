@@ -111,6 +111,7 @@ impl<Q: QMatrix, T: TKFModel, AA: AncestralAlignment> TKFCost<Q, T, AA> {
     /// use phylo::alignment::{Alignment, AncestralAlignment, Sequences, MASA};
     /// use phylo::tkf_model::TKF92CostBuilder;
     /// use phylo::{tree, record_wo_desc as record};
+    ///
     /// # use phylo::Result;
     /// # fn main() -> Result<()> {
     /// let tree = tree!("(((A1:2.0,B2:2.0)I3:0.3,C4:2.0)R5:1.0);");
@@ -123,12 +124,12 @@ impl<Q: QMatrix, T: TKFModel, AA: AncestralAlignment> TKFCost<Q, T, AA> {
     ///             record!("C4", b"AGG-------"),
     ///             record!("R5", b"--A-------"),
     ///            ],
-    ///     ),
+    ///     )?,
     ///   &tree,
     /// )?;
     /// let phylo = PhyloInfo { msa, tree };
     /// let subst_model = SubstModel::<GTR>::new(&[], &[]);
-    /// let cost = TKF92CostBuilder::new(0.4, 0.5, 0.8, subst_model, phylo).build()?;
+    /// let cost = TKF92CostBuilder::new(&[0.4, 0.5, 0.8], subst_model, phylo).build()?;
     /// assert_eq!(cost.masa().seqs().len(), 3);
     /// assert_eq!(cost.masa().ancestral_seqs().len(), 2);
     /// # Ok(()) }
@@ -145,6 +146,7 @@ impl<Q: QMatrix, T: TKFModel, AA: AncestralAlignment> TKFCost<Q, T, AA> {
     /// use phylo::alignment::{Alignment, AncestralAlignment, Sequences, MASA};
     /// use phylo::tkf_model::TKF92CostBuilder;
     /// use phylo::{tree, record_wo_desc as record};
+    ///
     /// # use phylo::Result;
     /// # fn main() -> Result<()> {
     /// let tree = tree!("(((A1:2.0,B2:2.0)I3:0.3,C4:2.0)R5:1.0);");
@@ -157,12 +159,12 @@ impl<Q: QMatrix, T: TKFModel, AA: AncestralAlignment> TKFCost<Q, T, AA> {
     ///             record!("C4", b"AGG-------"),
     ///             record!("R5", b"--A-------"),
     ///            ],
-    ///     ),
+    ///     )?,
     ///   &tree,
     /// )?;
     /// let phylo = PhyloInfo { msa, tree };
     /// let subst_model = SubstModel::<GTR>::new(&[], &[]);
-    /// let cost = TKF92CostBuilder::new(0.4, 0.5, 0.8, subst_model, phylo).build()?;
+    /// let cost = TKF92CostBuilder::new(&[0.4, 0.5, 0.8], subst_model, phylo).build()?;
     /// // under the TKF92 model the blocks are the positions in the alignment where there is
     /// // a sequence that changes from gap to non-gap or vice versa (always including the last
     /// // position of the alignment).
@@ -190,3 +192,6 @@ mod tkf92_fixed_fragmentation;
 
 #[cfg(test)]
 pub use tkf92_fixed_fragmentation::*;
+
+#[cfg(test)]
+mod tkf_numerical_tests;

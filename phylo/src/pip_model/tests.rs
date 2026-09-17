@@ -9,7 +9,7 @@ use crate::evolutionary_models::EvoModel;
 use crate::io::read_sequences;
 use crate::likelihood::ModelSearchCost;
 use crate::phylo_info::{PhyloInfo, PhyloInfoBuilder as PIB};
-use crate::pip_model::{PIPCostBuilder as PIPB, PIPModel, PIPModelInfo};
+use crate::pip_model::{PIPCost, PIPCostBuilder as PIPB, PIPModel, PIPModelInfo};
 use crate::substitution_models::{
     dna_models::*, protein_models::*, FreqVector, QMatrix, QMatrixMaker, SubstMatrix, SubstModel,
 };
@@ -276,7 +276,7 @@ fn pip_p_example_matrix() {
 fn setup_example_phylo_info() -> PhyloInfo<MSA> {
     let tree = tree!("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;");
     let msa = MSA::from_aligned(
-        Sequences::new(vec![
+        Sequences::new_unchecked(vec![
             record!("A", b"-A--"),
             record!("B", b"CA--"),
             record!("C", b"-A-G"),
@@ -514,7 +514,7 @@ fn pip_hky_likelihood_example_final() {
 fn setup_example_phylo_info_2() -> PhyloInfo<MSA> {
     let tree = tree!("((A:2,B:2)E:2,(C:1,D:1)F:3)R:0;");
     let msa = MSA::from_aligned(
-        Sequences::new(vec![
+        Sequences::new_unchecked(vec![
             record!("A", b"--A--"),
             record!("B", b"-CA--"),
             record!("C", b"--A-G"),
@@ -719,7 +719,7 @@ fn designation() {
 fn pip_logl_correct_w_diff_info() {
     let tree1 = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let tree2 = tree!("(((A:2.0,B:2.0)E:4.0,(C:2.0,D:2.0)F:4.0)G:6.0);");
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         record!("A", b"P"),
         record!("B", b"P"),
         record!("C", b"P"),
@@ -800,7 +800,7 @@ fn protein_avg_rate() {
 fn logl_not_inf_for_empty_col() {
     let tree = tree!("((A0:1.0, B1:1.0) I5:1.0,(C2:1.0,(D3:1.0, E4:1.0) I6:1.0) I7:1.0) I8:1.0;");
     let msa = MSA::from_aligned(
-        Sequences::new(read_sequences("./data/sequences_empty_col.fasta").unwrap()),
+        Sequences::new_unchecked(read_sequences("./data/sequences_empty_col.fasta").unwrap()),
         &tree,
     )
     .unwrap();
@@ -831,7 +831,7 @@ fn blen_leading_to_small_probs() {
 fn blen_leading_to_minusinf() {
     let tree = tree!("((284811:0.0000000000000002,(284593:0.1,(237561:0.3,(284812:0.3,(284813:400.9,284591:0.2):40000000000000.2):0.05):0.1):0.04):0);");
     let msa = MSA::from_aligned(
-        Sequences::with_alphabet(
+        Sequences::with_alphabet_unchecked(
             vec![
                 record!("284813", b"-"),
                 record!("284811", b"W"),
@@ -859,7 +859,7 @@ fn blen_leading_to_minusinf() {
 fn setup_test_info(alphabet: &'static Alphabet) -> PhyloInfo<MSA> {
     let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let msa = MSA::from_aligned(
-        Sequences::with_alphabet(
+        Sequences::with_alphabet_unchecked(
             vec![
                 record!("A", b"CT-ATA-TA-TAC"),
                 record!("B", b"ATATA--TATA-A"),
@@ -875,13 +875,20 @@ fn setup_test_info(alphabet: &'static Alphabet) -> PhyloInfo<MSA> {
 }
 
 #[cfg(test)]
+fn setup_test_pip_cost<Q: QMatrix + QMatrixMaker>(
+    freqs: &[f64],
+    params: &[f64],
+) -> PIPCost<Q, MSA> {
+    let info = setup_test_info(Q::alphabet());
+    let model = PIPModel::<Q>::new(freqs, params);
+    PIPB::new(model, info).build().unwrap()
+}
+
+#[cfg(test)]
 fn dirty_tree_costs_match_template<Q: QMatrix + QMatrixMaker>() {
     use crate::likelihood::TreeSearchCost;
 
-    let info = setup_test_info(Q::alphabet());
-
-    let model = PIPModel::<Q>::new(&[], &[]);
-    let mut c = PIPB::new(model.clone(), info.clone()).build().unwrap();
+    let mut c = setup_test_pip_cost::<Q>(&[], &[]);
     let logl = TreeSearchCost::cost(&c);
     assert_eq!(logl, TreeSearchCost::cost(&c));
 
@@ -892,7 +899,7 @@ fn dirty_tree_costs_match_template<Q: QMatrix + QMatrixMaker>() {
     assert_eq!(logl, TreeSearchCost::cost(&c));
 
     // The likelihood should be the same if we rebuild from scratch
-    let c2 = PIPB::new(model, info).build().unwrap();
+    let c2 = setup_test_pip_cost::<Q>(&[], &[]);
     let logl2 = TreeSearchCost::cost(&c2);
     assert_eq!(logl2, TreeSearchCost::cost(&c2));
     assert_eq!(logl, logl2);
@@ -959,10 +966,7 @@ fn dirty_branch_costs_match() {
 
 #[cfg(test)]
 fn modify_model_params_costs_match_template<Q: QMatrix + QMatrixMaker>() {
-    let info = setup_test_info(Q::alphabet());
-
-    let model = PIPModel::<Q>::new(&[], &[1.0]);
-    let mut c = PIPB::new(model.clone(), info.clone()).build().unwrap();
+    let mut c = setup_test_pip_cost::<Q>(&[], &[1.0]);
     let logl = c.cost();
 
     // The likelihood should change if we change model parameters
@@ -973,8 +977,7 @@ fn modify_model_params_costs_match_template<Q: QMatrix + QMatrixMaker>() {
     assert_ne!(logl, logl2);
 
     // The likelihood should be the same if we rebuild from scratch with the same modification
-    let new_model = PIPModel::<Q>::new(&[], &[0.5]);
-    let c = PIPB::new(new_model, info).build().unwrap();
+    let c = setup_test_pip_cost::<Q>(&[], &[0.5]);
     let new_logl = c.cost();
     assert_eq!(new_logl, c.cost());
     assert_eq!(logl2, new_logl);
@@ -991,10 +994,7 @@ fn modify_model_params_costs_match() {
 
 #[cfg(test)]
 fn modify_model_freqs_costs_match_template<Q: QMatrix + QMatrixMaker>(freqs: FreqVector) {
-    let info = setup_test_info(Q::alphabet());
-
-    let model = PIPModel::<Q>::new(&[], &[]);
-    let mut c = PIPB::new(model.clone(), info.clone()).build().unwrap();
+    let mut c = setup_test_pip_cost::<Q>(&[], &[]);
     let logl = c.cost();
 
     // The likelihood should change if we change model frequencies
@@ -1005,8 +1005,7 @@ fn modify_model_freqs_costs_match_template<Q: QMatrix + QMatrixMaker>(freqs: Fre
     assert_ne!(logl, logl2);
 
     // The likelihood should be the same if we rebuild from scratch with the same modification
-    let new_model = PIPModel::<Q>::new(freqs.as_slice(), &[]);
-    let c = PIPB::new(new_model, info).build().unwrap();
+    let c = setup_test_pip_cost::<Q>(freqs.as_slice(), &[]);
     let new_logl = c.cost();
     assert_eq!(new_logl, c.cost());
     assert_eq!(logl2, new_logl);
@@ -1024,4 +1023,28 @@ fn modify_model_freqs_costs_match() {
     modify_model_freqs_costs_match_template::<WAG>(new_aa_freqs.clone());
     modify_model_freqs_costs_match_template::<BLOSUM>(new_aa_freqs.clone());
     modify_model_freqs_costs_match_template::<HIVB>(new_aa_freqs);
+}
+
+#[cfg(test)]
+fn modify_model_wo_freqs_costs_match_template<Q: QMatrix + QMatrixMaker>(freqs: FreqVector) {
+    let mut c = setup_test_pip_cost::<Q>(&[], &[]);
+    let logl = c.cost();
+
+    c.set_freqs(freqs.clone());
+
+    let logl2 = c.cost();
+    assert_eq!(logl, logl2);
+
+    // The likelihood should be the same if we rebuild from scratch with the same modification
+    let c = setup_test_pip_cost::<Q>(freqs.as_slice(), &[]);
+    let new_logl = c.cost();
+    assert_eq!(new_logl, c.cost());
+    assert_eq!(logl2, new_logl);
+}
+
+#[test]
+fn modify_freqs_of_model_wo_freqs_costs_match() {
+    let new_dna_freqs = frequencies!(&[0.1, 0.1, 0.1, 0.7]);
+    modify_model_wo_freqs_costs_match_template::<JC69>(new_dna_freqs.clone());
+    modify_model_wo_freqs_costs_match_template::<K80>(new_dna_freqs);
 }

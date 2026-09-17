@@ -75,7 +75,7 @@ fn k80_simple() {
     // Check that optimisation on k80 data improves k80 likelihood when starting from a given tree
     let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let msa = MSA::from_aligned(
-        Sequences::new(vec![
+        Sequences::new_unchecked(vec![
             record!("A", b"CTATATATAC"),
             record!("B", b"ATATATATAA"),
             record!("C", b"TTATATATAT"),
@@ -107,7 +107,7 @@ fn k80_simple_nni() {
     // Check that optimisation on k80 data improves k80 likelihood when starting from a given tree
     let tree = tree!("(((A:1.0,B:1.0)E:2.0,(C:1.0,D:1.0)F:2.0)G:3.0);");
     let msa = MSA::from_aligned(
-        Sequences::new(vec![
+        Sequences::new_unchecked(vec![
             record!("A", b"CTATATATAC"),
             record!("B", b"ATATATATAA"),
             record!("C", b"TTATATATAT"),
@@ -682,7 +682,7 @@ fn wag_vs_phyml_fixed_freqs() {
 
 #[test]
 fn basic_parsimony_tree_search() {
-    let seqs = Sequences::new(vec![
+    let seqs = Sequences::new_unchecked(vec![
         record!("A", b"GGA"),
         record!("B", b"GGG"),
         record!("C", b"ACA"),
@@ -707,7 +707,7 @@ fn basic_parsimony_tree_search() {
 fn dollo_tree_search() {
     let tree = tree!("(((A:1.0,C:1.0)E:2.0,(D:1.0,B:1.0)F:2.0)G:3.0);");
     let msa = MSA::from_aligned(
-        Sequences::new(vec![
+        Sequences::new_unchecked(vec![
             record!("A", b"TTTTTTTTTTTCTATATATA-"),
             record!("B", b"TTTTTTTTTTTATATATAT-A"),
             record!("C", b"GGGGGGGGGGGTTATATATA-"),
@@ -951,7 +951,7 @@ fn tkf92_topo_opti() {
     let lambda = 0.1;
     let mu = 0.2;
     let r = 0.3;
-    let tkf_cost = TKF92CostBuilder::new(lambda, mu, r, subst_model.clone(), phylo.clone())
+    let tkf_cost = TKF92CostBuilder::new(&[lambda, mu, r], subst_model.clone(), phylo.clone())
         .build()
         .unwrap();
     let unopt_cost = tkf_cost.cost();
@@ -974,9 +974,7 @@ fn tkf92_topo_opti() {
             tree: result.cost.tree().clone(),
         };
         let new_indel_cost = TKF92IndelAddBlocksCostBuilder::new(
-            lambda,
-            mu,
-            r,
+            &[lambda, mu, r],
             initial_msa_blocking.clone(),
             new_phylo.clone(),
         )

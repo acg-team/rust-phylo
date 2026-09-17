@@ -17,7 +17,7 @@ fn tkf_reestimate_without_choice() {
     // The alignment is designed such that for every site the re-estimation will have no choice but
     // to keep the current states, since it must conform to Dollo's principle.
     let msa = MASA::from_aligned_with_ancestral(
-        Sequences::new(vec![
+        Sequences::new_unchecked(vec![
             record!("A1", b"-----N-----"),
             record!("B2", b"NN----NN-NN"),
             record!("C3", b"--NNN---NNN"),
@@ -30,7 +30,7 @@ fn tkf_reestimate_without_choice() {
     )
     .unwrap();
     let phylo = PhyloInfo { msa, tree };
-    let mut cost = TKF92IndelCostBuilder::new(0.4, 0.5, 0.8, phylo)
+    let mut cost = TKF92IndelCostBuilder::new(&[0.4, 0.5, 0.8], phylo)
         .build()
         .unwrap();
     let logl = cost.clone().logl();
@@ -51,7 +51,7 @@ fn tkf_reestimate_without_choice() {
 #[test]
 fn tkf_reestimation_fails_for_root() {
     let phylo = setup_test_phylo(Alphabet::dna());
-    let mut cost = TKF92IndelCostBuilder::new(0.4, 0.5, 0.8, phylo)
+    let mut cost = TKF92IndelCostBuilder::new(&[0.4, 0.5, 0.8], phylo)
         .build()
         .unwrap();
     let rng = &mut FakeGenerator::default();
@@ -65,7 +65,7 @@ fn tkf_reestimation_fails_for_root() {
 #[test]
 fn tkf_reestimation_fails_for_leaf() {
     let phylo = setup_test_phylo(Alphabet::dna());
-    let mut cost = TKF92IndelCostBuilder::new(0.4, 0.5, 0.8, phylo)
+    let mut cost = TKF92IndelCostBuilder::new(&[0.4, 0.5, 0.8], phylo)
         .build()
         .unwrap();
     let rng = &mut FakeGenerator::default();
