@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 
 use hashbrown::HashMap;
+use log::warn;
 use rand::{distr::weighted::WeightedIndex, Rng, RngCore, SeedableRng};
 
 use crate::alignment::{AlignmentSimulation, AncestralAlignment, Sequences};
@@ -8,8 +9,8 @@ use crate::alphabets::Alphabet;
 use crate::random::RandomGenerator;
 use crate::substitution_models::{QMatrix, SubstModel};
 use crate::tree::{NodeIdx, Tree};
-use crate::{bail, record_wo_desc as record};
-use crate::{Result, MAX_BLEN, REPORT_ISSUES_URL};
+use crate::{ record_wo_desc as record};
+use crate::{ MAX_BLEN, REPORT_ISSUES_URL};
 
 #[derive(Debug, Clone)]
 pub struct SubstitutionSimulator<R>
@@ -39,14 +40,7 @@ where
         tree: Tree,
         rng: RandomGenerator<R>,
         alignment_length: usize,
-    ) -> Result<Self> {
-        if alignment_length == 0 {
-            bail!(
-                AlignmentSimulation,
-                "alignment_length must be greater than 0 to produce a non-empty alignment"
-            );
-        }
-
+    ) -> Self {
         let root_dist = WeightedIndex::new(model.qmatrix.freqs().as_slice()).unwrap();
 
         let mut p_weighted = HashMap::with_capacity(tree.len());
@@ -76,35 +70,31 @@ where
 
         let alphabet = *Q::alphabet();
 
-        Ok(Self {
+        Self {
             tree,
             alphabet,
             root_dist,
             p_weighted,
             rng: RefCell::new(rng),
             alignment_length,
-        })
+        }
     }
 
     /// Sets the alignment length for the simulation.
     ///
     /// # Errors
     /// * If `length` is 0, since this would produce an empty alignment.
-    pub fn alignment_length(&mut self, length: usize) -> Result<()> {
-        if length == 0 {
-            bail!(
-                AlignmentSimulation,
-                "setting alignment_length to 0 will produce an empty alignment"
-            );
-        }
+    pub fn alignment_length(&mut self, length: usize) {
         self.alignment_length = length;
-        Ok(())
     }
 
     pub(crate) fn simulate_ancestral_alignment_with_length<AA: AncestralAlignment>(
         &self,
         alignment_length: usize,
     ) -> AA {
+        if alignment_length == 0 {
+            warn!("Alignment length is set to 0, will produce an empty alignment");
+        }
         let mut sequences: HashMap<NodeIdx, Vec<usize>> = HashMap::with_capacity(self.tree.len());
 
         let mut rng = self.rng.borrow_mut();
@@ -161,9 +151,8 @@ mod private_tests {
 
     use crate::alignment::{Alignment, MASA};
     use crate::random::DefaultGenerator;
-    use crate::substitution_models::{dna_models::GTR, dna_models::JC69, SubstModel};
-    use crate::{tree, Error};
-    use assert_matches::assert_matches;
+    use crate::substitution_models::{dna_models::GTR, SubstModel};
+    use crate::tree;
 
     use super::*;
 
@@ -174,7 +163,7 @@ mod private_tests {
         let tree = tree!("((A:2.0,B:2.0)AB:2.0,(C:2.0,D:2.0)CD:2.0)R;");
         let rng = DefaultGenerator::new(123);
 
-        let simulator = SubstitutionSimulator::new(model, tree.clone(), rng, 50).unwrap();
+        let simulator = SubstitutionSimulator::new(model, tree.clone(), rng, 50);
 
         let alignment: MASA = simulator.simulate_ancestral_alignment();
 
@@ -198,9 +187,8 @@ mod private_tests {
         let rng1 = DefaultGenerator::new(42);
         let rng2 = DefaultGenerator::new(42);
 
-        let simulator1 =
-            SubstitutionSimulator::new(model.clone(), tree.clone(), rng1, 100).unwrap();
-        let simulator2 = SubstitutionSimulator::new(model, tree.clone(), rng2, 100).unwrap();
+        let simulator1 = SubstitutionSimulator::new(model.clone(), tree.clone(), rng1, 100);
+        let simulator2 = SubstitutionSimulator::new(model, tree.clone(), rng2, 100);
 
         let alignment1: MASA = simulator1.simulate_ancestral_alignment();
         let alignment2: MASA = simulator2.simulate_ancestral_alignment();
@@ -210,16 +198,5 @@ mod private_tests {
             alignment2.to_string(),
             "Same seed should produce identical alignments"
         );
-    }
-
-    #[test]
-    fn test_builder_alignment_length_zero() {
-        let model = SubstModel::<JC69>::new(&[], &[]);
-        let tree = tree!("((A:0.5,B:0.5)AB:0.7);");
-        let rng = DefaultGenerator::new(42);
-
-        let error = SubstitutionSimulator::new(model, tree, rng, 0);
-
-        assert_matches!(error, Err(Error::AlignmentSimulation(msg)) if msg.contains("alignment_length must be greater than 0"));
     }
 }

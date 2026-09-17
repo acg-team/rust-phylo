@@ -75,8 +75,8 @@ where
         // This 'alignment_length' is never used as it's always overwritten in the call to
         // 'simulate_with_fragments'. There, we first simulate an indel only alignment. Then we use
         // its length to simulate the substitutions.
-        let dummy_len = 1;
-        let subst_sim = SubstitutionSimulator::new(subst_model, tree, rng, dummy_len).unwrap();
+        let dummy_len = 0;
+        let subst_sim = SubstitutionSimulator::new(subst_model, tree, rng, dummy_len);
         Self {
             indel_sim,
             subst_sim,
