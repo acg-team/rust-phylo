@@ -1,3 +1,39 @@
+//! Alignment module for handling sequences and alignments in phylogenetic analyses.
+//!
+//! This module provides the [`Sequences`] object for representing collections of sequences.
+//! The sequence IDs must be unique within the collection.
+//! The sequences stored in the object can be aligned or unaligned.
+//!
+//! Contains the [`Alignment`] and [`AncestralAlignment`] traits for representing and manipulating
+//! sequence alignments with or without ancestral sequences.
+//! The Sequences object is used to store the sequences in the alignment, and the lengths of
+//! the sequences in the alignment must be consistent.
+//!
+//! Finally, this module includes the [`Aligner`] trait that can be implemented for sequence
+//! alignment algorithms.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use phylo::alignment::{Aligner, Alignment, Sequences, MSA};
+//! use phylo::parsimony::ParsimonyAligner;
+//! use phylo::{record, tree};
+//!
+//! # use phylo::Result;
+//! # fn main() -> Result<()> {
+//! let seqs = Sequences::new(vec![
+//!         record!("A", None, b"AACT"),
+//!         record!("B", None, b"AC"),
+//!         record!("C", None, b"AACT"),
+//!     ])?;
+//! let tree = tree!("((A:1.0, B:1.0):1.0, C:2.0);");
+//! let aligner = ParsimonyAligner::default();
+//! let alignment: MSA = aligner.align(&seqs, &tree)?;
+//! assert_eq!(alignment.seq_count(), 3);
+//! assert!(alignment.len() >= 4);
+//! # Ok(()) }
+//! ```
+
 use std::fmt::{Debug, Display};
 
 use hashbrown::HashMap;
@@ -12,22 +48,34 @@ use crate::phylo_info::{
 use crate::tree::{NodeIdx, NodeIdx::Internal as Int, NodeIdx::Leaf, Tree};
 use crate::{align, aligned_seq, bail, record, Result};
 
+#[doc(hidden)]
 pub mod sequences;
 pub use sequences::*;
+#[doc(hidden)]
 pub mod aligner;
 pub use aligner::*;
 
 /// Represents an aligned position in a sequence. Used in [`Mapping`].
 pub type Position = Option<usize>;
-/// Represents aligned positions of a sequence.
-/// E.g. The `Mapping` for the sequence `A--T-` is `[Some(0), None, None, Some(1), None]`.
+/// Represents a mapping of an ungapped sequence to its aligned positions in the alignment.
+/// E.g. if the ungapped sequence is `AT` and the aligned sequence is `A--T-`, the `Mapping`
+/// would be `[Some(0), None, None, Some(1), None]`.
 pub type Mapping = Vec<Position>;
 /// For an internal node of the tree, represents the pairwise alignment of the two sub MSAs that
 /// correspond to the two children of that node.
 pub type InternalAlignments = HashMap<NodeIdx, PairwiseAlignment>;
+/// Represents the mapping of sequences for nodes in the tree as a `hashbrown::HashMap`
+/// where the key is the node index (of type [`NodeIdx`]) and the value is the [`Mapping`] of
+/// sequences for that node.
 pub type SeqMaps = HashMap<NodeIdx, Mapping>;
 
-/// Represents a pairwise alignment of two sequences or MSAs. Used in [`InternalAlignments`].
+/// Represents a mapping from node indices to sequence IDs. Stored as a `Vec<String>` instead of a
+/// `HashMap` since the number of nodes is fixed and node indices can be used to directly index into the vector.
+type IdxIdMap = Vec<String>;
+
+/// Represents a pairwise alignment of two sequences or MSAs using [`Mapping`], which represents the
+/// aligned positions of the sequences or MSAs.
+/// Used in [`InternalAlignments`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct PairwiseAlignment {
     pub(crate) map_x: Mapping,
@@ -35,6 +83,11 @@ pub struct PairwiseAlignment {
 }
 
 impl PairwiseAlignment {
+    /// Creates a new `PairwiseAlignment` with the given mappings for the two sequences or MSAs.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the lengths of the provided mappings are not equal.
     pub fn new(map_x: Mapping, map_y: Mapping) -> PairwiseAlignment {
         assert_eq!(
             map_x.len(),
@@ -44,14 +97,17 @@ impl PairwiseAlignment {
         PairwiseAlignment { map_x, map_y }
     }
 
+    /// Returns the mapping of the first sequence or MSA in the pairwise alignment.
     pub fn map_x(&self) -> &Mapping {
         &self.map_x
     }
 
+    /// Returns the mapping of the second sequence or MSA in the pairwise alignment.
     pub fn map_y(&self) -> &Mapping {
         &self.map_y
     }
 
+    /// Returns the length of the pairwise alignment.
     #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         debug_assert_eq!(self.map_x.len(), self.map_y.len());
@@ -65,16 +121,27 @@ impl PairwiseAlignment {
 pub trait Alignment: Display + Clone + Debug {
     /// Returns the alphabet of the sequences in the alignment.
     fn alphabet(&self) -> &Alphabet;
-    /// Returns the sequences without gaps
+
+    /// Returns the leaf sequences without gaps
     fn seqs(&self) -> &Sequences;
-    /// Returns the length of the sequences in the alignment
+
+    /// Returns the length of the alignment (sequences with gaps).
     fn len(&self) -> usize;
+
     /// Returns the number of sequences in the alignment. Should be equal to the number of leaves
     /// in the tree.
     fn seq_count(&self) -> usize;
+
+    /// Returns the `Mapping` of the leaf sequence corresponding to the given node index.
     fn leaf_map(&self, node: &NodeIdx) -> &Mapping;
+
+    /// Returns the [`Mapping`]s of all leaves in the alignment as a `SeqMaps` (HashMap of node
+    /// indices to mappings).
     fn leaf_maps(&self) -> &SeqMaps;
+
+    /// Returns a map of all the [`PairwiseAlignment`]s at the internal nodes.
     fn internal_alignments(&self) -> &InternalAlignments;
+
     /// Checks if inputs are compatible, removes columns with only gaps and calls [`Self::from_aligned_unchecked`].
     ///
     /// # Errors
@@ -89,6 +156,7 @@ pub trait Alignment: Display + Clone + Debug {
         sequences.remove_gap_cols();
         Ok(Self::from_aligned_unchecked(sequences, tree))
     }
+
     /// Constructs an alignment instance from aligned sequences and a phylogenetic tree. Is called
     /// by [`Self::from_aligned`]. The caller must ensure that the sequences are aligned, that the
     /// sequence IDs are unique, and that the sequence IDs match the taxa IDs in the tree.
@@ -105,10 +173,20 @@ pub trait Alignment: Display + Clone + Debug {
 // TODO: instead of having this tip here, we could change the default implementation of
 // Alignment::from_aligned to ensure prerequisites for alignment as well as ancestral alignment.
 pub trait AncestralAlignment: Alignment {
+    /// Returns the ancestral sequences (sequences associated with internal nodes) without gaps.
     fn ancestral_seqs(&self) -> &Sequences;
+
+    /// Returns the `Mapping` of the ancestral sequence associated with the given internal node.
     fn ancestral_map(&self, node_idx: &NodeIdx) -> &Mapping;
+
+    /// Returns the mappings of all ancestral sequences as a `SeqMaps` (HashMap of node indices
+    /// to mappings).
     fn ancestral_maps(&self) -> &SeqMaps;
+
+    /// Updates the `Mapping` of the ancestral sequence associated with the given internal node by
+    /// its node index.
     fn update_ancestral_map(&mut self, node_idx: &NodeIdx, map: Mapping) -> Result<()>;
+
     /// Checks if inputs are compatible and calls [`Self::from_aligned_with_ancestral_unchecked`].
     /// Checks:
     /// - if sequences are aligned
@@ -126,17 +204,22 @@ pub trait AncestralAlignment: Alignment {
         all_seqs.remove_gap_cols();
         Ok(Self::from_aligned_with_ancestral_unchecked(all_seqs, tree))
     }
+
     /// Constructs an ancestral alignment instance from aligned sequences and a phylogenetic tree. Is called
     /// by the default implementation of [`Self::from_aligned_with_ancestral`].
     fn from_aligned_with_ancestral_unchecked(all_seqs: Sequences, tree: &Tree) -> Self;
 }
 
+/// Represents a multiple sequence alignment (MSA) with associated leaf mappings and internal alignments.
+///
+/// This structure stores the sequences and their corresponding mappings for leaf nodes,
+/// as well as the internal alignments and a mapping from node indices in the tree to sequence IDs.
 #[derive(Debug, Clone)]
 pub struct MSA {
     seqs: Sequences,
     leaf_maps: SeqMaps,
     internal_alignments: InternalAlignments,
-    idx_to_id: Vec<String>,
+    idx_to_id: IdxIdMap,
 }
 
 impl Display for MSA {
@@ -338,6 +421,11 @@ impl Alignment for MSA {
     }
 }
 
+/// Represents a multiple sequence alignment with both leaf and ancestral sequences
+/// (MASA, Multiple Ancestral Sequence Alignment).
+///
+/// This structure stores the sequences and their corresponding mappings for both leaf and internal nodes,
+/// as well as the internal alignments and a mapping from node indices in the tree to sequence IDs.
 #[derive(Debug, Clone)]
 pub struct MASA {
     leaf_seqs: Sequences,
@@ -347,7 +435,7 @@ pub struct MASA {
     // TODO: this needs to be implemented
     //       see issue #150 https://github.com/acg-team/rust-phylo/issues/150
     internal_alignments: InternalAlignments,
-    idx_to_id: Vec<String>,
+    idx_to_id: IdxIdMap,
 }
 
 impl Display for MASA {

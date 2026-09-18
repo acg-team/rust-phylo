@@ -1,3 +1,39 @@
+//! Ancestral sequence reconstruction module.
+//!
+//! Provides the `AncestralSequenceReconstruction` trait for reconstructing ancestral sequences
+//! given a leaf alignment or an existing ancestral alignment and a phylogenetic tree.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use phylo::alignment::{Alignment, AncestralAlignment, MASA};
+//! use phylo::asr::AncestralSequenceReconstruction;
+//! use phylo::parsimony_presence_absence::ParsimonyPresenceAbsence;
+//! use phylo::phylo_info::PhyloInfoBuilder;
+//!
+//! # use phylo::Result;
+//! # fn main() -> Result<()> {
+//! let info = PhyloInfoBuilder::with_attrs(
+//!     "./examples/data/sequences_DNA_small.fasta",
+//!     "./examples/data/tree_with_ancestral_ids.newick",
+//! )
+//! .build()?;
+//!
+//! let masa: MASA = AncestralSequenceReconstruction::reconstruct_ancestral_seqs(
+//!     &ParsimonyPresenceAbsence {},
+//!     &info.msa,
+//!     &info.tree,
+//! )?;
+//!
+//! assert_eq!(masa.seq_count(), info.msa.seq_count());
+//! assert_eq!(
+//!     masa.seq_count() + masa.ancestral_seqs().len(),
+//!     info.tree.len()
+//! );
+//! assert_eq!(masa.len(), info.msa.len());
+//! # Ok(()) }
+//! ```
+
 use crate::alignment::{Alignment, AncestralAlignment};
 use crate::phylo_info::validate_taxa_ids;
 use crate::tree::Tree;

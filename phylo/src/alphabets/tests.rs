@@ -1,7 +1,8 @@
 use rstest::*;
 
 use crate::alphabets::{
-    Alphabet, ParsimonySet, AMB_AMINOACIDS, AMB_NUCLEOTIDES, AMINOACIDS, NUCLEOTIDES, POSSIBLE_GAPS,
+    Alphabet, ParsimonySet, AMB_AMINOACIDS, AMB_NUCLEOTIDES, AMINOACIDS, NUCLEOTIDES,
+    POSSIBLE_GAPS, UNKNOWN_ALPHABET,
 };
 use crate::record_wo_desc as record;
 
@@ -188,4 +189,13 @@ fn protein_alphabet_display() {
     for char in AMB_AMINOACIDS.iter().chain(POSSIBLE_GAPS.iter()) {
         assert!(other_symbol_display.contains(&(*char as char).to_string()));
     }
+}
+
+#[test]
+fn alphabet_names() {
+    assert_eq!(Alphabet::dna().name(), "DNA");
+
+    assert_eq!(Alphabet::protein().name(), "protein");
+
+    assert_eq!(UNKNOWN_ALPHABET.name(), "unknown");
 }
