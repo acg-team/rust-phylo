@@ -23,7 +23,6 @@ impl<AA: AncestralAlignment> TKFSimulationResult<AA> {
             .fragmentation_works_with_ancestral_alignment(&self.masa)
     }
 
-    // TODO: perhaps we want a method in PhyloInfo that does this?
     pub fn prune_empty_leaves(&mut self) -> Result<()> {
         // Collect the leaves whose aligned sequence consists only of gaps. For each of them
         // the parent node is also removed from the MASA when the tree is pruned.
