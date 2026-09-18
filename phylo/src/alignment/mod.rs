@@ -166,7 +166,30 @@ pub trait AncestralAlignment: Alignment {
 
 /// Returns a boolean mask over alignment columns indicating which do not go extinct,
 /// i.e. have at least one non-`None` site across all leaf sequences.
-fn surviving_columns_mask(ancestral_alignment: &impl AncestralAlignment) -> Vec<bool> {
+///
+/// # Example
+/// ```
+/// use phylo::alignment::{surviving_columns_mask, Alignment, AncestralAlignment, MASA, Sequences};
+/// use phylo::{record, tree};
+/// # use phylo::Result;
+///
+/// # fn main() -> Result<()> {
+/// let tree = tree!("(((A0:1.0,B1:1.0)I1:1.0,C2:1.0)I2:1.0);");
+/// let seqs = Sequences::new(vec![
+///     record!("A0", Some("A0 sequence"), b"---T"),
+///     record!("B1", Some("B1 sequence"), b"---T"),
+///     record!("C2", Some("C2 sequence"), b"--C-"),
+///     record!("I1", Some("I1 sequence"), b"A--T"),
+///     record!("I2", Some("I2 sequence"), b"A--T"),
+/// ])?;
+/// let masa = MASA::from_aligned_with_ancestral(seqs, &tree)?;
+///
+/// // column 0 only has characters in the ancestral sequences and thus goes extinct
+/// // column 1 only has gaps, so gets removed on alignment construction
+/// assert_eq!(surviving_columns_mask(&masa), vec![false,  true, true]);
+/// # Ok(()) }
+/// ```
+pub fn surviving_columns_mask(ancestral_alignment: &impl AncestralAlignment) -> Vec<bool> {
     let mut surviving = vec![false; ancestral_alignment.len()];
     for map in ancestral_alignment.leaf_maps().values() {
         for (col_idx, site) in map.iter().enumerate() {
@@ -733,20 +756,21 @@ impl MASA {
 }
 
 pub trait AlignmentSimulation {
-    // TODO: also add methods to remove extinct columns from the masa
-    // TODO: also add a method that takes the tree and removes nodes from masa/msa and tree that is
-    // only gaps
-    // I think we dont have functionality when reading in seqs and they are only gaps.
     /// Simulates an ancestral alignment, i.e. an alignment that also contains sequences for
-    /// the ancestral nodes of the tree.
+    /// the ancestral nodes of the tree. By pure chance, some columns may go extinct, i.e.,
+    /// the homology path in that column reaches no leaf, consider calling
+    /// [`AncestralAlignment::remove_extinct_columns`] on the resulting alignment.
     fn simulate_ancestral_alignment<AA: AncestralAlignment>(&self) -> AA;
-    /// Returns the tree the simulation is performed on.
-    fn tree(&self) -> &Tree;
-    /// Simulates the alignment of only the leaf sequences (without ancestral sequences).
+    /// Simulates an alignment, i.e., returns only the leaf sequences (without ancestral sequences).
+    /// It default implementation calls [`Self::simulate_ancestral_alignment`] and then transforms
+    /// the resulting ancestral alignment into a regular alignment using
+    /// [`AncestralAlignment::into_alignment`].
     fn simulate_alignment<A: Alignment>(&self) -> A {
         self.simulate_ancestral_alignment::<MASA>()
             .into_alignment(self.tree())
     }
+    /// Returns the tree the simulation is performed on.
+    fn tree(&self) -> &Tree;
 }
 
 #[cfg(test)]
