@@ -8,11 +8,12 @@ use rand_distr::{Distribution, Geometric};
 
 use crate::alignment::{AlignmentSimulation, AncestralAlignment, Sequences};
 use crate::alphabets::{AMB_CHAR, GAP};
+use crate::phylo_info::set_missing_tree_node_ids;
 use crate::random::RandomGenerator;
 use crate::tkf_model::simulate_msa::{Fragmentation, TKFSimulationResult};
 use crate::tkf_model::{ln_beta, ln_h1, ln_n0, TKFModel};
 use crate::tree::{NodeIdx, Tree};
-use crate::{record_wo_desc as record, REPORT_ISSUES_URL};
+use crate::{record_wo_desc as record, Result, REPORT_ISSUES_URL};
 
 /// Abstracts over how a single fragment's length is sampled.
 ///
@@ -167,15 +168,16 @@ where
         tree: Tree,
         rng: RandomGenerator<R>,
         max_insertion_length: usize,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        let tree = set_missing_tree_node_ids(&tree)?;
+        Ok(Self {
             indel_model,
             tree,
             cumulative_logl: RefCell::new(0.0),
             rng: RefCell::new(rng),
             max_insertion_length,
             root_length: RootLength::Sampled,
-        }
+        })
     }
 
     /// Sets a defined root length for the simulation.
@@ -784,7 +786,8 @@ mod private_tests {
                 tree.clone(),
                 DefaultGenerator::new(seed),
                 max_insertion_length,
-            );
+            )
+            .unwrap();
             let (result, logl): (TKFSimulationResult<MASA>, f64) =
                 simulator.simulate_with_fragments_and_logl();
             let alignment = result.masa;
@@ -827,7 +830,8 @@ mod private_tests {
                 tree.clone(),
                 DefaultGenerator::new(seed),
                 max_insertion_length,
-            );
+            )
+            .unwrap();
             let (result, logl): (TKFSimulationResult<MASA>, f64) =
                 simulator.simulate_with_fragments_and_logl();
             let alignment = result.masa;
@@ -874,9 +878,11 @@ mod private_tests {
             tree.clone(),
             DefaultGenerator::new(seed),
             max_len,
-        );
+        )
+        .unwrap();
         let simulator2 =
-            TKFIndelMSASimulator::new(tkf_model, tree, DefaultGenerator::new(seed), max_len);
+            TKFIndelMSASimulator::new(tkf_model, tree, DefaultGenerator::new(seed), max_len)
+                .unwrap();
         let result1 = simulator1.simulate_with_fragments::<MASA>();
         let msa2: MASA = simulator2.simulate_ancestral_alignment();
         assert_eq!(result1.masa.to_string(), msa2.to_string());
@@ -892,7 +898,8 @@ mod private_tests {
                 tree.clone(),
                 DefaultGenerator::new(seed),
                 50,
-            );
+            )
+            .unwrap();
             simulator.root_length(RootLength::Expected);
             let root_links = simulator.build_root_links();
             for (i, link) in root_links.iter().skip(1).enumerate() {
@@ -914,7 +921,7 @@ mod private_tests {
         let tree = tree!("(A:1.0,B:1.0)R:1.0;");
         let max_len = 0; // Cap at 0 insertions on branches
         let simulator =
-            TKFIndelMSASimulator::new(tkf_model, tree.clone(), DefaultGenerator::new(123), max_len);
+            TKFIndelMSASimulator::new(tkf_model, tree.clone(), DefaultGenerator::new(123), max_len).unwrap();
         let result = simulator.simulate_with_fragments::<MASA>();
         let msa = result.masa;
         // With max_len = 0, no insertions can happen on branches.

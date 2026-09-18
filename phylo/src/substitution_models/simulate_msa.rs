@@ -6,11 +6,12 @@ use rand::{distr::weighted::WeightedIndex, Rng, RngCore, SeedableRng};
 
 use crate::alignment::{AlignmentSimulation, AncestralAlignment, Sequences};
 use crate::alphabets::Alphabet;
+use crate::phylo_info::set_missing_tree_node_ids;
 use crate::random::RandomGenerator;
 use crate::record_wo_desc as record;
 use crate::substitution_models::{QMatrix, SubstModel};
 use crate::tree::{NodeIdx, Tree};
-use crate::{MAX_BLEN, REPORT_ISSUES_URL};
+use crate::{Result, MAX_BLEN, REPORT_ISSUES_URL};
 
 #[derive(Debug, Clone)]
 pub struct SubstitutionSimulator<R>
@@ -40,7 +41,8 @@ where
         tree: Tree,
         rng: RandomGenerator<R>,
         alignment_length: usize,
-    ) -> Self {
+    ) -> Result<Self> {
+        let tree = set_missing_tree_node_ids(&tree)?;
         let root_dist = WeightedIndex::new(model.qmatrix.freqs().as_slice()).unwrap_or_else(|e| {
             panic!(
                 "Getting WeightedIndex from model frequencies failed. This should never happen. \
@@ -76,14 +78,14 @@ where
 
         let alphabet = *Q::alphabet();
 
-        Self {
+        Ok(Self {
             tree,
             alphabet,
             root_dist,
             p_weighted,
             rng: RefCell::new(rng),
             alignment_length,
-        }
+        })
     }
 
     /// Sets the alignment length for the simulation.
@@ -181,7 +183,7 @@ mod private_tests {
         let tree = tree!("((A:2.0,B:2.0)AB:2.0,(C:2.0,D:2.0)CD:2.0)R;");
         let rng = DefaultGenerator::new(123);
 
-        let simulator = SubstitutionSimulator::new(model, tree.clone(), rng, 50);
+        let simulator = SubstitutionSimulator::new(model, tree.clone(), rng, 50).unwrap();
 
         let alignment: MASA = simulator.simulate_ancestral_alignment();
 
@@ -205,8 +207,8 @@ mod private_tests {
         let rng1 = DefaultGenerator::new(42);
         let rng2 = DefaultGenerator::new(42);
 
-        let simulator1 = SubstitutionSimulator::new(model.clone(), tree.clone(), rng1, 100);
-        let simulator2 = SubstitutionSimulator::new(model, tree.clone(), rng2, 100);
+        let simulator1 = SubstitutionSimulator::new(model.clone(), tree.clone(), rng1, 100). unwrap();
+        let simulator2 = SubstitutionSimulator::new(model, tree.clone(), rng2, 100).unwrap();
 
         let alignment1: MASA = simulator1.simulate_ancestral_alignment();
         let alignment2: MASA = simulator2.simulate_ancestral_alignment();
