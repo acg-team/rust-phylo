@@ -34,8 +34,11 @@ where
     /// Create a new SubstitutionSimulator with the given substitution model, tree, RNG and
     /// alignment length.
     ///
+    /// A zero `alignment_length` is accepted, but simulation will emit a warning and return an empty alignment.
+    ///
     /// # Errors
-    /// * If `alignment_length` is 0, since this would produce an empty alignment.
+    /// * If the tree node IDs cannot be completed (see
+    ///   [`set_missing_tree_node_ids`](`crate::phylo_info::set_missing_tree_node_ids`)).
     pub fn new<Q: QMatrix>(
         model: SubstModel<Q>,
         tree: Tree,
@@ -90,8 +93,7 @@ where
 
     /// Sets the alignment length for the simulation.
     ///
-    /// # Errors
-    /// * If `length` is 0, since this would produce an empty alignment.
+    /// A zero `alignment_length` is accepted, but simulation will emit a warning and return an empty alignment.
     pub fn alignment_length(&mut self, length: usize) {
         self.alignment_length = length;
     }
@@ -207,7 +209,8 @@ mod private_tests {
         let rng1 = DefaultGenerator::new(42);
         let rng2 = DefaultGenerator::new(42);
 
-        let simulator1 = SubstitutionSimulator::new(model.clone(), tree.clone(), rng1, 100). unwrap();
+        let simulator1 =
+            SubstitutionSimulator::new(model.clone(), tree.clone(), rng1, 100).unwrap();
         let simulator2 = SubstitutionSimulator::new(model, tree.clone(), rng2, 100).unwrap();
 
         let alignment1: MASA = simulator1.simulate_ancestral_alignment();

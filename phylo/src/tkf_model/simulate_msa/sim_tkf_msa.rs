@@ -35,14 +35,22 @@ use crate::{record_wo_desc as record, Result, REPORT_ISSUES_URL};
 /// use phylo::tree;
 ///
 /// let tree = tree!("((A:1.0,B:1.0)I:1.0,C:1.0)R;");
-/// let subst_model = SubstModel::<GTR>::new(&[0.25; 4], &[1.0; 6]);
+/// let freqs = [0.25; 4];
+/// let rates = [1.0; 6];
+/// let subst_model = SubstModel::<GTR>::new(&freqs, &rates);
+/// let lambda = 0.19;
+/// let mu = 0.2;
+/// let r = 0.8;
+/// let seed = 123;
+/// let max_insertion_length = 50;
 /// let simulator = TKFMSASimulator::new(
-///     TKF92IndelModel::new(0.19, 0.2, 0.8),
+///     TKF92IndelModel::new(lambda, mu, r),
 ///     subst_model,
 ///     tree,
-///     DefaultGenerator::new(123),
-///     50,
-/// );
+///     DefaultGenerator::new(seed),
+///     max_insertion_length,
+/// )
+/// .unwrap();
 /// let msa: MASA = simulator.simulate_ancestral_alignment();
 /// assert_eq!(msa.seq_count(), 3);
 /// ```
@@ -89,7 +97,7 @@ where
         })
     }
 
-    /// Sets a defined root length for the simulation. If `None`, the root length is sampled.
+    /// Sets the constraint for the [`RootLength`] used for the simulation.
     pub fn root_length(&mut self, root_length: RootLength) -> &mut Self {
         self.indel_sim.root_length(root_length);
         self
@@ -112,6 +120,24 @@ where
             .simulate_ancestral_alignment_with_length(aln_len);
 
         // Third, mask the substitution msa with gaps from the indel msa
+        let masa = self.mask_substitution_msa(&indel_msa, &subst_msa);
+
+        TKFSimulationResult {
+            masa,
+            fragmentation,
+            tree,
+        }
+    }
+
+    /// Masks the substitution-only MSA with the gaps of the indel-only MSA, i.e., keeps the
+    /// substitution character where the indel MSA has a character and inserts a gap
+    /// otherwise, and builds the final ancestral alignment from the combined records.
+    ///
+    /// # Panics
+    /// * If the combined sequences cannot be turned into an ancestral alignment (should never
+    ///   happen since they are built from the simulation), or if the resulting alignment is
+    ///   shorter than the indel MSA (there should be no all-gap columns).
+    fn mask_substitution_msa<AA: AncestralAlignment>(&self, indel_msa: &AA, subst_msa: &AA) -> AA {
         // Construct a sequences vector including ancestral and leaf records
         let mut combined_records: Vec<Record> = Vec::new();
         for node in self.indel_sim.tree().preorder() {
@@ -133,21 +159,13 @@ where
             let final_seq: Vec<u8> = mask_mapping
                 .iter()
                 .zip(subst_seq.iter())
-                .map(
-                    |(mask, subst_char)| {
-                        if mask.is_some() {
-                            *subst_char
-                        } else {
-                            GAP
-                        }
-                    },
-                )
+                .map(|(mask, subst_char)| if mask.is_some() { *subst_char } else { GAP })
                 .collect();
 
             combined_records.push(record!(&id, &final_seq));
         }
 
-        // Lastly, construct the final ancestral MSA from the combined records
+        // Construct the final ancestral MSA from the combined records
         let seqs = Sequences::new(combined_records).unwrap_or_else(|e| {
             panic!(
                 "Failed to create Sequences from combined records: {e}. Please report this at {REPORT_ISSUES_URL}.",
@@ -162,17 +180,14 @@ where
             });
         // calling 'from_aligned_with_ancestral' removes all-gap cols. There should be none,
         // so asserting here that the msa did indeed not shrink.
+        let aln_len = indel_msa.len();
         assert_eq!(
             masa.len(),
             aln_len,
             "Final MSA length should match the indel MSA, but it does not. \
              Please report this at {REPORT_ISSUES_URL}."
         );
-        TKFSimulationResult {
-            masa,
-            fragmentation,
-            tree,
-        }
+        masa
     }
 }
 

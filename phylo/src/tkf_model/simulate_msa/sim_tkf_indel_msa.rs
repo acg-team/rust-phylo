@@ -19,10 +19,13 @@ use crate::{record_wo_desc as record, Result, REPORT_ISSUES_URL};
 ///
 /// [TKF92](`crate::tkf_model::TKF92IndelModel`) draws from a geometric distribution parameterised by `r`.
 /// [TKF91](`crate::tkf_model::TKF91IndelModel`) always returns length 1 (each residue is its own independent link).
-///
-/// Returns `(length, log_probability)` so that the caller can accumulate
-/// the simulation log-likelihood without any model-specific logic.
 pub trait FragmentSampler {
+    /// Samples the length of a single fragment from the model's fragment length
+    /// distribution.
+    ///
+    /// Returns `(length, log_probability)` where `length` is the number of characters in the
+    /// fragment (at least 1) and `log_probability` is the natural log of the probability of
+    /// drawing that length, so that callers can accumulate a simulation log-likelihood.
     fn sample_fragment_length<R: Rng>(&self, rng: &mut R) -> (usize, f64);
 }
 
@@ -62,8 +65,19 @@ pub enum RootLength {
 /// use phylo::tree;
 ///
 /// let tree = tree!("((A:1.0,B:1.0)I:1.0,C:1.0)R;");
-/// let model = TKF92IndelModel::new(0.19, 0.2, 0.8);
-/// let simulator = TKFIndelMSASimulator::new(model, tree, DefaultGenerator::new(123), 50);
+/// let lambda = 0.19;
+/// let mu = 0.2;
+/// let r = 0.8;
+/// let seed = 123;
+/// // The maximum number of inserted links (=fragments) in a single insertion event.
+/// let max_insertion_length = 50;
+/// let simulator = TKFIndelMSASimulator::new(
+///     TKF92IndelModel::new(lambda, mu, r),
+///     tree,
+///     DefaultGenerator::new(seed),
+///     max_insertion_length,
+/// )
+/// .unwrap();
 /// let result = simulator.simulate_with_fragments::<MASA>();
 /// assert_eq!(result.masa.seq_count(), 3);
 /// ```
@@ -76,6 +90,7 @@ pub struct TKFIndelMSASimulator<
     cumulative_logl: RefCell<f64>,
     // TODO: Perhaps dont wrap in the RefCell and instead take &mut self in the fns that need it.
     rng: RefCell<RandomGenerator<R>>,
+    // The maximum number of inserted links (=fragments) in a single insertion event.
     max_insertion_length: usize,
     root_length: RootLength,
 }
@@ -180,7 +195,7 @@ where
         })
     }
 
-    /// Sets a defined root length for the simulation.
+    /// Sets the constraint for the [`RootLength`] used for the simulation.
     pub fn root_length(&mut self, root_length: RootLength) -> &mut Self {
         self.root_length = root_length;
         self
@@ -440,7 +455,7 @@ where
 
     /// After [simulation of the links](`Self::build_msa_links`) is complete, this function
     /// calls [`Self::append_link_to_msa`] for every root link to build the final MSA and fragmentation.
-    fn links_to_msa<AA: AncestralAlignment>(&self, links: &Vec<TKFLink>) -> (AA, Fragmentation) {
+    fn links_to_msa<AA: AncestralAlignment>(&self, links: &[TKFLink]) -> (AA, Fragmentation) {
         let mut msa: Seqs = HashMap::new();
         for node in self.tree.preorder() {
             msa.insert(*node, Vec::new());
@@ -921,7 +936,8 @@ mod private_tests {
         let tree = tree!("(A:1.0,B:1.0)R:1.0;");
         let max_len = 0; // Cap at 0 insertions on branches
         let simulator =
-            TKFIndelMSASimulator::new(tkf_model, tree.clone(), DefaultGenerator::new(123), max_len).unwrap();
+            TKFIndelMSASimulator::new(tkf_model, tree.clone(), DefaultGenerator::new(123), max_len)
+                .unwrap();
         let result = simulator.simulate_with_fragments::<MASA>();
         let msa = result.masa;
         // With max_len = 0, no insertions can happen on branches.

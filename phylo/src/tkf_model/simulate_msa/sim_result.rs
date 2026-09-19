@@ -4,8 +4,10 @@ use hashbrown::HashSet;
 use crate::alignment::{AncestralAlignment, Sequences};
 use crate::phylo_info::validate_ids_with_ancestors;
 use crate::tkf_model::simulate_msa::Fragmentation;
-use crate::tree::{NodeIdx, NodeIdx::Internal, NodeIdx::Leaf, Tree};
-use crate::{bail, Result};
+use crate::tree::tree_parser::from_newick;
+use crate::tree::NodeIdx::{self, Internal, Leaf};
+use crate::tree::Tree;
+use crate::{bail, Result, REPORT_ISSUES_URL};
 
 /// Result of a TKF simulation (indels only, or indels + substitutions) including
 /// fragmentation and the tree the simulation was performed on.
@@ -38,9 +40,19 @@ impl<AA: AncestralAlignment> TKFSimulationResult<AA> {
         }
 
         let aligned = self.aligned_seqs();
-        let pruned_tree = prune_empty_leaves_from_tree(&self.tree, &leaves_to_remove)?;
+        let pruned_tree = prune_empty_leaves_from_tree(&self.tree, &leaves_to_remove)
+            .unwrap_or_else(|e| {
+                panic!(
+                    "Pruning empty leaves failed: {e}. This is a bug, please report it at {REPORT_ISSUES_URL}",
+                )
+            });
         let original_len = self.masa.len();
-        let masa: AA = rebuild_masa(&aligned, &pruned_tree)?;
+        let masa: AA = rebuild_masa(&aligned, &pruned_tree).unwrap_or_else(|e| {
+            panic!(
+                "Rebuilding MASA after pruning empty leaves failed: {e}. \
+                 This is a bug, please report it at {REPORT_ISSUES_URL}",
+            )
+        });
         debug_assert_eq!(masa.len(), original_len);
         self.tree = pruned_tree;
         self.masa = masa;
@@ -109,6 +121,13 @@ fn prune_empty_leaves_from_tree(tree: &Tree, leaves_to_remove: &HashSet<NodeIdx>
 /// length to the surviving child). The root, if left with a single child, is collapsed by
 /// [`collapse_root`]. Relies on the tree being binary.
 fn remove_leaf(tree: &mut Tree, leaf_idx: &NodeIdx) -> Result<()> {
+    if !matches!(leaf_idx, Leaf(_)) {
+        bail!(
+            Tree,
+            "cannot prune node '{}', it is not a leaf",
+            tree.node(leaf_idx).id
+        );
+    }
     let parent = match tree.parent(leaf_idx) {
         Some(parent) => parent,
         None => bail!(
@@ -143,8 +162,8 @@ fn remove_leaf(tree: &mut Tree, leaf_idx: &NodeIdx) -> Result<()> {
     Ok(())
 }
 
-/// Collapses the root if it has only a single child, transferring its branch length to
-/// that child which then becomes the new root.
+/// Collapses the root if it has only a single child, transferring its branch length to that child
+/// which then becomes the new root. Loops until the root has more than one child or is a leaf.
 fn collapse_root(tree: &mut Tree) {
     loop {
         let children = tree.children(&tree.root).clone();
@@ -166,11 +185,12 @@ fn collapse_root(tree: &mut Tree) {
 
 /// Rebuilds a clean tree from a (possibly mutated) tree, dropping any nodes that are no
 /// longer connected to the root. Serialization to Newick and re-parsing re-computes all
-/// indices, leaf ids, and traversals. Note that branch lengths are preserved exactly, as
-/// Rust's `Display` for `f64` produces the shortest representation that round-trips.
+/// indices, leaf ids, and traversals.
+///
+/// You should call [`rebuild_masa`] after this to keep the alignment in sync with the rebuilt tree.
 fn rebuild_tree(pruned: &Tree) -> Result<Tree> {
     let newick = pruned.to_newick();
-    let mut trees = crate::tree::tree_parser::from_newick(&newick)?;
+    let mut trees = from_newick(&newick)?;
     debug_assert_eq!(trees.len(), 1);
     Ok(trees.pop().unwrap())
 }
