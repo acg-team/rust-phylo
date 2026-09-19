@@ -21,11 +21,17 @@ pub enum Error {
     #[error("Edge sequence re-estimation error: {0}")]
     EdgeSeqsReestimator(String),
 
+    #[error("Alignment simulation error: {0}")]
+    AlignmentSimulation(String),
+
     #[error("Tree error: {0}")]
     Tree(String),
 
     #[error("Tree move error: {0}")]
     TreeMove(String),
+
+    #[error("TKF error: {0}")]
+    Tkf(String),
 
     #[error("Tree parsing error: {0}\n{1}")]
     TreeParsing(
