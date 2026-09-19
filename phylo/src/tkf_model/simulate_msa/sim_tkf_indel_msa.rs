@@ -921,7 +921,8 @@ mod private_tests {
         let tree = tree!("(A:1.0,B:1.0)R:1.0;");
         let max_len = 0; // Cap at 0 insertions on branches
         let simulator =
-            TKFIndelMSASimulator::new(tkf_model, tree.clone(), DefaultGenerator::new(123), max_len).unwrap();
+            TKFIndelMSASimulator::new(tkf_model, tree.clone(), DefaultGenerator::new(123), max_len)
+                .unwrap();
         let result = simulator.simulate_with_fragments::<MASA>();
         let msa = result.masa;
         // With max_len = 0, no insertions can happen on branches.

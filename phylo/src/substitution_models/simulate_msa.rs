@@ -207,7 +207,8 @@ mod private_tests {
         let rng1 = DefaultGenerator::new(42);
         let rng2 = DefaultGenerator::new(42);
 
-        let simulator1 = SubstitutionSimulator::new(model.clone(), tree.clone(), rng1, 100). unwrap();
+        let simulator1 =
+            SubstitutionSimulator::new(model.clone(), tree.clone(), rng1, 100).unwrap();
         let simulator2 = SubstitutionSimulator::new(model, tree.clone(), rng2, 100).unwrap();
 
         let alignment1: MASA = simulator1.simulate_ancestral_alignment();
